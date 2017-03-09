@@ -1,0 +1,10 @@
+_release/*
+_debug/*
+
+imgui.ini
+
+qtcreator/gpuvis.creator.user
+qtcreator/gpuvis.config
+qtcreator/gpuvis.creator
+qtcreator/gpuvis.files
+qtcreator/gpuvis.includes

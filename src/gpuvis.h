@@ -1,0 +1,103 @@
+/*
+ * Copyright 2017 Valve Software
+ *
+ * All Rights Reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+using std::placeholders::_1;
+using std::placeholders::_2;
+using std::placeholders::_3;
+using std::placeholders::_4;
+using std::placeholders::_5;
+
+#define NSECS_PER_SEC		1000000000ULL
+#define NSECS_PER_USEC		1000ULL
+
+extern "C" uint32_t fnv_hashstr32( const char *str );
+
+class StrPool
+{
+public:
+    StrPool() {}
+    ~StrPool() {}
+
+    inline const char *getstr( const char *str )
+    {
+        uint32_t hashval = fnv_hashstr32( str );
+
+        auto i = m_pool.find( hashval );
+        if ( i == m_pool.end() )
+            m_pool[ hashval ] = std::string( str );
+
+        return m_pool[ hashval ].c_str();
+    }
+
+public:
+    typedef std::unordered_map< unsigned int, std::string > pool_t;
+    pool_t m_pool;
+};
+
+struct trace_info_t
+{
+    unsigned int cpus = 0;
+    std::string file;
+    std::string uname;
+    bool timestamp_in_us;
+    std::vector< std::string > cpustats;
+};
+
+struct event_field_t
+{
+    const char *key;
+    const char *value;
+};
+
+struct trace_event_t
+{
+    unsigned int id;
+    unsigned int pid;
+    unsigned int cpu;
+    int missed_events;
+    unsigned long long ts;
+    const char *comm;
+    const char *system;
+    const char *name;
+    std::vector< event_field_t > fields;
+};
+
+typedef std::function< int ( const trace_info_t &info, const trace_event_t &event ) > EventCallback;
+int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb );
+
+class TraceEvents
+{
+public:
+    TraceEvents() {}
+    ~TraceEvents() {}
+
+public:
+    unsigned long long m_ts_min = ( unsigned long long )-1;
+    unsigned long long m_ts_max = 0;
+    std::vector< unsigned int > m_cpucount;
+
+    StrPool m_strpool;
+    trace_info_t m_trace_info;
+    std::vector< trace_event_t > m_trace_events;
+};
