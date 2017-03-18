@@ -183,6 +183,15 @@ bool TraceEventWin::render_time_goto_button( TraceEvents &trace_events )
     return time_goto;
 }
 
+static void draw_minimap_marker( float x, float y, float width, float height, ImU32 color,
+                                 float rounding = 0.0f )
+{
+    ImGui::GetWindowDrawList()->AddRectFilled(
+                ImVec2( x, y ),
+                ImVec2( x + width, y + height ),
+                color, rounding, 0xf );
+}
+
 bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
 {
     std::vector< trace_event_t > &events = trace_events.m_trace_events;
@@ -218,12 +227,12 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
 
     // Events list
     ImVec2 avail = ImGui::GetContentRegionAvail();
-    const float bar_w = 32.0f;
+    const float map_width = 16.0f;
     {
         // Set the child window size to hold count of items + header + separator
         float lineh = ImGui::GetTextLineHeightWithSpacing();
         ImGui::SetNextWindowContentSize( { 0.0f, ( event_count + 1 ) * lineh + 1 } );
-        ImGui::BeginChild( "eventlistbox", ImVec2( avail.x - ( bar_w + 10.0f ), 0.0f ) );
+        ImGui::BeginChild( "eventlistbox", ImVec2( avail.x - ( map_width + 6.0f ), 0.0f ) );
 
         float winh = ImGui::GetWindowHeight();
 
@@ -319,18 +328,20 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
 
         // Draw a zoomed minimap off to the right to help locate events
         {
+            ImGui::SameLine();
+
             const float fw = 3.0f;
+            ImVec2 pos = ImGui::GetCursorScreenPos();
             uint32_t event0 = std::max< int >( ( int )start_idx + m_eventstart - rows * 50, m_eventstart );
             uint32_t event1 = std::min< uint32_t >( event0 + rows * 100, m_eventend - 1 );
-            float bar_height = ( event1 - event0 );
+            float event_height = ( event1 - event0 );
+            static const ImU32 col_vblank = IM_COL32( 0, 0, 255, 255 );
+            static const ImU32 col_viewable = IM_COL32( 128, 128, 128, 128 );
+            static const ImU32 col_background = IM_COL32( 255, 255, 255, 50 );
+            static const ImU32 col_selected = ImGui::GetColorU32( ImGuiCol_TextSelectedBg );
 
             // Draw background
-            ImGui::SameLine();
-            ImVec2 pos = ImGui::GetCursorScreenPos();
-            ImGui::GetWindowDrawList()->AddRectFilled(
-                        ImVec2( pos.x, pos.y ),
-                        ImVec2( pos.x + bar_w, pos.y + avail.y ),
-                        IM_COL32( 255, 255, 255, 50 ) );
+            draw_minimap_marker( pos.x, pos.y, map_width, avail.y, col_background );
 
             // Draw blue marker lines for vblanks
             std::vector< uint32_t > *vblank_locs = trace_events.get_event_locs( "drm_vblank_event" );
@@ -338,28 +349,36 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
             {
                 for ( uint32_t id : *vblank_locs )
                 {
-                    if ( id >= event0 && id <= event1 )
+                    if ( id > event1 )
+                        break;
+                    if ( id >= event0 )
                     {
-                        float pos0 = ( id - event0 ) / bar_height;
+                        float pos0 = ( id - event0 ) / event_height;
 
-                        ImGui::GetWindowDrawList()->AddRectFilled(
-                                    ImVec2( pos.x + fw, pos.y + avail.y * pos0 ),
-                                    ImVec2( pos.x + bar_w - fw, pos.y + avail.y * pos0 + 3 ),
-                                    IM_COL32( 0, 0, 255, 255 ) );
+                        draw_minimap_marker( pos.x + fw, pos.y + avail.y * pos0,
+                                             map_width - 2 * fw, 3, col_vblank );
                     }
                 }
             }
 
-            // Draw rectangle for visible events
-            float pos0 = ( start_idx + m_eventstart - event0 ) / bar_height;
-            float pos1 = ( end_idx + m_eventstart - event0 ) / bar_height;
+            // Draw marker for selected event
+            if ( m_selected + m_eventstart >= event0 && m_selected + m_eventstart <= event1 )
+            {
+                float pos0 = ( m_selected + m_eventstart - event0 ) / event_height;
 
-            ImGui::GetWindowDrawList()->AddRectFilled(
-                        ImVec2( pos.x + fw, pos.y + avail.y * pos0 ),
-                        ImVec2( pos.x + bar_w - fw, pos.y + avail.y * pos1 ),
-                        IM_COL32( 128, 128, 128, 128 ) );
+                draw_minimap_marker( pos.x + fw, pos.y + avail.y * pos0,
+                                     map_width - 2 * fw, 3, col_selected );
+            }
 
-            if ( ImGui::IsMouseClicked( 0 ) )
+            // Draw rectangle ~ showing visible event location.
+            float pos0 = ( start_idx + m_eventstart - event0 ) / event_height;
+            float pos1 = ( end_idx + m_eventstart - event0 ) / event_height;
+
+            draw_minimap_marker( pos.x + fw - 1, pos.y + avail.y * pos0,
+                                 map_width - 2 * ( fw - 1 ), avail.y * ( pos1 - pos0 ),
+                                 col_viewable, 3.0f );
+
+            if ( ImGui::IsMouseClicked( 0 ) && ImGui::IsMouseHoveringWindow() )
             {
                 ImVec2 mouse_pos = ImGui::GetMousePos();
                 float clickpos = ( mouse_pos.y - pos.y ) / avail.y;
