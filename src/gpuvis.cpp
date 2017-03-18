@@ -191,8 +191,6 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
     ImGui::SetNextWindowSize( ImVec2( 0, 0 ), ImGuiSetCond_FirstUseEver );
     ImGui::Begin( name, &m_open, winflags );
 
-    ImGui::Text( "Hello" );
-
     if ( m_selected != ( uint32_t )-1 )
         ImGui::Text( "Selected: %u\n", m_selected );
     ImGui::Text( "Events: %lu\n", event_count );
@@ -218,11 +216,13 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
         ImGui::SetNextWindowFocus();
 
     // Events list
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+    const float bar_w = 32.0f;
     {
         // Set the child window size to hold count of items + header + separator
         float lineh = ImGui::GetTextLineHeightWithSpacing();
         ImGui::SetNextWindowContentSize( { 0.0f, ( event_count + 1 ) * lineh + 1 } );
-        ImGui::BeginChild( "eventlistbox" );
+        ImGui::BeginChild( "eventlistbox", ImVec2( avail.x - ( bar_w + 10.0f ), 0.0f ) );
 
         float winh = ImGui::GetWindowHeight();
 
@@ -238,6 +238,10 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
                 scroll_lines = 1;
             else if ( imgui_key_pressed( ImGuiKey_UpArrow ) )
                 scroll_lines = -1;
+            else if ( imgui_key_pressed( ImGuiKey_Home ) )
+                scroll_lines = -event_count;
+            else if ( imgui_key_pressed( ImGuiKey_End ) )
+                scroll_lines = event_count;
 
             if ( scroll_lines )
                 ImGui::SetScrollY( ImGui::GetScrollY() + scroll_lines * lineh );
@@ -248,7 +252,8 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
 
         float scrolly = ImGui::GetScrollY();
         uint32_t start_idx = ( scrolly >= lineh ) ? ( uint32_t )( scrolly / lineh - 1 ) : 0;
-        uint32_t end_idx = std::min< uint32_t >( start_idx + 2 + ( winh + 1 ) / lineh, event_count );
+        uint32_t rows = ( winh + 1 ) / lineh;
+        uint32_t end_idx = std::min< uint32_t >( start_idx + 2 + rows, event_count );
 
         // Draw columns
         std::array< const char *, 5 > columns = { "Id", "CPU", "Time Stamp", "Task", "Event" };
@@ -295,26 +300,62 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
             snprintf( label, sizeof( label ), "%u", event.id );
             if ( ImGui::Selectable( label, selected, ImGuiSelectableFlags_SpanAllColumns ) )
                 m_selected = i;
-
             ImGui::NextColumn();
 
-            ImGui::Text( "%u", event.cpu );
-            ImGui::NextColumn();
-
-            ImGui::Text( "%s%lu.%06lu", ts_negative ? "-" : "", msecs, nsecs );
-            ImGui::NextColumn();
-
-            ImGui::Text( "%s", event.comm );
-            ImGui::NextColumn();
-
-            ImGui::Text( "%s", event.name );
-            ImGui::NextColumn();
+            ImGui::Text( "%u", event.cpu ); ImGui::NextColumn();
+            ImGui::Text( "%s%lu.%06lu", ts_negative ? "-" : "", msecs, nsecs ); ImGui::NextColumn();
+            ImGui::Text( "%s", event.comm ); ImGui::NextColumn();
+            ImGui::Text( "%s", event.name ); ImGui::NextColumn();
 
             ImGui::PopStyleColor( colors_pushed );
         }
 
         ImGui::Columns( 1 );
         ImGui::EndChild();
+
+        // Draw a zoomed minimap off to the right to help locate events
+        {
+            const float fw = 3.0f;
+            uint32_t event0 = std::max< int >( ( int )start_idx + m_eventstart - rows * 50, m_eventstart );
+            uint32_t event1 = std::min< uint32_t >( event0 + rows * 100, m_eventend - 1 );
+            float bar_height = ( event1 - event0 );
+
+            // Draw background
+            ImGui::SameLine();
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+            ImGui::GetWindowDrawList()->AddRectFilled(
+                        ImVec2( pos.x, pos.y ),
+                        ImVec2( pos.x + bar_w, pos.y + avail.y ),
+                        IM_COL32( 255, 255, 255, 50 ) );
+
+            // Draw blue marker lines for vblanks
+            std::vector< uint32_t > *vblank_locs = trace_events.get_event_locs( "drm_vblank_event" );
+            if ( vblank_locs )
+            {
+                for ( uint32_t id : *vblank_locs )
+                {
+                    if ( id >= event0 && id <= event1 )
+                    {
+                        float pos0 = ( id - event0 ) / bar_height;
+
+                        ImGui::GetWindowDrawList()->AddRectFilled(
+                                    ImVec2( pos.x + fw, pos.y + avail.y * pos0 ),
+                                    ImVec2( pos.x + bar_w - fw, pos.y + avail.y * pos0 + 3 ),
+                                    IM_COL32( 0, 0, 255, 255 ) );
+                    }
+                }
+            }
+
+            // Draw rectangle for visible events
+            float pos0 = ( start_idx + m_eventstart - event0 ) / bar_height;
+            float pos1 = ( end_idx + m_eventstart - event0 ) / bar_height;
+
+            ImGui::GetWindowDrawList()->AddRectFilled(
+                        ImVec2( pos.x + fw, pos.y + avail.y * pos0 ),
+                        ImVec2( pos.x + bar_w - fw, pos.y + avail.y * pos1 ),
+                        IM_COL32( 128, 128, 128, 128 ) );
+
+        }
     }
 
     ImGui::End();
