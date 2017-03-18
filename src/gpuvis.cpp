@@ -25,9 +25,10 @@
 #include <unistd.h>
 
 #include <future>
-#include <unordered_map>
 #include <vector>
 #include <array>
+#include <algorithm>
+#include <unordered_map>
 
 #include <SDL2/SDL.h>
 
@@ -46,18 +47,24 @@ public:
     bool render( const char *name, TraceEvents &trace_events );
 
 protected:
-    void render_time_delta_button( TraceEvents &trace_events );
     void render_time_delta_button_init( TraceEvents &trace_events );
+    void render_time_delta_button( TraceEvents &trace_events );
+
+    bool render_time_goto_button( TraceEvents &trace_events );
 
 public:
+    bool m_inited = false;
+
     int m_gotoevent = 0;
     int m_eventstart = 0;
     int m_eventend = INT32_MAX;
     bool m_open = false;
+    uint32_t m_selected = ( uint32_t )-1;
+
+    char m_timegoto_buf[ 32 ];
+
     char m_timedelta_buf[ 32 ] = { 0 };
     unsigned long long m_tsdelta = ( unsigned long long )-1;
-    uint32_t m_selected = ( uint32_t )-1;
-    bool m_inited = false;
 };
 
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2 )
@@ -114,7 +121,6 @@ void TraceEventWin::render_time_delta_button( TraceEvents &trace_events )
     if ( m_tsdelta == ( unsigned long long )-1 )
         render_time_delta_button_init( trace_events );
 
-    ImGui::SameLine();
     bool time_delta = ImGui::Button( "Time Delta:" );
 
     ImGui::SameLine();
@@ -135,6 +141,47 @@ void TraceEventWin::render_time_delta_button( TraceEvents &trace_events )
     }
 }
 
+bool TraceEventWin::render_time_goto_button( TraceEvents &trace_events )
+{
+    bool time_goto = ImGui::Button( "Time Goto:" );
+
+    if ( !m_inited )
+        snprintf( m_timegoto_buf, sizeof( m_timegoto_buf ), "0.0" );
+
+    ImGui::SameLine();
+    ImGui::PushItemWidth( 150 );
+    time_goto |= ImGui::InputText( "##TimeGoto", m_timegoto_buf, sizeof( m_timegoto_buf ), 0, 0 );
+    ImGui::PopItemWidth();
+
+    if ( time_goto )
+    {
+        trace_event_t x;
+        const char *dot = strchr( m_timegoto_buf, '.' );
+        long msecs = strtol( m_timegoto_buf, NULL, 10 );
+        unsigned long nsecs = dot ? strtoul( dot + 1, NULL, 10 ) : 0;
+        long neg = ( msecs < 0 ) ? -1 : +1;
+        std::vector< trace_event_t > &events = trace_events.m_trace_events;
+
+        while ( nsecs && ( nsecs * 10 < MSECS_PER_SEC ) )
+            nsecs *= 10;
+        if ( neg < 0 )
+            msecs = -msecs;
+
+        long delta = ( msecs / MSECS_PER_SEC + nsecs + msecs * MSECS_PER_SEC );
+
+        x.ts = m_tsdelta + neg * delta;
+
+        auto eventidx = std::lower_bound( events.begin(), events.end(), x,
+                          [](const trace_event_t& f1, const trace_event_t& f2) { return f1.ts < f2.ts; } );
+
+        m_gotoevent = eventidx - events.begin();
+        if ( ( neg < 0 ) && ( m_gotoevent > 0 ) )
+            m_gotoevent--;
+    }
+
+    return time_goto;
+}
+
 bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
 {
     std::vector< trace_event_t > &events = trace_events.m_trace_events;
@@ -150,15 +197,15 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
         ImGui::Text( "Selected: %u\n", m_selected );
     ImGui::Text( "Events: %lu\n", event_count );
 
-    bool goto_event = imgui_input_int( &m_gotoevent, 75.0f, "Goto Event:", "##GotoLine" );
-
-    ImGui::SameLine();
     imgui_input_int( &m_eventstart, 75.0f, "Event Start:", "##EventStart" );
-
     ImGui::SameLine();
     imgui_input_int( &m_eventend, 75.0f, "Event End:", "##EventEnd" );
-
+    ImGui::SameLine();
     render_time_delta_button( trace_events );
+
+    bool goto_event = imgui_input_int( &m_gotoevent, 75.0f, "Goto Event:", "##GotoEvent" );
+    ImGui::SameLine();
+    goto_event |= render_time_goto_button( trace_events );
 
     m_gotoevent = std::min< uint32_t >( m_gotoevent, event_count - 1 );
     m_eventstart = std::min< uint32_t >( m_eventstart, event_count - 1 );
