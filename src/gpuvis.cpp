@@ -45,6 +45,7 @@ public:
     bool render( TraceEvents &trace_events );
 
 public:
+    int m_gotoline = 0;
     bool m_open = false;
     uint32_t m_selected = ( uint32_t )-1;
 };
@@ -64,6 +65,12 @@ bool TraceEventWin::render( TraceEvents &trace_events )
         ImGui::Text( "Selected: %u\n", m_selected );
     ImGui::Text( "Events: %lu\n", event_count );
 
+    bool goto_line = ImGui::Button( "Goto Event: " );
+    ImGui::SameLine();
+    ImGui::PushItemWidth( 100 );
+    goto_line |= ImGui::InputInt( "##GotoLine", &m_gotoline, 0, 0 );
+    ImGui::PopItemWidth();
+
     // Events list
     {
         float lineh = ImGui::GetTextLineHeightWithSpacing();
@@ -71,6 +78,12 @@ bool TraceEventWin::render( TraceEvents &trace_events )
         // Set the child window size to hold count of items + header + separator
         ImGui::SetNextWindowContentSize( { 0.0f, ( event_count + 1 ) * lineh + 1 } );
         ImGui::BeginChild( "eventlistbox" );
+
+        if ( goto_line )
+        {
+            m_gotoline = std::min< int >( std::max< int >( 0, m_gotoline ), event_count );
+            ImGui::SetScrollY( m_gotoline * lineh);
+        }
 
         float winh = ImGui::GetWindowHeight();
         float scrolly = ImGui::GetScrollY();
