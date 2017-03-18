@@ -45,13 +45,66 @@ public:
 public:
     bool render( const char *name, TraceEvents &trace_events );
 
+protected:
+    void render_time_delta_button( TraceEvents &trace_events );
+
 public:
-    int m_gotoline = 0;
+    int m_gotoevent = 0;
     int m_eventstart = 0;
     int m_eventend = INT32_MAX;
     bool m_open = false;
+    char m_timedelta_buf[ 32 ] = { 0 };
+    unsigned long long m_tsdelta = ( unsigned long long )-1;
     uint32_t m_selected = ( uint32_t )-1;
 };
+
+static bool imgui_input_int( int *val, float w, const char *label, const char *label2 )
+{
+    bool ret = ImGui::Button( label );
+
+    ImGui::SameLine();
+    ImGui::PushItemWidth( w );
+    ret |= ImGui::InputInt( label2, val, 0, 0 );
+    ImGui::PopItemWidth();
+
+    return ret;
+}
+
+void TraceEventWin::render_time_delta_button( TraceEvents &trace_events )
+{
+    if ( m_tsdelta == ( unsigned long long )-1 )
+    {
+        // Try to find the first vblank and zero at that.
+        std::vector< trace_event_t > &events = trace_events.m_trace_events;
+        std::vector< uint32_t > *vblank_locs = trace_events.get_event_locs( "drm_handle_vblank" );
+        unsigned long long ts = vblank_locs ? events[ vblank_locs->at( 0 ) ].ts : trace_events.m_ts_min;
+        unsigned long msecs = ts / MSECS_PER_SEC;
+        unsigned long nsecs = ts - msecs * MSECS_PER_SEC;
+
+        snprintf( m_timedelta_buf, sizeof( m_timedelta_buf), "%lu.%06lu", msecs, nsecs );
+        m_tsdelta = ts;
+    }
+
+    ImGui::SameLine();
+    bool time_delta = ImGui::Button( "Time Delta:" );
+
+    ImGui::SameLine();
+    ImGui::PushItemWidth( 150 );
+    time_delta |= ImGui::InputText( "##TimeDelta", m_timedelta_buf, sizeof( m_timedelta_buf ), 0, 0 );
+    ImGui::PopItemWidth();
+
+    if ( time_delta )
+    {
+        const char *dot = strchr( m_timedelta_buf, '.' );
+        unsigned long msecs = strtoull( m_timedelta_buf, NULL, 10 );
+        unsigned long nsecs = dot ? strtoul( dot + 1, NULL, 10 ) : 0;
+
+        while ( nsecs && ( nsecs * 10 < MSECS_PER_SEC ) )
+            nsecs *= 10;
+
+        m_tsdelta = msecs / MSECS_PER_SEC + nsecs + msecs * MSECS_PER_SEC;
+    }
+}
 
 bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
 {
@@ -68,27 +121,17 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
         ImGui::Text( "Selected: %u\n", m_selected );
     ImGui::Text( "Events: %lu\n", event_count );
 
-    bool goto_line = ImGui::Button( "Goto Event: " );
-    ImGui::SameLine();
-    ImGui::PushItemWidth( 75 );
-    goto_line |= ImGui::InputInt( "##GotoLine", &m_gotoline, 0, 0 );
-    ImGui::PopItemWidth();
+    bool goto_event = imgui_input_int( &m_gotoevent, 75.0f, "Goto Event:", "##GotoLine" );
 
     ImGui::SameLine();
-    bool event_start = ImGui::Button( "Event Start:" );
-    ImGui::SameLine();
-    ImGui::PushItemWidth( 75 );
-    event_start |= ImGui::InputInt( "##EventStart", &m_eventstart, 0, 0 );
-    ImGui::PopItemWidth();
+    imgui_input_int( &m_eventstart, 75.0f, "Event Start:", "##EventStart" );
 
     ImGui::SameLine();
-    bool event_end = ImGui::Button( "Event End:" );
-    ImGui::SameLine();
-    ImGui::PushItemWidth( 75 );
-    event_end |= ImGui::InputInt( "##EventEnd", &m_eventend, 0, 0 );
-    ImGui::PopItemWidth();
+    imgui_input_int( &m_eventend, 75.0f, "Event End:", "##EventEnd" );
 
-    m_gotoline = std::min< uint32_t >( m_gotoline, event_count - 1 );
+    render_time_delta_button( trace_events );
+
+    m_gotoevent = std::min< uint32_t >( m_gotoevent, event_count - 1 );
     m_eventstart = std::min< uint32_t >( m_eventstart, event_count - 1 );
     m_eventend = std::min< uint32_t >( std::max< uint32_t >( m_eventend, m_eventstart ), event_count - 1 );
 
@@ -102,11 +145,8 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
         ImGui::SetNextWindowContentSize( { 0.0f, ( event_count + 1 ) * lineh + 1 } );
         ImGui::BeginChild( "eventlistbox" );
 
-        if ( goto_line )
-        {
-            m_gotoline = std::min< int >( std::max< int >( 0, m_gotoline ), event_count );
-            ImGui::SetScrollY( m_gotoline * lineh);
-        }
+        if ( goto_event )
+            ImGui::SetScrollY( std::max< int >( 0, m_gotoevent - m_eventstart ) * lineh );
 
         float winh = ImGui::GetWindowHeight();
         float scrolly = ImGui::GetScrollY();
@@ -140,8 +180,10 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
             int colors_pushed = 0;
             trace_event_t &event = events[ m_eventstart + i ];
             bool selected = ( m_selected == i );
-            unsigned long secs = event.ts / NSECS_PER_SEC;
-            unsigned long nsecs = event.ts - secs * NSECS_PER_SEC;
+            bool ts_negative = ( m_tsdelta > event.ts );
+            unsigned long long ts = ts_negative ? ( m_tsdelta - event.ts ) : ( event.ts - m_tsdelta );
+            unsigned long msecs = ts / MSECS_PER_SEC;
+            unsigned long nsecs = ts - msecs * MSECS_PER_SEC;
             bool is_vblank = !strcmp( event.name, "drm_handle_vblank" );
 
             if ( is_vblank && !selected )
@@ -162,7 +204,7 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
             ImGui::Text( "%u", event.cpu );
             ImGui::NextColumn();
 
-            ImGui::Text( "%5lu.%9lu", secs, nsecs );
+            ImGui::Text( "%s%lu.%06lu", ts_negative ? "-" : "", msecs, nsecs );
             ImGui::NextColumn();
 
             ImGui::Text( "%s", event.comm );
@@ -211,7 +253,7 @@ static int event_cb( TraceEvents *trace_events, const trace_info_t &info,
     trace_events->m_event_locations.add_location( event.name, id );
     trace_events->m_comm_locations.add_location( event.comm, id );
 
-#if 0
+#if 1
     //$ TODO mikesart: debug test code
     if ( id > 1000 )
         return 1;

@@ -28,8 +28,7 @@ using std::placeholders::_3;
 using std::placeholders::_4;
 using std::placeholders::_5;
 
-#define NSECS_PER_SEC		1000000000ULL
-#define NSECS_PER_USEC		1000ULL
+#define MSECS_PER_SEC		1000000ULL
 
 extern "C" uint32_t fnv_hashstr32( const char *str );
 
@@ -112,6 +111,17 @@ public:
         m_locations.at( hashval ).push_back( location );
     }
 
+    std::vector< uint32_t > *get_locations( const char *name )
+    {
+        uint32_t hashval = fnv_hashstr32( name );
+
+        auto i = m_locations.find( hashval );
+        if ( i == m_locations.end() )
+            return NULL;
+
+        return &m_locations.at( hashval );
+    }
+
 public:
     // Map of name hashval to array of event locations.
     typedef std::unordered_map< uint32_t, std::vector< uint32_t > > m_loc_t;
@@ -123,6 +133,19 @@ class TraceEvents
 public:
     TraceEvents() {}
     ~TraceEvents() {}
+
+public:
+    // Return vec of locations for an event name. Ie: "drm_handle_vblank"
+    std::vector< uint32_t > *get_event_locs( const char *name )
+    {
+        return m_event_locations.get_locations( name );
+    }
+
+    // Return vec of locations for a cmdline. Ie: "SkinningApp-1536"
+    std::vector< uint32_t > *get_comm_locs( const char *name )
+    {
+        return m_comm_locations.get_locations( name );
+    }
 
 public:
     unsigned long long m_ts_min = ( unsigned long long )-1;
