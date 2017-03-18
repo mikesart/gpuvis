@@ -47,16 +47,18 @@ public:
 
 public:
     int m_gotoline = 0;
+    int m_eventstart = 0;
+    int m_eventend = INT32_MAX;
     bool m_open = false;
     uint32_t m_selected = ( uint32_t )-1;
 };
 
 bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
 {
-    ImGuiWindowFlags winflags = ImGuiWindowFlags_MenuBar;
     std::vector< trace_event_t > &events = trace_events.m_trace_events;
     size_t event_count = events.size();
 
+    ImGuiWindowFlags winflags = ImGuiWindowFlags_MenuBar;
     ImGui::SetNextWindowSize( ImVec2( 0, 0 ), ImGuiSetCond_FirstUseEver );
     ImGui::Begin( name, &m_open, winflags );
 
@@ -68,9 +70,29 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
 
     bool goto_line = ImGui::Button( "Goto Event: " );
     ImGui::SameLine();
-    ImGui::PushItemWidth( 100 );
+    ImGui::PushItemWidth( 75 );
     goto_line |= ImGui::InputInt( "##GotoLine", &m_gotoline, 0, 0 );
     ImGui::PopItemWidth();
+
+    ImGui::SameLine();
+    bool event_start = ImGui::Button( "Event Start:" );
+    ImGui::SameLine();
+    ImGui::PushItemWidth( 75 );
+    event_start |= ImGui::InputInt( "##EventStart", &m_eventstart, 0, 0 );
+    ImGui::PopItemWidth();
+
+    ImGui::SameLine();
+    bool event_end = ImGui::Button( "Event End:" );
+    ImGui::SameLine();
+    ImGui::PushItemWidth( 75 );
+    event_end |= ImGui::InputInt( "##EventEnd", &m_eventend, 0, 0 );
+    ImGui::PopItemWidth();
+
+    m_gotoline = std::min< uint32_t >( m_gotoline, event_count - 1 );
+    m_eventstart = std::min< uint32_t >( m_eventstart, event_count - 1 );
+    m_eventend = std::min< uint32_t >( std::max< uint32_t >( m_eventend, m_eventstart ), event_count - 1 );
+
+    event_count = m_eventend - m_eventstart + 1;
 
     // Events list
     {
@@ -116,10 +138,11 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
         {
             char label[ 32 ];
             int colors_pushed = 0;
+            trace_event_t &event = events[ m_eventstart + i ];
             bool selected = ( m_selected == i );
-            unsigned long secs = events[ i ].ts / NSECS_PER_SEC;
-            unsigned long nsecs = events[ i ].ts - secs * NSECS_PER_SEC;
-            bool is_vblank = !strcmp( events[ i ].name, "drm_handle_vblank" );
+            unsigned long secs = event.ts / NSECS_PER_SEC;
+            unsigned long nsecs = event.ts - secs * NSECS_PER_SEC;
+            bool is_vblank = !strcmp( event.name, "drm_handle_vblank" );
 
             if ( is_vblank && !selected )
             {
@@ -130,22 +153,22 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
                 colors_pushed++;
             }
 
-            snprintf( label, sizeof( label ), "%u", events[ i ].id );
+            snprintf( label, sizeof( label ), "%u", event.id );
             if ( ImGui::Selectable( label, selected, ImGuiSelectableFlags_SpanAllColumns ) )
                 m_selected = i;
 
             ImGui::NextColumn();
 
-            ImGui::Text( "%u", events[ i ].cpu );
+            ImGui::Text( "%u", event.cpu );
             ImGui::NextColumn();
 
             ImGui::Text( "%5lu.%9lu", secs, nsecs );
             ImGui::NextColumn();
 
-            ImGui::Text( "%s", events[ i ].comm );
+            ImGui::Text( "%s", event.comm );
             ImGui::NextColumn();
 
-            ImGui::Text( "%s", events[ i ].name );
+            ImGui::Text( "%s", event.name );
             ImGui::NextColumn();
 
             ImGui::PopStyleColor( colors_pushed );
@@ -187,7 +210,13 @@ static int event_cb( TraceEvents *trace_events, const trace_info_t &info,
 
     trace_events->m_event_locations.add_location( event.name, id );
     trace_events->m_comm_locations.add_location( event.comm, id );
-    return 1;
+
+#if 0
+    //$ TODO mikesart: debug test code
+    if ( id > 1000 )
+        return 1;
+#endif
+    return 0;
 }
 
 int main( int argc, char **argv )

@@ -1492,9 +1492,10 @@ static bool is_timestamp_in_us( char *trace_clock, bool use_trace_clock )
     return false;
 }
 
-static void trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_info_t &trace_info,
+static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_info_t &trace_info,
                              tracecmd_input_t *handle, pevent_record_t *record )
 {
+    int ret = 0;
     event_format_t *event;
     pevent_t *pevent = handle->pevent;
 
@@ -1607,10 +1608,12 @@ static void trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_
             trace_event.fields.push_back( field );
         }
 
-        cb( trace_info, trace_event );
+        ret = cb( trace_info, trace_event );
 
         trace_seq_destroy( &seq );
     }
+
+    return ret;
 }
 
 static pevent_record_t *get_next_record( file_info_t *file_info )
@@ -1708,10 +1711,13 @@ int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
         if ( !last_record )
             break;
 
-        trace_enum_events( cb, strpool, trace_info, last_file_info->handle, last_record );
+        int ret = trace_enum_events( cb, strpool, trace_info, last_file_info->handle, last_record );
 
         free_record( last_file_info->handle, last_file_info->record );
         last_file_info->record = NULL;
+
+        if ( ret )
+            break;
     }
 
     for ( file_info_t *file_info : file_list )
