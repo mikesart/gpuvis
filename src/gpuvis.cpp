@@ -55,6 +55,7 @@ protected:
 public:
     bool m_inited = false;
 
+    bool m_do_gotoevent = false;
     int m_gotoevent = 0;
     int m_eventstart = 0;
     int m_eventend = INT32_MAX;
@@ -201,9 +202,9 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
     ImGui::SameLine();
     render_time_delta_button( trace_events );
 
-    bool goto_event = imgui_input_int( &m_gotoevent, 75.0f, "Goto Event:", "##GotoEvent" );
+    m_do_gotoevent |= imgui_input_int( &m_gotoevent, 75.0f, "Goto Event:", "##GotoEvent" );
     ImGui::SameLine();
-    goto_event |= render_time_goto_button( trace_events );
+    m_do_gotoevent |= render_time_goto_button( trace_events );
 
     m_gotoevent = std::min< uint32_t >( m_gotoevent, event_count - 1 );
     m_eventstart = std::min< uint32_t >( m_eventstart, event_count - 1 );
@@ -247,8 +248,11 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
                 ImGui::SetScrollY( ImGui::GetScrollY() + scroll_lines * lineh );
         }
 
-        if ( goto_event )
+        if ( m_do_gotoevent )
+        {
             ImGui::SetScrollY( std::max< int >( 0, m_gotoevent - m_eventstart ) * lineh );
+            m_do_gotoevent = false;
+        }
 
         float scrolly = ImGui::GetScrollY();
         uint32_t start_idx = ( scrolly >= lineh ) ? ( uint32_t )( scrolly / lineh - 1 ) : 0;
@@ -355,6 +359,18 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
                         ImVec2( pos.x + bar_w - fw, pos.y + avail.y * pos1 ),
                         IM_COL32( 128, 128, 128, 128 ) );
 
+            if ( ImGui::IsMouseClicked( 0 ) )
+            {
+                ImVec2 mouse_pos = ImGui::GetMousePos();
+                float clickpos = ( mouse_pos.y - pos.y ) / avail.y;
+                uint32_t event = event0 + ( event1 - event0 ) * clickpos;
+
+                if ( ( event >= event0 ) && ( event <= event1 ) )
+                {
+                    m_do_gotoevent = true;
+                    m_gotoevent = event;
+                }
+            }
         }
     }
 
