@@ -50,14 +50,23 @@ public:
         return m_pool[ hashval ].c_str();
     }
 
+    inline const char *getstr( uint32_t hashval )
+    {
+        auto i = m_pool.find( hashval );
+
+        if ( i == m_pool.end() )
+            return NULL;
+        return m_pool[ hashval ].c_str();
+    }
+
 public:
-    typedef std::unordered_map< unsigned int, std::string > pool_t;
+    typedef std::unordered_map< uint32_t, std::string > pool_t;
     pool_t m_pool;
 };
 
 struct trace_info_t
 {
-    unsigned int cpus = 0;
+    uint32_t cpus = 0;
     std::string file;
     std::string uname;
     bool timestamp_in_us;
@@ -72,9 +81,9 @@ struct event_field_t
 
 struct trace_event_t
 {
-    unsigned int id;
-    unsigned int pid;
-    unsigned int cpu;
+    uint32_t id;
+    int pid;
+    uint32_t cpu;
     int missed_events;
     unsigned long long ts;
     const char *comm;
@@ -86,6 +95,29 @@ struct trace_event_t
 typedef std::function< int ( const trace_info_t &info, const trace_event_t &event ) > EventCallback;
 int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb );
 
+class TraceLocations
+{
+public:
+    TraceLocations() {}
+    ~TraceLocations() {}
+
+    void add_location( const char *name, uint32_t location )
+    {
+        uint32_t hashval = fnv_hashstr32( name );
+
+        auto i = m_locations.find( hashval );
+        if ( i == m_locations.end() )
+            m_locations.emplace( hashval, std::vector< uint32_t >() );
+
+        m_locations.at( hashval ).push_back( location );
+    }
+
+public:
+    // Map of name hashval to array of event locations.
+    typedef std::unordered_map< uint32_t, std::vector< uint32_t > > m_loc_t;
+    m_loc_t m_locations;
+};
+
 class TraceEvents
 {
 public:
@@ -95,9 +127,15 @@ public:
 public:
     unsigned long long m_ts_min = ( unsigned long long )-1;
     unsigned long long m_ts_max = 0;
-    std::vector< unsigned int > m_cpucount;
+    std::vector< uint32_t > m_cpucount;
 
     StrPool m_strpool;
     trace_info_t m_trace_info;
     std::vector< trace_event_t > m_trace_events;
+
+    // Map of event name hashval to array of event locations.
+    TraceLocations m_event_locations;
+
+    // Map of comm hashval to array of event locations.
+    TraceLocations m_comm_locations;
 };

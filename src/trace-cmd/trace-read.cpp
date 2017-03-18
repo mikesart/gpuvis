@@ -1504,6 +1504,8 @@ static void trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_
         struct trace_seq seq;
         trace_event_t trace_event;
         struct format_field *format;
+        int pid = pevent_data_pid( pevent, record );
+        const char *comm = pevent_data_comm_from_pid( pevent, pid );
         bool is_ftrace_function = !strcmp( "ftrace", event->system ) && !strcmp( "function", event->name );
 
         trace_seq_init( &seq );
@@ -1513,9 +1515,11 @@ static void trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_
         trace_event.missed_events = record->missed_events;
 
         trace_event.id = 0;
-        trace_event.pid = pevent_data_pid( pevent, record );
-        trace_event.comm = strpool.getstr( pevent_data_comm_from_pid( pevent, trace_event.pid ) );
+        trace_event.pid = pid;
         trace_event.cpu = record->cpu;
+
+        trace_seq_printf( &seq, "%s-%u", comm, pid );
+        trace_event.comm = strpool.getstr( seq.buffer );
 
         trace_event.ts = record->ts;
 

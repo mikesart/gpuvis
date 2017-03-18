@@ -27,6 +27,7 @@
 #include <future>
 #include <unordered_map>
 #include <vector>
+#include <array>
 
 #include <SDL2/SDL.h>
 
@@ -42,7 +43,7 @@ public:
     ~TraceEventWin() {}
 
 public:
-    bool render( TraceEvents &trace_events );
+    bool render( const char *name, TraceEvents &trace_events );
 
 public:
     int m_gotoline = 0;
@@ -50,14 +51,14 @@ public:
     uint32_t m_selected = ( uint32_t )-1;
 };
 
-bool TraceEventWin::render( TraceEvents &trace_events )
+bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
 {
     ImGuiWindowFlags winflags = ImGuiWindowFlags_MenuBar;
     std::vector< trace_event_t > &events = trace_events.m_trace_events;
     size_t event_count = events.size();
 
     ImGui::SetNextWindowSize( ImVec2( 0, 0 ), ImGuiSetCond_FirstUseEver );
-    ImGui::Begin( trace_events.m_trace_info.file.c_str(), &m_open, winflags );
+    ImGui::Begin( name, &m_open, winflags );
 
     ImGui::Text( "Hello" );
 
@@ -88,16 +89,16 @@ bool TraceEventWin::render( TraceEvents &trace_events )
         float winh = ImGui::GetWindowHeight();
         float scrolly = ImGui::GetScrollY();
         uint32_t start_idx = ( scrolly >= lineh ) ? ( uint32_t )( scrolly / lineh - 1 ) : 0;
-        uint32_t end_idx = std::min< uint32_t >( start_idx + 1 + ( winh + 1 ) / lineh, event_count );
+        uint32_t end_idx = std::min< uint32_t >( start_idx + 2 + ( winh + 1 ) / lineh, event_count );
 
         // Draw columns
-        ImGui::Columns( 6, "events" );
-        ImGui::Text( "#" ); ImGui::NextColumn();
-        ImGui::Text( "CPU" ); ImGui::NextColumn();
-        ImGui::Text( "Time Stamp" ); ImGui::NextColumn();
-        ImGui::Text( "Task" ); ImGui::NextColumn();
-        ImGui::Text( "PID" ); ImGui::NextColumn();
-        ImGui::Text( "Event" ); ImGui::NextColumn();
+        std::array< const char *, 5 > columns = { "Id", "CPU", "Time Stamp", "Task", "Event" };
+        ImGui::Columns( columns.size(), "events" );
+        for ( const char *str : columns )
+        {
+            ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", str );
+            ImGui::NextColumn();
+        }
         ImGui::Separator();
 
         if ( start_idx > 0 )
@@ -106,7 +107,7 @@ bool TraceEventWin::render( TraceEvents &trace_events )
             ImGui::SetCursorPosY( ImGui::GetCursorPosY() + lineh * ( start_idx - 1 ) );
 
             // Scoot to next row (fixes top row occasionally drawing half).
-            for ( int i = 0; i < 6; i++ )
+            for ( size_t i = 0; i < columns.size(); i++ )
                 ImGui::NextColumn();
         }
 
@@ -144,9 +145,6 @@ bool TraceEventWin::render( TraceEvents &trace_events )
             ImGui::Text( "%s", events[ i ].comm );
             ImGui::NextColumn();
 
-            ImGui::Text( "%u", events[ i ].pid );
-            ImGui::NextColumn();
-
             ImGui::Text( "%s", events[ i ].name );
             ImGui::NextColumn();
 
@@ -165,6 +163,8 @@ bool TraceEventWin::render( TraceEvents &trace_events )
 static int event_cb( TraceEvents *trace_events, const trace_info_t &info,
                      const trace_event_t &event )
 {
+    size_t id = trace_events->m_trace_events.size();
+
     if ( trace_events->m_cpucount.empty() )
     {
         trace_events->m_trace_info = info;
@@ -180,11 +180,13 @@ static int event_cb( TraceEvents *trace_events, const trace_info_t &info,
         trace_events->m_cpucount[ event.cpu ]++;
 
     trace_events->m_trace_events.push_back( event );
-    trace_events->m_trace_events.back().id = trace_events->m_trace_events.size() - 1;
+    trace_events->m_trace_events[ id ].id = id;
 
-    size_t count = trace_events->m_trace_events.size();
-    if ( !( count % 100 ) && isatty( 1 ) )
-        printf( "\033[1000D  Reading event: %lu", count );
+    if ( !( id % 100 ) && isatty( 1 ) )
+        printf( "\033[1000D  Reading event: %lu", id );
+
+    trace_events->m_event_locations.add_location( event.name, id );
+    trace_events->m_comm_locations.add_location( event.comm, id );
     return 1;
 }
 
@@ -194,7 +196,8 @@ int main( int argc, char **argv )
     SDL_DisplayMode current;
     SDL_Window *window = NULL;
     SDL_GLContext glcontext = NULL;
-    TraceEventWin eventwin;
+    TraceEventWin eventwin0;
+    TraceEventWin eventwin1;
 
     const char *file = ( argc > 1 ) ? "trace.dat" : argv[ 1 ];
 
@@ -288,7 +291,8 @@ int main( int argc, char **argv )
         }
 
         // Render events for our loaded trace file.
-        eventwin.render( trace_events );
+        eventwin0.render( "blah0", trace_events );
+        eventwin1.render( "blah1", trace_events );
 
         // Rendering
         glViewport( 0, 0, ( int )ImGui::GetIO().DisplaySize.x, ( int )ImGui::GetIO().DisplaySize.y );
