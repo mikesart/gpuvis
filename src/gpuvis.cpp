@@ -47,6 +47,7 @@ public:
 
 protected:
     void render_time_delta_button( TraceEvents &trace_events );
+    void render_time_delta_button_init( TraceEvents &trace_events );
 
 public:
     int m_gotoevent = 0;
@@ -70,20 +71,42 @@ static bool imgui_input_int( int *val, float w, const char *label, const char *l
     return ret;
 }
 
+void TraceEventWin::render_time_delta_button_init( TraceEvents &trace_events )
+{
+    // Default to minimum time stamp.
+    unsigned long long ts = trace_events.m_ts_min;
+
+    // Try to grab all the vblank event locations.
+    std::vector< uint32_t > *vblank_locs = trace_events.get_event_locs( "drm_vblank_event" );
+
+    if ( vblank_locs )
+    {
+        std::vector< trace_event_t > &events = trace_events.m_trace_events;
+
+        // Use first vblank, but then try to find first vblank where pid != 0.
+        ts = vblank_locs->at( 0 );
+
+        for ( uint32_t i : *vblank_locs )
+        {
+            if ( events[ i ].pid )
+            {
+                ts = events[ i ].ts;
+                break;
+            }
+        }
+    }
+
+    unsigned long msecs = ts / MSECS_PER_SEC;
+    unsigned long nsecs = ts - msecs * MSECS_PER_SEC;
+
+    snprintf( m_timedelta_buf, sizeof( m_timedelta_buf), "%lu.%06lu", msecs, nsecs );
+    m_tsdelta = ts;
+}
+
 void TraceEventWin::render_time_delta_button( TraceEvents &trace_events )
 {
     if ( m_tsdelta == ( unsigned long long )-1 )
-    {
-        // Try to find the first vblank and zero at that.
-        std::vector< trace_event_t > &events = trace_events.m_trace_events;
-        std::vector< uint32_t > *vblank_locs = trace_events.get_event_locs( "drm_handle_vblank" );
-        unsigned long long ts = vblank_locs ? events[ vblank_locs->at( 0 ) ].ts : trace_events.m_ts_min;
-        unsigned long msecs = ts / MSECS_PER_SEC;
-        unsigned long nsecs = ts - msecs * MSECS_PER_SEC;
-
-        snprintf( m_timedelta_buf, sizeof( m_timedelta_buf), "%lu.%06lu", msecs, nsecs );
-        m_tsdelta = ts;
-    }
+        render_time_delta_button_init( trace_events );
 
     ImGui::SameLine();
     bool time_delta = ImGui::Button( "Time Delta:" );
@@ -184,7 +207,7 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
             unsigned long long ts = ts_negative ? ( m_tsdelta - event.ts ) : ( event.ts - m_tsdelta );
             unsigned long msecs = ts / MSECS_PER_SEC;
             unsigned long nsecs = ts - msecs * MSECS_PER_SEC;
-            bool is_vblank = !strcmp( event.name, "drm_handle_vblank" );
+            bool is_vblank = !strcmp( event.name, "drm_vblank_event" );
 
             if ( is_vblank && !selected )
             {
@@ -253,7 +276,7 @@ static int event_cb( TraceEvents *trace_events, const trace_info_t &info,
     trace_events->m_event_locations.add_location( event.name, id );
     trace_events->m_comm_locations.add_location( event.comm, id );
 
-#if 1
+#if 0
     //$ TODO mikesart: debug test code
     if ( id > 1000 )
         return 1;
