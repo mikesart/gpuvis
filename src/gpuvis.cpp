@@ -57,6 +57,7 @@ public:
     char m_timedelta_buf[ 32 ] = { 0 };
     unsigned long long m_tsdelta = ( unsigned long long )-1;
     uint32_t m_selected = ( uint32_t )-1;
+    bool m_inited = false;
 };
 
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2 )
@@ -69,6 +70,11 @@ static bool imgui_input_int( int *val, float w, const char *label, const char *l
     ImGui::PopItemWidth();
 
     return ret;
+}
+
+static bool imgui_key_pressed( ImGuiKey key )
+{
+    return ImGui::IsKeyPressed( ImGui::GetKeyIndex( key ) );
 }
 
 void TraceEventWin::render_time_delta_button_init( TraceEvents &trace_events )
@@ -160,18 +166,39 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
 
     event_count = m_eventend - m_eventstart + 1;
 
+    // Set focus on event list first time we open.
+    if ( !m_inited && ImGui::IsWindowFocused() )
+        ImGui::SetNextWindowFocus();
+
     // Events list
     {
-        float lineh = ImGui::GetTextLineHeightWithSpacing();
-
         // Set the child window size to hold count of items + header + separator
+        float lineh = ImGui::GetTextLineHeightWithSpacing();
         ImGui::SetNextWindowContentSize( { 0.0f, ( event_count + 1 ) * lineh + 1 } );
         ImGui::BeginChild( "eventlistbox" );
+
+        float winh = ImGui::GetWindowHeight();
+
+        if ( ImGui::IsWindowFocused() )
+        {
+            int scroll_lines = 0;
+
+            if ( imgui_key_pressed( ImGuiKey_PageDown ) )
+                scroll_lines = ( winh / lineh - 5 );
+            else if ( imgui_key_pressed( ImGuiKey_PageUp ) )
+                scroll_lines = -( winh / lineh - 5 );
+            else if ( imgui_key_pressed( ImGuiKey_DownArrow ) )
+                scroll_lines = 1;
+            else if ( imgui_key_pressed( ImGuiKey_UpArrow ) )
+                scroll_lines = -1;
+
+            if ( scroll_lines )
+                ImGui::SetScrollY( ImGui::GetScrollY() + scroll_lines * lineh );
+        }
 
         if ( goto_event )
             ImGui::SetScrollY( std::max< int >( 0, m_gotoevent - m_eventstart ) * lineh );
 
-        float winh = ImGui::GetWindowHeight();
         float scrolly = ImGui::GetScrollY();
         uint32_t start_idx = ( scrolly >= lineh ) ? ( uint32_t )( scrolly / lineh - 1 ) : 0;
         uint32_t end_idx = std::min< uint32_t >( start_idx + 2 + ( winh + 1 ) / lineh, event_count );
@@ -245,6 +272,7 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
 
     ImGui::End();
 
+    m_inited = true;
     return m_open;
 }
 
