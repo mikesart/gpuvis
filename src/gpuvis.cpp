@@ -31,9 +31,9 @@
 #include <SDL2/SDL.h>
 
 #include "GL/gl3w.h"
-#include "gpuvis.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_sdl_gl3.h"
+#include "gpuvis.h"
 
 class TraceEventWin
 {
@@ -101,12 +101,25 @@ bool TraceEventWin::render( TraceEvents &trace_events )
         for ( uint32_t i = start_idx; i < end_idx; i++ )
         {
             char label[ 32 ];
+            int colors_pushed = 0;
+            bool selected = ( m_selected == i );
             unsigned long secs = events[ i ].ts / NSECS_PER_SEC;
             unsigned long nsecs = events[ i ].ts - secs * NSECS_PER_SEC;
+            bool is_vblank = !strcmp( events[ i ].name, "drm_handle_vblank" );
+
+            if ( is_vblank && !selected )
+            {
+                // If this is a vblank and it's not selected, draw a blue background by
+                //  pretending this row is selected.
+                ImGui::PushStyleColor( ImGuiCol_Header, ImVec4( 0.0f, 0.0f, 1.0f, 1.0f ) );
+                selected = true;
+                colors_pushed++;
+            }
 
             snprintf( label, sizeof( label ), "%u", events[ i ].id );
-            if ( ImGui::Selectable( label, m_selected == i, ImGuiSelectableFlags_SpanAllColumns ) )
+            if ( ImGui::Selectable( label, selected, ImGuiSelectableFlags_SpanAllColumns ) )
                 m_selected = i;
+
             ImGui::NextColumn();
 
             ImGui::Text( "%u", events[ i ].cpu );
@@ -123,6 +136,8 @@ bool TraceEventWin::render( TraceEvents &trace_events )
 
             ImGui::Text( "%s", events[ i ].name );
             ImGui::NextColumn();
+
+            ImGui::PopStyleColor( colors_pushed );
         }
 
         ImGui::Columns( 1 );
