@@ -338,7 +338,7 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
             ImVec2 pos = ImGui::GetCursorScreenPos();
             uint32_t event0 = std::max< int >( ( int )start_idx + m_eventstart - rows * 50, m_eventstart );
             uint32_t event1 = std::min< uint32_t >( event0 + rows * 100, m_eventend - 1 );
-            float event_height = ( event1 - event0 );
+            float event_height = ( event1 + 1 - event0 );
             static const ImU32 col_vblank = IM_COL32( 0, 0, 255, 255 );
             static const ImU32 col_viewable = IM_COL32( 128, 128, 128, 128 );
             static const ImU32 col_background = IM_COL32( 255, 255, 255, 50 );
@@ -448,12 +448,12 @@ int main( int argc, char **argv )
     TraceEventWin eventwin0;
     TraceEventWin eventwin1;
 
-    const char *file = ( argc > 1 ) ? "trace.dat" : argv[ 1 ];
+    const char *file = ( argc > 1 ) ? argv[ 1 ] : "trace.dat";
 
     printf( "Reading trace file %s...\n", file );
 
     EventCallback cb = std::bind( event_cb, &trace_events, _1, _2 );
-    if ( read_trace_file( argv[ 1 ], trace_events.m_strpool, cb ) < 0 )
+    if ( read_trace_file( file, trace_events.m_strpool, cb ) < 0 )
     {
         fprintf( stderr, "\nERROR: read_trace_file(%s) failed.\n", file );
         exit( -1 );
