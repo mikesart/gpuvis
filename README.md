@@ -45,3 +45,5 @@ Embeds [ProggyClean.ttf](http://upperbounds.net) font by Tristan Grimmer (MIT li
 Embeds [stb_textedit.h, stb_truetype.h, stb_rectpack.h](https://github.com/nothings/stb/) by Sean Barrett (public domain).
 
 trace-cmd is [GNU GPL v2](https://git.kernel.org/pub/scm/linux/kernel/git/rostedt/trace-cmd.git)
+
+stlini has e-mail author & credit license: [stlini](http://robertk.com/source)

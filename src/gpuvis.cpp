@@ -35,6 +35,7 @@
 #include "GL/gl3w.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_sdl_gl3.h"
+#include "stlini.h"
 #include "gpuvis.h"
 
 //$ TODO: Restore window size and position
@@ -75,9 +76,10 @@ public:
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2 )
 {
     bool ret = ImGui::Button( label );
+    float scale = ImGui::GetIO().FontGlobalScale;
 
     ImGui::SameLine();
-    ImGui::PushItemWidth( w );
+    ImGui::PushItemWidth( w * scale );
     ret |= ImGui::InputInt( label2, val, 0, 0 );
     ImGui::PopItemWidth();
 
@@ -200,6 +202,7 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
 {
     std::vector< trace_event_t > &events = trace_events.m_trace_events;
     size_t event_count = events.size();
+    float scale = ImGui::GetIO().FontGlobalScale;
 
     ImGuiWindowFlags winflags = ImGuiWindowFlags_MenuBar;
     ImGui::SetNextWindowSize( ImVec2( 0, 0 ), ImGuiSetCond_FirstUseEver );
@@ -231,7 +234,7 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
 
     // Events list
     ImVec2 avail = ImGui::GetContentRegionAvail();
-    const float map_width = 16.0f;
+    const float map_width = 16.0f * scale;
     {
         // Set the child window size to hold count of items + header + separator
         float lineh = ImGui::GetTextLineHeightWithSpacing();
@@ -441,14 +444,22 @@ static int event_cb( TraceEvents *trace_events, const trace_info_t &info,
 
 int main( int argc, char **argv )
 {
+    CIniFile inifile;
     TraceEvents trace_events;
     SDL_DisplayMode current;
     SDL_Window *window = NULL;
     SDL_GLContext glcontext = NULL;
     TraceEventWin eventwin0;
     TraceEventWin eventwin1;
-
     const char *file = ( argc > 1 ) ? argv[ 1 ] : "trace.dat";
+
+    inifile.Open( "gpuvis", "gpuvis.ini" );
+
+    int x = inifile.GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
+    int y = inifile.GetInt( "win_y", SDL_WINDOWPOS_CENTERED );
+    int w = inifile.GetInt( "win_w", 1280 );
+    int h = inifile.GetInt( "win_h", 1024 );
+    ImGui::GetIO().FontGlobalScale = inifile.GetFloat( "win_scale", 1.0f );
 
     printf( "Reading trace file %s...\n", file );
 
@@ -479,8 +490,8 @@ int main( int argc, char **argv )
 
     SDL_GetCurrentDisplayMode( 0, &current );
 
-    window = SDL_CreateWindow( "GPUVis", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                               1280, 720, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE );
+    window = SDL_CreateWindow( "GPUVis", x, y, w, h,
+                               SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE );
     glcontext = SDL_GL_CreateContext( window );
 
     gl3wInit();
@@ -553,11 +564,19 @@ int main( int argc, char **argv )
         SDL_GL_SwapWindow( window );
     }
 
+    SDL_GetWindowPosition( window, &x, &y );
+    SDL_GetWindowSize( window, &w, &h );
+    inifile.PutInt( "win_x", x );
+    inifile.PutInt( "win_y", y );
+    inifile.PutInt( "win_w", w );
+    inifile.PutInt( "win_h", h );
+
     // Cleanup
     ImGui_ImplSdlGL3_Shutdown();
     SDL_GL_DeleteContext( glcontext );
     SDL_DestroyWindow( window );
     SDL_Quit();
 
+    inifile.Close();
     return 0;
 }

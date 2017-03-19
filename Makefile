@@ -54,6 +54,7 @@ LIBS = -Wl,--no-as-needed -lm -ldl -lpthread  -lstdc++ $(SDL2LIBS)
 CFILES = \
 	src/gpuvis.cpp \
 	src/hash_fnv.c \
+	src/stlini.cpp \
 	src/imgui/imgui_impl_sdl_gl3.cpp \
 	src/imgui/imgui.cpp \
 	src/imgui/imgui_demo.cpp \
