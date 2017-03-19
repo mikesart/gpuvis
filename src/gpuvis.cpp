@@ -37,6 +37,10 @@
 #include "imgui/imgui_impl_sdl_gl3.h"
 #include "gpuvis.h"
 
+//$ TODO: Restore window size and position
+//$ TODO: Restore column sizes?
+//$ TODO: Small font for events?
+
 class TraceEventWin
 {
 public:
@@ -144,7 +148,7 @@ void TraceEventWin::render_time_delta_button( TraceEvents &trace_events )
 
 bool TraceEventWin::render_time_goto_button( TraceEvents &trace_events )
 {
-    bool time_goto = ImGui::Button( "Time Goto:" );
+    bool time_goto = ImGui::Button( "Goto Time:" );
 
     if ( !m_inited )
         snprintf( m_timegoto_buf, sizeof( m_timegoto_buf ), "0.0" );
