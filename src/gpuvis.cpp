@@ -610,10 +610,14 @@ int main( int argc, char **argv )
         SDL_GL_SwapWindow( window );
     }
 
+
+    int top, left, bottom, right;
+    SDL_GetWindowBordersSize(window, &top, &left, &bottom, &right);
+
     SDL_GetWindowPosition( window, &x, &y );
     SDL_GetWindowSize( window, &w, &h );
-    inifile.PutInt( "win_x", x );
-    inifile.PutInt( "win_y", y );
+    inifile.PutInt( "win_x", x - left );
+    inifile.PutInt( "win_y", y - top );
     inifile.PutInt( "win_w", w );
     inifile.PutInt( "win_h", h );
 
