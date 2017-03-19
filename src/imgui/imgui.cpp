@@ -2460,6 +2460,36 @@ static ImGuiIniData* AddWindowSettings(const char* name)
 static void LoadIniSettingsFromDisk(const char* ini_filename)
 {
     ImGuiContext& g = *GImGui;
+
+    if (g.IO.IniLoadSettingCB)
+    {
+        int index = 0;
+        ImGuiIniData data;
+
+        data.Id = 0;
+        data.Name = NULL;
+        while ( !g.IO.IniLoadSettingCB( index, data ) )
+        {
+            ImGuiIniData *settings;
+
+            settings = AddWindowSettings( data.Name );
+
+            if ( data.Name && data.Name[ 0 ] )
+            {
+                settings->Pos = data.Pos;
+                settings->Size = data.Size;
+                settings->Collapsed = data.Collapsed;
+
+                free(data.Name);
+            }
+
+            index++;
+            data.Name = NULL;
+        }
+
+        return;
+    }
+
     if (!ini_filename)
         return;
 
@@ -2506,10 +2536,11 @@ static void SaveIniSettingsToDisk(const char* ini_filename)
 {
     ImGuiContext& g = *GImGui;
     g.SettingsDirtyTimer = 0.0f;
-    if (!ini_filename)
+    if (!ini_filename || !g.IO.IniSaveSettingCB)
         return;
 
     // Gather data from windows that were active during this session
+    int index = 0;
     for (int i = 0; i != g.Windows.Size; i++)
     {
         ImGuiWindow* window = g.Windows[i];
@@ -2519,7 +2550,17 @@ static void SaveIniSettingsToDisk(const char* ini_filename)
         settings->Pos = window->Pos;
         settings->Size = window->SizeFull;
         settings->Collapsed = window->Collapsed;
+
+        if ( g.IO.IniSaveSettingCB )
+        {
+            int ret = g.IO.IniSaveSettingCB( index++, *settings );
+            if ( ret )
+                break;
+        }
     }
+
+    if ( g.IO.IniSaveSettingCB )
+        return;
 
     // Write .ini file
     // If a window wasn't opened in this session we preserve its settings

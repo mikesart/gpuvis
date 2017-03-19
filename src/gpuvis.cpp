@@ -442,6 +442,47 @@ static int event_cb( TraceEvents *trace_events, const trace_info_t &info,
     return 0;
 }
 
+static int imgui_ini_save_settings_cb( CIniFile *inifile, int index, const ImGuiIniData &data )
+{
+    std::string section = "imguiwin_";
+
+    section += data.Name;
+
+    inifile->PutStr( "name", data.Name, section.c_str() );
+    inifile->PutFloat( "posx", data.Pos.x, section.c_str() );
+    inifile->PutFloat( "posy", data.Pos.y, section.c_str() );
+    inifile->PutFloat( "sizex", data.Size.x, section.c_str() );
+    inifile->PutFloat( "sizey", data.Size.y, section.c_str() );
+    inifile->PutInt( "collapsed", data.Collapsed, section.c_str() );
+
+    inifile->PutStr( std::to_string( index ).c_str(), section.c_str(), "imguiwindows" );
+    inifile->PutStr( std::to_string( index + 1 ).c_str(), "", "imguiwindows" );
+    return 0;
+}
+
+static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniData &data )
+{
+    std::string section = inifile->GetStr( std::to_string( index ).c_str(), "", "imguiwindows" );
+
+    if ( !section.empty() )
+    {
+        std::string name = inifile->GetStr( "name", "", section.c_str() );
+
+        if ( !name.empty() )
+        {
+            data.Pos.x = inifile->GetFloat( "posx", 0, section.c_str() );
+            data.Pos.y = inifile->GetFloat( "posy", 0, section.c_str() );
+            data.Size.x = inifile->GetFloat( "sizex", 0, section.c_str() );
+            data.Size.y = inifile->GetFloat( "sizey", 0, section.c_str() );
+            data.Collapsed = inifile->GetInt( "collapsed", 0, section.c_str() );
+            data.Name = strdup( name.c_str() );
+        }
+        return 0;
+    }
+
+    return -1;
+}
+
 int main( int argc, char **argv )
 {
     CIniFile inifile;
@@ -455,6 +496,11 @@ int main( int argc, char **argv )
 
     inifile.Open( "gpuvis", "gpuvis.ini" );
 
+    ImGui::GetIO().IniLoadSettingCB =
+            std::bind( imgui_ini_load_settings_cb, &inifile, _1, _2 );
+    ImGui::GetIO().IniSaveSettingCB =
+            std::bind( imgui_ini_save_settings_cb, &inifile, _1, _2 );
+
     int x = inifile.GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
     int y = inifile.GetInt( "win_y", SDL_WINDOWPOS_CENTERED );
     int w = inifile.GetInt( "win_w", 1280 );
@@ -463,8 +509,8 @@ int main( int argc, char **argv )
 
     printf( "Reading trace file %s...\n", file );
 
-    EventCallback cb = std::bind( event_cb, &trace_events, _1, _2 );
-    if ( read_trace_file( file, trace_events.m_strpool, cb ) < 0 )
+    EventCallback trace_cb = std::bind( event_cb, &trace_events, _1, _2 );
+    if ( read_trace_file( file, trace_events.m_strpool, trace_cb ) < 0 )
     {
         fprintf( stderr, "\nERROR: read_trace_file(%s) failed.\n", file );
         exit( -1 );
