@@ -487,9 +487,7 @@ int main( int argc, char **argv )
 {
     CIniFile inifile;
     TraceEvents trace_events;
-    SDL_DisplayMode current;
     SDL_Window *window = NULL;
-    SDL_GLContext glcontext = NULL;
     TraceEventWin eventwin0;
     TraceEventWin eventwin1;
     const char *file = ( argc > 1 ) ? argv[ 1 ] : "trace.dat";
@@ -534,11 +532,13 @@ int main( int argc, char **argv )
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 3 );
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 2 );
 
+    SDL_DisplayMode current;
     SDL_GetCurrentDisplayMode( 0, &current );
 
     window = SDL_CreateWindow( "GPUVis", x, y, w, h,
                                SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE );
-    glcontext = SDL_GL_CreateContext( window );
+
+    SDL_GLContext glcontext = SDL_GL_CreateContext( window );
 
     gl3wInit();
 
