@@ -30,6 +30,7 @@
 #include <csetjmp>
 #include <unordered_map>
 #include <future>
+#include <set>
 
 extern "C"
 {
@@ -37,7 +38,6 @@ extern "C"
     #include "kbuffer.h"
 }
 
-#include "../gpuvis_macros.h"
 #include "../gpuvis.h"
 
 enum

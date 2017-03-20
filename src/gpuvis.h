@@ -21,6 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include "gpuvis_macros.h"
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_sdl_gl3.h"
+#include "stlini.h"
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -161,4 +165,47 @@ public:
 
     // Map of comm hashval to array of event locations.
     TraceLocations m_comm_locations;
+};
+
+struct GPUVisCon
+{
+public:
+    GPUVisCon() {}
+    ~GPUVisCon() {}
+
+    void init( class CIniFile *inifile );
+    void shutdown( class CIniFile *inifile );
+
+    void clear_log();
+    void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
+
+    void exec_command( const char *command_line );
+
+    void render( const char *title );
+
+protected:
+    static int text_edit_cb_stub( ImGuiTextEditCallbackData *data );
+    int text_edit_cb_completion( ImGuiTextEditCallbackData *data );
+    int text_edit_cb_history( ImGuiTextEditCallbackData *data );
+
+public:
+    ImGuiTextFilter m_filter;
+    std::array< char, 512 > m_inputbuf = {""};
+    std::vector< std::string > m_log;
+
+    size_t m_completion_index = 0;
+    std::vector< const char * > m_completions;
+    std::set< std::string > m_commands;
+
+    // -1: new line, 0..History.size-1 browsing history.
+    int m_history_pos = -1;
+    std::vector< std::string > m_history;
+
+    ImVec4 m_clear_color;
+    bool m_open = true;
+    bool m_quit = false;
+    bool m_scroll_to_bottom = true;
+    bool m_show_imgui_test_window = false;
+    bool m_show_imgui_style_editor = false;
+    bool m_show_imgui_metrics_editor = false;
 };

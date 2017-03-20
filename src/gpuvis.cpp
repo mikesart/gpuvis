@@ -24,18 +24,16 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include <future>
-#include <vector>
-#include <array>
 #include <algorithm>
+#include <array>
+#include <future>
 #include <unordered_map>
+#include <vector>
+#include <set>
 
 #include <SDL2/SDL.h>
 
 #include "GL/gl3w.h"
-#include "imgui/imgui.h"
-#include "imgui/imgui_impl_sdl_gl3.h"
-#include "stlini.h"
 #include "gpuvis.h"
 
 //$ TODO: Restore window size and position
@@ -119,7 +117,7 @@ void TraceEventWin::render_time_delta_button_init( TraceEvents &trace_events )
     unsigned long msecs = ts / MSECS_PER_SEC;
     unsigned long nsecs = ts - msecs * MSECS_PER_SEC;
 
-    snprintf( m_timedelta_buf, sizeof( m_timedelta_buf), "%lu.%06lu", msecs, nsecs );
+    snprintf( m_timedelta_buf, sizeof( m_timedelta_buf ), "%lu.%06lu", msecs, nsecs );
     m_tsdelta = ts;
 }
 
@@ -179,7 +177,7 @@ bool TraceEventWin::render_time_goto_button( TraceEvents &trace_events )
         x.ts = m_tsdelta + neg * delta;
 
         auto eventidx = std::lower_bound( events.begin(), events.end(), x,
-                          [](const trace_event_t& f1, const trace_event_t& f2) { return f1.ts < f2.ts; } );
+                                          []( const trace_event_t &f1, const trace_event_t &f2 ) { return f1.ts < f2.ts; } );
 
         m_gotoevent = eventidx - events.begin();
         if ( ( neg < 0 ) && ( m_gotoevent > 0 ) )
@@ -193,9 +191,9 @@ static void draw_minimap_marker( float x, float y, float width, float height, Im
                                  float rounding = 0.0f )
 {
     ImGui::GetWindowDrawList()->AddRectFilled(
-                ImVec2( x, y ),
-                ImVec2( x + width, y + height ),
-                color, rounding, 0xf );
+        ImVec2( x, y ),
+        ImVec2( x + width, y + height ),
+        color, rounding, 0xf );
 }
 
 bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
@@ -326,10 +324,14 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
                 m_selected = i;
             ImGui::NextColumn();
 
-            ImGui::Text( "%u", event.cpu ); ImGui::NextColumn();
-            ImGui::Text( "%s%lu.%06lu", ts_negative ? "-" : "", msecs, nsecs ); ImGui::NextColumn();
-            ImGui::Text( "%s", event.comm ); ImGui::NextColumn();
-            ImGui::Text( "%s", event.name ); ImGui::NextColumn();
+            ImGui::Text( "%u", event.cpu );
+            ImGui::NextColumn();
+            ImGui::Text( "%s%lu.%06lu", ts_negative ? "-" : "", msecs, nsecs );
+            ImGui::NextColumn();
+            ImGui::Text( "%s", event.comm );
+            ImGui::NextColumn();
+            ImGui::Text( "%s", event.name );
+            ImGui::NextColumn();
 
             ImGui::PopStyleColor( colors_pushed );
         }
@@ -410,40 +412,362 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
     return m_open;
 }
 
-static int event_cb( TraceEvents *trace_events, const trace_info_t &info,
-                     const trace_event_t &event )
+void GPUVisCon::init( CIniFile *inifile )
 {
-    size_t id = trace_events->m_trace_events.size();
+    m_clear_color = inifile->GetVec4( "clearcolor", ImColor( 114, 144, 154 ) );
 
-    if ( trace_events->m_cpucount.empty() )
+    clear_log();
+    logf( "Welcome to gpuvis" );
+
+    m_commands.insert( "clear" );
+    m_commands.insert( "help" );
+    m_commands.insert( "history" );
+    m_commands.insert( "quit" );
+}
+
+void GPUVisCon::shutdown( CIniFile *inifile )
+{
+    inifile->PutVec4( "clearcolor", m_clear_color );
+
+    m_log.clear();
+    m_history.clear();
+}
+
+void GPUVisCon::clear_log()
+{
+    m_log.clear();
+    m_scroll_to_bottom = true;
+}
+
+void GPUVisCon::logf( const char *fmt, ... )
+{
+    va_list args;
+    char *buf = NULL;
+
+    va_start( args, fmt );
+    vasprintf( &buf, fmt, args );
+    va_end( args );
+
+    if ( buf )
     {
-        trace_events->m_trace_info = info;
-        trace_events->m_cpucount.resize( info.cpus, 0 );
+        m_log.push_back( buf );
+        free( buf );
+    }
+    m_scroll_to_bottom = true;
+}
+
+void GPUVisCon::render( const char *title )
+{
+    ImGui::SetNextWindowSize( ImVec2( 520, 600 ), ImGuiSetCond_FirstUseEver );
+
+    if ( !ImGui::Begin( title, &m_open ) )
+    {
+        ImGui::End();
+        return;
     }
 
-    if ( event.ts < trace_events->m_ts_min )
-        trace_events->m_ts_min = event.ts;
-    if ( event.ts > trace_events->m_ts_max )
-        trace_events->m_ts_max = event.ts;
+    ImGui::Text( "%.2f ms/frame (%.1f FPS)",
+                 1000.0f / ImGui::GetIO().Framerate,
+                 ImGui::GetIO().Framerate );
 
-    if ( event.cpu < trace_events->m_cpucount.size() )
-        trace_events->m_cpucount[ event.cpu ]++;
+    ImGui::Separator();
 
-    trace_events->m_trace_events.push_back( event );
-    trace_events->m_trace_events[ id ].id = id;
+    ImGui::Text( "Clear Color:" );
+    ImGui::SameLine();
+    ImGui::ColorEdit3( "", ( float * )&m_clear_color );
 
-    if ( !( id % 100 ) && isatty( 1 ) )
-        printf( "\033[1000D  Reading event: %lu", id );
+    ImGui::Separator();
 
-    trace_events->m_event_locations.add_location( event.name, id );
-    trace_events->m_comm_locations.add_location( event.comm, id );
+    ImGui::Text( "Imgui debug: " );
+    ImGui::SameLine();
+    if ( ImGui::Button( "Style Editor" ) )
+        m_show_imgui_style_editor ^= 1;
+    ImGui::SameLine();
+    if ( ImGui::Button( "Metrics" ) )
+        m_show_imgui_metrics_editor ^= 1;
+    ImGui::SameLine();
+    if ( ImGui::Button( "Test Window" ) )
+        m_show_imgui_test_window ^= 1;
 
-#if 0
-    //$ TODO mikesart: debug test code
-    if ( id > 1000 )
-        return 1;
-#endif
+    ImGui::Separator();
+    ImGui::Text( "Log Filter:" );
+    ImGui::SameLine();
+    ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, ImVec2( 0, 0 ) );
+    m_filter.Draw( "##log-filter", 180 );
+    ImGui::PopStyleVar();
+
+    ImGui::SameLine();
+    if ( ImGui::SmallButton( "Clear" ) )
+        clear_log();
+
+    ImGui::SameLine();
+    if ( ImGui::SmallButton( "Scroll to bottom" ) )
+        m_scroll_to_bottom = true;
+
+    {
+        ImGui::BeginChild( "ScrollingRegion", ImVec2( 0, -ImGui::GetItemsLineHeightWithSpacing() ), false, ImGuiWindowFlags_HorizontalScrollbar );
+
+        if ( ImGui::BeginPopupContextWindow() )
+        {
+            if ( ImGui::Selectable( "Clear" ) )
+                clear_log();
+            ImGui::EndPopup();
+        }
+
+        // Display every line as a separate entry so we can change their color or add custom widgets. If you only want raw text you can use ImGui::TextUnformatted(log.begin(), log.end());
+        // NB- if you have thousands of entries this approach may be too inefficient and may require user-side clipping to only process visible items.
+        // You can seek and display only the lines that are visible using the ImGuiListClipper helper, if your elements are evenly spaced and you have cheap random access to the elements.
+        // To use the clipper we could replace the 'for (int i = 0; i < Items.Size; i++)' loop with:
+        //     ImGuiListClipper clipper(Items.Size);
+        //     while (clipper.Step())
+        //         for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
+        // However take note that you can not use this code as is if a filter is active because it breaks the 'cheap random-access' property. We would need random-access on the post-filtered list.
+        // A typical application wanting coarse clipping and filtering may want to pre-compute an array of indices that passed the filtering test, recomputing this array when user changes the filter,
+        // and appending newly elements as they are inserted. This is left as a task to the user until we can manage to improve this example code!
+        // If your items are of variable size you may want to implement code similar to what ImGuiListClipper does. Or split your data into fixed height items to allow random-seeking into your list.
+
+        // Tighten spacing
+        ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2( 4, 1 ) );
+
+        for ( const std::string &str : m_log )
+        {
+            const char *item = str.c_str();
+
+            if ( !m_filter.PassFilter( item ) )
+                continue;
+
+            ImVec4 col = ImVec4( 1.0f, 1.0f, 1.0f, 1.0f );
+
+            if ( strstr( item, "[error]" ) )
+                col = ImColor( 1.0f, 0.4f, 0.4f, 1.0f );
+            else if ( strncmp( item, "# ", 2 ) == 0 )
+                col = ImColor( 1.0f, 0.78f, 0.58f, 1.0f );
+
+            ImGui::PushStyleColor( ImGuiCol_Text, col );
+            ImGui::TextUnformatted( item );
+            ImGui::PopStyleColor();
+        }
+
+        if ( m_scroll_to_bottom )
+        {
+            ImGui::SetScrollHere();
+            m_scroll_to_bottom = false;
+        }
+
+        ImGui::PopStyleVar();
+        ImGui::EndChild();
+    }
+
+    ImGui::Separator();
+
+    // Command-line
+    ImGui::Text( "Command:" );
+    ImGui::SameLine();
+    if ( ImGui::InputText( "##log-command", m_inputbuf.data(), m_inputbuf.size(),
+                           ImGuiInputTextFlags_EnterReturnsTrue |
+                               ImGuiInputTextFlags_CallbackCompletion |
+                               ImGuiInputTextFlags_CallbackHistory |
+                               ImGuiInputTextFlags_CallbackCharFilter,
+                           &text_edit_cb_stub, ( void * )this ) )
+    {
+        char *input_end = &m_inputbuf[ strlen( m_inputbuf.data() ) ];
+
+        while ( input_end > m_inputbuf.data() && input_end[ -1 ] == ' ' )
+            input_end--;
+        *input_end = 0;
+
+        if ( m_inputbuf[ 0 ] )
+            exec_command( m_inputbuf.data() );
+
+        strcpy( m_inputbuf.data(), "" );
+    }
+
+    // Keep auto focus on the input box
+    if ( ImGui::IsItemHovered() ||
+        ( ImGui::IsRootWindowOrAnyChildFocused() && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked( 0 ) ) )
+    {
+        // Auto focus previous widget
+        ImGui::SetKeyboardFocusHere( -1 );
+    }
+
+    if ( m_show_imgui_test_window )
+        ImGui::ShowTestWindow( &m_show_imgui_test_window );
+
+    if ( m_show_imgui_style_editor )
+    {
+        ImGui::Begin( "Style Editor", &m_show_imgui_style_editor );
+        ImGui::ShowStyleEditor();
+        ImGui::End();
+    }
+
+    if ( m_show_imgui_metrics_editor )
+        ImGui::ShowMetricsWindow( &m_show_imgui_metrics_editor );
+
+    ImGui::End();
+}
+
+void GPUVisCon::exec_command( const char *command_line )
+{
+    logf( "# %s\n", command_line );
+
+    // Insert into history. First find match and delete it so it can be pushed to the back. This isn't trying to be smart or optimal.
+    m_history_pos = -1;
+
+    for ( size_t i = 0; i < m_history.size(); i++ )
+    {
+        if ( !strcasecmp( m_history[ i ].c_str(), command_line ) )
+        {
+            m_history.erase( m_history.begin() + i );
+            break;
+        }
+    }
+    m_history.push_back( command_line );
+
+    // Process command
+    if ( !strcasecmp( command_line, "clear" ) )
+    {
+        clear_log();
+    }
+    else if ( !strcasecmp( command_line, "quit" ) )
+    {
+        m_quit = true;
+    }
+    else if ( !strcasecmp( command_line, "help" ) )
+    {
+        logf( "Commands:" );
+
+        for ( const std::string &cmd : m_commands )
+            logf( "- %s", cmd.c_str() );
+    }
+    else if ( !strcasecmp( command_line, "history" ) )
+    {
+        for ( size_t i = m_history.size() >= 20 ? m_history.size() - 20 : 0; i < m_history.size(); i++ )
+            logf( "%3lu: %s\n", i, m_history[ i ].c_str() );
+    }
+    else
+    {
+        logf( "Unknown command: '%s'\n", command_line );
+    }
+}
+
+int GPUVisCon::text_edit_cb_completion( ImGuiTextEditCallbackData *data )
+{
+    if ( m_completions.empty() )
+    {
+        const char *word_end = data->Buf + data->CursorPos;
+        const char *word_start = word_end;
+
+        // Locate beginning of current word
+        while ( word_start > data->Buf )
+        {
+            const char c = word_start[ -1 ];
+
+            if ( c == ' ' || c == '\t' || c == ',' || c == ';' )
+                break;
+            word_start--;
+        }
+
+        const char *comp_str = word_start;
+        size_t comp_len = word_end - word_start;
+
+        if ( comp_len )
+        {
+            for ( const std::string &str : m_commands )
+            {
+                if ( !strncasecmp( str.c_str(), comp_str, comp_len ) )
+                {
+                    m_completions.push_back( str.c_str() );
+                    printf( "%s\n", str.c_str() );
+                }
+            }
+            for ( int i = m_history.size() - 1; i >= 0; i-- )
+            {
+                std::string str( comp_str, comp_len );
+
+                if ( !strncasecmp( m_history[ i ].c_str(), comp_str, comp_len ) &&
+                     m_commands.find( m_history[ i ].c_str() ) == m_commands.end() )
+                {
+                    m_completions.push_back( m_history[ i ].c_str() );
+                    printf( "%s\n",  m_history[ i ].c_str() );
+                }
+            }
+
+        }
+
+        m_completion_index = 0;
+    }
+
+    if ( m_completion_index < m_completions.size() )
+    {
+        const char *str = m_completions[ m_completion_index ];
+        size_t len = strlen( str );
+
+        // Delete line and replace it
+        data->DeleteChars( 0, data->BufTextLen );
+        data->InsertChars( 0, str );
+        data->InsertChars( len, " " );
+        data->CursorPos = len + 1;
+
+        if (++m_completion_index >= m_completions.size() )
+            m_completion_index = 0;
+    }
+
     return 0;
+}
+
+int GPUVisCon::text_edit_cb_history( ImGuiTextEditCallbackData *data )
+{
+    const int prev_history_pos = m_history_pos;
+
+    if ( data->EventKey == ImGuiKey_UpArrow )
+    {
+        if ( m_history_pos == -1 )
+            m_history_pos = m_history.size() - 1;
+        else if ( m_history_pos > 0 )
+            m_history_pos--;
+    }
+    else if ( data->EventKey == ImGuiKey_DownArrow )
+    {
+        if ( m_history_pos != -1 )
+        {
+            m_history_pos++;
+            if ( m_history_pos >= ( int )m_history.size() )
+                m_history_pos = -1;
+        }
+    }
+
+    if ( prev_history_pos != m_history_pos )
+    {
+        const char *str = ( m_history_pos >= 0 ) ? m_history[ m_history_pos ].c_str() : "";
+
+        strncpy( data->Buf, str, data->BufSize );
+        data->Buf[ data->BufSize - 1 ] = 0;
+
+        data->CursorPos = data->SelectionStart = data->SelectionEnd = data->BufTextLen = strlen( data->Buf );
+        data->BufDirty = true;
+    }
+
+    return 0;
+}
+
+int GPUVisCon::text_edit_cb_stub( ImGuiTextEditCallbackData *data )
+{
+    int ret = 0;
+    GPUVisCon *console = ( GPUVisCon * )data->UserData;
+
+    if ( data->EventFlag == ImGuiInputTextFlags_CallbackCompletion )
+    {
+        ret = console->text_edit_cb_completion( data );
+    }
+    else
+    {
+        console->m_completions.clear();
+
+        if ( data->EventFlag == ImGuiInputTextFlags_CallbackHistory )
+            ret = console->text_edit_cb_history( data );
+    }
+
+    return ret;
 }
 
 static int imgui_ini_save_settings_cb( CIniFile *inifile, int index, const ImGuiIniData &data )
@@ -483,21 +807,121 @@ static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniDat
     return -1;
 }
 
+class TraceEventLoader
+{
+    TraceEventLoader() {}
+    ~TraceEventLoader()
+    {
+        if ( m_mutex )
+        {
+            SDL_DestroyMutex( m_mutex );
+            m_mutex = NULL;
+        }
+    }
+
+    bool Load( const char *filename, TraceEvents *trace_events )
+    {
+        m_filename = filename;
+        m_trace_events = trace_events;
+
+        m_mutex = SDL_CreateMutex();
+
+        if ( m_mutex )
+        {
+            m_thread = SDL_CreateThread( thread_func, "eventloader", ( void * )this );
+        }
+
+        return !!m_thread;
+    }
+
+    static int SDLCALL thread_func( void *data );
+    static int event_cb( TraceEvents *trace_events, const trace_info_t &info,
+                         const trace_event_t &event );
+
+public:
+    std::string m_filename;
+    TraceEvents *m_trace_events = nullptr;
+    SDL_Thread *m_thread = nullptr;
+
+    SDL_mutex *m_mutex;
+    std::vector< std::string > m_output;
+};
+
+int TraceEventLoader::event_cb( TraceEvents *trace_events, const trace_info_t &info,
+                                const trace_event_t &event )
+{
+    size_t id = trace_events->m_trace_events.size();
+
+    if ( trace_events->m_cpucount.empty() )
+    {
+        trace_events->m_trace_info = info;
+        trace_events->m_cpucount.resize( info.cpus, 0 );
+    }
+
+    if ( event.ts < trace_events->m_ts_min )
+        trace_events->m_ts_min = event.ts;
+    if ( event.ts > trace_events->m_ts_max )
+        trace_events->m_ts_max = event.ts;
+
+    if ( event.cpu < trace_events->m_cpucount.size() )
+        trace_events->m_cpucount[ event.cpu ]++;
+
+    trace_events->m_trace_events.push_back( event );
+    trace_events->m_trace_events[ id ].id = id;
+
+    if ( !( id % 100 ) && isatty( 1 ) )
+        printf( "\033[1000D  Reading event: %lu", id );
+
+    trace_events->m_event_locations.add_location( event.name, id );
+    trace_events->m_comm_locations.add_location( event.comm, id );
+
+#if 0
+    //$ TODO mikesart: debug test code
+    if ( id > 1000 )
+        return 1;
+#endif
+    return 0;
+}
+
+int SDLCALL TraceEventLoader::thread_func( void *data )
+{
+    std::vector< std::string > output;
+    TraceEventLoader *loader = ( TraceEventLoader * )data;
+    TraceEvents *trace_events = loader->m_trace_events;
+    const char *filename = loader->m_filename.c_str();
+
+    SDL_LockMutex( loader->m_mutex );
+    SDL_UnlockMutex( loader->m_mutex );
+
+    printf( "Reading trace file %s...\n", filename );
+
+    EventCallback trace_cb = std::bind( event_cb, trace_events, _1, _2 );
+    if ( read_trace_file( filename, trace_events->m_strpool, trace_cb ) < 0 )
+    {
+        fprintf( stderr, "\nERROR: read_trace_file(%s) failed.\n", filename );
+        exit( -1 );
+    }
+    printf( "\n" );
+    printf( "Events read: %lu\n", trace_events->m_trace_events.size() );
+
+    return 0;
+}
+
 int main( int argc, char **argv )
 {
     CIniFile inifile;
+    GPUVisCon console;
     TraceEvents trace_events;
     SDL_Window *window = NULL;
     TraceEventWin eventwin0;
     TraceEventWin eventwin1;
-    const char *file = ( argc > 1 ) ? argv[ 1 ] : "trace.dat";
 
     inifile.Open( "gpuvis", "gpuvis.ini" );
 
-    ImGui::GetIO().IniLoadSettingCB =
-            std::bind( imgui_ini_load_settings_cb, &inifile, _1, _2 );
-    ImGui::GetIO().IniSaveSettingCB =
-            std::bind( imgui_ini_save_settings_cb, &inifile, _1, _2 );
+    ImGui::GetIO().IniLoadSettingCB = std::bind(
+                imgui_ini_load_settings_cb, &inifile, _1, _2 );
+    ImGui::GetIO().IniSaveSettingCB = std::bind(
+                imgui_ini_save_settings_cb, &inifile, _1, _2 );
 
     int x = inifile.GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
     int y = inifile.GetInt( "win_y", SDL_WINDOWPOS_CENTERED );
@@ -505,16 +929,7 @@ int main( int argc, char **argv )
     int h = inifile.GetInt( "win_h", 1024 );
     ImGui::GetIO().FontGlobalScale = inifile.GetFloat( "win_scale", 1.0f );
 
-    printf( "Reading trace file %s...\n", file );
-
-    EventCallback trace_cb = std::bind( event_cb, &trace_events, _1, _2 );
-    if ( read_trace_file( file, trace_events.m_strpool, trace_cb ) < 0 )
-    {
-        fprintf( stderr, "\nERROR: read_trace_file(%s) failed.\n", file );
-        exit( -1 );
-    }
-    printf( "\n" );
-    printf( "Events read: %lu\n", trace_events.m_trace_events.size() );
+    console.init( &inifile );
 
     // Setup SDL
     if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_TIMER ) != 0 )
@@ -545,12 +960,8 @@ int main( int argc, char **argv )
     // Setup ImGui binding
     ImGui_ImplSdlGL3_Init( window );
 
-    bool done = false;
-    bool show_imgui_test_window = false;
-    bool show_debug_window = true;
-    ImVec4 clear_color = inifile.GetVec4( "clearcolor", ImColor( 114, 144, 154 ) );
-
     // Main loop
+    bool done = false;
     while ( !done )
     {
         SDL_Event event;
@@ -558,53 +969,39 @@ int main( int argc, char **argv )
         while ( SDL_PollEvent( &event ) )
         {
             ImGui_ImplSdlGL3_ProcessEvent( &event );
+
             if ( event.type == SDL_QUIT )
                 done = true;
         }
         ImGui_ImplSdlGL3_NewFrame( window );
 
-        {
-            ImGui::SetNextWindowSize( ImVec2( 700, 400 ), ImGuiSetCond_FirstUseEver );
-            ImGui::Begin( "Options", &show_debug_window );
-
-            ImGui::Text( "%.3f ms/frame (%.1f FPS)",
-                1000.0f / ImGui::GetIO().Framerate,
-                ImGui::GetIO().Framerate );
-
-            ImGui::Text( "Set Clear Color:" );
-            ImGui::SameLine();
-            ImGui::ColorEdit3( "", ( float * )&clear_color );
-
-            if ( ImGui::Button( "Imgui Test Window" ) )
-                show_imgui_test_window ^= 1;
-
-            ImGui::End();
-        }
-
-        if ( show_imgui_test_window )
-        {
-            // ImGui::SetNextWindowPos( ImVec2( 650, 20 ), ImGuiSetCond_FirstUseEver );
-            ImGui::ShowTestWindow( &show_imgui_test_window );
-        }
+        // Render our console / options window.
+        console.render( "gpuvis console" );
 
         // Render events for our loaded trace file.
-        eventwin0.render( "blah0", trace_events );
-        eventwin1.render( "blah1", trace_events );
+        //        eventwin0.render( "blah0", trace_events );
+        //        eventwin1.render( "blah1", trace_events );
 
         // Rendering
-        glViewport( 0, 0, ( int )ImGui::GetIO().DisplaySize.x, ( int )ImGui::GetIO().DisplaySize.y );
-        glClearColor( clear_color.x, clear_color.y, clear_color.z, clear_color.w );
+        const ImVec4 &color = console.m_clear_color;
+        const ImVec2 &size = ImGui::GetIO().DisplaySize;
+
+        glViewport( 0, 0, ( int )size.x, ( int )size.y );
+        glClearColor( color.x, color.y, color.z, color.w );
         glClear( GL_COLOR_BUFFER_BIT );
 
         ImGui::Render();
 
         SDL_GL_SwapWindow( window );
+
+        if ( console.m_quit )
+            break;
     }
 
-
+    // Write main window position / size to ini file.
     int top, left, bottom, right;
-    SDL_GetWindowBordersSize(window, &top, &left, &bottom, &right);
 
+    SDL_GetWindowBordersSize( window, &top, &left, &bottom, &right );
     SDL_GetWindowPosition( window, &x, &y );
     SDL_GetWindowSize( window, &w, &h );
     inifile.PutInt( "win_x", x - left );
@@ -612,7 +1009,7 @@ int main( int argc, char **argv )
     inifile.PutInt( "win_w", w );
     inifile.PutInt( "win_h", h );
 
-    inifile.PutVec4( "clearcolor", clear_color );
+    console.shutdown( &inifile );
 
     // Cleanup
     ImGui_ImplSdlGL3_Shutdown();
