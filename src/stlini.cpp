@@ -54,6 +54,7 @@
 #include <fstream>
 #include <fcntl.h>
 #include <vector>
+#include "imgui/imgui.h"
 #include "stlini.h"
 
 const char *CIniFile::m_settings = "$settings$";
@@ -323,6 +324,26 @@ std::string CIniFile::GetStr( const char *key, const char *defval, const char *s
 #endif
 
     return ret;
+}
+
+void CIniFile::PutVec4( const char *key, const ImVec4& value, const char *section )
+{
+    char buf[ 512 ];
+    snprintf( buf, sizeof( buf ), "%f,%f,%f,%f", value.x, value.y, value.z, value.w );
+    PutStr( key, buf, section );
+}
+
+ImVec4 CIniFile::GetVec4( const char *key, const ImVec4 &defval, const char *section )
+{
+    ImVec4 vec4 = defval;
+    std::string str = GetStr( key, NULL, section );
+
+    if ( !str.empty() )
+    {
+        sscanf( str.c_str(), "%f,%f,%f,%f", &vec4.x, &vec4.y, &vec4.z, &vec4.w );
+    }
+
+    return vec4;
 }
 
 std::vector< std::string > CIniFile::GetSections()

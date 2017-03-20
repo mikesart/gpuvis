@@ -205,7 +205,7 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
     float scale = ImGui::GetIO().FontGlobalScale;
 
     ImGuiWindowFlags winflags = ImGuiWindowFlags_MenuBar;
-    ImGui::SetNextWindowSize( ImVec2( 0, 0 ), ImGuiSetCond_FirstUseEver );
+    ImGui::SetNextWindowSize( ImVec2( 1280, 1024 ), ImGuiSetCond_FirstUseEver );
     ImGui::Begin( name, &m_open, winflags );
 
     if ( m_selected != ( uint32_t )-1 )
@@ -546,9 +546,9 @@ int main( int argc, char **argv )
     ImGui_ImplSdlGL3_Init( window );
 
     bool done = false;
-    bool show_test_window = false;
-    bool show_another_window = false;
-    ImVec4 clear_color = ImColor( 114, 144, 154 );
+    bool show_imgui_test_window = false;
+    bool show_debug_window = true;
+    ImVec4 clear_color = inifile.GetVec4( "clearcolor", ImColor( 114, 144, 154 ) );
 
     // Main loop
     while ( !done )
@@ -563,37 +563,28 @@ int main( int argc, char **argv )
         }
         ImGui_ImplSdlGL3_NewFrame( window );
 
-        // 1. Show a simple window
-        // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets appears in a window automatically called "Debug"
         {
-            static float f = 0.0f;
+            ImGui::SetNextWindowSize( ImVec2( 700, 400 ), ImGuiSetCond_FirstUseEver );
+            ImGui::Begin( "Options", &show_debug_window );
 
-            ImGui::Text( "Hello, world!" );
-            ImGui::SliderFloat( "float", &f, 0.0f, 1.0f );
-            ImGui::ColorEdit3( "clear color", ( float * )&clear_color );
+            ImGui::Text( "%.3f ms/frame (%.1f FPS)",
+                1000.0f / ImGui::GetIO().Framerate,
+                ImGui::GetIO().Framerate );
 
-            if ( ImGui::Button( "Test Window" ) )
-                show_test_window ^= 1;
-            if ( ImGui::Button( "Another Window" ) )
-                show_another_window ^= 1;
+            ImGui::Text( "Set Clear Color:" );
+            ImGui::SameLine();
+            ImGui::ColorEdit3( "", ( float * )&clear_color );
 
-            ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
-        }
+            if ( ImGui::Button( "Imgui Test Window" ) )
+                show_imgui_test_window ^= 1;
 
-        // 2. Show another simple window, this time using an explicit Begin/End pair
-        if ( show_another_window )
-        {
-            ImGui::SetNextWindowSize( ImVec2( 200, 100 ), ImGuiSetCond_FirstUseEver );
-            ImGui::Begin( "Another Window", &show_another_window );
-            ImGui::Text( "Hello" );
             ImGui::End();
         }
 
-        // 3. Show the ImGui test window. Most of the sample code is in ImGui::ShowTestWindow()
-        if ( show_test_window )
+        if ( show_imgui_test_window )
         {
-            ImGui::SetNextWindowPos( ImVec2( 650, 20 ), ImGuiSetCond_FirstUseEver );
-            ImGui::ShowTestWindow( &show_test_window );
+            // ImGui::SetNextWindowPos( ImVec2( 650, 20 ), ImGuiSetCond_FirstUseEver );
+            ImGui::ShowTestWindow( &show_imgui_test_window );
         }
 
         // Render events for our loaded trace file.
@@ -620,6 +611,8 @@ int main( int argc, char **argv )
     inifile.PutInt( "win_y", y - top );
     inifile.PutInt( "win_w", w );
     inifile.PutInt( "win_h", h );
+
+    inifile.PutVec4( "clearcolor", clear_color );
 
     // Cleanup
     ImGui_ImplSdlGL3_Shutdown();

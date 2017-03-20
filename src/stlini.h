@@ -52,6 +52,9 @@ public:
     void PutStr( const char *key, const char *value, const char *section = NULL );
     std::string GetStr( const char *key, const char *defval = NULL, const char *section = NULL );
 
+    void PutVec4( const char *key, const ImVec4& value, const char *section = NULL );
+    ImVec4 GetVec4( const char *key, const ImVec4 &defval, const char *section = NULL );
+
     std::vector< std::string > GetSections();
     std::vector< INIEntry > GetSectionEntries( const char *section );
 
