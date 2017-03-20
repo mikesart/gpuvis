@@ -208,9 +208,13 @@ bool TraceEventWin::render( const char *name, TraceEvents &trace_events )
     ImGui::SetNextWindowSize( ImVec2( 1280, 1024 ), ImGuiSetCond_FirstUseEver );
     ImGui::Begin( name, &m_open, winflags );
 
-    if ( m_selected != ( uint32_t )-1 )
-        ImGui::Text( "Selected: %u\n", m_selected );
     ImGui::Text( "Events: %lu\n", event_count );
+
+    if ( m_selected != ( uint32_t )-1 )
+    {
+        ImGui::SameLine();
+        ImGui::Text( "Selected: %u\n", m_selected );
+    }
 
     imgui_input_int( &m_eventstart, 75.0f, "Event Start:", "##EventStart" );
     ImGui::SameLine();
