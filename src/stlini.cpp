@@ -346,6 +346,26 @@ ImVec4 CIniFile::GetVec4( const char *key, const ImVec4 &defval, const char *sec
     return vec4;
 }
 
+void CIniFile::PutVec2( const char *key, const ImVec2& value, const char *section )
+{
+    char buf[ 512 ];
+    snprintf( buf, sizeof( buf ), "%f,%f", value.x, value.y );
+    PutStr( key, buf, section );
+}
+
+ImVec2 CIniFile::GetVec2( const char *key, const ImVec2 &defval, const char *section )
+{
+    ImVec2 vec4 = defval;
+    std::string str = GetStr( key, NULL, section );
+
+    if ( !str.empty() )
+    {
+        sscanf( str.c_str(), "%f,%f", &vec4.x, &vec4.y );
+    }
+
+    return vec4;
+}
+
 std::vector< std::string > CIniFile::GetSections()
 {
     return GetIniSections( m_inifile );

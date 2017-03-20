@@ -453,20 +453,18 @@ static int imgui_ini_save_settings_cb( CIniFile *inifile, int index, const ImGui
     section += data.Name;
 
     inifile->PutStr( "name", data.Name, section.c_str() );
-    inifile->PutFloat( "posx", data.Pos.x, section.c_str() );
-    inifile->PutFloat( "posy", data.Pos.y, section.c_str() );
-    inifile->PutFloat( "sizex", data.Size.x, section.c_str() );
-    inifile->PutFloat( "sizey", data.Size.y, section.c_str() );
+    inifile->PutVec2( "pos", data.Pos, section.c_str() );
+    inifile->PutVec2( "size", data.Size, section.c_str() );
     inifile->PutInt( "collapsed", data.Collapsed, section.c_str() );
 
-    inifile->PutStr( std::to_string( index ).c_str(), section.c_str(), "imguiwindows" );
-    inifile->PutStr( std::to_string( index + 1 ).c_str(), "", "imguiwindows" );
+    inifile->PutStr( std::to_string( index ).c_str(), section.c_str(), "$imguiwindows$" );
+    inifile->PutStr( std::to_string( index + 1 ).c_str(), "", "$imguiwindows$" );
     return 0;
 }
 
 static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniData &data )
 {
-    std::string section = inifile->GetStr( std::to_string( index ).c_str(), "", "imguiwindows" );
+    std::string section = inifile->GetStr( std::to_string( index ).c_str(), "", "$imguiwindows$" );
 
     if ( !section.empty() )
     {
@@ -474,10 +472,8 @@ static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniDat
 
         if ( !name.empty() )
         {
-            data.Pos.x = inifile->GetFloat( "posx", 0, section.c_str() );
-            data.Pos.y = inifile->GetFloat( "posy", 0, section.c_str() );
-            data.Size.x = inifile->GetFloat( "sizex", 0, section.c_str() );
-            data.Size.y = inifile->GetFloat( "sizey", 0, section.c_str() );
+            data.Pos = inifile->GetVec2( "pos", ImVec2( 0, 0 ), section.c_str() );
+            data.Size = inifile->GetVec2( "size", ImVec2( 0, 0 ), section.c_str() );
             data.Collapsed = inifile->GetInt( "collapsed", 0, section.c_str() );
             data.Name = strdup( name.c_str() );
         }
