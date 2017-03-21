@@ -32,6 +32,7 @@
 #include <set>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <getopt.h>
 
 #include <SDL2/SDL.h>
 
@@ -222,7 +223,7 @@ bool TraceLoader::load_file( const char *filename )
 
     if ( access( filename, R_OK ) == -1 )
     {
-        logf( "[Error] %s failed: %s", __func__, strerror( errno ) );
+        logf( "[Error] %s (%s) failed: %s", __func__, filename, strerror( errno ) );
         return false;
     }
     size_t filesize = get_file_size( filename );
@@ -380,6 +381,22 @@ void TraceLoader::shutdown()
     for ( TraceEvents *events : m_trace_events_list )
         delete events;
     m_trace_events_list.clear();
+}
+
+void TraceLoader::render()
+{
+    for ( int i = m_trace_windows_list.size() - 1; i >= 0; i-- )
+    {
+        TraceWin *win = m_trace_windows_list[ i ];
+
+        if ( win->m_open )
+            win->render( this );
+        if ( !win->m_open )
+        {
+            delete win;
+            m_trace_windows_list.erase( m_trace_windows_list.begin() + i );
+        }
+    }
 }
 
 /*
@@ -757,6 +774,7 @@ void TraceConsole::init( CIniFile *inifile )
     m_commands.insert( "help" );
     m_commands.insert( "history" );
     m_commands.insert( "quit" );
+    m_commands.insert( "q" );
 
     //$ TODO mikesart: add "load" command
 
@@ -1029,7 +1047,8 @@ void TraceConsole::exec_command( const char *command_line )
     {
         logf_clear();
     }
-    else if ( !strcasecmp( command_line, "quit" ) )
+    else if ( !strcasecmp( command_line, "quit" ) ||
+              !strcasecmp( command_line, "q" ) )
     {
         m_quit = true;
     }
@@ -1208,12 +1227,50 @@ static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniDat
     return -1;
 }
 
+struct cmdline_t
+{
+    std::vector< std::string > inputfiles;
+};
+
+static void parse_cmdline( cmdline_t &cmdline, int argc, char **argv )
+{
+    int c;
+    while ( ( c = getopt( argc, argv, "i:" ) ) != -1 )
+    {
+        switch(c)
+        {
+        case 'i':
+            cmdline.inputfiles.push_back( optarg );
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    for ( ; optind < argc; optind++ )
+    {
+        cmdline.inputfiles.push_back( argv[ optind ] );
+    }
+}
+
+static bool load_trace_file( TraceLoader &loader, TraceConsole &console, const char *filename )
+{
+    strncpy( console.m_trace_file, filename, sizeof( console.m_trace_file ) );
+    console.m_trace_file[ sizeof( console.m_trace_file ) - 1 ] = 0;
+
+    return loader.load_file( filename );
+}
+
 int main( int argc, char **argv )
 {
     CIniFile inifile;
     TraceConsole console;
     TraceLoader loader;
     SDL_Window *window = NULL;
+    cmdline_t cmdline;
+
+    parse_cmdline( cmdline, argc, argv );
 
     // Setup SDL
     if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_TIMER ) != 0 )
@@ -1283,19 +1340,7 @@ int main( int argc, char **argv )
         console.render( &loader );
 
         // Render trace windows
-        std::vector< TraceWin * > &win_list = loader.m_trace_windows_list;
-        for ( int i = win_list.size() - 1; i >= 0; i-- )
-        {
-            TraceWin *win = win_list[ i ];
-
-            if ( win->m_open )
-                win->render( &loader );
-            if ( !win->m_open )
-            {
-                delete win;
-                win_list.erase( win_list.begin() + i );
-            }
-        }
+        loader.render();
 
         // Rendering
         const ImVec4 &color = console.m_clear_color;
@@ -1311,6 +1356,15 @@ int main( int argc, char **argv )
 
         if ( console.m_quit )
             break;
+
+        if ( !cmdline.inputfiles.empty() && !loader.is_loading() )
+        {
+            const char *filename = cmdline.inputfiles[ 0 ].c_str();
+
+            load_trace_file( loader, console, filename );
+
+            cmdline.inputfiles.erase( cmdline.inputfiles.begin() );
+        }
     }
 
     // Write main window position / size to ini file.
