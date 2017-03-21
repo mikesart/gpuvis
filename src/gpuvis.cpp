@@ -233,10 +233,7 @@ bool TraceLoader::load_file( const char *filename )
     {
         if ( events->m_title == title )
         {
-            TraceWin *win = new TraceWin( events );
-
-            m_trace_windows_list.push_back( win );
-            win->m_setfocus = 2;
+            new_event_window( events );
             return true;
         }
     }
@@ -257,10 +254,7 @@ bool TraceLoader::load_file( const char *filename )
     m_thread = SDL_CreateThread( thread_func, "eventloader", ( void * )this );
     if ( m_thread )
     {
-        TraceWin *win = new TraceWin( m_trace_events );
-
-        win->m_setfocus = 2;
-        m_trace_windows_list.push_back( win );
+        new_event_window( m_trace_events );
         m_trace_events_list.push_back( m_trace_events );
         return true;
     }
@@ -272,6 +266,38 @@ bool TraceLoader::load_file( const char *filename )
 
     set_state( State_Idle );
     return false;
+}
+
+void TraceLoader::new_event_window( TraceEvents *trace_events )
+{
+    TraceWin *win = new TraceWin( trace_events );
+
+    m_trace_windows_list.push_back( win );
+    win->m_setfocus = 2;
+}
+
+void TraceLoader::close_event_file( TraceEvents *trace_events, bool close_file  )
+{
+    for ( int i = m_trace_windows_list.size() - 1; i >= 0; i-- )
+    {
+        TraceWin *win = m_trace_windows_list[ i ];
+
+        if ( win->m_open && ( win->m_trace_events == trace_events ) )
+            win->m_open = false;
+    }
+
+    if ( close_file )
+    {
+        for ( size_t i = 0; i < m_trace_events_list.size(); i++ )
+        {
+            if ( m_trace_events_list[ i ] == trace_events )
+            {
+                delete trace_events;
+                m_trace_events_list.erase( m_trace_events_list.begin() + i );
+                break;
+            }
+        }
+    }
 }
 
 int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
@@ -746,7 +772,7 @@ void TraceConsole::shutdown( CIniFile *inifile )
 
 void TraceConsole::render( class TraceLoader *loader )
 {
-    ImGui::SetNextWindowSize( ImVec2( 520, 600 ), ImGuiSetCond_FirstUseEver );
+    ImGui::SetNextWindowSize( ImVec2( 720, 600 ), ImGuiSetCond_FirstUseEver );
 
     if ( !ImGui::Begin( "gpuvis console" ) )
     {
@@ -795,6 +821,45 @@ void TraceConsole::render( class TraceLoader *loader )
         {
             loader->load_file( m_trace_file );
         }
+    }
+
+    if ( ImGui::CollapsingHeader( "Opened Event Files", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        ImGui::Columns( 2, "files" );
+
+        ImGui::Separator();
+
+        for ( size_t i = 0; i < loader->m_trace_events_list.size(); i++ )
+        {
+            TraceEvents *events = loader->m_trace_events_list[ i ];
+            int eventsloaded = SDL_AtomicGet( &events->m_eventsloaded );
+
+            if ( !eventsloaded )
+            {
+                ImGui::Text( "%s", events->m_title.c_str() );
+                ImGui::NextColumn();
+
+                if ( ImGui::SmallButton( string_format( "Events##%lu", i ).c_str() ) )
+                    loader->new_event_window( events );
+
+                ImGui::SameLine();
+                if ( ImGui::SmallButton( string_format( "Graph##%lu", i ).c_str() ) )
+                    logf( "Graphing is NYI...");
+
+                ImGui::SameLine();
+                if ( ImGui::SmallButton( string_format( "Close Windows##%lu", i ).c_str() ) )
+                    loader->close_event_file( events, false );
+
+                ImGui::SameLine();
+                if ( ImGui::SmallButton( string_format( "Free##%lu", i ).c_str() ) )
+                    loader->close_event_file( events, true );
+
+                ImGui::NextColumn();
+            }
+        }
+
+        ImGui::Columns( 1 );
+        ImGui::Separator();
     }
 
     if ( ImGui::CollapsingHeader( "Options", ImGuiTreeNodeFlags_DefaultOpen ) )
@@ -1223,7 +1288,8 @@ int main( int argc, char **argv )
         {
             TraceWin *win = win_list[ i ];
 
-            win->render( &loader );
+            if ( win->m_open )
+                win->render( &loader );
             if ( !win->m_open )
             {
                 delete win;

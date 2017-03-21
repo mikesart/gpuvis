@@ -263,6 +263,9 @@ public:
     void cancel_load_file();
     bool is_loading();
 
+    void new_event_window( TraceEvents *trace_events );
+    void close_event_file( TraceEvents *trace_events, bool close_file  );
+
     void shutdown();
 
 protected:
