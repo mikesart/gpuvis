@@ -30,6 +30,8 @@
 #include <unordered_map>
 #include <vector>
 #include <set>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <SDL2/SDL.h>
 
@@ -45,43 +47,20 @@ static std::vector< char * > g_log;
 static std::vector< char * > g_thread_log;
 static SDL_mutex *g_mutex = nullptr;
 
-//$ TODO mikesart: move class declarations to gpuvis.h
-class TraceEventWin
+/*
+ * log routines
+ */
+static void logf_init()
 {
-public:
-    TraceEventWin( TraceEvents *trace_events )
-    {
-        m_trace_events = trace_events;
-    }
+    g_main_tid = SDL_ThreadID();
+    g_mutex = SDL_CreateMutex();
+}
 
-    ~TraceEventWin() {}
-
-public:
-    bool render( class TraceEventLoader *loader );
-
-protected:
-    void render_time_delta_button_init( TraceEvents &trace_events );
-    void render_time_delta_button( TraceEvents &trace_events );
-    bool render_time_goto_button( TraceEvents &trace_events );
-
-public:
-    bool m_inited = false;
-
-    TraceEvents *m_trace_events = nullptr;
-
-    bool m_do_gotoevent = false;
-    int m_gotoevent = 0;
-
-    int m_eventstart = 0;
-    int m_eventend = INT32_MAX;
-    bool m_open = false;
-    uint32_t m_selected = ( uint32_t )-1;
-
-    char m_timegoto_buf[ 32 ];
-
-    char m_timedelta_buf[ 32 ] = { 0 };
-    unsigned long long m_tsdelta = ( unsigned long long )-1;
-};
+static void logf_shutdown()
+{
+    SDL_DestroyMutex( g_mutex );
+    g_mutex = NULL;
+}
 
 void logf( const char *fmt, ... )
 {
@@ -107,7 +86,7 @@ void logf( const char *fmt, ... )
     }
 }
 
-void logf_update()
+static void logf_update()
 {
     if ( g_thread_log.size() )
     {
@@ -130,7 +109,6 @@ void logf_clear()
     g_log.clear();
 }
 
-std::string string_format( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
 std::string string_format( const char *fmt, ... )
 {
     std::string str;
@@ -155,96 +133,15 @@ std::string string_format( const char *fmt, ... )
     }
 }
 
-class TraceEventLoader
+size_t get_file_size( const char *filename )
 {
-public:
-    enum state_t
-    {
-        State_Idle,
-        State_Loading,
-        State_Loaded,
-        State_CancelLoading
-    };
+    struct stat st;
 
-public:
-    TraceEventLoader() {}
-    ~TraceEventLoader() {}
+    if( !stat( filename, &st ) )
+        return st.st_size;
 
-    state_t get_state()
-    {
-        return ( state_t )SDL_AtomicGet( &m_state );
-    }
-
-    bool load_file( const char *filename )
-    {
-        if ( get_state() == State_Loading )
-        {
-            logf( "[Error] %s failed, currently loading %s.", __func__, m_filename.c_str() );
-            return false;
-        }
-
-        //$ TODO: Verify that filename exists
-        //$ TODO: Check if we've already loaded filename
-        //$ TODO: Have this routine return the TraceEventWin so we can set focus to it?
-        //$       or does that work via the title?
-
-        set_state( State_Loading );
-        m_filename = filename;
-
-        m_trace_events = new TraceEvents;
-        m_trace_events->m_filename = filename;
-        SDL_AtomicSet( &m_trace_events->m_eventsloaded, 1 );
-
-        m_thread = SDL_CreateThread( thread_func, "eventloader", ( void * )this );
-        if ( m_thread )
-        {
-            TraceEventWin *win = new TraceEventWin( m_trace_events );
-
-            m_trace_windows_list.push_back( win );
-            m_trace_events_list.push_back( m_trace_events );
-
-            //$$$ SDL_DetachThread( m_thread );
-            return true;
-        }
-
-        logf( "[Error] %s: SDL_CreateThread failed.", __func__ );
-
-        delete m_trace_events;
-        m_trace_events = NULL;
-
-        set_state( State_Idle );
-        return false;
-    }
-
-    void cancel_load_file()
-    {
-        if ( get_state() == State_Loading )
-            SDL_AtomicSet( &m_state, State_CancelLoading );
-    }
-
-protected:
-    void set_state( state_t state )
-    {
-        m_filename = "";
-        m_trace_events = NULL;
-        m_thread = NULL;
-
-        SDL_AtomicSet( &m_state, state );
-    }
-
-    static int SDLCALL thread_func( void *data );
-    static int event_cb( TraceEventLoader *loader, const trace_info_t &info,
-                         const trace_event_t &event );
-
-public:
-    std::string m_filename;
-    SDL_atomic_t m_state = { 0 };
-    SDL_Thread *m_thread = nullptr;
-    TraceEvents *m_trace_events = nullptr;
-
-    std::vector< TraceEvents * > m_trace_events_list;
-    std::vector< TraceEventWin * > m_trace_windows_list;
-};
+    return 0;
+}
 
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2 )
 {
@@ -264,7 +161,175 @@ static bool imgui_key_pressed( ImGuiKey key )
     return ImGui::IsKeyPressed( ImGui::GetKeyIndex( key ) );
 }
 
-void TraceEventWin::render_time_delta_button_init( TraceEvents &trace_events )
+/*
+ * StrPool
+ */
+const char *StrPool::getstr( const char *str )
+{
+    uint32_t hashval = fnv_hashstr32( str );
+
+    auto i = m_pool.find( hashval );
+    if ( i == m_pool.end() )
+        m_pool[ hashval ] = std::string( str );
+
+    return m_pool[ hashval ].c_str();
+}
+
+const char *StrPool::getstr( uint32_t hashval )
+{
+    auto i = m_pool.find( hashval );
+
+    if ( i == m_pool.end() )
+        return NULL;
+    return m_pool[ hashval ].c_str();
+}
+
+/*
+ * TraceLoader
+ */
+TraceLoader::state_t TraceLoader::get_state()
+{
+    return ( state_t )SDL_AtomicGet( &m_state );
+}
+
+void TraceLoader::set_state( state_t state )
+{
+    m_filename = "";
+    m_trace_events = NULL;
+    m_thread = NULL;
+
+    SDL_AtomicSet( &m_state, state );
+}
+
+void TraceLoader::cancel_load_file()
+{
+    if ( get_state() == State_Loading )
+        SDL_AtomicSet( &m_state, State_CancelLoading );
+}
+
+bool TraceLoader::load_file( const char *filename )
+{
+    if ( get_state() == State_Loading )
+    {
+        logf( "[Error] %s failed, currently loading %s.", __func__, m_filename.c_str() );
+        return false;
+    }
+
+    if ( access( filename, R_OK ) == -1 )
+    {
+        logf( "[Error] %s failed: %s", __func__, strerror( errno ) );
+        return false;
+    }
+    size_t filesize = get_file_size( filename );
+    std::string title = string_format( "%s (%.2f MB)", filename, filesize / ( 1024.0f * 1024.0f ) );
+
+    // Check if we've already loaded this trace file.
+    for ( TraceEvents *events : m_trace_events_list )
+    {
+        if ( events->m_title == title )
+        {
+            TraceWin *win = new TraceWin( events );
+
+            m_trace_windows_list.push_back( win );
+            return true;
+        }
+    }
+
+    //$ TODO: Have this routine return the TraceWin so we can set focus to it?
+    //$       or does that work via the title?
+
+    set_state( State_Loading );
+    m_filename = filename;
+
+    m_trace_events = new TraceEvents;
+    m_trace_events->m_filename = filename;
+    m_trace_events->m_filesize = filesize;
+    m_trace_events->m_title = title;
+
+    SDL_AtomicSet( &m_trace_events->m_eventsloaded, 1 );
+
+    m_thread = SDL_CreateThread( thread_func, "eventloader", ( void * )this );
+    if ( m_thread )
+    {
+        TraceWin *win = new TraceWin( m_trace_events );
+
+        m_trace_windows_list.push_back( win );
+        m_trace_events_list.push_back( m_trace_events );
+        return true;
+    }
+
+    logf( "[Error] %s: SDL_CreateThread failed.", __func__ );
+
+    delete m_trace_events;
+    m_trace_events = NULL;
+
+    set_state( State_Idle );
+    return false;
+}
+
+int TraceLoader::event_cb( TraceLoader *loader, const trace_info_t &info,
+                                const trace_event_t &event )
+{
+    TraceEvents *trace_events = loader->m_trace_events;
+    size_t id = trace_events->m_events.size();
+
+    if ( trace_events->m_cpucount.empty() )
+    {
+        trace_events->m_trace_info = info;
+        trace_events->m_cpucount.resize( info.cpus, 0 );
+    }
+
+    if ( event.ts < trace_events->m_ts_min )
+        trace_events->m_ts_min = event.ts;
+    if ( event.ts > trace_events->m_ts_max )
+        trace_events->m_ts_max = event.ts;
+
+    if ( event.cpu < trace_events->m_cpucount.size() )
+        trace_events->m_cpucount[ event.cpu ]++;
+
+    trace_events->m_events.push_back( event );
+    trace_events->m_events[ id ].id = id;
+
+    trace_events->m_event_locations.add_location( event.name, id );
+    trace_events->m_comm_locations.add_location( event.comm, id );
+
+    SDL_AtomicAdd( &trace_events->m_eventsloaded, 1 );
+
+    if ( loader->get_state() == State_CancelLoading )
+        return 1;
+
+    return 0;
+}
+
+int SDLCALL TraceLoader::thread_func( void *data )
+{
+    TraceLoader *loader = ( TraceLoader * )data;
+    TraceEvents *trace_events = loader->m_trace_events;
+    const char *filename = loader->m_filename.c_str();
+
+    logf( "Reading trace file %s...", filename );
+
+    EventCallback trace_cb = std::bind( event_cb, loader, _1, _2 );
+    if ( read_trace_file( filename, trace_events->m_strpool, trace_cb ) < 0 )
+    {
+        logf( "[Error]: read_trace_file(%s) failed.", filename );
+
+        SDL_AtomicSet( &trace_events->m_eventsloaded, -1 );
+        loader->set_state( State_Idle );
+        return -1;
+    }
+
+    logf( "Events read: %lu", trace_events->m_events.size() );
+
+    SDL_AtomicSet( &trace_events->m_eventsloaded, 0 );
+    loader->set_state( State_Loaded );
+    return 0;
+}
+
+/*
+ * TracWin
+ */
+void TraceWin::render_time_delta_button_init( TraceEvents &trace_events )
 {
     // Default to minimum time stamp.
     unsigned long long ts = trace_events.m_ts_min;
@@ -296,7 +361,7 @@ void TraceEventWin::render_time_delta_button_init( TraceEvents &trace_events )
     m_tsdelta = ts;
 }
 
-void TraceEventWin::render_time_delta_button( TraceEvents &trace_events )
+void TraceWin::render_time_delta_button( TraceEvents &trace_events )
 {
     if ( m_tsdelta == ( unsigned long long )-1 )
         render_time_delta_button_init( trace_events );
@@ -321,7 +386,7 @@ void TraceEventWin::render_time_delta_button( TraceEvents &trace_events )
     }
 }
 
-bool TraceEventWin::render_time_goto_button( TraceEvents &trace_events )
+bool TraceWin::render_time_goto_button( TraceEvents &trace_events )
 {
     bool time_goto = ImGui::Button( "Goto Time:" );
 
@@ -371,14 +436,20 @@ static void draw_minimap_marker( float x, float y, float width, float height, Im
         color, rounding, 0xf );
 }
 
-bool TraceEventWin::render( class TraceEventLoader *loader )
+bool TraceWin::render( class TraceLoader *loader )
 {
-    const char *name = m_trace_events->m_filename.c_str();
+    float scale = ImGui::GetIO().FontGlobalScale;
+    std::string title = m_trace_events->m_title;
     int eventsloaded = SDL_AtomicGet( &m_trace_events->m_eventsloaded );
+
+    title += "##";
+    title += std::to_string( ( size_t )this );
+
+    ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
 
     if ( eventsloaded > 0 )
     {
-        ImGui::Begin( name, &m_open );
+        ImGui::Begin( title.c_str(), &m_open );
         ImGui::Text( "Loading events %u...", eventsloaded );
 
         if ( ImGui::Button( "Cancel" ) )
@@ -389,8 +460,8 @@ bool TraceEventWin::render( class TraceEventLoader *loader )
     }
     else if ( eventsloaded == -1 )
     {
-        ImGui::Begin( name, &m_open );
-        ImGui::Text( "Error loading filed %s...\n", name );
+        ImGui::Begin( title.c_str(), &m_open );
+        ImGui::Text( "Error loading filed %s...\n", m_trace_events->m_filename.c_str() );
         ImGui::End();
 
         return true;
@@ -398,10 +469,8 @@ bool TraceEventWin::render( class TraceEventLoader *loader )
 
     std::vector< trace_event_t > &events = m_trace_events->m_events;
     size_t event_count = events.size();
-    float scale = ImGui::GetIO().FontGlobalScale;
 
-    ImGui::SetNextWindowSize( ImVec2( 1280, 1024 ), ImGuiSetCond_FirstUseEver );
-    ImGui::Begin( name, &m_open );
+    ImGui::Begin( title.c_str(), &m_open );
 
     ImGui::Text( "Events: %lu\n", event_count );
 
@@ -609,7 +678,10 @@ bool TraceEventWin::render( class TraceEventLoader *loader )
     return m_open;
 }
 
-void GPUVisCon::init( CIniFile *inifile )
+/*
+ * TraceConsole
+ */
+void TraceConsole::init( CIniFile *inifile )
 {
     m_clear_color = inifile->GetVec4( "clearcolor", ImColor( 114, 144, 154 ) );
 
@@ -626,14 +698,14 @@ void GPUVisCon::init( CIniFile *inifile )
     strncpy( m_trace_file, "trace.dat", sizeof( m_trace_file ) );
 }
 
-void GPUVisCon::shutdown( CIniFile *inifile )
+void TraceConsole::shutdown( CIniFile *inifile )
 {
     inifile->PutVec4( "clearcolor", m_clear_color );
 
     m_history.clear();
 }
 
-void GPUVisCon::render( class TraceEventLoader *loader )
+void TraceConsole::render( class TraceLoader *loader )
 {
     ImGui::SetNextWindowSize( ImVec2( 520, 600 ), ImGuiSetCond_FirstUseEver );
 
@@ -649,7 +721,7 @@ void GPUVisCon::render( class TraceEventLoader *loader )
 
     if ( loader && ImGui::CollapsingHeader( "Trace File", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        bool is_loading = ( loader->get_state() == TraceEventLoader::State_Loading );
+        bool is_loading = ( loader->get_state() == TraceLoader::State_Loading );
 
         ImGui::Text( "File:" );
         ImGui::SameLine();
@@ -831,7 +903,7 @@ void GPUVisCon::render( class TraceEventLoader *loader )
     ImGui::End();
 }
 
-void GPUVisCon::exec_command( const char *command_line )
+void TraceConsole::exec_command( const char *command_line )
 {
     logf( "# %s\n", command_line );
 
@@ -875,7 +947,7 @@ void GPUVisCon::exec_command( const char *command_line )
     }
 }
 
-int GPUVisCon::text_edit_cb_completion( ImGuiTextEditCallbackData *data )
+int TraceConsole::text_edit_cb_completion( ImGuiTextEditCallbackData *data )
 {
     if ( m_completions.empty() )
     {
@@ -940,7 +1012,7 @@ int GPUVisCon::text_edit_cb_completion( ImGuiTextEditCallbackData *data )
     return 0;
 }
 
-int GPUVisCon::text_edit_cb_history( ImGuiTextEditCallbackData *data )
+int TraceConsole::text_edit_cb_history( ImGuiTextEditCallbackData *data )
 {
     const int prev_history_pos = m_history_pos;
 
@@ -975,10 +1047,10 @@ int GPUVisCon::text_edit_cb_history( ImGuiTextEditCallbackData *data )
     return 0;
 }
 
-int GPUVisCon::text_edit_cb_stub( ImGuiTextEditCallbackData *data )
+int TraceConsole::text_edit_cb_stub( ImGuiTextEditCallbackData *data )
 {
     int ret = 0;
-    GPUVisCon *console = ( GPUVisCon * )data->UserData;
+    TraceConsole *console = ( TraceConsole * )data->UserData;
 
     if ( data->EventFlag == ImGuiInputTextFlags_CallbackCompletion )
     {
@@ -1032,70 +1104,11 @@ static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniDat
     return -1;
 }
 
-int TraceEventLoader::event_cb( TraceEventLoader *loader, const trace_info_t &info,
-                                const trace_event_t &event )
-{
-    TraceEvents *trace_events = loader->m_trace_events;
-    size_t id = trace_events->m_events.size();
-
-    if ( trace_events->m_cpucount.empty() )
-    {
-        trace_events->m_trace_info = info;
-        trace_events->m_cpucount.resize( info.cpus, 0 );
-    }
-
-    if ( event.ts < trace_events->m_ts_min )
-        trace_events->m_ts_min = event.ts;
-    if ( event.ts > trace_events->m_ts_max )
-        trace_events->m_ts_max = event.ts;
-
-    if ( event.cpu < trace_events->m_cpucount.size() )
-        trace_events->m_cpucount[ event.cpu ]++;
-
-    trace_events->m_events.push_back( event );
-    trace_events->m_events[ id ].id = id;
-
-    trace_events->m_event_locations.add_location( event.name, id );
-    trace_events->m_comm_locations.add_location( event.comm, id );
-
-    SDL_AtomicAdd( &trace_events->m_eventsloaded, 1 );
-
-    if ( loader->get_state() == State_CancelLoading )
-        return 1;
-
-    return 0;
-}
-
-int SDLCALL TraceEventLoader::thread_func( void *data )
-{
-    TraceEventLoader *loader = ( TraceEventLoader * )data;
-    TraceEvents *trace_events = loader->m_trace_events;
-    const char *filename = loader->m_filename.c_str();
-
-    logf( "Reading trace file %s...", filename );
-
-    EventCallback trace_cb = std::bind( event_cb, loader, _1, _2 );
-    if ( read_trace_file( filename, trace_events->m_strpool, trace_cb ) < 0 )
-    {
-        logf( "[Error]: read_trace_file(%s) failed.", filename );
-
-        SDL_AtomicSet( &trace_events->m_eventsloaded, -1 );
-        loader->set_state( TraceEventLoader::State_Idle );
-        return -1;
-    }
-
-    logf( "Events read: %lu", trace_events->m_events.size() );
-
-    SDL_AtomicSet( &trace_events->m_eventsloaded, 0 );
-    loader->set_state( TraceEventLoader::State_Loaded );
-    return 0;
-}
-
 int main( int argc, char **argv )
 {
     CIniFile inifile;
-    GPUVisCon console;
-    TraceEventLoader loader;
+    TraceConsole console;
+    TraceLoader loader;
     SDL_Window *window = NULL;
 
     // Setup SDL
@@ -1104,8 +1117,8 @@ int main( int argc, char **argv )
         fprintf( stderr, "Error. SDL_Init failed: %s\n", SDL_GetError() );
         return -1;
     }
-    g_main_tid = SDL_ThreadID();
-    g_mutex = SDL_CreateMutex();
+
+    logf_init();
 
     inifile.Open( "gpuvis", "gpuvis.ini" );
 
@@ -1165,7 +1178,7 @@ int main( int argc, char **argv )
         // Render our console / options window.
         console.render( &loader );
 
-        for ( TraceEventWin *win : loader.m_trace_windows_list )
+        for ( TraceWin *win : loader.m_trace_windows_list )
             win->render( &loader );
 
         // Rendering
@@ -1204,7 +1217,7 @@ int main( int argc, char **argv )
     inifile.PutInt( "win_h", h );
 
     //$ TODO mikesart: Move this to loader shutdown?
-    for ( TraceEventWin *win : loader.m_trace_windows_list )
+    for ( TraceWin *win : loader.m_trace_windows_list )
         delete win;
     loader.m_trace_windows_list.clear();
 
@@ -1217,8 +1230,7 @@ int main( int argc, char **argv )
     logf_clear();
 
     // Cleanup
-    SDL_DestroyMutex( g_mutex );
-    g_mutex = NULL;
+    logf_shutdown();
 
     ImGui_ImplSdlGL3_Shutdown();
     SDL_GL_DeleteContext( glcontext );

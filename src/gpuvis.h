@@ -38,6 +38,10 @@ using std::placeholders::_5;
 extern "C" uint32_t fnv_hashstr32( const char *str );
 
 void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
+void logf_clear();
+
+std::string string_format( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
+size_t get_file_size( const char* filename );
 
 class StrPool
 {
@@ -45,25 +49,8 @@ public:
     StrPool() {}
     ~StrPool() {}
 
-    inline const char *getstr( const char *str )
-    {
-        uint32_t hashval = fnv_hashstr32( str );
-
-        auto i = m_pool.find( hashval );
-        if ( i == m_pool.end() )
-            m_pool[ hashval ] = std::string( str );
-
-        return m_pool[ hashval ].c_str();
-    }
-
-    inline const char *getstr( uint32_t hashval )
-    {
-        auto i = m_pool.find( hashval );
-
-        if ( i == m_pool.end() )
-            return NULL;
-        return m_pool[ hashval ].c_str();
-    }
+    const char *getstr( const char *str );
+    const char *getstr( uint32_t hashval );
 
 public:
     typedef std::unordered_map< uint32_t, std::string > pool_t;
@@ -160,6 +147,9 @@ public:
     std::vector< uint32_t > m_cpucount;
 
     std::string m_filename;
+    size_t m_filesize = 0;
+    std::string m_title;
+
     StrPool m_strpool;
     trace_info_t m_trace_info;
     std::vector< trace_event_t > m_events;
@@ -174,18 +164,18 @@ public:
     SDL_atomic_t m_eventsloaded = { 0 };
 };
 
-struct GPUVisCon
+struct TraceConsole
 {
 public:
-    GPUVisCon() {}
-    ~GPUVisCon() {}
+    TraceConsole() {}
+    ~TraceConsole() {}
 
     void init( class CIniFile *inifile );
     void shutdown( class CIniFile *inifile );
 
     void exec_command( const char *command_line );
 
-    void render( class TraceEventLoader *loader );
+    void render( class TraceLoader *loader );
 
 protected:
     static int text_edit_cb_stub( ImGuiTextEditCallbackData *data );
@@ -215,4 +205,78 @@ public:
     bool m_show_imgui_test_window = false;
     bool m_show_imgui_style_editor = false;
     bool m_show_imgui_metrics_editor = false;
+};
+
+class TraceWin
+{
+public:
+    TraceWin( TraceEvents *trace_events )
+    {
+        m_trace_events = trace_events;
+    }
+
+    ~TraceWin() {}
+
+public:
+    bool render( class TraceLoader *loader );
+
+protected:
+    void render_time_delta_button_init( TraceEvents &trace_events );
+    void render_time_delta_button( TraceEvents &trace_events );
+    bool render_time_goto_button( TraceEvents &trace_events );
+
+public:
+    bool m_inited = false;
+
+    TraceEvents *m_trace_events = nullptr;
+
+    bool m_do_gotoevent = false;
+    int m_gotoevent = 0;
+
+    int m_eventstart = 0;
+    int m_eventend = INT32_MAX;
+    bool m_open = false;
+    uint32_t m_selected = ( uint32_t )-1;
+
+    char m_timegoto_buf[ 32 ];
+
+    char m_timedelta_buf[ 32 ] = { 0 };
+    unsigned long long m_tsdelta = ( unsigned long long )-1;
+};
+
+class TraceLoader
+{
+public:
+    enum state_t
+    {
+        State_Idle,
+        State_Loading,
+        State_Loaded,
+        State_CancelLoading
+    };
+
+public:
+    TraceLoader() {}
+    ~TraceLoader() {}
+
+    bool load_file( const char *filename );
+    void cancel_load_file();
+
+    state_t get_state();
+
+protected:
+    void set_state( state_t state );
+
+    static int SDLCALL thread_func( void *data );
+    static int event_cb( TraceLoader *loader, const trace_info_t &info,
+                         const trace_event_t &event );
+
+public:
+    std::string m_filename;
+    SDL_atomic_t m_state = { 0 };
+    SDL_Thread *m_thread = nullptr;
+    TraceEvents *m_trace_events = nullptr;
+
+    std::vector< TraceEvents * > m_trace_events_list;
+    std::vector< TraceWin * > m_trace_windows_list;
 };
