@@ -192,6 +192,11 @@ TraceLoader::state_t TraceLoader::get_state()
     return ( state_t )SDL_AtomicGet( &m_state );
 }
 
+bool TraceLoader::is_loading()
+{
+    return ( get_state() == State_Loading || get_state() == State_CancelLoading );
+}
+
 void TraceLoader::set_state( state_t state )
 {
     m_filename = "";
@@ -203,13 +208,13 @@ void TraceLoader::set_state( state_t state )
 
 void TraceLoader::cancel_load_file()
 {
-    if ( get_state() == State_Loading )
-        SDL_AtomicSet( &m_state, State_CancelLoading );
+    // Switch to cancel loading if we're currently loading
+    SDL_AtomicCAS( &m_state, State_Loading, State_CancelLoading );
 }
 
 bool TraceLoader::load_file( const char *filename )
 {
-    if ( get_state() == State_Loading )
+    if ( is_loading() )
     {
         logf( "[Error] %s failed, currently loading %s.", __func__, m_filename.c_str() );
         return false;
@@ -267,7 +272,7 @@ bool TraceLoader::load_file( const char *filename )
     return false;
 }
 
-int TraceLoader::event_cb( TraceLoader *loader, const trace_info_t &info,
+int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
                                 const trace_event_t &event )
 {
     TraceEvents *trace_events = loader->m_trace_events;
@@ -309,7 +314,7 @@ int SDLCALL TraceLoader::thread_func( void *data )
 
     logf( "Reading trace file %s...", filename );
 
-    EventCallback trace_cb = std::bind( event_cb, loader, _1, _2 );
+    EventCallback trace_cb = std::bind( new_event_cb, loader, _1, _2 );
     if ( read_trace_file( filename, trace_events->m_strpool, trace_cb ) < 0 )
     {
         logf( "[Error]: read_trace_file(%s) failed.", filename );
@@ -721,7 +726,7 @@ void TraceConsole::render( class TraceLoader *loader )
 
     if ( loader && ImGui::CollapsingHeader( "Trace File", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        bool is_loading = ( loader->get_state() == TraceLoader::State_Loading );
+        bool is_loading = loader->is_loading();
 
         ImGui::Text( "File:" );
         ImGui::SameLine();

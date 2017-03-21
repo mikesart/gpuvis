@@ -261,14 +261,14 @@ public:
 
     bool load_file( const char *filename );
     void cancel_load_file();
-
-    state_t get_state();
+    bool is_loading();
 
 protected:
+    state_t get_state();
     void set_state( state_t state );
 
     static int SDLCALL thread_func( void *data );
-    static int event_cb( TraceLoader *loader, const trace_info_t &info,
+    static int new_event_cb( TraceLoader *loader, const trace_info_t &info,
                          const trace_event_t &event );
 
 public:
