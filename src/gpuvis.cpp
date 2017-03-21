@@ -508,6 +508,7 @@ bool TraceWin::render_time_goto_button( TraceEvents &trace_events )
     return time_goto;
 }
 
+#if 0
 static void draw_minimap_marker( float x, float y, float width, float height, ImU32 color,
                                  float rounding = 0.0f )
 {
@@ -516,6 +517,7 @@ static void draw_minimap_marker( float x, float y, float width, float height, Im
         ImVec2( x + width, y + height ),
         color, rounding, 0xf );
 }
+#endif
 
 bool TraceWin::render( class TraceLoader *loader )
 {
@@ -555,43 +557,41 @@ bool TraceWin::render( class TraceLoader *loader )
     return render_events();
 }
 
-bool TraceWin::render_events()
+bool TraceWin::render_options()
 {
-    float scale = ImGui::GetIO().FontGlobalScale;
-    std::vector< trace_event_t > &events = m_trace_events->m_events;
-    size_t event_count = events.size();
-
-    ImGui::Begin( m_title.c_str(), &m_open );
-
+    size_t event_count = m_trace_events->m_events.size();
     ImGui::Text( "Events: %lu\n", event_count );
 
     if ( !event_count )
-    {
-        ImGui::End();
         return false;
-    }
 
     if ( m_selected != ( uint32_t )-1 )
     {
         ImGui::SameLine();
-        ImGui::Text( "Selected: %u\n", m_selected );
+        ImGui::Text( "Selected: %u", m_selected );
     }
 
     imgui_input_int( &m_eventstart, 75.0f, "Event Start:", "##EventStart" );
+
     ImGui::SameLine();
     imgui_input_int( &m_eventend, 75.0f, "Event End:", "##EventEnd" );
+
     ImGui::SameLine();
     render_time_delta_button( *m_trace_events );
 
     m_do_gotoevent |= imgui_input_int( &m_gotoevent, 75.0f, "Goto Event:", "##GotoEvent" );
+
     ImGui::SameLine();
     m_do_gotoevent |= render_time_goto_button( *m_trace_events );
 
-    m_gotoevent = std::min< uint32_t >( m_gotoevent, event_count - 1 );
-    m_eventstart = std::min< uint32_t >( m_eventstart, event_count - 1 );
-    m_eventend = std::min< uint32_t >( std::max< uint32_t >( m_eventend, m_eventstart ), event_count - 1 );
+    return true;
+}
 
-    event_count = m_eventend - m_eventstart + 1;
+void TraceWin::render_events_list()
+{
+    float scale = ImGui::GetIO().FontGlobalScale;
+    size_t event_count = m_eventend - m_eventstart + 1;
+    std::vector< trace_event_t > &events = m_trace_events->m_events;
 
     // Set focus on event list first time we open.
     if ( !m_inited && ImGui::IsWindowFocused() )
@@ -599,12 +599,14 @@ bool TraceWin::render_events()
 
     // Events list
     ImVec2 avail = ImGui::GetContentRegionAvail();
-    const float map_width = 16.0f * scale;
+
     {
         // Set the child window size to hold count of items + header + separator
         float lineh = ImGui::GetTextLineHeightWithSpacing();
+        float y = ( avail.y < 512.0f * scale ) ? 512.0f * scale : 0.0f;
+
         ImGui::SetNextWindowContentSize( { 0.0f, ( event_count + 1 ) * lineh + 1 } );
-        ImGui::BeginChild( "eventlistbox", ImVec2( avail.x - ( map_width + 6.0f ), 0.0f ) );
+        ImGui::BeginChild( "eventlistbox", ImVec2( 0.0f, y ) );
 
         float winh = ImGui::GetWindowHeight();
 
@@ -702,6 +704,7 @@ bool TraceWin::render_events()
         ImGui::Columns( 1 );
         ImGui::EndChild();
 
+#if 0
         // Draw a zoomed minimap off to the right to help locate events
         {
             ImGui::SameLine();
@@ -767,6 +770,96 @@ bool TraceWin::render_events()
                 }
             }
         }
+#endif
+    }
+}
+
+/*
+    PlotLines(const char* label,
+          const float* values, int values_count, int values_offset = 0,
+          const char* overlay_text = NULL,
+          float scale_min = FLT_MAX, float scale_max = FLT_MAX,
+          ImVec2 graph_size = ImVec2(0,0),
+          int stride = sizeof(float));
+
+    PlotLines(const char* label,
+          float (*values_getter)(void* data, int idx),
+          void* data,
+          int values_count, int values_offset = 0,
+          const char* overlay_text = NULL,
+          float scale_min = FLT_MAX, float scale_max = FLT_MAX,
+          ImVec2 graph_size = ImVec2(0,0));
+
+    PlotHistogram(const char* label,
+              const float* values,
+              int values_count, int values_offset = 0,
+              const char* overlay_text = NULL,
+              float scale_min = FLT_MAX, float scale_max = FLT_MAX,
+              ImVec2 graph_size = ImVec2(0,0),
+              int stride = sizeof(float));
+
+    PlotHistogram(const char* label,
+              float (*values_getter)(void* data, int idx),
+              void* data,
+              int values_count, int values_offset = 0,
+              const char* overlay_text = NULL,
+              float scale_min = FLT_MAX, float scale_max = FLT_MAX,
+              ImVec2 graph_size = ImVec2(0,0));
+*/
+
+void TraceWin::render_process_graphs()
+{
+    static float arr[] = { 0.6f, 0.1f, 1.0f, 0.5f, 0.92f, 0.1f, 0.2f,
+                           0.6f, 0.1f, 1.0f, 0.5f, 0.92f, 0.1f, 0.2f,
+                           0.6f, 0.1f, 1.0f, 0.5f, 0.92f, 0.1f, 0.2f };
+    float scale = ImGui::GetIO().FontGlobalScale;
+
+    float h = 40.0f * scale;
+    float w = ImGui::GetContentRegionAvailWidth();
+    // float lineh = ImGui::GetTextLineHeightWithSpacing();
+
+    for ( auto item : m_trace_events->m_comm_locations.m_locations )
+    {
+        uint32_t hashval = item.first;
+        const char *comm = m_trace_events->m_strpool.getstr( hashval );
+
+        if ( ImGui::CollapsingHeader( comm, ImGuiTreeNodeFlags_DefaultOpen ) )
+        {
+            ImGui::PlotHistogram(comm, arr, sizeof( arr ) / sizeof( arr[0] ),
+                    0, "event graph", 0.0f, 1.0f, ImVec2( w, h ));
+        }
+    }
+}
+
+bool TraceWin::render_events()
+{
+    std::vector< trace_event_t > &events = m_trace_events->m_events;
+    size_t event_count = events.size();
+
+    ImGui::Begin( m_title.c_str(), &m_open );
+
+    if ( ImGui::CollapsingHeader( "Options", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        if ( !render_options() )
+        {
+            ImGui::End();
+            return false;
+        }
+    }
+
+    m_gotoevent = std::min< uint32_t >( m_gotoevent, event_count - 1 );
+    m_eventstart = std::min< uint32_t >( m_eventstart, event_count - 1 );
+    m_eventend = std::min< uint32_t >( std::max< uint32_t >( m_eventend, m_eventstart ), event_count - 1 );
+
+    if ( ImGui::CollapsingHeader( "Process Graphs", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        render_process_graphs();
+    }
+
+    // ImGui::SetNextWindowSizeConstraints( ImVec2( 800, 600 ), ImVec2( -1, -1 ) );
+    if ( ImGui::CollapsingHeader( "Events", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        render_events_list();
     }
 
     ImGui::End();
@@ -874,10 +967,6 @@ void TraceConsole::render( class TraceLoader *loader )
 
                 if ( ImGui::SmallButton( string_format( "Events##%lu", i ).c_str() ) )
                     loader->new_event_window( events );
-
-                ImGui::SameLine();
-                if ( ImGui::SmallButton( string_format( "Graph##%lu", i ).c_str() ) )
-                    logf( "Graphing is NYI...");
 
                 ImGui::SameLine();
                 if ( ImGui::SmallButton( string_format( "Close Windows##%lu", i ).c_str() ) )

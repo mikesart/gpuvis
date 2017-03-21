@@ -220,6 +220,9 @@ public:
 public:
     bool render( class TraceLoader *loader );
     bool render_events();
+    bool render_options();
+    void render_events_list();
+    void render_process_graphs();
 
 protected:
     void render_time_delta_button_init( TraceEvents &trace_events );
