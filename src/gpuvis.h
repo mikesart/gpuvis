@@ -209,15 +209,17 @@ public:
 class TraceWin
 {
 public:
-    TraceWin( TraceEvents *trace_events )
+    TraceWin( TraceEvents *trace_events, std::string &title )
     {
         m_trace_events = trace_events;
+        m_title = title;
     }
 
     ~TraceWin() {}
 
 public:
     bool render( class TraceLoader *loader );
+    bool render_events();
 
 protected:
     void render_time_delta_button_init( TraceEvents &trace_events );
@@ -228,6 +230,7 @@ public:
     bool m_inited = false;
     int m_setfocus = 0;
 
+    std::string m_title;
     TraceEvents *m_trace_events = nullptr;
 
     bool m_do_gotoevent = false;

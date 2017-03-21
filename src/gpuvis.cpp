@@ -39,7 +39,6 @@
 #include "GL/gl3w.h"
 #include "gpuvis.h"
 
-//$ TODO: Restore window size and position
 //$ TODO: Restore column sizes?
 //$ TODO: Small font for events?
 
@@ -239,9 +238,6 @@ bool TraceLoader::load_file( const char *filename )
         }
     }
 
-    //$ TODO: Have this routine return the TraceWin so we can set focus to it?
-    //$       or does that work via the title?
-
     set_state( State_Loading );
     m_filename = filename;
 
@@ -271,7 +267,19 @@ bool TraceLoader::load_file( const char *filename )
 
 void TraceLoader::new_event_window( TraceEvents *trace_events )
 {
-    TraceWin *win = new TraceWin( trace_events );
+    size_t refcount = 0;
+    std::string title = trace_events->m_title;
+
+    for ( int i = m_trace_windows_list.size() - 1; i >= 0; i-- )
+    {
+        if ( m_trace_windows_list[ i ]->m_trace_events == trace_events )
+            refcount++;
+    }
+
+    if ( refcount )
+        title += string_format( " #%lu", refcount + 1 );
+
+    TraceWin *win = new TraceWin( trace_events, title );
 
     m_trace_windows_list.push_back( win );
     win->m_setfocus = 2;
@@ -511,12 +519,7 @@ static void draw_minimap_marker( float x, float y, float width, float height, Im
 
 bool TraceWin::render( class TraceLoader *loader )
 {
-    float scale = ImGui::GetIO().FontGlobalScale;
-    std::string title = m_trace_events->m_title;
     int eventsloaded = SDL_AtomicGet( &m_trace_events->m_eventsloaded );
-
-    title += "##";
-    title += std::to_string( ( size_t )this );
 
     ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
 
@@ -531,7 +534,7 @@ bool TraceWin::render( class TraceLoader *loader )
 
     if ( eventsloaded > 0 )
     {
-        ImGui::Begin( title.c_str(), &m_open );
+        ImGui::Begin( m_title.c_str(), &m_open );
         ImGui::Text( "Loading events %u...", eventsloaded );
 
         if ( ImGui::Button( "Cancel" ) )
@@ -542,19 +545,31 @@ bool TraceWin::render( class TraceLoader *loader )
     }
     else if ( eventsloaded == -1 )
     {
-        ImGui::Begin( title.c_str(), &m_open );
+        ImGui::Begin( m_title.c_str(), &m_open );
         ImGui::Text( "Error loading filed %s...\n", m_trace_events->m_filename.c_str() );
         ImGui::End();
 
         return true;
     }
 
+    return render_events();
+}
+
+bool TraceWin::render_events()
+{
+    float scale = ImGui::GetIO().FontGlobalScale;
     std::vector< trace_event_t > &events = m_trace_events->m_events;
     size_t event_count = events.size();
 
-    ImGui::Begin( title.c_str(), &m_open );
+    ImGui::Begin( m_title.c_str(), &m_open );
 
     ImGui::Text( "Events: %lu\n", event_count );
+
+    if ( !event_count )
+    {
+        ImGui::End();
+        return false;
+    }
 
     if ( m_selected != ( uint32_t )-1 )
     {
