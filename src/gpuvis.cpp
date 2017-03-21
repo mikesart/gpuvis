@@ -236,6 +236,7 @@ bool TraceLoader::load_file( const char *filename )
             TraceWin *win = new TraceWin( events );
 
             m_trace_windows_list.push_back( win );
+            win->m_setfocus = 2;
             return true;
         }
     }
@@ -258,6 +259,7 @@ bool TraceLoader::load_file( const char *filename )
     {
         TraceWin *win = new TraceWin( m_trace_events );
 
+        win->m_setfocus = 2;
         m_trace_windows_list.push_back( win );
         m_trace_events_list.push_back( m_trace_events );
         return true;
@@ -474,6 +476,15 @@ bool TraceWin::render( class TraceLoader *loader )
     title += std::to_string( ( size_t )this );
 
     ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
+
+    // If we're told to set focus, wait until the mouse isn't down as they
+    //  could have clicked on a button to set focus. Also, hack to do it
+    //  twice as the button code still steals our focus if we do it once.
+    if ( m_setfocus && !ImGui::IsMouseDown( 0 ) )
+    {
+        ImGui::SetNextWindowFocus();
+        m_setfocus--;
+    }
 
     if ( eventsloaded > 0 )
     {

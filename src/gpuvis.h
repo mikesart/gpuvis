@@ -226,6 +226,7 @@ protected:
 
 public:
     bool m_inited = false;
+    int m_setfocus = 0;
 
     TraceEvents *m_trace_events = nullptr;
 
