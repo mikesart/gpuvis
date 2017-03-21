@@ -237,12 +237,15 @@ public:
     TraceEvents *m_trace_events = nullptr;
 
     bool m_do_gotoevent = false;
+    bool m_time_goto = false;
     int m_gotoevent = 0;
 
     int m_eventstart = 0;
     int m_eventend = INT32_MAX;
     bool m_open = true;
     uint32_t m_selected = ( uint32_t )-1;
+
+    bool m_mouse_over_graph = false;
 
     char m_timegoto_buf[ 32 ];
 

@@ -469,17 +469,17 @@ void TraceWin::render_time_delta_button( TraceEvents &trace_events )
 
 bool TraceWin::render_time_goto_button( TraceEvents &trace_events )
 {
-    bool time_goto = ImGui::Button( "Goto Time:" );
+    m_time_goto |= ImGui::Button( "Goto Time:" );
 
     if ( !m_inited )
         snprintf( m_timegoto_buf, sizeof( m_timegoto_buf ), "0.0" );
 
     ImGui::SameLine();
     ImGui::PushItemWidth( 150 );
-    time_goto |= ImGui::InputText( "##TimeGoto", m_timegoto_buf, sizeof( m_timegoto_buf ), 0, 0 );
+    m_time_goto |= ImGui::InputText( "##TimeGoto", m_timegoto_buf, sizeof( m_timegoto_buf ), 0, 0 );
     ImGui::PopItemWidth();
 
-    if ( time_goto )
+    if ( m_time_goto )
     {
         trace_event_t x;
         const char *dot = strchr( m_timegoto_buf, '.' );
@@ -505,19 +505,8 @@ bool TraceWin::render_time_goto_button( TraceEvents &trace_events )
             m_gotoevent--;
     }
 
-    return time_goto;
+    return m_time_goto;
 }
-
-#if 0
-static void draw_minimap_marker( float x, float y, float width, float height, ImU32 color,
-                                 float rounding = 0.0f )
-{
-    ImGui::GetWindowDrawList()->AddRectFilled(
-        ImVec2( x, y ),
-        ImVec2( x + width, y + height ),
-        color, rounding, 0xf );
-}
-#endif
 
 bool TraceWin::render( class TraceLoader *loader )
 {
@@ -635,6 +624,7 @@ void TraceWin::render_events_list()
         {
             ImGui::SetScrollY( std::max< int >( 0, m_gotoevent - m_eventstart ) * lineh );
             m_do_gotoevent = false;
+            m_time_goto = false;
         }
 
         float scrolly = ImGui::GetScrollY();
@@ -703,74 +693,6 @@ void TraceWin::render_events_list()
 
         ImGui::Columns( 1 );
         ImGui::EndChild();
-
-#if 0
-        // Draw a zoomed minimap off to the right to help locate events
-        {
-            ImGui::SameLine();
-
-            const float fw = 3.0f;
-            ImVec2 pos = ImGui::GetCursorScreenPos();
-            uint32_t event0 = std::max< int >( ( int )start_idx + m_eventstart - rows * 50, m_eventstart );
-            uint32_t event1 = std::min< uint32_t >( event0 + rows * 100, m_eventend - 1 );
-            float event_height = ( event1 + 1 - event0 );
-            static const ImU32 col_vblank = IM_COL32( 0, 0, 255, 255 );
-            static const ImU32 col_viewable = IM_COL32( 128, 128, 128, 128 );
-            static const ImU32 col_background = IM_COL32( 255, 255, 255, 50 );
-            static const ImU32 col_selected = ImGui::GetColorU32( ImGuiCol_TextSelectedBg );
-
-            // Draw background
-            draw_minimap_marker( pos.x, pos.y, map_width, avail.y, col_background );
-
-            // Draw blue marker lines for vblanks
-            std::vector< uint32_t > *vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
-            if ( vblank_locs )
-            {
-                for ( uint32_t id : *vblank_locs )
-                {
-                    if ( id > event1 )
-                        break;
-                    if ( id >= event0 )
-                    {
-                        float pos0 = ( id - event0 ) / event_height;
-
-                        draw_minimap_marker( pos.x + fw, pos.y + avail.y * pos0,
-                                             map_width - 2 * fw, 3, col_vblank );
-                    }
-                }
-            }
-
-            // Draw marker for selected event
-            if ( m_selected + m_eventstart >= event0 && m_selected + m_eventstart <= event1 )
-            {
-                float pos0 = ( m_selected + m_eventstart - event0 ) / event_height;
-
-                draw_minimap_marker( pos.x + fw, pos.y + avail.y * pos0,
-                                     map_width - 2 * fw, 3, col_selected );
-            }
-
-            // Draw rectangle ~ showing visible event location.
-            float pos0 = ( start_idx + m_eventstart - event0 ) / event_height;
-            float pos1 = ( end_idx + m_eventstart - event0 ) / event_height;
-
-            draw_minimap_marker( pos.x + fw - 1, pos.y + avail.y * pos0,
-                                 map_width - 2 * ( fw - 1 ), avail.y * ( pos1 - pos0 ),
-                                 col_viewable, 3.0f );
-
-            if ( ImGui::IsMouseClicked( 0 ) && ImGui::IsMouseHoveringWindow() )
-            {
-                ImVec2 mouse_pos = ImGui::GetMousePos();
-                float clickpos = ( mouse_pos.y - pos.y ) / avail.y;
-                uint32_t event = event0 + ( event1 - event0 ) * clickpos;
-
-                if ( ( event >= event0 ) && ( event <= event1 ) )
-                {
-                    m_do_gotoevent = true;
-                    m_gotoevent = event;
-                }
-            }
-        }
-#endif
     }
 }
 
@@ -809,26 +731,145 @@ void TraceWin::render_events_list()
 
 void TraceWin::render_process_graphs()
 {
-    static float arr[] = { 0.6f, 0.1f, 1.0f, 0.5f, 0.92f, 0.1f, 0.2f,
-                           0.6f, 0.1f, 1.0f, 0.5f, 0.92f, 0.1f, 0.2f,
-                           0.6f, 0.1f, 1.0f, 0.5f, 0.92f, 0.1f, 0.2f };
     float scale = ImGui::GetIO().FontGlobalScale;
+    static const ImU32 col_vblank = IM_COL32( 0, 0, 255, 255 );
+    static const ImU32 col_background = IM_COL32( 255, 255, 255, 50 );
+    static const ImU32 col_selected = ImGui::GetColorU32( ImGuiCol_TextSelectedBg );
 
     float h = 40.0f * scale;
     float w = ImGui::GetContentRegionAvailWidth();
-    // float lineh = ImGui::GetTextLineHeightWithSpacing();
+
+    std::vector< trace_event_t > &events = m_trace_events->m_events;
+    trace_event_t *event0 = &events[ m_eventstart ];
+    trace_event_t *event1 = &events[ m_eventend ];
+
+    unsigned long long ts_min = m_trace_events->m_ts_min;
+    unsigned long long ts_max = m_trace_events->m_ts_max;
+
+    unsigned long long ts0 = event0->ts;
+    unsigned long long ts1 = event1->ts;
+    unsigned long long tsdx = ts1 - ts0 + 1;
+
+    double tsdxrcp = 1.0 / tsdx;
+
+    ImVec2 mouse_pos = ImGui::GetMousePos();
+    ImVec2 pos_min( FLT_MAX, FLT_MAX );
+    ImVec2 pos_max( FLT_MIN, FLT_MIN );
 
     for ( auto item : m_trace_events->m_comm_locations.m_locations )
     {
         uint32_t hashval = item.first;
+        std::vector< uint32_t > &locs = item.second;
         const char *comm = m_trace_events->m_strpool.getstr( hashval );
+        std::string label = string_format( "%s %lu events", comm, locs.size() );
 
-        if ( ImGui::CollapsingHeader( comm, ImGuiTreeNodeFlags_DefaultOpen ) )
+        if ( ImGui::CollapsingHeader( label.c_str(), ImGuiTreeNodeFlags_DefaultOpen ) )
         {
-            ImGui::PlotHistogram(comm, arr, sizeof( arr ) / sizeof( arr[0] ),
-                    0, "event graph", 0.0f, 1.0f, ImVec2( w, h ));
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+
+            pos_min.x = std::min( pos_min.x, pos.x );
+            pos_min.y = std::min( pos_min.y, pos.y );
+            pos_max.x = std::max( pos_max.x, pos.x + w );
+            pos_max.y = std::max( pos_max.y, pos.y + h );
+
+            ImGui::BeginChild( ( "g_" + label ).c_str(), ImVec2( w, h ) );
+
+            // Draw background
+            ImGui::GetWindowDrawList()->AddRectFilled(
+                        ImVec2( pos.x, pos.y ),
+                        ImVec2( pos.x + w, pos.y + h ),
+                        col_background );
+
+            // Draw time ticks every millisecond
+            unsigned long long msecs = ts0 / MSECS_PER_SEC;
+            unsigned long long msec0 = msecs * MSECS_PER_SEC;
+
+            for ( unsigned long long ts = msec0; ts <= ts1; ts += MSECS_PER_SEC )
+            {
+                float y = pos.y + 0.0f;
+                float x = pos.x + w * ( ts - ts0 ) * tsdxrcp;
+
+                ImGui::GetWindowDrawList()->AddLine(
+                            ImVec2( x, y ),
+                            ImVec2( x, y + 8 ),
+                            0xffff00ff, 1.0f );
+            }
+
+            // Go through all event IDs for this process
+            for ( uint32_t id : locs )
+            {
+                if ( id >= m_eventstart && id <= m_eventend )
+                {
+                    trace_event_t &event = m_trace_events->m_events[ id ];
+                    float y = pos.y + 0.0f;
+                    float x = pos.x + w * ( event.ts - ts0 ) * tsdxrcp;
+
+                    ImGui::GetWindowDrawList()->AddLine(
+                                ImVec2( x, y ),
+                                ImVec2( x, y + h ),
+                                col_vblank );
+                }
+            }
+
+            std::vector< uint32_t > *vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
+            if ( vblank_locs )
+            {
+                for ( uint32_t id : *vblank_locs )
+                {
+                    if ( id >= m_eventstart && id <= m_eventend )
+                    {
+                        trace_event_t &event = m_trace_events->m_events[ id ];
+                        float y = pos.y + 0.0f;
+                        float x = pos.x + w * ( event.ts - ts0 ) * tsdxrcp;
+
+                        ImGui::GetWindowDrawList()->AddLine(
+                                    ImVec2( x, y ),
+                                    ImVec2( x, y + h ),
+                                    0xffff00ff );
+                    }
+                }
+            }
+
+            if ( m_mouse_over_graph &&
+                 mouse_pos.x >= pos.x &&
+                 mouse_pos.x <= pos.x + w )
+            {
+                ImGui::GetWindowDrawList()->AddLine(
+                            ImVec2( mouse_pos.x, pos.y ),
+                            ImVec2( mouse_pos.x, pos.y + h ),
+                            0xffff00ff, 1.0f );
+            }
+
+            ImGui::EndChild();
         }
     }
+
+    m_mouse_over_graph =
+        ( mouse_pos.x >= pos_min.x && mouse_pos.x <= pos_max.x &&
+          mouse_pos.y >= pos_min.y && mouse_pos.y <= pos_max.y );
+
+    if ( m_mouse_over_graph)
+    {
+        double x = ( mouse_pos.x - pos_min.x ) / w;
+        unsigned long long event_ts = ts0 + tsdx * x;
+        bool ts_negative = ( m_tsdelta > event_ts );
+        unsigned long long ts = ts_negative ? ( m_tsdelta - event_ts ) : ( event_ts - m_tsdelta );
+        unsigned long msecs = ts / MSECS_PER_SEC;
+        unsigned long nsecs = ts - msecs * MSECS_PER_SEC;
+
+        std::string time_buf = string_format( "%s%lu.%06lu", ts_negative ? "-" : "", msecs, nsecs );
+
+        ImGui::SetTooltip( time_buf.c_str(), ts_negative ? "-" : "", msecs, nsecs );
+
+        bool mouse_clicked = ImGui::IsMouseClicked( 0 );
+        if ( mouse_clicked )
+        {
+            strncpy( m_timegoto_buf, time_buf.c_str(), sizeof( m_timegoto_buf ) );
+            m_timegoto_buf[ sizeof( m_timegoto_buf ) - 1 ] = 0;
+            m_time_goto = true;
+        }
+    }
+
 }
 
 bool TraceWin::render_events()
