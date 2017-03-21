@@ -331,6 +331,29 @@ int SDLCALL TraceLoader::thread_func( void *data )
     return 0;
 }
 
+void TraceLoader::shutdown()
+{
+    if ( m_thread )
+    {
+        // Cancel any file loading going on.
+        cancel_load_file();
+
+        // Wait for our thread to die.
+        SDL_WaitThread( m_thread, NULL );
+        m_thread = NULL;
+    }
+
+    set_state( State_Idle );
+
+    for ( TraceWin *win : m_trace_windows_list )
+        delete win;
+    m_trace_windows_list.clear();
+
+    for ( TraceEvents *events : m_trace_events_list )
+        delete events;
+    m_trace_events_list.clear();
+}
+
 /*
  * TracWin
  */
@@ -714,7 +737,7 @@ void TraceConsole::render( class TraceLoader *loader )
 {
     ImGui::SetNextWindowSize( ImVec2( 520, 600 ), ImGuiSetCond_FirstUseEver );
 
-    if ( !ImGui::Begin( "gpuvis console", &m_open ) )
+    if ( !ImGui::Begin( "gpuvis console" ) )
     {
         ImGui::End();
         return;
@@ -1180,11 +1203,22 @@ int main( int argc, char **argv )
         // Check for logf() calls from background threads.
         logf_update();
 
-        // Render our console / options window.
+        // Render console / options window
         console.render( &loader );
 
-        for ( TraceWin *win : loader.m_trace_windows_list )
+        // Render trace windows
+        std::vector< TraceWin * > &win_list = loader.m_trace_windows_list;
+        for ( int i = win_list.size() - 1; i >= 0; i-- )
+        {
+            TraceWin *win = win_list[ i ];
+
             win->render( &loader );
+            if ( !win->m_open )
+            {
+                delete win;
+                win_list.erase( win_list.begin() + i );
+            }
+        }
 
         // Rendering
         const ImVec4 &color = console.m_clear_color;
@@ -1202,14 +1236,6 @@ int main( int argc, char **argv )
             break;
     }
 
-    if ( loader.m_thread )
-    {
-        loader.cancel_load_file();
-
-        //$ TODO mikesart: Tell loader to stop loading...
-        SDL_WaitThread( loader.m_thread, NULL );
-    }
-
     // Write main window position / size to ini file.
     int top, left, bottom, right;
 
@@ -1221,15 +1247,10 @@ int main( int argc, char **argv )
     inifile.PutInt( "win_w", w );
     inifile.PutInt( "win_h", h );
 
-    //$ TODO mikesart: Move this to loader shutdown?
-    for ( TraceWin *win : loader.m_trace_windows_list )
-        delete win;
-    loader.m_trace_windows_list.clear();
+    // Shut down our trace loader
+    loader.shutdown();
 
-    for ( TraceEvents *events : loader.m_trace_events_list )
-        delete events;
-    loader.m_trace_events_list.clear();
-
+    // Shut down our console / option window
     console.shutdown( &inifile );
 
     logf_clear();

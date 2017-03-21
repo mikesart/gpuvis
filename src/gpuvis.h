@@ -200,7 +200,6 @@ public:
     ImVec4 m_clear_color;
 
     size_t m_log_size = ( size_t )-1;
-    bool m_open = true;
     bool m_quit = false;
     bool m_show_imgui_test_window = false;
     bool m_show_imgui_style_editor = false;
@@ -235,7 +234,7 @@ public:
 
     int m_eventstart = 0;
     int m_eventend = INT32_MAX;
-    bool m_open = false;
+    bool m_open = true;
     uint32_t m_selected = ( uint32_t )-1;
 
     char m_timegoto_buf[ 32 ];
@@ -262,6 +261,8 @@ public:
     bool load_file( const char *filename );
     void cancel_load_file();
     bool is_loading();
+
+    void shutdown();
 
 protected:
     state_t get_state();
