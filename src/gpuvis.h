@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include <limits.h>
 #include "gpuvis_macros.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_sdl_gl3.h"
@@ -35,6 +36,8 @@ using std::placeholders::_5;
 #define MSECS_PER_SEC		1000000ULL
 
 extern "C" uint32_t fnv_hashstr32( const char *str );
+
+void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
 
 class StrPool
 {
@@ -156,15 +159,19 @@ public:
     unsigned long long m_ts_max = 0;
     std::vector< uint32_t > m_cpucount;
 
+    std::string m_filename;
     StrPool m_strpool;
     trace_info_t m_trace_info;
-    std::vector< trace_event_t > m_trace_events;
+    std::vector< trace_event_t > m_events;
 
     // Map of event name hashval to array of event locations.
     TraceLocations m_event_locations;
 
     // Map of comm hashval to array of event locations.
     TraceLocations m_comm_locations;
+
+    // 0: events loaded, 1+: loading events, -1: error
+    SDL_atomic_t m_eventsloaded = { 0 };
 };
 
 struct GPUVisCon
@@ -176,12 +183,9 @@ public:
     void init( class CIniFile *inifile );
     void shutdown( class CIniFile *inifile );
 
-    void clear_log();
-    void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
-
     void exec_command( const char *command_line );
 
-    void render( const char *title );
+    void render( class TraceEventLoader *loader );
 
 protected:
     static int text_edit_cb_stub( ImGuiTextEditCallbackData *data );
@@ -201,10 +205,13 @@ public:
     int m_history_pos = -1;
     std::vector< std::string > m_history;
 
+    char m_trace_file[ PATH_MAX ] = { 0 };
+
     ImVec4 m_clear_color;
+
+    size_t m_log_size = ( size_t )-1;
     bool m_open = true;
     bool m_quit = false;
-    bool m_scroll_to_bottom = true;
     bool m_show_imgui_test_window = false;
     bool m_show_imgui_style_editor = false;
     bool m_show_imgui_metrics_editor = false;

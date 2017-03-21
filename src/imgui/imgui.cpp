@@ -2468,22 +2468,20 @@ static void LoadIniSettingsFromDisk(const char* ini_filename)
 
         data.Id = 0;
         data.Name = NULL;
-        while ( !g.IO.IniLoadSettingCB( index, data ) )
+        while ( !g.IO.IniLoadSettingCB( index++, data ) )
         {
-            ImGuiIniData *settings;
-
-            settings = AddWindowSettings( data.Name );
-
             if ( data.Name && data.Name[ 0 ] )
             {
+                ImGuiIniData *settings;
+
+                settings = AddWindowSettings( data.Name );
+
                 settings->Pos = data.Pos;
                 settings->Size = data.Size;
                 settings->Collapsed = data.Collapsed;
-
-                free(data.Name);
             }
 
-            index++;
+            free(data.Name);
             data.Name = NULL;
         }
 

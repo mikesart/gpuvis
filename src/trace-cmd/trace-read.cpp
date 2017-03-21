@@ -32,6 +32,8 @@
 #include <future>
 #include <set>
 
+#include <SDL2/SDL.h>
+
 extern "C"
 {
     #include "event-parse.h"
@@ -134,10 +136,14 @@ typedef struct tracecmd_input
 [[noreturn]] static int die( tracecmd_input_t *handle, const char *fmt, ... )
 {
     va_list ap;
+    char *buf = NULL;
 
     va_start( ap, fmt );
-    vfprintf( stderr, fmt, ap );
+    vasprintf( &buf, fmt, ap );
     va_end( ap );
+
+    logf( "%s", buf );
+    free( buf );
 
     std::longjmp( handle->jump_buffer, -1 );
 }
@@ -1304,7 +1310,7 @@ static tracecmd_input_t *tracecmd_alloc_fd( const char *file, int fd )
 
     if ( setjmp( handle->jump_buffer ) )
     {
-        fprintf( stderr, "%s: setjmp error code called for %s.\n", __func__, file );
+        logf( "%s: setjmp error code called for %s.\n", __func__, file );
 
         delete handle;
         close( fd );
@@ -1364,7 +1370,7 @@ static tracecmd_input_t *tracecmd_alloc( const char *file )
     fd = TEMP_FAILURE_RETRY( open( file, O_RDONLY ) );
     if ( fd < 0 )
     {
-        fprintf( stderr, "%s: open(\"%s\") failed: %d\n", __func__, file, errno );
+        logf( "%s: open(\"%s\") failed: %d\n", __func__, file, errno );
         return NULL;
     }
 
@@ -1652,7 +1658,7 @@ int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
     handle = tracecmd_alloc( file );
     if ( !handle )
     {
-        fprintf( stderr, "%s: Open trace file \"%s\" failed.\n", __func__, file );
+        logf( "%s: Open trace file \"%s\" failed.\n", __func__, file );
         return -1;
     }
 
