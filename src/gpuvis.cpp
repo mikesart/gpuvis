@@ -47,6 +47,221 @@ static std::vector< char * > g_log;
 static std::vector< char * > g_thread_log;
 static SDL_mutex *g_mutex = nullptr;
 
+// http://colorbrewer2.org/#type=sequential&scheme=YlOrRd&n=9
+static std::array< ImU32, 6 > g_YlRd_hues =
+{
+    IM_COL32( 254, 178, 76, 255 ),
+    IM_COL32( 253, 141, 60, 245 ),
+    IM_COL32( 252, 78, 42, 235 ),
+    IM_COL32( 227, 26, 28, 225 ),
+    IM_COL32( 189, 0, 38, 215 ),
+    IM_COL32( 128, 0, 38, 205 ),
+};
+static std::array< ImU32, 6 > g_GnBu_hues =
+{
+    IM_COL32( 127, 205, 187, 255 ),
+    IM_COL32( 65, 182, 196, 245 ),
+    IM_COL32( 29, 145, 192, 235 ),
+    IM_COL32( 34, 94, 168, 225 ),
+    IM_COL32( 37, 52, 148, 215 ),
+    IM_COL32( 8, 29, 88, 205 ),
+};
+static std::array< ImU32, 6 > g_YlGn_hues =
+{
+    IM_COL32( 173, 221, 142, 255 ),
+    IM_COL32( 120, 198, 121, 245 ),
+    IM_COL32( 65, 171, 93, 235 ),
+    IM_COL32( 35, 132, 67, 225 ),
+    IM_COL32( 0, 104, 55, 215 ),
+    IM_COL32( 0, 69, 41, 205 ),
+};
+static std::array< ImU32, 6 > g_RdPu_hues =
+{
+    IM_COL32( 250, 159, 181, 255 ),
+    IM_COL32( 247, 104, 161, 245 ),
+    IM_COL32( 221, 52, 151, 235 ),
+    IM_COL32( 174, 1, 126, 225 ),
+    IM_COL32( 122, 1, 119, 215 ),
+    IM_COL32( 73, 0, 106, 205 ),
+};
+enum hue_t
+{
+    Hue_YlRd,
+    Hue_GnBu,
+    Hue_YlGn,
+    Hue_RdPu,
+};
+
+ImU32 get_hue( hue_t hues, uint32_t index )
+{
+    switch( hues )
+    {
+    default:
+    case Hue_YlRd: return g_YlRd_hues[ std::min< uint32_t >( index, g_YlGn_hues.size() - 1 ) ];
+    case Hue_GnBu: return g_GnBu_hues[ std::min< uint32_t >( index, g_GnBu_hues.size() - 1 ) ];
+    case Hue_YlGn: return g_YlGn_hues[ std::min< uint32_t >( index, g_YlGn_hues.size() - 1 ) ];
+    case Hue_RdPu: return g_RdPu_hues[ std::min< uint32_t >( index, g_RdPu_hues.size() - 1 ) ];
+    }
+}
+
+ImU32 get_YlRd_hue( uint32_t index )
+{
+    return get_hue( Hue_YlRd, index );
+}
+
+// https://www.w3schools.com/colors/colors_groups.asp
+const ImU32 col_Black   = IM_COL32( 0x00, 0x00, 0x00, 0xFF );
+const ImU32 col_Navy   = IM_COL32( 0x00, 0x00, 0x80, 0xFF );
+const ImU32 col_DarkBlue   = IM_COL32( 0x00, 0x00, 0x8B, 0xFF );
+const ImU32 col_MediumBlue   = IM_COL32( 0x00, 0x00, 0xCD, 0xFF );
+const ImU32 col_Blue   = IM_COL32( 0x00, 0x00, 0xFF, 0xFF );
+const ImU32 col_DarkGreen   = IM_COL32( 0x00, 0x64, 0x00, 0xFF );
+const ImU32 col_Green   = IM_COL32( 0x00, 0x80, 0x00, 0xFF );
+const ImU32 col_Teal   = IM_COL32( 0x00, 0x80, 0x80, 0xFF );
+const ImU32 col_DarkCyan   = IM_COL32( 0x00, 0x8B, 0x8B, 0xFF );
+const ImU32 col_DeepSkyBlue   = IM_COL32( 0x00, 0xBF, 0xFF, 0xFF );
+const ImU32 col_DarkTurquoise   = IM_COL32( 0x00, 0xCE, 0xD1, 0xFF );
+const ImU32 col_MediumSpringGreen   = IM_COL32( 0x00, 0xFA, 0x9A, 0xFF );
+const ImU32 col_Lime   = IM_COL32( 0x00, 0xFF, 0x00, 0xFF );
+const ImU32 col_SpringGreen   = IM_COL32( 0x00, 0xFF, 0x7F, 0xFF );
+const ImU32 col_Aqua   = IM_COL32( 0x00, 0xFF, 0xFF, 0xFF );
+const ImU32 col_Cyan   = IM_COL32( 0x00, 0xFF, 0xFF, 0xFF );
+const ImU32 col_MidnightBlue   = IM_COL32( 0x19, 0x19, 0x70, 0xFF );
+const ImU32 col_DodgerBlue   = IM_COL32( 0x1E, 0x90, 0xFF, 0xFF );
+const ImU32 col_LightSeaGreen   = IM_COL32( 0x20, 0xB2, 0xAA, 0xFF );
+const ImU32 col_ForestGreen   = IM_COL32( 0x22, 0x8B, 0x22, 0xFF );
+const ImU32 col_SeaGreen   = IM_COL32( 0x2E, 0x8B, 0x57, 0xFF );
+const ImU32 col_DarkSlateGray   = IM_COL32( 0x2F, 0x4F, 0x4F, 0xFF );
+const ImU32 col_DarkSlateGrey   = IM_COL32( 0x2F, 0x4F, 0x4F, 0xFF );
+const ImU32 col_LimeGreen   = IM_COL32( 0x32, 0xCD, 0x32, 0xFF );
+const ImU32 col_MediumSeaGreen   = IM_COL32( 0x3C, 0xB3, 0x71, 0xFF );
+const ImU32 col_Turquoise   = IM_COL32( 0x40, 0xE0, 0xD0, 0xFF );
+const ImU32 col_RoyalBlue   = IM_COL32( 0x41, 0x69, 0xE1, 0xFF );
+const ImU32 col_SteelBlue   = IM_COL32( 0x46, 0x82, 0xB4, 0xFF );
+const ImU32 col_DarkSlateBlue   = IM_COL32( 0x48, 0x3D, 0x8B, 0xFF );
+const ImU32 col_MediumTurquoise   = IM_COL32( 0x48, 0xD1, 0xCC, 0xFF );
+const ImU32 col_Indigo    = IM_COL32( 0x4B, 0x00, 0x82, 0xFF );
+const ImU32 col_DarkOliveGreen   = IM_COL32( 0x55, 0x6B, 0x2F, 0xFF );
+const ImU32 col_CadetBlue   = IM_COL32( 0x5F, 0x9E, 0xA0, 0xFF );
+const ImU32 col_CornflowerBlue   = IM_COL32( 0x64, 0x95, 0xED, 0xFF );
+const ImU32 col_RebeccaPurple   = IM_COL32( 0x66, 0x33, 0x99, 0xFF );
+const ImU32 col_MediumAquaMarine   = IM_COL32( 0x66, 0xCD, 0xAA, 0xFF );
+const ImU32 col_DimGray   = IM_COL32( 0x69, 0x69, 0x69, 0xFF );
+const ImU32 col_DimGrey   = IM_COL32( 0x69, 0x69, 0x69, 0xFF );
+const ImU32 col_SlateBlue   = IM_COL32( 0x6A, 0x5A, 0xCD, 0xFF );
+const ImU32 col_OliveDrab   = IM_COL32( 0x6B, 0x8E, 0x23, 0xFF );
+const ImU32 col_SlateGray   = IM_COL32( 0x70, 0x80, 0x90, 0xFF );
+const ImU32 col_SlateGrey   = IM_COL32( 0x70, 0x80, 0x90, 0xFF );
+const ImU32 col_LightSlateGray   = IM_COL32( 0x77, 0x88, 0x99, 0xFF );
+const ImU32 col_LightSlateGrey   = IM_COL32( 0x77, 0x88, 0x99, 0xFF );
+const ImU32 col_MediumSlateBlue   = IM_COL32( 0x7B, 0x68, 0xEE, 0xFF );
+const ImU32 col_LawnGreen   = IM_COL32( 0x7C, 0xFC, 0x00, 0xFF );
+const ImU32 col_Chartreuse   = IM_COL32( 0x7F, 0xFF, 0x00, 0xFF );
+const ImU32 col_Aquamarine   = IM_COL32( 0x7F, 0xFF, 0xD4, 0xFF );
+const ImU32 col_Maroon   = IM_COL32( 0x80, 0x00, 0x00, 0xFF );
+const ImU32 col_Purple   = IM_COL32( 0x80, 0x00, 0x80, 0xFF );
+const ImU32 col_Olive   = IM_COL32( 0x80, 0x80, 0x00, 0xFF );
+const ImU32 col_Gray   = IM_COL32( 0x80, 0x80, 0x80, 0xFF );
+const ImU32 col_Grey   = IM_COL32( 0x80, 0x80, 0x80, 0xFF );
+const ImU32 col_SkyBlue   = IM_COL32( 0x87, 0xCE, 0xEB, 0xFF );
+const ImU32 col_LightSkyBlue   = IM_COL32( 0x87, 0xCE, 0xFA, 0xFF );
+const ImU32 col_BlueViolet   = IM_COL32( 0x8A, 0x2B, 0xE2, 0xFF );
+const ImU32 col_DarkRed   = IM_COL32( 0x8B, 0x00, 0x00, 0xFF );
+const ImU32 col_DarkMagenta   = IM_COL32( 0x8B, 0x00, 0x8B, 0xFF );
+const ImU32 col_SaddleBrown   = IM_COL32( 0x8B, 0x45, 0x13, 0xFF );
+const ImU32 col_DarkSeaGreen   = IM_COL32( 0x8F, 0xBC, 0x8F, 0xFF );
+const ImU32 col_LightGreen   = IM_COL32( 0x90, 0xEE, 0x90, 0xFF );
+const ImU32 col_MediumPurple   = IM_COL32( 0x93, 0x70, 0xDB, 0xFF );
+const ImU32 col_DarkViolet   = IM_COL32( 0x94, 0x00, 0xD3, 0xFF );
+const ImU32 col_PaleGreen   = IM_COL32( 0x98, 0xFB, 0x98, 0xFF );
+const ImU32 col_DarkOrchid   = IM_COL32( 0x99, 0x32, 0xCC, 0xFF );
+const ImU32 col_YellowGreen   = IM_COL32( 0x9A, 0xCD, 0x32, 0xFF );
+const ImU32 col_Sienna   = IM_COL32( 0xA0, 0x52, 0x2D, 0xFF );
+const ImU32 col_Brown   = IM_COL32( 0xA5, 0x2A, 0x2A, 0xFF );
+const ImU32 col_DarkGray   = IM_COL32( 0xA9, 0xA9, 0xA9, 0xFF );
+const ImU32 col_DarkGrey   = IM_COL32( 0xA9, 0xA9, 0xA9, 0xFF );
+const ImU32 col_LightBlue   = IM_COL32( 0xAD, 0xD8, 0xE6, 0xFF );
+const ImU32 col_GreenYellow   = IM_COL32( 0xAD, 0xFF, 0x2F, 0xFF );
+const ImU32 col_PaleTurquoise   = IM_COL32( 0xAF, 0xEE, 0xEE, 0xFF );
+const ImU32 col_LightSteelBlue   = IM_COL32( 0xB0, 0xC4, 0xDE, 0xFF );
+const ImU32 col_PowderBlue   = IM_COL32( 0xB0, 0xE0, 0xE6, 0xFF );
+const ImU32 col_FireBrick   = IM_COL32( 0xB2, 0x22, 0x22, 0xFF );
+const ImU32 col_DarkGoldenRod   = IM_COL32( 0xB8, 0x86, 0x0B, 0xFF );
+const ImU32 col_MediumOrchid   = IM_COL32( 0xBA, 0x55, 0xD3, 0xFF );
+const ImU32 col_RosyBrown   = IM_COL32( 0xBC, 0x8F, 0x8F, 0xFF );
+const ImU32 col_DarkKhaki   = IM_COL32( 0xBD, 0xB7, 0x6B, 0xFF );
+const ImU32 col_Silver   = IM_COL32( 0xC0, 0xC0, 0xC0, 0xFF );
+const ImU32 col_MediumVioletRed   = IM_COL32( 0xC7, 0x15, 0x85, 0xFF );
+const ImU32 col_IndianRed    = IM_COL32( 0xCD, 0x5C, 0x5C, 0xFF );
+const ImU32 col_Peru   = IM_COL32( 0xCD, 0x85, 0x3F, 0xFF );
+const ImU32 col_Chocolate   = IM_COL32( 0xD2, 0x69, 0x1E, 0xFF );
+const ImU32 col_Tan   = IM_COL32( 0xD2, 0xB4, 0x8C, 0xFF );
+const ImU32 col_LightGray   = IM_COL32( 0xD3, 0xD3, 0xD3, 0xFF );
+const ImU32 col_LightGrey   = IM_COL32( 0xD3, 0xD3, 0xD3, 0xFF );
+const ImU32 col_Thistle   = IM_COL32( 0xD8, 0xBF, 0xD8, 0xFF );
+const ImU32 col_Orchid   = IM_COL32( 0xDA, 0x70, 0xD6, 0xFF );
+const ImU32 col_GoldenRod   = IM_COL32( 0xDA, 0xA5, 0x20, 0xFF );
+const ImU32 col_PaleVioletRed   = IM_COL32( 0xDB, 0x70, 0x93, 0xFF );
+const ImU32 col_Crimson   = IM_COL32( 0xDC, 0x14, 0x3C, 0xFF );
+const ImU32 col_Gainsboro   = IM_COL32( 0xDC, 0xDC, 0xDC, 0xFF );
+const ImU32 col_Plum   = IM_COL32( 0xDD, 0xA0, 0xDD, 0xFF );
+const ImU32 col_BurlyWood   = IM_COL32( 0xDE, 0xB8, 0x87, 0xFF );
+const ImU32 col_LightCyan   = IM_COL32( 0xE0, 0xFF, 0xFF, 0xFF );
+const ImU32 col_Lavender   = IM_COL32( 0xE6, 0xE6, 0xFA, 0xFF );
+const ImU32 col_DarkSalmon   = IM_COL32( 0xE9, 0x96, 0x7A, 0xFF );
+const ImU32 col_Violet   = IM_COL32( 0xEE, 0x82, 0xEE, 0xFF );
+const ImU32 col_PaleGoldenRod   = IM_COL32( 0xEE, 0xE8, 0xAA, 0xFF );
+const ImU32 col_LightCoral   = IM_COL32( 0xF0, 0x80, 0x80, 0xFF );
+const ImU32 col_Khaki   = IM_COL32( 0xF0, 0xE6, 0x8C, 0xFF );
+const ImU32 col_AliceBlue   = IM_COL32( 0xF0, 0xF8, 0xFF, 0xFF );
+const ImU32 col_HoneyDew   = IM_COL32( 0xF0, 0xFF, 0xF0, 0xFF );
+const ImU32 col_Azure   = IM_COL32( 0xF0, 0xFF, 0xFF, 0xFF );
+const ImU32 col_SandyBrown   = IM_COL32( 0xF4, 0xA4, 0x60, 0xFF );
+const ImU32 col_Wheat   = IM_COL32( 0xF5, 0xDE, 0xB3, 0xFF );
+const ImU32 col_Beige   = IM_COL32( 0xF5, 0xF5, 0xDC, 0xFF );
+const ImU32 col_WhiteSmoke   = IM_COL32( 0xF5, 0xF5, 0xF5, 0xFF );
+const ImU32 col_MintCream   = IM_COL32( 0xF5, 0xFF, 0xFA, 0xFF );
+const ImU32 col_GhostWhite   = IM_COL32( 0xF8, 0xF8, 0xFF, 0xFF );
+const ImU32 col_Salmon   = IM_COL32( 0xFA, 0x80, 0x72, 0xFF );
+const ImU32 col_AntiqueWhite   = IM_COL32( 0xFA, 0xEB, 0xD7, 0xFF );
+const ImU32 col_Linen   = IM_COL32( 0xFA, 0xF0, 0xE6, 0xFF );
+const ImU32 col_LightGoldenRodYellow   = IM_COL32( 0xFA, 0xFA, 0xD2, 0xFF );
+const ImU32 col_OldLace   = IM_COL32( 0xFD, 0xF5, 0xE6, 0xFF );
+const ImU32 col_Red   = IM_COL32( 0xFF, 0x00, 0x00, 0xFF );
+const ImU32 col_Fuchsia   = IM_COL32( 0xFF, 0x00, 0xFF, 0xFF );
+const ImU32 col_Magenta   = IM_COL32( 0xFF, 0x00, 0xFF, 0xFF );
+const ImU32 col_DeepPink   = IM_COL32( 0xFF, 0x14, 0x93, 0xFF );
+const ImU32 col_OrangeRed   = IM_COL32( 0xFF, 0x45, 0x00, 0xFF );
+const ImU32 col_Tomato   = IM_COL32( 0xFF, 0x63, 0x47, 0xFF );
+const ImU32 col_HotPink   = IM_COL32( 0xFF, 0x69, 0xB4, 0xFF );
+const ImU32 col_Coral   = IM_COL32( 0xFF, 0x7F, 0x50, 0xFF );
+const ImU32 col_DarkOrange   = IM_COL32( 0xFF, 0x8C, 0x00, 0xFF );
+const ImU32 col_LightSalmon   = IM_COL32( 0xFF, 0xA0, 0x7A, 0xFF );
+const ImU32 col_Orange   = IM_COL32( 0xFF, 0xA5, 0x00, 0xFF );
+const ImU32 col_LightPink   = IM_COL32( 0xFF, 0xB6, 0xC1, 0xFF );
+const ImU32 col_Pink   = IM_COL32( 0xFF, 0xC0, 0xCB, 0xFF );
+const ImU32 col_Gold   = IM_COL32( 0xFF, 0xD7, 0x00, 0xFF );
+const ImU32 col_PeachPuff   = IM_COL32( 0xFF, 0xDA, 0xB9, 0xFF );
+const ImU32 col_NavajoWhite   = IM_COL32( 0xFF, 0xDE, 0xAD, 0xFF );
+const ImU32 col_Moccasin   = IM_COL32( 0xFF, 0xE4, 0xB5, 0xFF );
+const ImU32 col_Bisque   = IM_COL32( 0xFF, 0xE4, 0xC4, 0xFF );
+const ImU32 col_MistyRose   = IM_COL32( 0xFF, 0xE4, 0xE1, 0xFF );
+const ImU32 col_BlanchedAlmond   = IM_COL32( 0xFF, 0xEB, 0xCD, 0xFF );
+const ImU32 col_PapayaWhip   = IM_COL32( 0xFF, 0xEF, 0xD5, 0xFF );
+const ImU32 col_LavenderBlush   = IM_COL32( 0xFF, 0xF0, 0xF5, 0xFF );
+const ImU32 col_SeaShell   = IM_COL32( 0xFF, 0xF5, 0xEE, 0xFF );
+const ImU32 col_Cornsilk   = IM_COL32( 0xFF, 0xF8, 0xDC, 0xFF );
+const ImU32 col_LemonChiffon   = IM_COL32( 0xFF, 0xFA, 0xCD, 0xFF );
+const ImU32 col_FloralWhite   = IM_COL32( 0xFF, 0xFA, 0xF0, 0xFF );
+const ImU32 col_Snow   = IM_COL32( 0xFF, 0xFA, 0xFA, 0xFF );
+const ImU32 col_Yellow   = IM_COL32( 0xFF, 0xFF, 0x00, 0xFF );
+const ImU32 col_LightYellow   = IM_COL32( 0xFF, 0xFF, 0xE0, 0xFF );
+const ImU32 col_Ivory   = IM_COL32( 0xFF, 0xFF, 0xF0, 0xFF );
+const ImU32 col_White   = IM_COL32( 0xFF, 0xFF, 0xFF, 0xFF );
+
+// Programmer pink
+const ImU32 col_BrightPink   = IM_COL32( 0xFF, 0x00, 0xFF, 0xFF );
+
 /*
  * log routines
  */
@@ -716,58 +931,100 @@ void TraceWin::render_events_list()
     }
 }
 
-/*
-    PlotLines(const char* label,
-          const float* values, int values_count, int values_offset = 0,
-          const char* overlay_text = NULL,
-          float scale_min = FLT_MAX, float scale_max = FLT_MAX,
-          ImVec2 graph_size = ImVec2(0,0),
-          int stride = sizeof(float));
+void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
+{
+    if ( w <= 1.0f )
+        ImGui::GetWindowDrawList()->AddLine( ImVec2( x, y ), ImVec2( x, y + h ), color );
+    else
+        ImGui::GetWindowDrawList()->AddRectFilled( ImVec2( x, y ), ImVec2( x + w, y + h ), color );
+}
 
-    PlotLines(const char* label,
-          float (*values_getter)(void* data, int idx),
-          void* data,
-          int values_count, int values_offset = 0,
-          const char* overlay_text = NULL,
-          float scale_min = FLT_MAX, float scale_max = FLT_MAX,
-          ImVec2 graph_size = ImVec2(0,0));
+class event_renderer_t
+{
+public:
+    event_renderer_t( float y_in, float w_in, float h_in, hue_t hue_in )
+    {
+        y = y_in;
+        w = w_in;
+        h = h_in;
+        x0 = -1;
+        hue = hue_in;
+    }
 
-    PlotHistogram(const char* label,
-              const float* values,
-              int values_count, int values_offset = 0,
-              const char* overlay_text = NULL,
-              float scale_min = FLT_MAX, float scale_max = FLT_MAX,
-              ImVec2 graph_size = ImVec2(0,0),
-              int stride = sizeof(float));
+    void add_event( float x )
+    {
+        if ( x0 < 0.0f )
+        {
+            // First event
+            start( x );
+        }
+        else if ( x - x1 <= 1.0f )
+        {
+            // New event real close to last event
+            x1 = x;
+            num_events++;
+        }
+        else
+        {
+            // New event is away from current group, so draw.
+            draw();
 
-    PlotHistogram(const char* label,
-              float (*values_getter)(void* data, int idx),
-              void* data,
-              int values_count, int values_offset = 0,
-              const char* overlay_text = NULL,
-              float scale_min = FLT_MAX, float scale_max = FLT_MAX,
-              ImVec2 graph_size = ImVec2(0,0));
-*/
+            // Start a new group
+            start( x );
+        }
+    }
+
+    void done()
+    {
+        if ( x0 != -1 )
+        {
+            draw();
+            start( -1.0f );
+        }
+    }
+
+protected:
+    void start( float x )
+    {
+        num_events = 0;
+        x0 = x;
+        x1 = x + .0001f;
+    }
+
+
+    void draw()
+    {
+        // Try to figure out how many events per x unit.
+        // Usually is around 1 (not crowded) to 40 (really crowded)
+        float crowding = num_events / ceil( x1 - x0 );
+
+        // Try to map crowding to color hue.
+        uint32_t index = crowding * 6.0f / 42.0f;
+        ImU32 color = get_hue( hue, index );
+
+        imgui_drawrect( x0, x1 - x0, y, h, color );
+    }
+
+public:
+    float x0, x1;
+    uint32_t num_events;
+
+    float y, w, h;
+    hue_t hue;
+};
 
 void TraceWin::render_process_graphs()
 {
     float scale = ImGui::GetIO().FontGlobalScale;
-    //$ static const ImU32 col_vblank = IM_COL32( 0, 0, 255, 255 );
-    static const ImU32 col_background = IM_COL32( 255, 255, 255, 50 );
-    //$ static const ImU32 col_selected = ImGui::GetColorU32( ImGuiCol_TextSelectedBg );
 
     float h = 40.0f * scale;
     float w = ImGui::GetContentRegionAvailWidth();
 
+    std::vector< trace_event_t > &events = m_trace_events->m_events;
     uint32_t eventstart = m_graph_start_eventid;
     uint32_t eventend = m_graph_end_eventid;
-
-    std::vector< trace_event_t > &events = m_trace_events->m_events;
     trace_event_t *event0 = &events[ eventstart ];
     trace_event_t *event1 = &events[ eventend ];
-
-    //$ unsigned long long ts_min = m_trace_events->m_ts_min;
-    //$ unsigned long long ts_max = m_trace_events->m_ts_max;
 
     unsigned long long ts0 = event0->ts;
     unsigned long long ts1 = event1->ts;
@@ -798,10 +1055,45 @@ void TraceWin::render_process_graphs()
             ImGui::BeginChild( ( "g_" + label ).c_str(), ImVec2( w, h ) );
 
             // Draw background
+            static const ImU32 col_background = IM_COL32( 255, 255, 255, 50 );
             ImGui::GetWindowDrawList()->AddRectFilled(
                         ImVec2( pos.x, pos.y ),
                         ImVec2( pos.x + w, pos.y + h ),
                         col_background );
+
+            // Go through all event IDs for this process
+            event_renderer_t event_renderer( pos.y, w, h, Hue_YlRd );
+            for ( uint32_t id : locs )
+            {
+                if ( id > eventend )
+                    break;
+                if ( id < eventstart )
+                    continue;
+
+                trace_event_t &event = m_trace_events->m_events[ id ];
+                float x = pos.x + w * ( event.ts - ts0 ) * tsdxrcp;
+
+                event_renderer.add_event( x );
+            }
+            event_renderer.done();
+
+            // Draw vblank events on every graph.
+            std::vector< uint32_t > *vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
+            if ( vblank_locs )
+            {
+                for ( uint32_t id : *vblank_locs )
+                {
+                    if ( id > eventend )
+                        break;
+                    if ( id < eventstart )
+                        continue;
+
+                    trace_event_t &event = m_trace_events->m_events[ id ];
+                    float x = pos.x + w * ( event.ts - ts0 ) * tsdxrcp;
+
+                    imgui_drawrect( x, 2.0f, pos.y, h, col_OrangeRed );
+                }
+            }
 
             // Draw time ticks every millisecond
             //$ TODO: Draw little ticks every quarter ms when zoomed in?
@@ -810,86 +1102,9 @@ void TraceWin::render_process_graphs()
 
             for ( unsigned long long ts = msec0; ts <= ts1; ts += MSECS_PER_SEC )
             {
-                float y = pos.y + 0.0f;
                 float x = pos.x + w * ( ts - ts0 ) * tsdxrcp;
 
-                ImGui::GetWindowDrawList()->AddLine(
-                            ImVec2( x, y ),
-                            ImVec2( x, y + 8 ),
-                            0xffff00ff, 1.0f );
-            }
-
-            //$ TODO mikesart: get these colors correct...
-
-            // Go through all event IDs for this process
-            float x_start = -1;
-            float x_end = -1;
-            for ( uint32_t id : locs )
-            {
-                if ( id >= eventstart && id <= eventend )
-                {
-                    trace_event_t &event = m_trace_events->m_events[ id ];
-                    float y = pos.y + 0.0f;
-                    float x = pos.x + w * ( event.ts - ts0 ) * tsdxrcp;
-
-                    if ( x_start < 0.0f )
-                    {
-                        x_start = x;
-                        x_end = x;
-                        continue;
-                    }
-                    else if ( x - x_start <= 1.0f )
-                    {
-                        // If it's less than a pixel, bump up our rect size and carry on.
-                        x_end = x;
-                        continue;
-                    }
-
-                    if ( x_start == x_end )
-                    {
-                        // Single line event
-                        static const ImU32 colpink = IM_COL32( 0, 0, 255, 255 );
-
-                        ImGui::GetWindowDrawList()->AddLine(
-                                    ImVec2( x_start, y ),
-                                    ImVec2( x_start, y + h ),
-                                    colpink );
-                    }
-                    else
-                    {
-                        static const ImU32 colred = IM_COL32( 255, 0, 0, 128 );
-
-                        ImGui::GetWindowDrawList()->AddRect(
-                                    ImVec2( x_start, y ),
-                                    ImVec2( x_end, y + h ),
-                                    colred );
-                    }
-
-                    x_start = x;
-                    x_end = x;
-                }
-
-                //$ TODO: need to draw rects we missed...
-            }
-
-            // Draw vblank events on every graph.
-            std::vector< uint32_t > *vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
-            if ( vblank_locs )
-            {
-                for ( uint32_t id : *vblank_locs )
-                {
-                    if ( id >= eventstart && id <= eventend )
-                    {
-                        trace_event_t &event = m_trace_events->m_events[ id ];
-                        float y = pos.y + 0.0f;
-                        float x = pos.x + w * ( event.ts - ts0 ) * tsdxrcp;
-
-                        ImGui::GetWindowDrawList()->AddLine(
-                                    ImVec2( x, y ),
-                                    ImVec2( x, y + h ),
-                                    0xffff00ff );
-                    }
-                }
+                imgui_drawrect( x, 2.0f, pos.y, h / 4, col_Lime );
             }
 
             // Draw location line for mouse if mouse is over graph
@@ -897,10 +1112,7 @@ void TraceWin::render_process_graphs()
                  mouse_pos.x >= pos.x &&
                  mouse_pos.x <= pos.x + w )
             {
-                ImGui::GetWindowDrawList()->AddLine(
-                            ImVec2( mouse_pos.x, pos.y ),
-                            ImVec2( mouse_pos.x, pos.y + h ),
-                            0xffff00ff, 1.0f );
+                imgui_drawrect( mouse_pos.x, 2.0f, pos.y, h, col_DeepPink );
             }
 
             ImGui::EndChild();
