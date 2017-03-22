@@ -43,6 +43,12 @@ void logf_clear();
 std::string string_format( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
 size_t get_file_size( const char* filename );
 
+template < typename T >
+T Clamp( const T& val, const T& lower, const T& upper )
+{
+    return std::max( lower, std::min( val, upper ) );
+}
+
 class StrPool
 {
 public:
@@ -213,6 +219,15 @@ public:
     {
         m_trace_events = trace_events;
         m_title = title;
+
+        m_timegoto_buf = "0.0";
+        m_timegoto_buf.reserve( 32 );
+
+        m_graphtime_start = "0.0";
+        m_graphtime_start.reserve( 32 );
+
+        m_graphtime_length = "0.0";
+        m_graphtime_length.reserve( 32 );
     }
 
     ~TraceWin() {}
@@ -229,6 +244,15 @@ protected:
     void render_time_delta_button( TraceEvents &trace_events );
     bool render_time_goto_button( TraceEvents &trace_events );
 
+    // Return an event id for a given time stamp
+    int ts_to_eventid( unsigned long long ts );
+    // Return an event id from a time string
+    int timestr_to_eventid( const char *buf, unsigned long long tsdelta );
+    // Convert a time string to a time stamp
+    unsigned long long timestr_to_ts( const char *buf, unsigned long long tsdelta = 0 );
+    // Convert a time stamp to a time string
+    std::string ts_to_timestr( unsigned long long event_ts, unsigned long long tsdelta = 0 );
+
 public:
     bool m_inited = false;
     int m_setfocus = 0;
@@ -237,19 +261,24 @@ public:
     TraceEvents *m_trace_events = nullptr;
 
     bool m_do_gotoevent = false;
-    bool m_time_goto = false;
-    int m_gotoevent = 0;
+    bool m_do_gototime = false;
+    int m_goto_eventid = 0;
 
-    int m_eventstart = 0;
-    int m_eventend = INT32_MAX;
+    int m_start_eventid = 0;
+    int m_end_eventid = INT32_MAX;
+
+    std::string m_timegoto_buf;
+    std::string m_graphtime_start;
+    std::string m_graphtime_length;
+    int m_graph_start_eventid = 0;
+    int m_graph_end_eventid = INT32_MAX;
+
     bool m_open = true;
     uint32_t m_selected = ( uint32_t )-1;
 
     bool m_mouse_over_graph = false;
 
-    char m_timegoto_buf[ 32 ];
-
-    char m_timedelta_buf[ 32 ] = { 0 };
+    std::string m_timedelta_buf;
     unsigned long long m_tsdelta = ( unsigned long long )-1;
 };
 
