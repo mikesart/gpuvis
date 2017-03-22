@@ -1474,6 +1474,18 @@ static bool load_trace_file( TraceLoader &loader, TraceConsole &console, const c
     return loader.load_file( filename );
 }
 
+#if SDL_VERSIONNUM(SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL) < SDL_VERSIONNUM(2, 0, 5)
+int SDL_GetWindowBordersSize(SDL_Window * window, int *top, int *left, int *bottom, int *right)
+{
+    *top = 0;
+    *left = 0;
+    *bottom = 0;
+    *right = 0;
+
+    return -1;
+}
+#endif
+
 int main( int argc, char **argv )
 {
     CIniFile inifile;
