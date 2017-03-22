@@ -752,7 +752,7 @@ void TraceWin::render_events_list()
 void TraceWin::render_process_graphs()
 {
     float scale = ImGui::GetIO().FontGlobalScale;
-    static const ImU32 col_vblank = IM_COL32( 0, 0, 255, 255 );
+    //$ static const ImU32 col_vblank = IM_COL32( 0, 0, 255, 255 );
     static const ImU32 col_background = IM_COL32( 255, 255, 255, 50 );
     //$ static const ImU32 col_selected = ImGui::GetColorU32( ImGuiCol_TextSelectedBg );
 
@@ -819,8 +819,11 @@ void TraceWin::render_process_graphs()
                             0xffff00ff, 1.0f );
             }
 
-#if 1
+            //$ TODO mikesart: get these colors correct...
+
             // Go through all event IDs for this process
+            float x_start = -1;
+            float x_end = -1;
             for ( uint32_t id : locs )
             {
                 if ( id >= eventstart && id <= eventend )
@@ -829,15 +832,45 @@ void TraceWin::render_process_graphs()
                     float y = pos.y + 0.0f;
                     float x = pos.x + w * ( event.ts - ts0 ) * tsdxrcp;
 
-                    //$ TODO mikesart: Don't draw lines all over the top of other lines.
-                    // Batch these up into rectangles if we're zoomed out.
-                    ImGui::GetWindowDrawList()->AddLine(
-                                ImVec2( x, y ),
-                                ImVec2( x, y + h ),
-                                col_vblank );
+                    if ( x_start < 0.0f )
+                    {
+                        x_start = x;
+                        x_end = x;
+                        continue;
+                    }
+                    else if ( x - x_start <= 1.0f )
+                    {
+                        // If it's less than a pixel, bump up our rect size and carry on.
+                        x_end = x;
+                        continue;
+                    }
+
+                    if ( x_start == x_end )
+                    {
+                        // Single line event
+                        static const ImU32 colpink = IM_COL32( 0, 0, 255, 255 );
+
+                        ImGui::GetWindowDrawList()->AddLine(
+                                    ImVec2( x_start, y ),
+                                    ImVec2( x_start, y + h ),
+                                    colpink );
+                    }
+                    else
+                    {
+                        static const ImU32 colred = IM_COL32( 255, 0, 0, 128 );
+
+                        ImGui::GetWindowDrawList()->AddRect(
+                                    ImVec2( x_start, y ),
+                                    ImVec2( x_end, y + h ),
+                                    colred );
+                    }
+
+                    x_start = x;
+                    x_end = x;
                 }
+
+                //$ TODO: need to draw rects we missed...
             }
-#endif
 
             // Draw vblank events on every graph.
             std::vector< uint32_t > *vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
@@ -944,13 +977,6 @@ bool TraceWin::render_events()
         if ( graph_end || !m_inited )
         {
             unsigned long long ts = timestr_to_ts( m_graphtime_length.c_str() );
-
-            //$ TODO mikesart: limit to 60 ms for right now
-            if ( ts > 60 * MSECS_PER_SEC )
-            {
-                logf( "Warning: graphs limited to 60ms currently..." );
-                ts = 60 * MSECS_PER_SEC;
-            }
 
             m_graph_end_eventid = ts_to_eventid( events[ m_graph_start_eventid ].ts + ts );
         }
