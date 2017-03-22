@@ -430,6 +430,9 @@ void TraceWin::render_time_delta_button_init( TraceEvents &trace_events )
             if ( events[ i ].pid )
             {
                 ts = events[ i ].ts;
+
+                m_do_gotoevent = true;
+                m_goto_eventid = i;
                 break;
             }
         }
@@ -757,14 +760,6 @@ void TraceWin::render_process_graphs()
     uint32_t eventstart = m_graph_start_eventid;
     uint32_t eventend = m_graph_end_eventid;
 
-#if 0
-    if ( m_graph_start > eventstart && m_graph_start < eventend )
-        eventstart = m_graph_start;
-
-    if ( m_graph_end > eventstart && m_graph_end < eventend )
-        eventend = m_graph_end;
-#endif
-
     std::vector< trace_event_t > &events = m_trace_events->m_events;
     trace_event_t *event0 = &events[ eventstart ];
     trace_event_t *event1 = &events[ eventend ];
@@ -830,6 +825,8 @@ void TraceWin::render_process_graphs()
                     float y = pos.y + 0.0f;
                     float x = pos.x + w * ( event.ts - ts0 ) * tsdxrcp;
 
+                    //$ TODO mikesart: Don't draw lines all over the top of other lines.
+                    // Batch these up into rectangles if we're zoomed out.
                     ImGui::GetWindowDrawList()->AddLine(
                                 ImVec2( x, y ),
                                 ImVec2( x, y + h ),
@@ -930,13 +927,20 @@ bool TraceWin::render_events()
         graph_end |= ImGui::InputText( "##GraphLength", &m_graphtime_length[ 0 ], m_graphtime_length.capacity(), 0, 0 );
         ImGui::PopItemWidth();
 
-        if ( graph_start )
+        if ( graph_start || !m_inited )
         {
             m_graph_start_eventid = timestr_to_eventid( m_graphtime_start.c_str(), m_tsdelta );
         }
-        if ( graph_end )
+        if ( graph_end || !m_inited )
         {
             unsigned long long ts = timestr_to_ts( m_graphtime_length.c_str() );
+
+            //$ TODO mikesart: limit to 60 ms for right now
+            if ( ts > 60 * MSECS_PER_SEC )
+            {
+                logf( "Warning: graphs limited to 60ms currently..." );
+                ts = 60 * MSECS_PER_SEC;
+            }
 
             m_graph_end_eventid = ts_to_eventid( events[ m_graph_start_eventid ].ts + ts );
         }

@@ -223,10 +223,10 @@ public:
         m_timegoto_buf = "0.0";
         m_timegoto_buf.reserve( 32 );
 
-        m_graphtime_start = "0.0";
+        m_graphtime_start = "-30.0";
         m_graphtime_start.reserve( 32 );
 
-        m_graphtime_length = "0.0";
+        m_graphtime_length = "60.0";
         m_graphtime_length.reserve( 32 );
     }
 
