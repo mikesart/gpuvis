@@ -502,6 +502,8 @@ int TraceWin::ts_to_eventid( unsigned long long ts )
 
     int id = eventidx - events.begin();
 
+    if ( ( size_t )id >= events.size() )
+        id = events.size() - 1;
     return id;
 }
 
@@ -802,6 +804,7 @@ void TraceWin::render_process_graphs()
                         col_background );
 
             // Draw time ticks every millisecond
+            //$ TODO: Draw little ticks every quarter ms when zoomed in?
             unsigned long long msecs = ts0 / MSECS_PER_SEC;
             unsigned long long msec0 = msecs * MSECS_PER_SEC;
 
@@ -816,6 +819,7 @@ void TraceWin::render_process_graphs()
                             0xffff00ff, 1.0f );
             }
 
+#if 1
             // Go through all event IDs for this process
             for ( uint32_t id : locs )
             {
@@ -833,7 +837,9 @@ void TraceWin::render_process_graphs()
                                 col_vblank );
                 }
             }
+#endif
 
+            // Draw vblank events on every graph.
             std::vector< uint32_t > *vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
             if ( vblank_locs )
             {
@@ -853,6 +859,7 @@ void TraceWin::render_process_graphs()
                 }
             }
 
+            // Draw location line for mouse if mouse is over graph
             if ( m_mouse_over_graph &&
                  mouse_pos.x >= pos.x &&
                  mouse_pos.x <= pos.x + w )
@@ -867,6 +874,9 @@ void TraceWin::render_process_graphs()
         }
     }
 
+    //$ TODO mikesart: click and drag to new zoom area
+
+    // Check if the mouse is currently over our graph area
     m_mouse_over_graph =
         ( mouse_pos.x >= pos_min.x && mouse_pos.x <= pos_max.x &&
           mouse_pos.y >= pos_min.y && mouse_pos.y <= pos_max.y );
