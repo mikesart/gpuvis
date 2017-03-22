@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -346,6 +347,51 @@ std::string string_format( const char *fmt, ... )
 
         size = ( n > -1 ) ? ( n + 1 ) : ( size * 2 );
     }
+}
+
+/*
+ * http://stackoverflow.com/questions/216823/whats-the-best-way-to-trim-stdstring
+ */
+// trim from start (in place)
+void ltrim(std::string &s)
+{
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(),
+            std::not1(std::ptr_fun<int, int>(std::isspace))));
+}
+
+// trim from end (in place)
+void rtrim(std::string &s)
+{
+    s.erase(std::find_if(s.rbegin(), s.rend(),
+            std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+}
+
+// trim from both ends (in place)
+void trim(std::string &s)
+{
+    ltrim(s);
+    rtrim(s);
+}
+
+// trim from start (copying)
+std::string ltrimmed(std::string s)
+{
+    ltrim(s);
+    return s;
+}
+
+// trim from end (copying)
+std::string rtrimmed(std::string s)
+{
+    rtrim(s);
+    return s;
+}
+
+// trim from both ends (copying)
+std::string trimmed(std::string s)
+{
+    trim(s);
+    return s;
 }
 
 size_t get_file_size( const char *filename )
@@ -705,6 +751,62 @@ std::string TraceWin::ts_to_timestr( unsigned long long event_ts, unsigned long 
     return ret;
 }
 
+void TraceWin::init_graph_rows_str()
+{
+    size_t len;
+    char *dst = m_graph_rows_str;
+    size_t dst_len = sizeof( m_graph_rows_str );
+
+    SDL_strlcpy( dst, "# Place comm or event names to graph\n# fence_signaled\n# amd_sched_job\n", dst_len );
+    len = strlen( dst );
+    dst += len;
+    dst_len -= len;
+
+    for ( auto item : m_trace_events->m_comm_locations.m_locations )
+    {
+        uint32_t hashval = item.first;
+        const char *comm = m_trace_events->m_strpool.getstr( hashval );
+
+        len = strlen( comm );
+
+        if ( len + 1 < dst_len )
+        {
+            SDL_strlcpy( dst, comm, dst_len );
+            SDL_strlcpy( dst + len, "\n", dst_len );
+
+            dst += len + 1;
+            dst_len -= ( len + 1 );
+        }
+    }
+
+    update_graph_rows_list();
+}
+
+void TraceWin::update_graph_rows_list()
+{
+    char *begin = m_graph_rows_str;
+
+    m_graph_rows.clear();
+    for( ;; )
+    {
+        char *end = strchr( begin, '\n' );
+        std::string val = end ? std::string( begin, end - begin ) : begin;
+
+        trim( val );
+
+        if ( !val.empty() && val[ 0 ] != '#' )
+        {
+            m_graph_rows.push_back( val );
+            logf( "Adding val: %s\n", val.c_str() );
+        }
+
+        if ( !end )
+            break;
+
+        begin = end + 1;
+    }
+}
+
 int TraceWin::ts_to_eventid( unsigned long long ts )
 {
     trace_event_t x;
@@ -1036,14 +1138,29 @@ void TraceWin::render_process_graphs()
     ImVec2 pos_min( FLT_MAX, FLT_MAX );
     ImVec2 pos_max( FLT_MIN, FLT_MIN );
 
-    for ( auto item : m_trace_events->m_comm_locations.m_locations )
+    for ( const std::string &comm : m_graph_rows )
     {
-        uint32_t hashval = item.first;
-        std::vector< uint32_t > &locs = item.second;
-        const char *comm = m_trace_events->m_strpool.getstr( hashval );
-        std::string label = string_format( "%s %lu events", comm, locs.size() );
+        std::vector< uint32_t > *plocs = m_trace_events->get_comm_locs( comm.c_str() );
+        if ( !plocs )
+        {
+            plocs = m_trace_events->get_event_locs( comm.c_str() );
+            if ( !plocs )
+                continue;
+        }
 
-        if ( ImGui::CollapsingHeader( label.c_str(), ImGuiTreeNodeFlags_DefaultOpen ) )
+        std::string label = string_format( "%s %lu events", comm.c_str(), plocs->size() );
+
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen;
+
+        // Default trace-cmd to be closed
+        if ( strstr( label.c_str(), "trace-cmd" ) ||
+             strstr( label.c_str(), "ksoftirqd" ) ||
+             strstr( label.c_str(), "kworker/" ) )
+        {
+            flags = 0;
+        }
+
+        if ( ImGui::CollapsingHeader( label.c_str(), flags ) )
         {
             ImVec2 pos = ImGui::GetCursorScreenPos();
 
@@ -1063,7 +1180,7 @@ void TraceWin::render_process_graphs()
 
             // Go through all event IDs for this process
             event_renderer_t event_renderer( pos.y, w, h, Hue_YlRd );
-            for ( uint32_t id : locs )
+            for ( uint32_t id : *plocs )
             {
                 if ( id > eventend )
                     break;
@@ -1141,7 +1258,6 @@ void TraceWin::render_process_graphs()
             m_do_gototime = true;
         }
     }
-
 }
 
 bool TraceWin::render_events()
@@ -1158,6 +1274,11 @@ bool TraceWin::render_events()
             ImGui::End();
             return false;
         }
+    }
+
+    if ( !m_inited )
+    {
+        init_graph_rows_str();
     }
 
     m_start_eventid = Clamp< int >( m_start_eventid, 0, event_count - 1 );
@@ -1213,6 +1334,19 @@ bool TraceWin::render_events()
             m_graphtime_length = TraceWin::ts_to_timestr( ts );
         }
 
+        if ( ImGui::CollapsingHeader( "Graph Rows" ) )
+        {
+            if ( ImGui::Button( "Update Graph Rows" ) )
+                update_graph_rows_list();
+
+            ImGui::SameLine();
+            if ( ImGui::Button( "Reset Graph Rows" ) )
+                init_graph_rows_str();
+
+            ImGui::InputTextMultiline("##GraphRows", m_graph_rows_str, sizeof( m_graph_rows_str ),
+                    ImVec2( -1.0f, ImGui::GetTextLineHeight() * 16 ) );
+        }
+
         render_process_graphs();
     }
 
@@ -1246,7 +1380,7 @@ void TraceConsole::init( CIniFile *inifile )
 
     //$ TODO mikesart: add "load" command
 
-    strncpy( m_trace_file, "trace.dat", sizeof( m_trace_file ) );
+    SDL_strlcpy( m_trace_file, "trace.dat", sizeof( m_trace_file ) );
 }
 
 void TraceConsole::shutdown( CIniFile *inifile )
@@ -1624,8 +1758,7 @@ int TraceConsole::text_edit_cb_history( ImGuiTextEditCallbackData *data )
     {
         const char *str = ( m_history_pos >= 0 ) ? m_history[ m_history_pos ].c_str() : "";
 
-        strncpy( data->Buf, str, data->BufSize );
-        data->Buf[ data->BufSize - 1 ] = 0;
+        SDL_strlcpy( data->Buf, str, data->BufSize );
 
         data->CursorPos = data->SelectionStart = data->SelectionEnd = data->BufTextLen = strlen( data->Buf );
         data->BufDirty = true;
@@ -1720,8 +1853,7 @@ static void parse_cmdline( cmdline_t &cmdline, int argc, char **argv )
 
 static bool load_trace_file( TraceLoader &loader, TraceConsole &console, const char *filename )
 {
-    strncpy( console.m_trace_file, filename, sizeof( console.m_trace_file ) );
-    console.m_trace_file[ sizeof( console.m_trace_file ) - 1 ] = 0;
+    SDL_strlcpy( console.m_trace_file, filename, sizeof( console.m_trace_file ) );
 
     return loader.load_file( filename );
 }

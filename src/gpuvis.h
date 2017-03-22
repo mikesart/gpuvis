@@ -228,6 +228,8 @@ public:
 
         m_graphtime_length = "60.0";
         m_graphtime_length.reserve( 32 );
+
+        m_graph_rows_str[ 0 ] = 0;
     }
 
     ~TraceWin() {}
@@ -253,6 +255,9 @@ protected:
     // Convert a time stamp to a time string
     std::string ts_to_timestr( unsigned long long event_ts, unsigned long long tsdelta = 0 );
 
+    void init_graph_rows_str();
+    void update_graph_rows_list();
+
 public:
     bool m_inited = false;
     int m_setfocus = 0;
@@ -272,6 +277,9 @@ public:
     std::string m_graphtime_length;
     int m_graph_start_eventid = 0;
     int m_graph_end_eventid = INT32_MAX;
+
+    char m_graph_rows_str[ 8192 ];
+    std::vector< std::string > m_graph_rows;
 
     bool m_open = true;
     uint32_t m_selected = ( uint32_t )-1;
