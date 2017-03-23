@@ -1339,7 +1339,7 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
 
         if ( !m_mouse_captured )
         {
-            if ( ImGui::IsMouseClicked( 0 ) )
+            if ( ImGui::IsMouseClicked( 0 ) && ImGui::GetIO().KeyShift )
             {
                 m_mouse_captured = true;
                 ImGui::CaptureMouseFromApp( true );
@@ -1357,14 +1357,11 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
 
                 m_graph_location_stack.pop_back();
             }
-
-#if 0
             else if ( ImGui::IsMouseDoubleClicked( 0 ) )
             {
                 m_timegoto_buf = time_buf;
                 m_do_gototime = true;
             }
-#endif
         }
     }
 }
