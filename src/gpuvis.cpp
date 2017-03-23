@@ -431,7 +431,7 @@ static bool imgui_input_int( int *val, float w, const char *label, const char *l
     return ret;
 }
 
-bool imgui_input_text( const char *button_label, const char *text_label,
+static bool imgui_input_text( const char *button_label, const char *text_label,
                        std::string &str, size_t capacity, float w )
 {
     bool ret = ImGui::Button( button_label );
@@ -448,6 +448,17 @@ bool imgui_input_text( const char *button_label, const char *text_label,
 static bool imgui_key_pressed( ImGuiKey key )
 {
     return ImGui::IsKeyPressed( ImGui::GetKeyIndex( key ) );
+}
+
+static void imgui_draw_text( float x, float y, const char *text, ImU32 color )
+{
+    ImVec2 textsize = ImGui::CalcTextSize( text );
+
+    ImGui::GetWindowDrawList()->AddRectFilled(
+                ImVec2( x, y ), ImVec2( x + textsize.x, y + textsize.y ),
+                col_w_alpha( col_Black, 150 ) );
+
+    ImGui::GetWindowDrawList()->AddText( ImVec2( x, y ), color, text );
 }
 
 /*
@@ -1300,14 +1311,10 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
     }
 
     float x = gi.pos.x + ImGui::GetStyle().FramePadding.x;
-    std::string label = string_format( "%s %u events", comm.c_str(), num_events );
-    ImVec2 textsize = ImGui::CalcTextSize( label.c_str() );
+    std::string label = string_format( "%u events", num_events );
 
-    ImGui::GetWindowDrawList()->AddRectFilled(
-                ImVec2( x, gi.pos.y ),
-                ImVec2( x + textsize.x, gi.pos.y + textsize.y ),
-                col_w_alpha( col_Black, 150 ) );
-    ImGui::GetWindowDrawList()->AddText( ImVec2( x, gi.pos.y ), col_LightYellow, label.c_str() );
+    imgui_draw_text( x, gi.pos.y, comm.c_str(), col_LightYellow );
+    imgui_draw_text( x, gi.pos.y + ImGui::GetTextLineHeight(), label.c_str(), col_LightYellow );
 }
 
 void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
@@ -2107,6 +2114,7 @@ int main( int argc, char **argv )
 #if 0
     //$ TODO mikesart...
     ImFont *proggy_tiny = io.Fonts->AddFontFromFileTTF( "./fonts/ProggyTiny.ttf", 10.0f );
+    io.Fonts->AddFontDefault();
 #endif
 
     int x = inifile.GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
