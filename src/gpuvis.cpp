@@ -723,10 +723,7 @@ int64_t TraceWin::timestr_to_ts( const char *buf, int64_t tsdelta )
     double val;
 
     if ( sscanf( buf, "%lf", &val ) != 1 )
-    {
-        logf( "[Error] %s: sscanf (%s) failed: %s", __func__, buf, strerror( errno ) );
         val = 0.0;
-    }
 
     return tsdelta + ( int64_t )( val * MSECS_PER_SEC );
 }
@@ -910,7 +907,7 @@ void TraceWin::render_events_list()
     {
         // Set the child window size to hold count of items + header + separator
         float lineh = ImGui::GetTextLineHeightWithSpacing();
-        float y = ( avail.y < 512.0f * scale ) ? 512.0f * scale : 0.0f;
+        float y = ( avail.y < 384.0f * scale ) ? 384.0f * scale : 0.0f;
 
         ImGui::SetNextWindowContentSize( { 0.0f, ( event_count + 1 ) * lineh + 1 } );
         ImGui::BeginChild( "eventlistbox", ImVec2( 0.0f, y ) );
@@ -1183,15 +1180,19 @@ void TraceWin::render_process_graphs()
             }
 
             // Draw time ticks every millisecond
-            //$ TODO: Draw little ticks every quarter ms when zoomed in?
-            int64_t msecs = ts0 / MSECS_PER_SEC;
-            int64_t msec0 = msecs * MSECS_PER_SEC;
+            int64_t tsstart = std::max< int64_t >( ts0 / MSECS_PER_SEC - 1, 0 ) * MSECS_PER_SEC;
+            float x0 = w * ( tsstart - ts0 ) * tsdxrcp;
+            float dx = w * MSECS_PER_SEC * tsdxrcp;
 
-            for ( int64_t ts = msec0; ts <= ts1; ts += MSECS_PER_SEC )
+            for ( ; x0 <= w; x0 += dx )
             {
-                float x = pos.x + w * ( ts - ts0 ) * tsdxrcp;
+                imgui_drawrect( pos.x + x0, 1.0f, pos.y, h / 2, col_Lime );
 
-                imgui_drawrect( x, 2.0f, pos.y, h / 4, col_Lime );
+                if ( dx >= 35.0f )
+                {
+                    for ( int i = 1; i < 4; i++ )
+                        imgui_drawrect( pos.x + x0 + i * dx / 4, 1.0f, pos.y, h / 8, col_Lime );
+                }
             }
 
             // Draw location line for mouse if mouse is over graph
@@ -1277,7 +1278,10 @@ bool TraceWin::render_events()
         ImGui::PopItemWidth();
 
         if ( graph_start || !m_inited )
+        {
             m_graph_start_eventid = timestr_to_eventid( m_graphtime_start.c_str(), m_tsdelta );
+            graph_end = true;
+        }
 
         if ( graph_end || !m_inited )
         {
@@ -1406,7 +1410,6 @@ void TraceConsole::render( class TraceLoader *loader )
         if ( is_loading )
         {
             ImGui::PopStyleColor();
-            ImGui::Text( "Trace events Loaded: %u", SDL_AtomicGet( &loader->m_trace_events->m_eventsloaded ) );
         }
         else if ( do_load )
         {
