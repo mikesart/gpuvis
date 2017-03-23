@@ -235,6 +235,7 @@ public:
     bool render_options();
     void render_events_list();
     void render_process_graphs();
+    void render_mouse_graph( class graph_info_t *pgi );
 
 protected:
     void render_time_delta_button_init( TraceEvents &trace_events );
@@ -275,6 +276,8 @@ public:
     bool m_do_graph_end = false;
     int m_graph_start_eventid = 0;
     int m_graph_end_eventid = INT32_MAX;
+
+    std::vector< std::pair< int, int > > m_graph_location_stack;
 
     std::string m_graph_rows_str;
     std::vector< std::string > m_graph_rows;

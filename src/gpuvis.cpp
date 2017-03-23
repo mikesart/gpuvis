@@ -1282,8 +1282,22 @@ void TraceWin::render_process_graphs()
         }
     }
 
+    render_mouse_graph( &gi );
+
+}
+
+void TraceWin::render_mouse_graph( class graph_info_t *pgi )
+{
+    graph_info_t &gi = *pgi;
+
     // Check if the mouse is currently over our graph area
     m_mouse_over_graph = gi.mouse_pos_in_graph();
+
+    if ( m_mouse_captured && imgui_key_pressed( ImGuiKey_Escape ) )
+    {
+        m_mouse_captured = false;
+        ImGui::CaptureMouseFromApp( false );
+    }
 
     if ( m_mouse_captured )
     {
@@ -1303,6 +1317,11 @@ void TraceWin::render_process_graphs()
         else
         {
             m_mouse_captured = false;
+            ImGui::CaptureMouseFromApp( false );
+
+            m_graph_location_stack.push_back( { m_graph_start_eventid, m_graph_end_eventid } );
+            if ( m_graph_location_stack.size() > 64 )
+                m_graph_location_stack.erase( m_graph_location_stack.begin() );
 
             m_graph_start_eventid = ts_to_eventid( event_ts0 );
             m_graph_end_eventid = ts_to_eventid( event_ts1 );
@@ -1326,6 +1345,19 @@ void TraceWin::render_process_graphs()
                 ImGui::CaptureMouseFromApp( true );
                 m_mouse_capture_pos = gi.mouse_pos;
             }
+            else if ( ImGui::IsMouseClicked( 1 ) && !m_graph_location_stack.empty() )
+            {
+                std::pair< int, int > &locs = m_graph_location_stack.back();
+
+                m_graph_start_eventid = locs.first;
+                m_graph_end_eventid = locs.second;
+
+                m_do_graph_start = true;
+                m_do_graph_end = true;
+
+                m_graph_location_stack.pop_back();
+            }
+
 #if 0
             else if ( ImGui::IsMouseDoubleClicked( 0 ) )
             {
