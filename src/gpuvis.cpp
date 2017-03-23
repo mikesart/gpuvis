@@ -353,44 +353,44 @@ std::string string_format( const char *fmt, ... )
  * http://stackoverflow.com/questions/216823/whats-the-best-way-to-trim-stdstring
  */
 // trim from start (in place)
-void ltrim(std::string &s)
+void string_ltrim(std::string &s)
 {
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(),
-            std::not1(std::ptr_fun<int, int>(std::isspace))));
+    s.erase( s.begin(), std::find_if(s.begin(), s.end(),
+             std::not1(std::ptr_fun<int, int>(std::isspace))) );
 }
 
 // trim from end (in place)
-void rtrim(std::string &s)
+void string_rtrim(std::string &s)
 {
-    s.erase(std::find_if(s.rbegin(), s.rend(),
-            std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+    s.erase( std::find_if(s.rbegin(), s.rend(),
+             std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end() );
 }
 
 // trim from both ends (in place)
-void trim(std::string &s)
+void string_trim(std::string &s)
 {
-    ltrim(s);
-    rtrim(s);
+    string_ltrim( s );
+    string_rtrim( s );
 }
 
 // trim from start (copying)
-std::string ltrimmed(std::string s)
+std::string string_ltrimmed(std::string s)
 {
-    ltrim(s);
+    string_ltrim( s );
     return s;
 }
 
 // trim from end (copying)
-std::string rtrimmed(std::string s)
+std::string string_rtrimmed(std::string s)
 {
-    rtrim(s);
+    string_rtrim( s );
     return s;
 }
 
 // trim from both ends (copying)
-std::string trimmed(std::string s)
+std::string string_trimmed(std::string s)
 {
-    trim(s);
+    string_trim( s );
     return s;
 }
 
@@ -746,37 +746,29 @@ std::string TraceWin::ts_to_timestr( unsigned long long event_ts, unsigned long 
     unsigned long msecs = ts / MSECS_PER_SEC;
     unsigned long nsecs = ts - msecs * MSECS_PER_SEC;
 
-    std::string ret = string_format( "%s%lu.%06lu", ts_negative ? "-" : "", msecs, nsecs );
-    ret.reserve( 32 );
-    return ret;
+    return string_format( "%s%lu.%06lu", ts_negative ? "-" : "", msecs, nsecs );
 }
 
 void TraceWin::init_graph_rows_str()
 {
-    size_t len;
-    char *dst = m_graph_rows_str;
-    size_t dst_len = sizeof( m_graph_rows_str );
-
-    SDL_strlcpy( dst, "# Place comm or event names to graph\n# fence_signaled\n# amd_sched_job\n", dst_len );
-    len = strlen( dst );
-    dst += len;
-    dst_len -= len;
+    m_graph_rows_str = "# Place comm / event names to graph\n";
+    m_graph_rows_str += "# fence_signaled\n";
+    m_graph_rows_str += "# amd_sched_job\n";
 
     for ( auto item : m_trace_events->m_comm_locations.m_locations )
     {
         uint32_t hashval = item.first;
         const char *comm = m_trace_events->m_strpool.getstr( hashval );
 
-        len = strlen( comm );
-
-        if ( len + 1 < dst_len )
+        if ( strstr( comm, "trace-cmd" ) ||
+             strstr( comm, "ksoftirqd" ) ||
+             strstr( comm, "kworker" ) )
         {
-            SDL_strlcpy( dst, comm, dst_len );
-            SDL_strlcpy( dst + len, "\n", dst_len );
-
-            dst += len + 1;
-            dst_len -= ( len + 1 );
+            m_graph_rows_str += "# ";
         }
+
+        m_graph_rows_str += comm;
+        m_graph_rows_str += "\n";
     }
 
     update_graph_rows_list();
@@ -784,21 +776,18 @@ void TraceWin::init_graph_rows_str()
 
 void TraceWin::update_graph_rows_list()
 {
-    char *begin = m_graph_rows_str;
+    const char *begin = m_graph_rows_str.c_str();
 
     m_graph_rows.clear();
     for( ;; )
     {
-        char *end = strchr( begin, '\n' );
+        const char *end = strchr( begin, '\n' );
         std::string val = end ? std::string( begin, end - begin ) : begin;
 
-        trim( val );
+        string_trim( val );
 
         if ( !val.empty() && val[ 0 ] != '#' )
-        {
             m_graph_rows.push_back( val );
-            logf( "Adding val: %s\n", val.c_str() );
-        }
 
         if ( !end )
             break;
@@ -837,6 +826,7 @@ bool TraceWin::render_time_goto_button( TraceEvents &trace_events )
 
     ImGui::SameLine();
     ImGui::PushItemWidth( 150 );
+    m_timegoto_buf.reserve( 32 );
     m_do_gototime |= ImGui::InputText( "##TimeGoto", &m_timegoto_buf[ 0 ], m_timegoto_buf.capacity(), 0, 0 );
     ImGui::PopItemWidth();
 
@@ -850,8 +840,6 @@ bool TraceWin::render_time_goto_button( TraceEvents &trace_events )
 
 bool TraceWin::render( class TraceLoader *loader )
 {
-    int eventsloaded = SDL_AtomicGet( &m_trace_events->m_eventsloaded );
-
     ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
 
     // If we're told to set focus, wait until the mouse isn't down as they
@@ -863,6 +851,7 @@ bool TraceWin::render( class TraceLoader *loader )
         m_setfocus--;
     }
 
+    int eventsloaded = SDL_AtomicGet( &m_trace_events->m_eventsloaded );
     if ( eventsloaded > 0 )
     {
         ImGui::Begin( m_title.c_str(), &m_open );
@@ -963,6 +952,7 @@ void TraceWin::render_events_list()
         if ( m_do_gotoevent )
         {
             ImGui::SetScrollY( std::max< int >( 0, m_goto_eventid - m_start_eventid ) * lineh );
+
             m_do_gotoevent = false;
             m_do_gototime = false;
         }
@@ -1033,7 +1023,7 @@ void TraceWin::render_events_list()
     }
 }
 
-void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
+static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
 {
     if ( w <= 1.0f )
         ImGui::GetWindowDrawList()->AddLine( ImVec2( x, y ), ImVec2( x, y + h ), color );
@@ -1093,7 +1083,6 @@ protected:
         x1 = x + .0001f;
     }
 
-
     void draw()
     {
         // Try to figure out how many events per x unit.
@@ -1151,14 +1140,6 @@ void TraceWin::render_process_graphs()
         std::string label = string_format( "%s %lu events", comm.c_str(), plocs->size() );
 
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen;
-
-        // Default trace-cmd to be closed
-        if ( strstr( label.c_str(), "trace-cmd" ) ||
-             strstr( label.c_str(), "ksoftirqd" ) ||
-             strstr( label.c_str(), "kworker/" ) )
-        {
-            flags = 0;
-        }
 
         if ( ImGui::CollapsingHeader( label.c_str(), flags ) )
         {
@@ -1278,6 +1259,7 @@ bool TraceWin::render_events()
 
     if ( !m_inited )
     {
+        // Initialize our graph rows first time through.
         init_graph_rows_str();
     }
 
@@ -1292,6 +1274,7 @@ bool TraceWin::render_events()
 
         ImGui::SameLine();
         ImGui::PushItemWidth( 150 );
+        m_graphtime_start.reserve( 32 );
         graph_start |= ImGui::InputText( "##GraphStart", &m_graphtime_start[ 0 ], m_graphtime_start.capacity(), 0, 0 );
         ImGui::PopItemWidth();
 
@@ -1300,13 +1283,13 @@ bool TraceWin::render_events()
 
         ImGui::SameLine();
         ImGui::PushItemWidth( 150 );
+        m_graphtime_length.reserve( 32 );
         graph_end |= ImGui::InputText( "##GraphLength", &m_graphtime_length[ 0 ], m_graphtime_length.capacity(), 0, 0 );
         ImGui::PopItemWidth();
 
         if ( graph_start || !m_inited )
-        {
             m_graph_start_eventid = timestr_to_eventid( m_graphtime_start.c_str(), m_tsdelta );
-        }
+
         if ( graph_end || !m_inited )
         {
             unsigned long long ts = timestr_to_ts( m_graphtime_length.c_str() );
@@ -1324,9 +1307,8 @@ bool TraceWin::render_events()
         m_graph_end_eventid = Clamp< int >( m_graph_end_eventid, m_graph_start_eventid, m_end_eventid );
 
         if ( do_graph_start )
-        {
             m_graphtime_start = ts_to_timestr( events[ m_graph_start_eventid ].ts, m_tsdelta );
-        }
+
         if ( do_graph_end )
         {
             unsigned long long ts = events[ m_graph_end_eventid ].ts - events[ m_graph_start_eventid ].ts;
@@ -1343,14 +1325,14 @@ bool TraceWin::render_events()
             if ( ImGui::Button( "Reset Graph Rows" ) )
                 init_graph_rows_str();
 
-            ImGui::InputTextMultiline("##GraphRows", m_graph_rows_str, sizeof( m_graph_rows_str ),
+            m_graph_rows_str.reserve( 8192 );
+            ImGui::InputTextMultiline( "##GraphRows", &m_graph_rows_str[ 0 ], m_graph_rows_str.capacity(),
                     ImVec2( -1.0f, ImGui::GetTextLineHeight() * 16 ) );
         }
 
         render_process_graphs();
     }
 
-    // ImGui::SetNextWindowSizeConstraints( ImVec2( 800, 600 ), ImVec2( -1, -1 ) );
     if ( ImGui::CollapsingHeader( "Events", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
         render_events_list();
@@ -1372,13 +1354,13 @@ void TraceConsole::init( CIniFile *inifile )
     logf( "Welcome to gpuvis" );
 
     //$ TODO mikesart: use https://github.com/SirCmpwn/libccmd.git
+    //$ TODO mikesart: add "load" command
+
     m_commands.insert( "clear" );
     m_commands.insert( "help" );
     m_commands.insert( "history" );
     m_commands.insert( "quit" );
     m_commands.insert( "q" );
-
-    //$ TODO mikesart: add "load" command
 
     SDL_strlcpy( m_trace_file, "trace.dat", sizeof( m_trace_file ) );
 }
@@ -1579,23 +1561,17 @@ void TraceConsole::render( class TraceLoader *loader )
         ImGui::Text( "Command:" );
 
         ImGui::SameLine();
-        if ( ImGui::InputText( "##log-command", m_inputbuf.data(), m_inputbuf.size(),
+        m_inputbuf.reserve( 512 );
+        if ( ImGui::InputText( "##log-command", &m_inputbuf[ 0 ], m_inputbuf.capacity(),
                                ImGuiInputTextFlags_EnterReturnsTrue |
                                ImGuiInputTextFlags_CallbackCompletion |
                                ImGuiInputTextFlags_CallbackHistory |
                                ImGuiInputTextFlags_CallbackCharFilter,
                                &text_edit_cb_stub, ( void * )this ) )
         {
-            char *input_end = &m_inputbuf[ strlen( m_inputbuf.data() ) ];
+            exec_command( m_inputbuf.c_str() );
 
-            while ( input_end > m_inputbuf.data() && input_end[ -1 ] == ' ' )
-                input_end--;
-            *input_end = 0;
-
-            if ( m_inputbuf[ 0 ] )
-                exec_command( m_inputbuf.data() );
-
-            strcpy( m_inputbuf.data(), "" );
+            m_inputbuf = "";
         }
 
         // Keep auto focus on the input box
@@ -1623,48 +1599,52 @@ void TraceConsole::render( class TraceLoader *loader )
     ImGui::End();
 }
 
-void TraceConsole::exec_command( const char *command_line )
+void TraceConsole::exec_command( const std::string &cmdlinein )
 {
-    logf( "# %s\n", command_line );
+    std::string cmdline = string_trimmed( cmdlinein );
+
+    if ( cmdline.empty() )
+        return;
+
+    logf( "# %s\n", cmdline.c_str() );
 
     // Insert into history. First find match and delete it so it can be pushed to the back. This isn't trying to be smart or optimal.
     m_history_pos = -1;
 
     for ( size_t i = 0; i < m_history.size(); i++ )
     {
-        if ( !strcasecmp( m_history[ i ].c_str(), command_line ) )
+        if ( cmdline == m_history[ i ] )
         {
             m_history.erase( m_history.begin() + i );
             break;
         }
     }
-    m_history.push_back( command_line );
+    m_history.push_back( cmdline );
 
     // Process command
-    if ( !strcasecmp( command_line, "clear" ) )
+    if ( cmdline == "clear" )
     {
         logf_clear();
     }
-    else if ( !strcasecmp( command_line, "quit" ) ||
-              !strcasecmp( command_line, "q" ) )
+    else if ( ( cmdline == "quit" ) || ( cmdline == "q" ) )
     {
         m_quit = true;
     }
-    else if ( !strcasecmp( command_line, "help" ) )
+    else if ( cmdline == "help" )
     {
         logf( "Commands:" );
 
         for ( const std::string &cmd : m_commands )
             logf( "- %s", cmd.c_str() );
     }
-    else if ( !strcasecmp( command_line, "history" ) )
+    else if ( cmdline == "history" )
     {
         for ( size_t i = m_history.size() >= 20 ? m_history.size() - 20 : 0; i < m_history.size(); i++ )
             logf( "%3lu: %s\n", i, m_history[ i ].c_str() );
     }
     else
     {
-        logf( "Unknown command: '%s'\n", command_line );
+        logf( "Unknown command: '%s'\n", cmdline.c_str() );
     }
 }
 

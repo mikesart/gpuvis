@@ -179,7 +179,7 @@ public:
     void init( class CIniFile *inifile );
     void shutdown( class CIniFile *inifile );
 
-    void exec_command( const char *command_line );
+    void exec_command( const std::string &command_line );
 
     void render( class TraceLoader *loader );
 
@@ -190,7 +190,7 @@ protected:
 
 public:
     ImGuiTextFilter m_filter;
-    std::array< char, 512 > m_inputbuf = {""};
+    std::string m_inputbuf;
     std::vector< std::string > m_log;
 
     size_t m_completion_index = 0;
@@ -217,19 +217,15 @@ class TraceWin
 public:
     TraceWin( TraceEvents *trace_events, std::string &title )
     {
+        // Note that m_trace_events is possibly being loaded in
+        //  a background thread at this moment, so be sure to check
+        //  m_eventsloaded before accessing it...
         m_trace_events = trace_events;
         m_title = title;
 
         m_timegoto_buf = "0.0";
-        m_timegoto_buf.reserve( 32 );
-
         m_graphtime_start = "-30.0";
-        m_graphtime_start.reserve( 32 );
-
         m_graphtime_length = "60.0";
-        m_graphtime_length.reserve( 32 );
-
-        m_graph_rows_str[ 0 ] = 0;
     }
 
     ~TraceWin() {}
@@ -278,7 +274,7 @@ public:
     int m_graph_start_eventid = 0;
     int m_graph_end_eventid = INT32_MAX;
 
-    char m_graph_rows_str[ 8192 ];
+    std::string m_graph_rows_str;
     std::vector< std::string > m_graph_rows;
 
     bool m_open = true;
