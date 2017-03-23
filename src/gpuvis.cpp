@@ -1011,6 +1011,12 @@ void TraceWin::render_events_list()
 
 static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
 {
+    if ( w < 0.0f )
+    {
+        x += w;
+        w = -w;
+    }
+
     if ( w <= 1.0f )
         ImGui::GetWindowDrawList()->AddLine( ImVec2( x, y ), ImVec2( x, y + h ), color );
     else
@@ -1090,12 +1096,83 @@ public:
     hue_t hue;
 };
 
+class graph_info_t
+{
+public:
+    void init( trace_event_t *event0, trace_event_t *event1 )
+    {
+        scale = ImGui::GetIO().FontGlobalScale;
+
+        h = 40.0f * scale;
+        w = ImGui::GetContentRegionAvailWidth();
+
+        ts0 = event0->ts;
+        ts1 = event1->ts;
+
+        tsdx = ts1 - ts0 + 1;
+        tsdxrcp = 1.0 / tsdx;
+
+        mouse_pos = ImGui::GetMousePos();
+    }
+
+    void set_cursor_screen_pos( const ImVec2& posin )
+    {
+        pos = posin;
+
+        pos_min.x = std::min( pos_min.x, pos.x );
+        pos_min.y = std::min( pos_min.y, pos.y );
+        pos_max.x = std::max( pos_max.x, pos.x + w );
+        pos_max.y = std::max( pos_max.y, pos.y + h );
+    }
+
+    float ts_to_x( int64_t ts )
+    {
+        return w * ( ts - ts0 ) * tsdxrcp;
+    }
+
+    float ts_to_screenx( int64_t ts )
+    {
+        return pos.x + ts_to_x( ts );
+    }
+
+    int64_t screenx_to_event_ts( float x )
+    {
+        double val = ( x - pos_min.x ) / w;
+
+        return ts0 + val * tsdx;
+    }
+
+    bool pt_in_graph( const ImVec2& posin )
+    {
+        return ( posin.x >= pos_min.x && posin.x <= pos_max.x &&
+                 posin.y >= pos_min.y && posin.y <= pos_max.y );
+    }
+
+    bool mouse_pos_in_graph()
+    {
+        return pt_in_graph( mouse_pos );
+    }
+
+public:
+    ImVec2 pos;
+
+    float scale;
+    float h;
+    float w;
+
+    int64_t ts0;
+    int64_t ts1;
+    int64_t tsdx;
+    double tsdxrcp;
+
+    ImVec2 mouse_pos;
+    ImVec2 pos_min{ FLT_MAX, FLT_MAX };
+    ImVec2 pos_max{ FLT_MIN, FLT_MIN };
+};
+
 void TraceWin::render_process_graphs()
 {
-    float scale = ImGui::GetIO().FontGlobalScale;
-
-    float h = 40.0f * scale;
-    float w = ImGui::GetContentRegionAvailWidth();
+    graph_info_t gi;
 
     std::vector< trace_event_t > &events = m_trace_events->m_events;
     uint32_t eventstart = m_graph_start_eventid;
@@ -1103,15 +1180,7 @@ void TraceWin::render_process_graphs()
     trace_event_t *event0 = &events[ eventstart ];
     trace_event_t *event1 = &events[ eventend ];
 
-    int64_t ts0 = event0->ts;
-    int64_t ts1 = event1->ts;
-    int64_t tsdx = ts1 - ts0 + 1;
-
-    double tsdxrcp = 1.0 / tsdx;
-
-    ImVec2 mouse_pos = ImGui::GetMousePos();
-    ImVec2 pos_min( FLT_MAX, FLT_MAX );
-    ImVec2 pos_max( FLT_MIN, FLT_MIN );
+    gi.init( event0, event1 );
 
     for ( const std::string &comm : m_graph_rows )
     {
@@ -1129,24 +1198,20 @@ void TraceWin::render_process_graphs()
 
         if ( ImGui::CollapsingHeader( label.c_str(), flags ) )
         {
-            ImVec2 pos = ImGui::GetCursorScreenPos();
+            ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
+            gi.set_cursor_screen_pos( cursor_pos );
 
-            pos_min.x = std::min( pos_min.x, pos.x );
-            pos_min.y = std::min( pos_min.y, pos.y );
-            pos_max.x = std::max( pos_max.x, pos.x + w );
-            pos_max.y = std::max( pos_max.y, pos.y + h );
-
-            ImGui::BeginChild( ( "g_" + label ).c_str(), ImVec2( w, h ) );
+            ImGui::BeginChild( ( "g_" + label ).c_str(), ImVec2( gi.w, gi.h ) );
 
             // Draw background
             static const ImU32 col_background = IM_COL32( 255, 255, 255, 50 );
             ImGui::GetWindowDrawList()->AddRectFilled(
-                        ImVec2( pos.x, pos.y ),
-                        ImVec2( pos.x + w, pos.y + h ),
+                        ImVec2( gi.pos.x, gi.pos.y ),
+                        ImVec2( gi.pos.x + gi.w, gi.pos.y + gi.h ),
                         col_background );
 
             // Go through all event IDs for this process
-            event_renderer_t event_renderer( pos.y, w, h, Hue_YlRd );
+            event_renderer_t event_renderer( gi.pos.y, gi.w, gi.h, Hue_YlRd );
             for ( uint32_t id : *plocs )
             {
                 if ( id > eventend )
@@ -1155,7 +1220,7 @@ void TraceWin::render_process_graphs()
                     continue;
 
                 trace_event_t &event = m_trace_events->m_events[ id ];
-                float x = pos.x + w * ( event.ts - ts0 ) * tsdxrcp;
+                float x = gi.ts_to_screenx( event.ts );
 
                 event_renderer.add_event( x );
             }
@@ -1173,60 +1238,101 @@ void TraceWin::render_process_graphs()
                         continue;
 
                     trace_event_t &event = m_trace_events->m_events[ id ];
-                    float x = pos.x + w * ( event.ts - ts0 ) * tsdxrcp;
+                    float x = gi.ts_to_screenx( event.ts );
 
-                    imgui_drawrect( x, 2.0f, pos.y, h, col_OrangeRed );
+                    imgui_drawrect( x, 2.0f, gi.pos.y, gi.h, col_OrangeRed );
                 }
             }
 
             // Draw time ticks every millisecond
-            int64_t tsstart = std::max< int64_t >( ts0 / MSECS_PER_SEC - 1, 0 ) * MSECS_PER_SEC;
-            float x0 = w * ( tsstart - ts0 ) * tsdxrcp;
-            float dx = w * MSECS_PER_SEC * tsdxrcp;
+            int64_t tsstart = std::max< int64_t >( gi.ts0 / MSECS_PER_SEC - 1, 0 ) * MSECS_PER_SEC;
+            float x0 = gi.ts_to_x( tsstart ); //gi.w * ( tsstart - gi.ts0 ) * gi.tsdxrcp;
+            float dx = gi.w * MSECS_PER_SEC * gi.tsdxrcp;
 
-            for ( ; x0 <= w; x0 += dx )
+            for ( ; x0 <= gi.w; x0 += dx )
             {
-                imgui_drawrect( pos.x + x0, 1.0f, pos.y, h / 2, col_Lime );
+                imgui_drawrect( gi.pos.x + x0, 1.0f, gi.pos.y, gi.h / 2, col_Lime );
 
                 if ( dx >= 35.0f )
                 {
                     for ( int i = 1; i < 4; i++ )
-                        imgui_drawrect( pos.x + x0 + i * dx / 4, 1.0f, pos.y, h / 8, col_Lime );
+                        imgui_drawrect( gi.pos.x + x0 + i * dx / 4, 1.0f, gi.pos.y, gi.h / 8, col_Lime );
                 }
             }
 
             // Draw location line for mouse if mouse is over graph
             if ( m_mouse_over_graph &&
-                 mouse_pos.x >= pos.x &&
-                 mouse_pos.x <= pos.x + w )
+                 gi.mouse_pos.x >= gi.pos.x &&
+                 gi.mouse_pos.x <= gi.pos.x + gi.w )
             {
-                imgui_drawrect( mouse_pos.x, 2.0f, pos.y, h, col_DeepPink );
+                imgui_drawrect( gi.mouse_pos.x, 2.0f, gi.pos.y, gi.h, col_DeepPink );
+            }
+
+            // Draw mouse selection location
+            if ( m_mouse_captured )
+            {
+                float mousex0 = m_mouse_capture_pos.x;
+                float mousex1 = gi.mouse_pos.x;
+                ImU32 col = ( col_White & ~IM_COL32_A_MASK ) | IM_COL32( 0, 0, 0, 0x50 );
+
+                imgui_drawrect( mousex0, mousex1 - mousex0, gi.pos.y, gi.h, col );
             }
 
             ImGui::EndChild();
         }
     }
 
-    //$ TODO mikesart: click and drag to new zoom area
-
     // Check if the mouse is currently over our graph area
-    m_mouse_over_graph =
-        ( mouse_pos.x >= pos_min.x && mouse_pos.x <= pos_max.x &&
-          mouse_pos.y >= pos_min.y && mouse_pos.y <= pos_max.y );
+    m_mouse_over_graph = gi.mouse_pos_in_graph();
 
-    if ( m_mouse_over_graph)
+    if ( m_mouse_captured )
     {
-        double x = ( mouse_pos.x - pos_min.x ) / w;
-        int64_t event_ts = ts0 + tsdx * x;
+        int64_t event_ts0 = gi.screenx_to_event_ts( m_mouse_capture_pos.x );
+        int64_t event_ts1 = gi.screenx_to_event_ts( gi.mouse_pos.x );
+
+        if ( event_ts0 > event_ts1 )
+            std::swap( event_ts0, event_ts1 );
+
+        if ( ImGui::IsMouseDown( 0 ) )
+        {
+            std::string time_buf0 = ts_to_timestr( event_ts0, m_tsdelta );
+            std::string time_buf1 = ts_to_timestr( event_ts1, m_tsdelta );
+
+            ImGui::SetTooltip( "%s..%s", time_buf0.c_str(), time_buf1.c_str() );
+        }
+        else
+        {
+            m_mouse_captured = false;
+
+            m_graph_start_eventid = ts_to_eventid( event_ts0 );
+            m_graph_end_eventid = ts_to_eventid( event_ts1 );
+
+            m_do_graph_start = true;
+            m_do_graph_end = true;
+        }
+    }
+    else if ( m_mouse_over_graph)
+    {
+        int64_t event_ts = gi.screenx_to_event_ts( gi.mouse_pos.x );
         std::string time_buf = ts_to_timestr( event_ts, m_tsdelta );
 
         ImGui::SetTooltip( "%s", time_buf.c_str() );
 
-        bool mouse_clicked = ImGui::IsMouseClicked( 0 );
-        if ( mouse_clicked )
+        if ( !m_mouse_captured )
         {
-            m_timegoto_buf = time_buf;
-            m_do_gototime = true;
+            if ( ImGui::IsMouseClicked( 0 ) )
+            {
+                m_mouse_captured = true;
+                ImGui::CaptureMouseFromApp( true );
+                m_mouse_capture_pos = gi.mouse_pos;
+            }
+#if 0
+            else if ( ImGui::IsMouseDoubleClicked( 0 ) )
+            {
+                m_timegoto_buf = time_buf;
+                m_do_gototime = true;
+            }
+#endif
         }
     }
 }
@@ -1291,18 +1397,18 @@ bool TraceWin::render_events()
         }
 
         ImGui::SameLine();
-        bool do_graph_start = imgui_input_int( &m_graph_start_eventid, 75.0f, "Event Start:", "##GraphEventStart" );
+        m_do_graph_start |= imgui_input_int( &m_graph_start_eventid, 75.0f, "Event Start:", "##GraphEventStart" );
 
         ImGui::SameLine();
-        bool do_graph_end = imgui_input_int( &m_graph_end_eventid, 75.0f, "Event End:", "##GraphEventEnd" );
+        m_do_graph_end |= imgui_input_int( &m_graph_end_eventid, 75.0f, "Event End:", "##GraphEventEnd" );
 
         m_graph_start_eventid = Clamp< int >( m_graph_start_eventid, m_start_eventid, m_end_eventid );
         m_graph_end_eventid = Clamp< int >( m_graph_end_eventid, m_graph_start_eventid, m_end_eventid );
 
-        if ( do_graph_start )
+        if ( m_do_graph_start )
             m_graphtime_start = ts_to_timestr( events[ m_graph_start_eventid ].ts, m_tsdelta );
 
-        if ( do_graph_end )
+        if ( m_do_graph_end )
         {
             int64_t ts = events[ m_graph_end_eventid ].ts - events[ m_graph_start_eventid ].ts;
 

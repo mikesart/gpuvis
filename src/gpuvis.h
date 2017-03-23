@@ -270,6 +270,9 @@ public:
     std::string m_timegoto_buf;
     std::string m_graphtime_start;
     std::string m_graphtime_length;
+
+    bool m_do_graph_start = false;
+    bool m_do_graph_end = false;
     int m_graph_start_eventid = 0;
     int m_graph_end_eventid = INT32_MAX;
 
@@ -280,6 +283,8 @@ public:
     uint32_t m_selected = ( uint32_t )-1;
 
     bool m_mouse_over_graph = false;
+    bool m_mouse_captured = false;
+    ImVec2 m_mouse_capture_pos;
 
     std::string m_timedelta_buf;
     int64_t m_tsdelta = -1;
