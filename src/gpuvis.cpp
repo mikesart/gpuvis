@@ -737,7 +737,7 @@ std::string TraceWin::ts_to_timestr( int64_t event_ts, int64_t tsdelta )
 
 void TraceWin::init_graph_rows_str()
 {
-    m_graph_rows_str = "# Place comm / event names to graph\n";
+    m_graph_rows_str = "# comm and event names to graph\n\n";
     m_graph_rows_str += "# fence_signaled\n";
     m_graph_rows_str += "# amd_sched_job\n";
 
@@ -1445,9 +1445,9 @@ bool TraceWin::render_events()
 
     m_goto_eventid = std::min< uint32_t >( m_goto_eventid, event_count - 1 );
 
-    if ( ImGui::CollapsingHeader( "Process Graphs", ImGuiTreeNodeFlags_DefaultOpen ) )
+    if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        bool graph_start = ImGui::Button( "Time Start:" );
+        bool graph_start = ImGui::Button( "Start:" );
 
         ImGui::SameLine();
         ImGui::PushItemWidth( 150 );
@@ -1456,7 +1456,7 @@ bool TraceWin::render_events()
         ImGui::PopItemWidth();
 
         ImGui::SameLine();
-        bool graph_end = ImGui::Button( "Time Length:" );
+        bool graph_end = ImGui::Button( "Length:" );
 
         ImGui::SameLine();
         ImGui::PushItemWidth( 150 );
@@ -1477,11 +1477,15 @@ bool TraceWin::render_events()
             m_graph_end_eventid = ts_to_eventid( events[ m_graph_start_eventid ].ts + ts );
         }
 
+#if 0
+        //$ TODO mikesart: Graphs need to be a time only based system. They can't start/end on events
+        // because when you zoom in there might not be events for where you want to start/end.
         ImGui::SameLine();
         m_do_graph_start |= imgui_input_int( &m_graph_start_eventid, 75.0f, "Event Start:", "##GraphEventStart" );
 
         ImGui::SameLine();
         m_do_graph_end |= imgui_input_int( &m_graph_end_eventid, 75.0f, "Event End:", "##GraphEventEnd" );
+#endif
 
         m_graph_start_eventid = Clamp< int >( m_graph_start_eventid, m_start_eventid, m_end_eventid );
         m_graph_end_eventid = Clamp< int >( m_graph_end_eventid, m_graph_start_eventid, m_end_eventid );
@@ -1513,7 +1517,7 @@ bool TraceWin::render_events()
         render_process_graphs();
     }
 
-    if ( ImGui::CollapsingHeader( "Events", ImGuiTreeNodeFlags_DefaultOpen ) )
+    if ( ImGui::CollapsingHeader( "Events List", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
         render_events_list();
     }
