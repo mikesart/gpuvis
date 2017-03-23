@@ -582,16 +582,15 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
         trace_events->m_cpucount.resize( info.cpus, 0 );
     }
 
-    if ( event.ts < trace_events->m_ts_min )
-        trace_events->m_ts_min = event.ts;
-    if ( event.ts > trace_events->m_ts_max )
-        trace_events->m_ts_max = event.ts;
-
     if ( event.cpu < trace_events->m_cpucount.size() )
         trace_events->m_cpucount[ event.cpu ]++;
 
+    if ( id == 0 )
+        trace_events->m_ts_min = event.ts;
+
     trace_events->m_events.push_back( event );
     trace_events->m_events[ id ].id = id;
+    trace_events->m_events[ id ].ts -= trace_events->m_ts_min;
 
     trace_events->m_event_locations.add_location( event.name, id );
     trace_events->m_comm_locations.add_location( event.comm, id );
@@ -673,8 +672,7 @@ void TraceLoader::render()
  */
 void TraceWin::render_time_delta_button_init( TraceEvents &trace_events )
 {
-    // Default to minimum time stamp.
-    unsigned long long ts = trace_events.m_ts_min;
+    int64_t ts = 0;
 
     // Try to grab all the vblank event locations.
     std::vector< uint32_t > *vblank_locs = trace_events.get_event_locs( "drm_vblank_event" );
@@ -683,29 +681,27 @@ void TraceWin::render_time_delta_button_init( TraceEvents &trace_events )
     {
         std::vector< trace_event_t > &events = trace_events.m_events;
 
-        // Use first vblank, but then try to find first vblank where pid != 0.
-        ts = vblank_locs->at( 0 );
-
         for ( uint32_t i : *vblank_locs )
         {
-            if ( events[ i ].pid )
+            if ( !ts || events[ i ].pid )
             {
+                m_goto_eventid = i;
                 ts = events[ i ].ts;
 
-                m_do_gotoevent = true;
-                m_goto_eventid = i;
-                break;
+                if ( events[ i ].pid )
+                    break;
             }
         }
-    }
 
-    m_timedelta_buf = ts_to_timestr( ts );
-    m_tsdelta = ts;
+        m_do_gotoevent = true;
+        m_timedelta_buf = ts_to_timestr( ts );
+        m_tsdelta = ts;
+    }
 }
 
 void TraceWin::render_time_delta_button( TraceEvents &trace_events )
 {
-    if ( m_tsdelta == ( unsigned long long )-1 )
+    if ( m_tsdelta == -1 )
         render_time_delta_button_init( trace_events );
 
     bool time_delta = ImGui::Button( "Time Offset:" );
@@ -722,31 +718,24 @@ void TraceWin::render_time_delta_button( TraceEvents &trace_events )
     }
 }
 
-unsigned long long TraceWin::timestr_to_ts( const char *buf, unsigned long long tsdelta )
+int64_t TraceWin::timestr_to_ts( const char *buf, int64_t tsdelta )
 {
-    const char *dot = strchr( buf, '.' );
-    long msecs = strtol( buf, NULL, 10 );
-    unsigned long nsecs = dot ? strtoul( dot + 1, NULL, 10 ) : 0;
-    long neg = ( msecs < 0 ) ? -1 : +1;
+    double val;
 
-    while ( nsecs && ( nsecs * 10 < MSECS_PER_SEC ) )
-        nsecs *= 10;
-    if ( neg < 0 )
-        msecs = -msecs;
+    if ( sscanf( buf, "%lf", &val ) != 1 )
+    {
+        logf( "[Error] %s: sscanf (%s) failed: %s", __func__, buf, strerror( errno ) );
+        val = 0.0;
+    }
 
-    long delta = ( msecs / MSECS_PER_SEC + nsecs + msecs * MSECS_PER_SEC );
-
-    return tsdelta + neg * delta;
+    return tsdelta + ( int64_t )( val * MSECS_PER_SEC );
 }
 
-std::string TraceWin::ts_to_timestr( unsigned long long event_ts, unsigned long long tsdelta )
+std::string TraceWin::ts_to_timestr( int64_t event_ts, int64_t tsdelta )
 {
-    bool ts_negative = ( tsdelta > event_ts );
-    unsigned long long ts = ts_negative ? ( tsdelta - event_ts ) : ( event_ts - tsdelta );
-    unsigned long msecs = ts / MSECS_PER_SEC;
-    unsigned long nsecs = ts - msecs * MSECS_PER_SEC;
+    double val = ( event_ts - tsdelta ) * ( 1.0 / MSECS_PER_SEC );
 
-    return string_format( "%s%lu.%06lu", ts_negative ? "-" : "", msecs, nsecs );
+    return string_format( "%.6lf", val );
 }
 
 void TraceWin::init_graph_rows_str()
@@ -796,7 +785,7 @@ void TraceWin::update_graph_rows_list()
     }
 }
 
-int TraceWin::ts_to_eventid( unsigned long long ts )
+int TraceWin::ts_to_eventid( int64_t ts )
 {
     trace_event_t x;
     std::vector< trace_event_t > &events = m_trace_events->m_events;
@@ -813,9 +802,9 @@ int TraceWin::ts_to_eventid( unsigned long long ts )
     return id;
 }
 
-int TraceWin::timestr_to_eventid( const char *buf, unsigned long long tsdelta )
+int TraceWin::timestr_to_eventid( const char *buf, int64_t tsdelta )
 {
-    unsigned long long ts = timestr_to_ts( buf, tsdelta );
+    int64_t ts = timestr_to_ts( buf, tsdelta );
 
     return ts_to_eventid( ts );
 }
@@ -1117,9 +1106,9 @@ void TraceWin::render_process_graphs()
     trace_event_t *event0 = &events[ eventstart ];
     trace_event_t *event1 = &events[ eventend ];
 
-    unsigned long long ts0 = event0->ts;
-    unsigned long long ts1 = event1->ts;
-    unsigned long long tsdx = ts1 - ts0 + 1;
+    int64_t ts0 = event0->ts;
+    int64_t ts1 = event1->ts;
+    int64_t tsdx = ts1 - ts0 + 1;
 
     double tsdxrcp = 1.0 / tsdx;
 
@@ -1195,10 +1184,10 @@ void TraceWin::render_process_graphs()
 
             // Draw time ticks every millisecond
             //$ TODO: Draw little ticks every quarter ms when zoomed in?
-            unsigned long long msecs = ts0 / MSECS_PER_SEC;
-            unsigned long long msec0 = msecs * MSECS_PER_SEC;
+            int64_t msecs = ts0 / MSECS_PER_SEC;
+            int64_t msec0 = msecs * MSECS_PER_SEC;
 
-            for ( unsigned long long ts = msec0; ts <= ts1; ts += MSECS_PER_SEC )
+            for ( int64_t ts = msec0; ts <= ts1; ts += MSECS_PER_SEC )
             {
                 float x = pos.x + w * ( ts - ts0 ) * tsdxrcp;
 
@@ -1227,7 +1216,7 @@ void TraceWin::render_process_graphs()
     if ( m_mouse_over_graph)
     {
         double x = ( mouse_pos.x - pos_min.x ) / w;
-        unsigned long long event_ts = ts0 + tsdx * x;
+        int64_t event_ts = ts0 + tsdx * x;
         std::string time_buf = ts_to_timestr( event_ts, m_tsdelta );
 
         ImGui::SetTooltip( "%s", time_buf.c_str() );
@@ -1292,7 +1281,7 @@ bool TraceWin::render_events()
 
         if ( graph_end || !m_inited )
         {
-            unsigned long long ts = timestr_to_ts( m_graphtime_length.c_str() );
+            int64_t ts = timestr_to_ts( m_graphtime_length.c_str() );
 
             m_graph_end_eventid = ts_to_eventid( events[ m_graph_start_eventid ].ts + ts );
         }
@@ -1311,7 +1300,7 @@ bool TraceWin::render_events()
 
         if ( do_graph_end )
         {
-            unsigned long long ts = events[ m_graph_end_eventid ].ts - events[ m_graph_start_eventid ].ts;
+            int64_t ts = events[ m_graph_end_eventid ].ts - events[ m_graph_start_eventid ].ts;
 
             m_graphtime_length = TraceWin::ts_to_timestr( ts );
         }

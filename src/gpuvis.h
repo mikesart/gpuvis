@@ -84,7 +84,7 @@ struct trace_event_t
     int pid;
     uint32_t cpu;
     int missed_events;
-    unsigned long long ts;
+    int64_t ts;
     const char *comm;
     const char *system;
     const char *name;
@@ -148,8 +148,7 @@ public:
     }
 
 public:
-    unsigned long long m_ts_min = ( unsigned long long )-1;
-    unsigned long long m_ts_max = 0;
+    int64_t m_ts_min = 0;
     std::vector< uint32_t > m_cpucount;
 
     std::string m_filename;
@@ -243,13 +242,13 @@ protected:
     bool render_time_goto_button( TraceEvents &trace_events );
 
     // Return an event id for a given time stamp
-    int ts_to_eventid( unsigned long long ts );
+    int ts_to_eventid( int64_t ts );
     // Return an event id from a time string
-    int timestr_to_eventid( const char *buf, unsigned long long tsdelta );
+    int timestr_to_eventid( const char *buf, int64_t tsdelta );
     // Convert a time string to a time stamp
-    unsigned long long timestr_to_ts( const char *buf, unsigned long long tsdelta = 0 );
+    int64_t timestr_to_ts( const char *buf, int64_t tsdelta = 0 );
     // Convert a time stamp to a time string
-    std::string ts_to_timestr( unsigned long long event_ts, unsigned long long tsdelta = 0 );
+    std::string ts_to_timestr( int64_t event_ts, int64_t tsdelta = 0 );
 
     void init_graph_rows_str();
     void update_graph_rows_list();
@@ -283,7 +282,7 @@ public:
     bool m_mouse_over_graph = false;
 
     std::string m_timedelta_buf;
-    unsigned long long m_tsdelta = ( unsigned long long )-1;
+    int64_t m_tsdelta = -1;
 };
 
 class TraceLoader
