@@ -700,29 +700,25 @@ void TraceLoader::render()
 void TraceWin::render_time_offset_button_init( TraceEvents &trace_events )
 {
     int64_t ts = 0;
-    std::vector< uint32_t > *vblank_locs = trace_events.get_event_locs( "drm_vblank_event" );
+    std::vector< trace_event_t > &events = trace_events.m_events;
+    const std::vector< uint32_t > &vblank_locs = trace_events.get_event_locs( "drm_vblank_event" );
 
-    if ( vblank_locs )
+    for ( uint32_t i : vblank_locs )
     {
-        std::vector< trace_event_t > &events = trace_events.m_events;
-
-        for ( uint32_t i : *vblank_locs )
+        if ( !ts || events[ i ].pid )
         {
-            if ( !ts || events[ i ].pid )
-            {
-                m_do_gotoevent = true;
-                m_goto_eventid = i;
+            m_do_gotoevent = true;
+            m_goto_eventid = i;
 
-                ts = events[ i ].ts;
+            ts = events[ i ].ts;
 
-                if ( events[ i ].pid )
-                    break;
-            }
+            if ( events[ i ].pid )
+                break;
         }
-
-        m_tsoffset = ts;
-        m_timeoffset_buf = ts_to_timestr( ts );
     }
+
+    m_tsoffset = ts;
+    m_timeoffset_buf = ts_to_timestr( ts );
 }
 
 int64_t TraceWin::timestr_to_ts( const char *buf, int64_t tsoffset )
@@ -1292,15 +1288,17 @@ void TraceWin::render_process_graphs()
 
     for ( const std::string &comm : m_graph_rows )
     {
-        std::vector< uint32_t > *plocs = m_trace_events->get_comm_locs( comm.c_str() );
-        if ( !plocs )
+        std::vector< uint32_t > &locs = m_trace_events->get_comm_locs( comm.c_str() );
+
+        if ( locs.empty() )
         {
-            plocs = m_trace_events->get_event_locs( comm.c_str() );
-            if ( !plocs )
+            locs = m_trace_events->get_event_locs( comm.c_str() );
+
+            if ( locs.empty() )
                 continue;
         }
 
-        std::string label = string_format( "%s %lu events", comm.c_str(), plocs->size() );
+        std::string label = string_format( "%s %lu events", comm.c_str(), locs.size() );
 
         if ( ImGui::CollapsingHeader( label.c_str(), ImGuiTreeNodeFlags_DefaultOpen ) )
         {
@@ -1320,11 +1318,11 @@ void TraceWin::render_process_graphs()
             // Go through all event IDs for this process
             event_renderer_t event_renderer( gi.pos.y, gi.w, gi.h, Hue_YlRd );
 
-            for ( size_t idx = vec_find_eventid( *plocs, eventstart );
-                  idx < plocs->size();
+            for ( size_t idx = vec_find_eventid( locs, eventstart );
+                  idx < locs.size();
                   idx++ )
             {
-                uint32_t eventid = plocs->at( idx );
+                uint32_t eventid = locs[ idx ];
 
                 if ( eventid > eventend )
                     break;
@@ -1337,23 +1335,21 @@ void TraceWin::render_process_graphs()
             event_renderer.done();
 
             // Draw vblank events on every graph.
-            std::vector< uint32_t > *vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
-            if ( vblank_locs )
+            const std::vector< uint32_t > &vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
+
+            for ( size_t idx = vec_find_eventid( vblank_locs, eventstart );
+                  idx < vblank_locs.size();
+                  idx++ )
             {
-                for ( size_t idx = vec_find_eventid( *vblank_locs, eventstart );
-                      idx < vblank_locs->size();
-                      idx++ )
-                {
-                    uint32_t id = vblank_locs->at( idx );
+                uint32_t id = vblank_locs[ idx ];
 
-                    if ( id > eventend )
-                        break;
+                if ( id > eventend )
+                    break;
 
-                    trace_event_t &event = m_trace_events->m_events[ id ];
-                    float x = gi.ts_to_screenx( event.ts );
+                trace_event_t &event = m_trace_events->m_events[ id ];
+                float x = gi.ts_to_screenx( event.ts );
 
-                    imgui_drawrect( x, 2.0f, gi.pos.y, gi.h, col_OrangeRed );
-                }
+                imgui_drawrect( x, 2.0f, gi.pos.y, gi.h, col_OrangeRed );
             }
 
             // Draw time ticks every millisecond

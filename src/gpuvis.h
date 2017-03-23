@@ -131,7 +131,7 @@ public:
 
 // Given a sorted array (like from TraceLocations), binary search for eventid
 //   and return the vector index, or vec.size() if not found.
-inline size_t vec_find_eventid( std::vector< uint32_t > &vec, uint32_t eventid )
+inline size_t vec_find_eventid( const std::vector< uint32_t > &vec, uint32_t eventid )
 {
     auto i = std::lower_bound( vec.begin(), vec.end(), eventid );
 
@@ -146,18 +146,24 @@ public:
 
 public:
     // Return vec of locations for an event name. Ie: "drm_handle_vblank"
-    std::vector< uint32_t > *get_event_locs( const char *name )
+    std::vector< uint32_t > &get_event_locs( const char *name )
     {
-        return m_event_locations.get_locations( name );
+        std::vector< uint32_t > *pvec = m_event_locations.get_locations( name );
+
+        return pvec ? *pvec : m_emptyvec;
     }
 
     // Return vec of locations for a cmdline. Ie: "SkinningApp-1536"
-    std::vector< uint32_t > *get_comm_locs( const char *name )
+    std::vector< uint32_t > &get_comm_locs( const char *name )
     {
-        return m_comm_locations.get_locations( name );
+        std::vector< uint32_t > *pvec = m_comm_locations.get_locations( name );
+
+        return pvec ? *pvec : m_emptyvec;
     }
 
 public:
+    std::vector< uint32_t > m_emptyvec;
+
     int64_t m_ts_min = 0;
     std::vector< uint32_t > m_cpucount;
 
