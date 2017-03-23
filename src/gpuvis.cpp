@@ -43,6 +43,19 @@
 //$ TODO: Restore column sizes?
 //$ TODO: Small font for events?
 
+//$ TODO: Draw entire graph ourself
+//$ TODO: Graph needs to be entirely time based
+
+//$ TODO: Right click on events - popup menu
+//    start graph at a specific location
+//    find event in graph
+// maybe highlight event in graph when mouse is over
+// draw selected event in graph
+
+// also need to show fields for events (seqno, etc.)
+
+// popup graph tooltip shows events around location you're at?
+
 static SDL_threadID g_main_tid = -1;
 static std::vector< char * > g_log;
 static std::vector< char * > g_thread_log;
@@ -417,6 +430,20 @@ static bool imgui_input_int( int *val, float w, const char *label, const char *l
     return ret;
 }
 
+bool imgui_input_text( const char *button_label, const char *text_label,
+                       std::string &str, size_t capacity, float w )
+{
+    bool ret = ImGui::Button( button_label );
+
+    ImGui::SameLine();
+    ImGui::PushItemWidth( w );
+    str.reserve( capacity );
+    ret |= ImGui::InputText( text_label, &str[ 0 ], str.capacity(), 0, 0 );
+    ImGui::PopItemWidth();
+
+    return ret;
+}
+
 static bool imgui_key_pressed( ImGuiKey key )
 {
     return ImGui::IsKeyPressed( ImGui::GetKeyIndex( key ) );
@@ -668,13 +695,11 @@ void TraceLoader::render()
 }
 
 /*
- * TracWin
+ * TraceWin
  */
-void TraceWin::render_time_delta_button_init( TraceEvents &trace_events )
+void TraceWin::render_time_offset_button_init( TraceEvents &trace_events )
 {
     int64_t ts = 0;
-
-    // Try to grab all the vblank event locations.
     std::vector< uint32_t > *vblank_locs = trace_events.get_event_locs( "drm_vblank_event" );
 
     if ( vblank_locs )
@@ -685,7 +710,9 @@ void TraceWin::render_time_delta_button_init( TraceEvents &trace_events )
         {
             if ( !ts || events[ i ].pid )
             {
+                m_do_gotoevent = true;
                 m_goto_eventid = i;
+
                 ts = events[ i ].ts;
 
                 if ( events[ i ].pid )
@@ -693,46 +720,26 @@ void TraceWin::render_time_delta_button_init( TraceEvents &trace_events )
             }
         }
 
-        m_do_gotoevent = true;
-        m_timedelta_buf = ts_to_timestr( ts );
-        m_tsdelta = ts;
+        m_tsoffset = ts;
+        m_timeoffset_buf = ts_to_timestr( ts );
     }
 }
 
-void TraceWin::render_time_delta_button( TraceEvents &trace_events )
-{
-    if ( m_tsdelta == -1 )
-        render_time_delta_button_init( trace_events );
-
-    bool time_delta = ImGui::Button( "Time Offset:" );
-
-    ImGui::SameLine();
-    ImGui::PushItemWidth( 150 );
-    m_timedelta_buf.reserve( 32 );
-    time_delta |= ImGui::InputText( "##TimeDelta", &m_timedelta_buf[ 0 ], m_timedelta_buf.capacity(), 0, 0 );
-    ImGui::PopItemWidth();
-
-    if ( time_delta )
-    {
-        m_tsdelta = timestr_to_ts( m_timedelta_buf.c_str() );
-    }
-}
-
-int64_t TraceWin::timestr_to_ts( const char *buf, int64_t tsdelta )
+int64_t TraceWin::timestr_to_ts( const char *buf, int64_t tsoffset )
 {
     double val;
 
     if ( sscanf( buf, "%lf", &val ) != 1 )
         val = 0.0;
 
-    return tsdelta + ( int64_t )( val * MSECS_PER_SEC );
+    return tsoffset + ( int64_t )( val * MSECS_PER_SEC );
 }
 
-std::string TraceWin::ts_to_timestr( int64_t event_ts, int64_t tsdelta )
+std::string TraceWin::ts_to_timestr( int64_t event_ts, int64_t tsoffset, int precision )
 {
-    double val = ( event_ts - tsdelta ) * ( 1.0 / MSECS_PER_SEC );
+    double val = ( event_ts - tsoffset ) * ( 1.0 / MSECS_PER_SEC );
 
-    return string_format( "%.6lf", val );
+    return string_format( "%.*lf", precision, val );
 }
 
 void TraceWin::init_graph_rows_str()
@@ -784,44 +791,34 @@ void TraceWin::update_graph_rows_list()
 
 int TraceWin::ts_to_eventid( int64_t ts )
 {
+    // When running a debug build w/ ASAN on, the lower_bound function is
+    //  horribly slow so we cache the timestamp to event ids.
+    auto i = m_ts_to_eventid_cache.find( ts );
+    if ( i != m_ts_to_eventid_cache.end() )
+        return m_ts_to_eventid_cache.at( ts );
+
     trace_event_t x;
     std::vector< trace_event_t > &events = m_trace_events->m_events;
 
     x.ts = ts;
 
     auto eventidx = std::lower_bound( events.begin(), events.end(), x,
-                                      []( const trace_event_t &f1, const trace_event_t &f2 ) { return f1.ts < f2.ts; } );
+        []( const trace_event_t &f1, const trace_event_t &f2 ){ return f1.ts < f2.ts; } );
 
     int id = eventidx - events.begin();
 
     if ( ( size_t )id >= events.size() )
         id = events.size() - 1;
+
+    m_ts_to_eventid_cache[ ts ] = id;
     return id;
 }
 
-int TraceWin::timestr_to_eventid( const char *buf, int64_t tsdelta )
+int TraceWin::timestr_to_eventid( const char *buf, int64_t tsoffset )
 {
-    int64_t ts = timestr_to_ts( buf, tsdelta );
+    int64_t ts = timestr_to_ts( buf, tsoffset );
 
     return ts_to_eventid( ts );
-}
-
-bool TraceWin::render_time_goto_button( TraceEvents &trace_events )
-{
-    m_do_gototime |= ImGui::Button( "Goto Time:" );
-
-    ImGui::SameLine();
-    ImGui::PushItemWidth( 150 );
-    m_timegoto_buf.reserve( 32 );
-    m_do_gototime |= ImGui::InputText( "##TimeGoto", &m_timegoto_buf[ 0 ], m_timegoto_buf.capacity(), 0, 0 );
-    ImGui::PopItemWidth();
-
-    if ( m_do_gototime )
-    {
-        m_goto_eventid = timestr_to_eventid( m_timegoto_buf.c_str(), m_tsdelta );
-    }
-
-    return m_do_gototime;
 }
 
 bool TraceWin::render( class TraceLoader *loader )
@@ -858,10 +855,97 @@ bool TraceWin::render( class TraceLoader *loader )
         return true;
     }
 
-    return render_events();
+    ImGui::Begin( m_title.c_str(), &m_open );
+
+    if ( ImGui::CollapsingHeader( "Trace Info" ) )
+    {
+        if ( !render_info() )
+        {
+            ImGui::End();
+            return false;
+        }
+    }
+
+    if ( !m_inited )
+    {
+        // Initialize our graph rows first time through.
+        init_graph_rows_str();
+
+        render_time_offset_button_init( *m_trace_events );
+    }
+
+    // Sanity check these aren't out of range.
+    size_t event_count = m_trace_events->m_events.size();
+    m_start_eventid = Clamp< int >( m_start_eventid, 0, event_count - 1 );
+    m_end_eventid = Clamp< int >( m_end_eventid, m_start_eventid, event_count - 1 );
+
+    if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        if ( imgui_input_text( "Start:", "##GraphStart", m_graphtime_start_buf, 32, 150 ) )
+            m_graph_start_ts = timestr_to_ts( m_graphtime_start_buf.c_str() );
+
+        ImGui::SameLine();
+        if ( imgui_input_text( "Length:", "##GraphLength", m_graphtime_length_buf, 32, 150 ) )
+            m_graph_length_ts = timestr_to_ts( m_graphtime_length_buf.c_str() );
+
+        if ( m_do_graph_start_ts )
+            m_graphtime_start_buf = ts_to_timestr( m_graph_start_ts, 0, 4 );
+        if ( m_do_graph_length_ts )
+            m_graphtime_length_buf = ts_to_timestr( m_graph_length_ts, 0, 4 );
+
+        if ( ImGui::CollapsingHeader( "Graph Rows" ) )
+        {
+            if ( ImGui::Button( "Update Graph Rows" ) )
+                update_graph_rows_list();
+
+            ImGui::SameLine();
+            if ( ImGui::Button( "Reset Graph Rows" ) )
+                init_graph_rows_str();
+
+            m_graph_rows_str.reserve( 8192 );
+            ImGui::InputTextMultiline( "##GraphRows", &m_graph_rows_str[ 0 ], m_graph_rows_str.capacity(),
+                    ImVec2( -1.0f, ImGui::GetTextLineHeight() * 16 ) );
+        }
+
+        render_process_graphs();
+    }
+
+    if ( ImGui::CollapsingHeader( "Events List", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        bool update_eventids = imgui_input_int( &m_start_eventid, 75.0f, "Event Start:", "##EventStart" );
+
+        ImGui::SameLine();
+        update_eventids |= imgui_input_int( &m_end_eventid, 75.0f, "Event End:", "##EventEnd" );
+
+        if ( update_eventids )
+        {
+            m_start_eventid = Clamp< int >( m_start_eventid, 0, event_count - 1 );
+            m_end_eventid = Clamp< int >( m_end_eventid, m_start_eventid, event_count - 1 );
+        }
+
+        ImGui::SameLine();
+        if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_timeoffset_buf, 32, 150 ) )
+            m_tsoffset = timestr_to_ts( m_timeoffset_buf.c_str() );
+
+        m_do_gotoevent |= imgui_input_int( &m_goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
+
+        ImGui::SameLine();
+        if ( imgui_input_text( "Goto Time:", "##GotoTime", m_timegoto_buf, 32, 150 ) )
+        {
+            m_do_gotoevent = true;
+            m_goto_eventid = timestr_to_eventid( m_timegoto_buf.c_str(), m_tsoffset );
+        }
+
+        render_events_list();
+    }
+
+    ImGui::End();
+
+    m_inited = true;
+    return m_open;
 }
 
-bool TraceWin::render_options()
+bool TraceWin::render_info()
 {
     size_t event_count = m_trace_events->m_events.size();
     ImGui::Text( "Events: %lu\n", event_count );
@@ -869,24 +953,21 @@ bool TraceWin::render_options()
     if ( !event_count )
         return false;
 
-    if ( m_selected != ( uint32_t )-1 )
+    trace_info_t& trace_info = m_trace_events->m_trace_info;
+    ImGui::Text( "Trace cpus: %u", trace_info.cpus );
+
+    if ( !trace_info.uname.empty() )
+        ImGui::Text( "Trace uname: %s", trace_info.uname.c_str() );
+
+#if 0
+    if ( ImGui::CollapsingHeader( "CPU Stats" ) )
     {
-        ImGui::SameLine();
-        ImGui::Text( "Selected: %u", m_selected );
+        static std::string blah;
+        for ( const std::string &str : trace_info.cpustats )
+            blah += str;
+        ImGui::InputTextMultiline( "##CpuStats", &blah[ 0 ], blah.capacity(), ImVec2( 0, 0 ), ImGuiInputTextFlags_ReadOnly );
     }
-
-    imgui_input_int( &m_start_eventid, 75.0f, "Event Start:", "##EventStart" );
-
-    ImGui::SameLine();
-    imgui_input_int( &m_end_eventid, 75.0f, "Event End:", "##EventEnd" );
-
-    ImGui::SameLine();
-    render_time_delta_button( *m_trace_events );
-
-    m_do_gotoevent |= imgui_input_int( &m_goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
-
-    ImGui::SameLine();
-    m_do_gotoevent |= render_time_goto_button( *m_trace_events );
+#endif
 
     return true;
 }
@@ -937,10 +1018,10 @@ void TraceWin::render_events_list()
 
         if ( m_do_gotoevent )
         {
-            ImGui::SetScrollY( std::max< int >( 0, m_goto_eventid - m_start_eventid ) * lineh );
+            m_goto_eventid = std::min< uint32_t >( m_goto_eventid, event_count - 1 );
+            ImGui::SetScrollY( std::max< int >( 0, m_goto_eventid - m_start_eventid - 6 ) * lineh );
 
             m_do_gotoevent = false;
-            m_do_gototime = false;
         }
 
         float scrolly = ImGui::GetScrollY();
@@ -976,7 +1057,7 @@ void TraceWin::render_events_list()
             trace_event_t &event = events[ m_start_eventid + i ];
             bool selected = ( m_selected == i );
             bool is_vblank = !strcmp( event.name, "drm_vblank_event" );
-            std::string ts_str = ts_to_timestr( event.ts, m_tsdelta );
+            std::string ts_str = ts_to_timestr( event.ts, m_tsoffset );
 
             if ( is_vblank && !selected )
             {
@@ -1031,8 +1112,10 @@ public:
         y = y_in;
         w = w_in;
         h = h_in;
-        x0 = -1;
+
         hue = hue_in;
+
+        start( -1.0f );
     }
 
     void add_event( float x )
@@ -1079,7 +1162,7 @@ protected:
     {
         // Try to figure out how many events per x unit.
         // Usually is around 1 (not crowded) to 40 (really crowded)
-        float crowding = num_events / ceil( x1 - x0 );
+        float crowding = num_events / floor( x1 - x0 + 1.0f );
 
         // Try to map crowding to color hue.
         uint32_t index = crowding * 6.0f / 42.0f;
@@ -1099,18 +1182,18 @@ public:
 class graph_info_t
 {
 public:
-    void init( trace_event_t *event0, trace_event_t *event1 )
+    void init( int64_t start_ts, int64_t length_ts )
     {
+        ts0 = start_ts;
+        ts1 = start_ts + length_ts;
+
+        tsdx = ts1 - ts0 + 1;
+        tsdxrcp = 1.0 / tsdx;
+
         scale = ImGui::GetIO().FontGlobalScale;
 
         h = 40.0f * scale;
         w = ImGui::GetContentRegionAvailWidth();
-
-        ts0 = event0->ts;
-        ts1 = event1->ts;
-
-        tsdx = ts1 - ts0 + 1;
-        tsdxrcp = 1.0 / tsdx;
 
         mouse_pos = ImGui::GetMousePos();
     }
@@ -1177,14 +1260,35 @@ public:
 void TraceWin::render_process_graphs()
 {
     graph_info_t gi;
-
     std::vector< trace_event_t > &events = m_trace_events->m_events;
-    uint32_t eventstart = m_graph_start_eventid;
-    uint32_t eventend = m_graph_end_eventid;
-    trace_event_t *event0 = &events[ eventstart ];
-    trace_event_t *event1 = &events[ eventend ];
 
-    gi.init( event0, event1 );
+    if ( m_graph_start_ts + m_tsoffset < events[ m_start_eventid ].ts )
+    {
+        m_graph_start_ts = events[ m_start_eventid ].ts - m_tsoffset;
+        m_do_graph_start_ts = true;
+    }
+    else if ( m_graph_start_ts + m_tsoffset >= events[ m_end_eventid ].ts )
+    {
+        m_graph_start_ts = events[ m_end_eventid ].ts - m_tsoffset;
+        m_do_graph_start_ts = true;
+    }
+
+    if ( m_graph_length_ts < 100 )
+    {
+        m_graph_length_ts = 100;
+        m_do_graph_length_ts = true;
+    }
+    else if ( m_graph_length_ts > events[ m_end_eventid ].ts )
+    {
+        m_graph_length_ts = events[ m_end_eventid ].ts;
+        m_do_graph_length_ts = true;
+    }
+
+    gi.init( m_graph_start_ts + m_tsoffset, m_graph_length_ts );
+
+    uint32_t eventstart = ts_to_eventid( gi.ts0 );
+    uint32_t eventend = ts_to_eventid( gi.ts1 );
+    ImGui::Text( "events: %u, %u", eventstart, eventend );
 
     for ( const std::string &comm : m_graph_rows )
     {
@@ -1198,9 +1302,7 @@ void TraceWin::render_process_graphs()
 
         std::string label = string_format( "%s %lu events", comm.c_str(), plocs->size() );
 
-        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen;
-
-        if ( ImGui::CollapsingHeader( label.c_str(), flags ) )
+        if ( ImGui::CollapsingHeader( label.c_str(), ImGuiTreeNodeFlags_DefaultOpen ) )
         {
             ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
             gi.set_cursor_screen_pos( cursor_pos );
@@ -1214,16 +1316,20 @@ void TraceWin::render_process_graphs()
                         ImVec2( gi.pos.x + gi.w, gi.pos.y + gi.h ),
                         col_background );
 
+
             // Go through all event IDs for this process
             event_renderer_t event_renderer( gi.pos.y, gi.w, gi.h, Hue_YlRd );
-            for ( uint32_t id : *plocs )
-            {
-                if ( id > eventend )
-                    break;
-                if ( id < eventstart )
-                    continue;
 
-                trace_event_t &event = m_trace_events->m_events[ id ];
+            for ( size_t idx = vec_find_eventid( *plocs, eventstart );
+                  idx < plocs->size();
+                  idx++ )
+            {
+                uint32_t eventid = plocs->at( idx );
+
+                if ( eventid > eventend )
+                    break;
+
+                trace_event_t &event = m_trace_events->m_events[ eventid ];
                 float x = gi.ts_to_screenx( event.ts );
 
                 event_renderer.add_event( x );
@@ -1234,12 +1340,14 @@ void TraceWin::render_process_graphs()
             std::vector< uint32_t > *vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
             if ( vblank_locs )
             {
-                for ( uint32_t id : *vblank_locs )
+                for ( size_t idx = vec_find_eventid( *vblank_locs, eventstart );
+                      idx < vblank_locs->size();
+                      idx++ )
                 {
+                    uint32_t id = vblank_locs->at( idx );
+
                     if ( id > eventend )
                         break;
-                    if ( id < eventstart )
-                        continue;
 
                     trace_event_t &event = m_trace_events->m_events[ id ];
                     float x = gi.ts_to_screenx( event.ts );
@@ -1287,17 +1395,7 @@ void TraceWin::render_process_graphs()
     }
 
     render_mouse_graph( &gi );
-
 }
-
-//$ TODO mikesart: This is a horrible hack, but right now panning
-// is busted cause we're using eventids to determine where we start
-// and where we end drawing the graph. It's impossible to pan
-// smoothly with this method - we need to use time stamps only
-// for start/end of graph drawing.
-static int64_t s_ts0;
-static int64_t s_ts1;
-static float s_dx;
 
 void TraceWin::render_mouse_graph( class graph_info_t *pgi )
 {
@@ -1323,8 +1421,8 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
 
         if ( ImGui::IsMouseDown( 0 ) )
         {
-            std::string time_buf0 = ts_to_timestr( event_ts0, m_tsdelta );
-            std::string time_buf1 = ts_to_timestr( event_ts1, m_tsdelta );
+            std::string time_buf0 = ts_to_timestr( event_ts0, m_tsoffset );
+            std::string time_buf1 = ts_to_timestr( event_ts1, m_tsoffset );
 
             ImGui::SetTooltip( "%s..%s", time_buf0.c_str(), time_buf1.c_str() );
         }
@@ -1333,14 +1431,14 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
             m_mouse_captured = 0;
             ImGui::CaptureMouseFromApp( false );
 
-            m_graph_location_stack.push_back( { m_graph_start_eventid, m_graph_end_eventid } );
+            m_graph_location_stack.push_back( { m_graph_start_ts, m_graph_length_ts } );
             if ( m_graph_location_stack.size() > 64 )
                 m_graph_location_stack.erase( m_graph_location_stack.begin() );
 
-            m_graph_start_eventid = ts_to_eventid( event_ts0 );
-            m_graph_end_eventid = ts_to_eventid( event_ts1 );
-            m_do_graph_start = true;
-            m_do_graph_end = true;
+            m_graph_start_ts = event_ts0 - m_tsoffset;
+            m_graph_length_ts = event_ts1 - event_ts0;
+            m_do_graph_start_ts = true;
+            m_do_graph_length_ts = true;
         }
     }
     else if ( m_mouse_captured == 2 )
@@ -1348,21 +1446,11 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
         // ctrl + click: pan
         if ( ImGui::IsMouseDown( 0 ) )
         {
-            s_dx += gi.mouse_pos.x - m_mouse_capture_pos.x ;
-            int64_t tsdiff = gi.dx_to_event_ts( s_dx );
+            float dx = gi.mouse_pos.x - m_mouse_capture_pos.x;
+            int64_t tsdiff = gi.dx_to_event_ts( dx );
 
-            int graph_start_eventid = ts_to_eventid( s_ts0 - tsdiff );
-            int graph_end_eventid = ts_to_eventid( s_ts1 - tsdiff );
-
-            // If we hit the start or end, don't update anything.
-            if ( ( graph_start_eventid != m_graph_start_eventid ) &&
-                 ( graph_end_eventid != m_graph_end_eventid ) )
-            {
-                m_graph_start_eventid = graph_start_eventid;
-                m_graph_end_eventid = graph_end_eventid;
-                m_do_graph_start = true;
-                m_do_graph_end = true;
-            }
+            m_graph_start_ts -= tsdiff;
+            m_do_graph_start_ts = true;
 
             m_mouse_capture_pos = gi.mouse_pos;
         }
@@ -1376,7 +1464,7 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
     {
         bool mouse_clicked = ImGui::IsMouseClicked( 0 );
         int64_t event_ts = gi.screenx_to_event_ts( gi.mouse_pos.x );
-        std::string time_buf = ts_to_timestr( event_ts, m_tsdelta );
+        std::string time_buf = ts_to_timestr( event_ts, m_tsoffset );
 
         ImGui::SetTooltip( "%s", time_buf.c_str() );
 
@@ -1388,10 +1476,6 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
         }
         else if ( mouse_clicked && ImGui::GetIO().KeyCtrl )
         {
-            s_ts0 = gi.ts0;
-            s_ts1 = gi.ts1;
-            s_dx = 0.0f;
-
             m_mouse_captured = 2;
             ImGui::CaptureMouseFromApp( true );
             m_mouse_capture_pos = gi.mouse_pos;
@@ -1399,133 +1483,24 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
         else if ( ImGui::IsMouseClicked( 1 ) && !m_graph_location_stack.empty() )
         {
             // Right click restores previous graph location
-            std::pair< int, int > &locs = m_graph_location_stack.back();
+            std::pair< int64_t, int64_t > &locs = m_graph_location_stack.back();
 
-            m_graph_start_eventid = locs.first;
-            m_graph_end_eventid = locs.second;
+            m_graph_start_ts = locs.first;
+            m_graph_length_ts = locs.second;
 
-            m_do_graph_start = true;
-            m_do_graph_end = true;
+            m_do_graph_start_ts = true;
+            m_do_graph_length_ts = true;
 
             m_graph_location_stack.pop_back();
         }
         else if ( ImGui::IsMouseDoubleClicked( 0 ) )
         {
             // Double click moves event log to time.
-            m_timegoto_buf = time_buf;
-            m_do_gototime = true;
+            m_goto_eventid = timestr_to_eventid( time_buf.c_str(), m_tsoffset );
+            m_selected = m_goto_eventid;
+            m_do_gotoevent = true;
         }
     }
-}
-
-bool TraceWin::render_events()
-{
-    std::vector< trace_event_t > &events = m_trace_events->m_events;
-    size_t event_count = events.size();
-
-    ImGui::Begin( m_title.c_str(), &m_open );
-
-    if ( ImGui::CollapsingHeader( "Options", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        if ( !render_options() )
-        {
-            ImGui::End();
-            return false;
-        }
-    }
-
-    if ( !m_inited )
-    {
-        // Initialize our graph rows first time through.
-        init_graph_rows_str();
-    }
-
-    m_start_eventid = Clamp< int >( m_start_eventid, 0, event_count - 1 );
-    m_end_eventid = Clamp< int >( m_end_eventid, m_start_eventid, event_count - 1 );
-
-    m_goto_eventid = std::min< uint32_t >( m_goto_eventid, event_count - 1 );
-
-    if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        bool graph_start = ImGui::Button( "Start:" );
-
-        ImGui::SameLine();
-        ImGui::PushItemWidth( 150 );
-        m_graphtime_start.reserve( 32 );
-        graph_start |= ImGui::InputText( "##GraphStart", &m_graphtime_start[ 0 ], m_graphtime_start.capacity(), 0, 0 );
-        ImGui::PopItemWidth();
-
-        ImGui::SameLine();
-        bool graph_end = ImGui::Button( "Length:" );
-
-        ImGui::SameLine();
-        ImGui::PushItemWidth( 150 );
-        m_graphtime_length.reserve( 32 );
-        graph_end |= ImGui::InputText( "##GraphLength", &m_graphtime_length[ 0 ], m_graphtime_length.capacity(), 0, 0 );
-        ImGui::PopItemWidth();
-
-        if ( graph_start || !m_inited )
-        {
-            m_graph_start_eventid = timestr_to_eventid( m_graphtime_start.c_str(), m_tsdelta );
-            graph_end = true;
-        }
-
-        if ( graph_end || !m_inited )
-        {
-            int64_t ts = timestr_to_ts( m_graphtime_length.c_str() );
-
-            m_graph_end_eventid = ts_to_eventid( events[ m_graph_start_eventid ].ts + ts );
-        }
-
-#if 0
-        //$ TODO mikesart: Graphs need to be a time only based system. They can't start/end on events
-        // because when you zoom in there might not be events for where you want to start/end.
-        ImGui::SameLine();
-        m_do_graph_start |= imgui_input_int( &m_graph_start_eventid, 75.0f, "Event Start:", "##GraphEventStart" );
-
-        ImGui::SameLine();
-        m_do_graph_end |= imgui_input_int( &m_graph_end_eventid, 75.0f, "Event End:", "##GraphEventEnd" );
-#endif
-
-        m_graph_start_eventid = Clamp< int >( m_graph_start_eventid, m_start_eventid, m_end_eventid );
-        m_graph_end_eventid = Clamp< int >( m_graph_end_eventid, m_graph_start_eventid, m_end_eventid );
-
-        if ( m_do_graph_start )
-            m_graphtime_start = ts_to_timestr( events[ m_graph_start_eventid ].ts, m_tsdelta );
-
-        if ( m_do_graph_end )
-        {
-            int64_t ts = events[ m_graph_end_eventid ].ts - events[ m_graph_start_eventid ].ts;
-
-            m_graphtime_length = TraceWin::ts_to_timestr( ts );
-        }
-
-        if ( ImGui::CollapsingHeader( "Graph Rows" ) )
-        {
-            if ( ImGui::Button( "Update Graph Rows" ) )
-                update_graph_rows_list();
-
-            ImGui::SameLine();
-            if ( ImGui::Button( "Reset Graph Rows" ) )
-                init_graph_rows_str();
-
-            m_graph_rows_str.reserve( 8192 );
-            ImGui::InputTextMultiline( "##GraphRows", &m_graph_rows_str[ 0 ], m_graph_rows_str.capacity(),
-                    ImVec2( -1.0f, ImGui::GetTextLineHeight() * 16 ) );
-        }
-
-        render_process_graphs();
-    }
-
-    if ( ImGui::CollapsingHeader( "Events List", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        render_events_list();
-    }
-
-    ImGui::End();
-
-    m_inited = true;
-    return m_open;
 }
 
 /*

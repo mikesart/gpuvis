@@ -128,6 +128,16 @@ public:
     m_loc_t m_locations;
 };
 
+
+// Given a sorted array (like from TraceLocations), binary search for eventid
+//   and return the vector index, or vec.size() if not found.
+inline size_t vec_find_eventid( std::vector< uint32_t > &vec, uint32_t eventid )
+{
+    auto i = std::lower_bound( vec.begin(), vec.end(), eventid );
+
+    return i - vec.begin();
+}
+
 class TraceEvents
 {
 public:
@@ -223,68 +233,83 @@ public:
         m_title = title;
 
         m_timegoto_buf = "0.0";
-        m_graphtime_start = "-30.0";
-        m_graphtime_length = "60.0";
+
+        m_do_graph_start_ts = true;
+        m_graph_start_ts = -2 * MSECS_PER_SEC;
+
+        m_do_graph_length_ts = true;
+        m_graph_length_ts = 30 * MSECS_PER_SEC;
     }
 
     ~TraceWin() {}
 
 public:
     bool render( class TraceLoader *loader );
-    bool render_events();
-    bool render_options();
+    bool render_info();
     void render_events_list();
     void render_process_graphs();
     void render_mouse_graph( class graph_info_t *pgi );
 
 protected:
-    void render_time_delta_button_init( TraceEvents &trace_events );
-    void render_time_delta_button( TraceEvents &trace_events );
-    bool render_time_goto_button( TraceEvents &trace_events );
+    void render_time_offset_button_init( TraceEvents &trace_events );
 
     // Return an event id for a given time stamp
     int ts_to_eventid( int64_t ts );
     // Return an event id from a time string
-    int timestr_to_eventid( const char *buf, int64_t tsdelta );
+    int timestr_to_eventid( const char *buf, int64_t tsoffset );
     // Convert a time string to a time stamp
-    int64_t timestr_to_ts( const char *buf, int64_t tsdelta = 0 );
+    int64_t timestr_to_ts( const char *buf, int64_t tsoffset = 0 );
     // Convert a time stamp to a time string
-    std::string ts_to_timestr( int64_t event_ts, int64_t tsdelta = 0 );
+    std::string ts_to_timestr( int64_t event_ts, int64_t tsoffset = 0, int precision = 6 );
 
     void init_graph_rows_str();
     void update_graph_rows_list();
 
+    std::unordered_map< int64_t, int > m_ts_to_eventid_cache;
+
 public:
     bool m_inited = false;
+    bool m_open = true;
     int m_setfocus = 0;
-
     std::string m_title;
     TraceEvents *m_trace_events = nullptr;
 
+    // Goto Event
     bool m_do_gotoevent = false;
-    bool m_do_gototime = false;
     int m_goto_eventid = 0;
 
+    // Goto Time buffer
+    std::string m_timegoto_buf;
+
+    // Time Offset
+    std::string m_timeoffset_buf;
+    int64_t m_tsoffset = 0;
+
+    // Event Start
     int m_start_eventid = 0;
+    // Event End
     int m_end_eventid = INT32_MAX;
 
-    std::string m_timegoto_buf;
-    std::string m_graphtime_start;
-    std::string m_graphtime_length;
+    // Graph Start
+    bool m_do_graph_start_ts = false;
+    int64_t m_graph_start_ts = 0;
+    std::string m_graphtime_start_buf;
+    // Graph Length
+    bool m_do_graph_length_ts = false;
+    int64_t m_graph_length_ts = INT64_MAX;
+    std::string m_graphtime_length_buf;
 
-    bool m_do_graph_start = false;
-    bool m_do_graph_end = false;
-    int m_graph_start_eventid = 0;
-    int m_graph_end_eventid = INT32_MAX;
-
-    std::vector< std::pair< int, int > > m_graph_location_stack;
-
+    // Graph rows
     std::string m_graph_rows_str;
     std::vector< std::string > m_graph_rows;
 
-    bool m_open = true;
+    // Currently selected event.
     uint32_t m_selected = ( uint32_t )-1;
 
+    // Stack of last graph locations (right click to pop).
+    std::vector< std::pair< int64_t, int64_t > > m_graph_location_stack;
+
+    // Mouse currently over our events graph?
     bool m_mouse_over_graph = false;
 
     // 0:mouse not captured
@@ -293,8 +318,6 @@ public:
     int m_mouse_captured = 0;
     ImVec2 m_mouse_capture_pos;
 
-    std::string m_timedelta_buf;
-    int64_t m_tsdelta = -1;
 };
 
 class TraceLoader
