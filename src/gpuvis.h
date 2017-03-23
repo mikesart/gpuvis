@@ -254,6 +254,8 @@ public:
     bool render_info();
     void render_events_list();
     void render_process_graphs();
+    void render_graph_row( const std::string &comm, std::vector< uint32_t > &locs, class graph_info_t *pgi );
+    void render_graph_vblanks( class graph_info_t *pgi );
     void render_mouse_graph( class graph_info_t *pgi );
 
 protected:

@@ -43,8 +43,6 @@
 //$ TODO: Restore column sizes?
 //$ TODO: Small font for events?
 
-//$ TODO: Draw entire graph ourself
-
 //$ TODO: Right click on events - popup menu
 //    start graph at a specific location
 //    find event in graph
@@ -1191,15 +1189,14 @@ public:
 
         scale = ImGui::GetIO().FontGlobalScale;
 
-        h = 40.0f * scale;
-        w = ImGui::GetContentRegionAvailWidth();
-
         mouse_pos = ImGui::GetMousePos();
     }
 
-    void set_cursor_screen_pos( const ImVec2& posin )
+    void set_cursor_screen_pos( const ImVec2 &posin, const ImVec2 &size )
     {
         pos = posin;
+        w = size.x;
+        h = size.y;
 
         pos_min.x = std::min( pos_min.x, pos.x );
         pos_min.y = std::min( pos_min.y, pos.y );
@@ -1254,7 +1251,121 @@ public:
     ImVec2 mouse_pos;
     ImVec2 pos_min{ FLT_MAX, FLT_MAX };
     ImVec2 pos_max{ FLT_MIN, FLT_MIN };
+
+    uint32_t eventstart;
+    uint32_t eventend;
 };
+
+void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t > &locs, class graph_info_t *pgi )
+{
+    graph_info_t &gi = *pgi;
+
+    // Draw background
+    ImGui::GetWindowDrawList()->AddRectFilled(
+                ImVec2( gi.pos.x, gi.pos.y ),
+                ImVec2( gi.pos.x + gi.w, gi.pos.y + gi.h ),
+                col_DarkSlateGray );
+
+    // Go through all event IDs for this process
+    uint32_t num_events = 0;
+    bool draw_selected_event = false;
+    event_renderer_t event_renderer( gi.pos.y, gi.w, gi.h, Hue_YlRd );
+
+    for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
+          idx < locs.size();
+          idx++ )
+    {
+        uint32_t eventid = locs[ idx ];
+
+        if ( eventid > gi.eventend )
+            break;
+
+        if ( eventid == m_selected )
+            draw_selected_event = true;
+
+        num_events++;
+        trace_event_t &event = m_trace_events->m_events[ eventid ];
+        float x = gi.ts_to_screenx( event.ts );
+
+        event_renderer.add_event( x );
+    }
+    event_renderer.done();
+
+    if ( draw_selected_event )
+    {
+        trace_event_t &event = m_trace_events->m_events[ m_selected ];
+        float x = gi.ts_to_screenx( event.ts );
+
+        imgui_drawrect( x, 2.0f, gi.pos.y, gi.h, col_w_alpha( col_Aqua, 200 ) );
+    }
+
+    float x = gi.pos.x + ImGui::GetStyle().FramePadding.x;
+    std::string label = string_format( "%s %u events", comm.c_str(), num_events );
+    ImVec2 textsize = ImGui::CalcTextSize( label.c_str() );
+
+    ImGui::GetWindowDrawList()->AddRectFilled(
+                ImVec2( x, gi.pos.y ),
+                ImVec2( x + textsize.x, gi.pos.y + textsize.y ),
+                col_w_alpha( col_Black, 150 ) );
+    ImGui::GetWindowDrawList()->AddText( ImVec2( x, gi.pos.y ), col_LightYellow, label.c_str() );
+}
+
+void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
+{
+    graph_info_t &gi = *pgi;
+
+    // Draw time ticks every millisecond
+    int64_t tsstart = std::max< int64_t >( gi.ts0 / MSECS_PER_SEC - 1, 0 ) * MSECS_PER_SEC;
+    float x0 = gi.ts_to_x( tsstart );
+    float dx = gi.w * MSECS_PER_SEC * gi.tsdxrcp;
+
+    for ( ; x0 <= gi.w; x0 += dx )
+    {
+        imgui_drawrect( gi.pos.x + x0, 1.0f, gi.pos.y, 16.0f, col_Lime );
+
+        if ( dx >= 35.0f )
+        {
+            for ( int i = 1; i < 4; i++ )
+                imgui_drawrect( gi.pos.x + x0 + i * dx / 4, 1.0f, gi.pos.y, 4.0f, col_Lime );
+        }
+    }
+
+    // Draw vblank events on every graph.
+    const std::vector< uint32_t > &vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
+
+    for ( size_t idx = vec_find_eventid( vblank_locs, gi.eventstart );
+          idx < vblank_locs.size();
+          idx++ )
+    {
+        uint32_t id = vblank_locs[ idx ];
+
+        if ( id > gi.eventend )
+            break;
+
+        trace_event_t &event = m_trace_events->m_events[ id ];
+        float x = gi.ts_to_screenx( event.ts );
+
+        imgui_drawrect( x, 2.0f, gi.pos.y, gi.h, col_OrangeRed );
+    }
+
+    // Draw location line for mouse if mouse is over graph
+    if ( m_mouse_over_graph &&
+         gi.mouse_pos.x >= gi.pos.x &&
+         gi.mouse_pos.x <= gi.pos.x + gi.w )
+    {
+        imgui_drawrect( gi.mouse_pos.x, 2.0f, gi.pos.y, gi.h, col_DeepPink );
+    }
+
+    // Draw mouse selection location
+    if ( m_mouse_captured == 1 )
+    {
+        float mousex0 = m_mouse_capture_pos.x;
+        float mousex1 = gi.mouse_pos.x;
+        ImU32 col = col_w_alpha( col_White, 80 );
+
+        imgui_drawrect( mousex0, mousex1 - mousex0, gi.pos.y, gi.h, col );
+    }
+}
 
 void TraceWin::render_process_graphs()
 {
@@ -1284,11 +1395,10 @@ void TraceWin::render_process_graphs()
     }
 
     gi.init( m_graph_start_ts + m_tsoffset, m_graph_length_ts );
+    gi.eventstart = ts_to_eventid( gi.ts0 );
+    gi.eventend = ts_to_eventid( gi.ts1 );
 
-    uint32_t eventstart = ts_to_eventid( gi.ts0 );
-    uint32_t eventend = ts_to_eventid( gi.ts1 );
-    ImGui::Text( "events: %u, %u", eventstart, eventend );
-
+    uint32_t graph_rows = 0;
     for ( const std::string &comm : m_graph_rows )
     {
         std::vector< uint32_t > &locs = m_trace_events->get_comm_locs( comm.c_str() );
@@ -1296,113 +1406,57 @@ void TraceWin::render_process_graphs()
         if ( locs.empty() )
         {
             locs = m_trace_events->get_event_locs( comm.c_str() );
-
             if ( locs.empty() )
                 continue;
         }
 
-        std::string label = string_format( "%s %lu events", comm.c_str(), locs.size() );
+        graph_rows++;
+    }
 
-        if ( ImGui::CollapsingHeader( label.c_str(), ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        const float graph_row_h = 50.0f * gi.scale;
+        const float graph_padding = ImGui::GetStyle().FramePadding.y;
+        const float graph_height = graph_rows * ( graph_row_h + graph_padding );
+
+        ImGui::BeginChild( "EventGraph", ImVec2( 0, graph_height ), true );
+
+        ImVec2 windowpos = ImGui::GetWindowPos();
+        ImVec2 windowsize = ImGui::GetWindowSize();
+
+        windowpos.y += graph_padding;
+        windowsize.y -= 2 * graph_padding;
+
+        // Draw graph background
+        ImGui::GetWindowDrawList()->AddRectFilled(
+                    ImVec2( windowpos.x, windowpos.y ),
+                    ImVec2( windowpos.x + windowsize.x, windowpos.y + windowsize.y ),
+                    col_Black );
+
+        gi.set_cursor_screen_pos( ImVec2( windowpos.x, windowpos.y ),
+                                  ImVec2( windowsize.x, graph_row_h ) );
+        for ( const std::string &comm : m_graph_rows )
         {
-            ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
-            gi.set_cursor_screen_pos( cursor_pos );
+            std::vector< uint32_t > &locs = m_trace_events->get_comm_locs( comm.c_str() );
 
-            ImGui::BeginChild( ( "g_" + label ).c_str(), ImVec2( gi.w, gi.h ) );
-
-            // Draw background
-            static const ImU32 col_background = IM_COL32( 255, 255, 255, 50 );
-            ImGui::GetWindowDrawList()->AddRectFilled(
-                        ImVec2( gi.pos.x, gi.pos.y ),
-                        ImVec2( gi.pos.x + gi.w, gi.pos.y + gi.h ),
-                        col_background );
-
-
-            // Go through all event IDs for this process
-            event_renderer_t event_renderer( gi.pos.y, gi.w, gi.h, Hue_YlRd );
-
-            bool draw_selected = false;
-            for ( size_t idx = vec_find_eventid( locs, eventstart );
-                  idx < locs.size();
-                  idx++ )
+            if ( locs.empty() )
             {
-                uint32_t eventid = locs[ idx ];
-
-                if ( eventid > eventend )
-                    break;
-
-                if ( eventid == m_selected )
-                    draw_selected = true;
-
-                trace_event_t &event = m_trace_events->m_events[ eventid ];
-                float x = gi.ts_to_screenx( event.ts );
-
-                event_renderer.add_event( x );
-            }
-            event_renderer.done();
-
-            // Draw vblank events on every graph.
-            const std::vector< uint32_t > &vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
-
-            for ( size_t idx = vec_find_eventid( vblank_locs, eventstart );
-                  idx < vblank_locs.size();
-                  idx++ )
-            {
-                uint32_t id = vblank_locs[ idx ];
-
-                if ( id > eventend )
-                    break;
-
-                trace_event_t &event = m_trace_events->m_events[ id ];
-                float x = gi.ts_to_screenx( event.ts );
-
-                imgui_drawrect( x, 2.0f, gi.pos.y, gi.h, col_OrangeRed );
+                locs = m_trace_events->get_event_locs( comm.c_str() );
+                if ( locs.empty() )
+                    continue;
             }
 
-            // Draw time ticks every millisecond
-            int64_t tsstart = std::max< int64_t >( gi.ts0 / MSECS_PER_SEC - 1, 0 ) * MSECS_PER_SEC;
-            float x0 = gi.ts_to_x( tsstart ); //gi.w * ( tsstart - gi.ts0 ) * gi.tsdxrcp;
-            float dx = gi.w * MSECS_PER_SEC * gi.tsdxrcp;
+            render_graph_row( comm, locs, &gi );
 
-            for ( ; x0 <= gi.w; x0 += dx )
-            {
-                imgui_drawrect( gi.pos.x + x0, 1.0f, gi.pos.y, gi.h / 2, col_Lime );
-
-                if ( dx >= 35.0f )
-                {
-                    for ( int i = 1; i < 4; i++ )
-                        imgui_drawrect( gi.pos.x + x0 + i * dx / 4, 1.0f, gi.pos.y, gi.h / 8, col_Lime );
-                }
-            }
-
-            if ( draw_selected )
-            {
-                trace_event_t &event = m_trace_events->m_events[ m_selected ];
-                float x = gi.ts_to_screenx( event.ts );
-
-                imgui_drawrect( x, 2.0f, gi.pos.y, gi.h, col_w_alpha( col_Aqua, 200 ) );
-            }
-
-            // Draw location line for mouse if mouse is over graph
-            if ( m_mouse_over_graph &&
-                 gi.mouse_pos.x >= gi.pos.x &&
-                 gi.mouse_pos.x <= gi.pos.x + gi.w )
-            {
-                imgui_drawrect( gi.mouse_pos.x, 2.0f, gi.pos.y, gi.h, col_DeepPink );
-            }
-
-            // Draw mouse selection location
-            if ( m_mouse_captured == 1 )
-            {
-                float mousex0 = m_mouse_capture_pos.x;
-                float mousex1 = gi.mouse_pos.x;
-                ImU32 col = col_w_alpha( col_White, 80 );
-
-                imgui_drawrect( mousex0, mousex1 - mousex0, gi.pos.y, gi.h, col );
-            }
-
-            ImGui::EndChild();
+            gi.set_cursor_screen_pos( ImVec2( gi.pos.x, gi.pos.y + graph_row_h + graph_padding ),
+                                      ImVec2( gi.w, gi.h ) );
         }
+
+        // Render full graph lines: vblanks, mouse cursors, etc...
+        gi.set_cursor_screen_pos( ImVec2( windowpos.x, windowpos.y ),
+                                  ImVec2( windowsize.x, windowsize.y ) );
+        render_graph_vblanks( &gi );
+
+        ImGui::EndChild();
     }
 
     render_mouse_graph( &gi );
@@ -2046,10 +2100,14 @@ int main( int argc, char **argv )
 
     inifile.Open( "gpuvis", "gpuvis.ini" );
 
-    ImGui::GetIO().IniLoadSettingCB = std::bind(
-                imgui_ini_load_settings_cb, &inifile, _1, _2 );
-    ImGui::GetIO().IniSaveSettingCB = std::bind(
-                imgui_ini_save_settings_cb, &inifile, _1, _2 );
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniLoadSettingCB = std::bind( imgui_ini_load_settings_cb, &inifile, _1, _2 );
+    io.IniSaveSettingCB = std::bind( imgui_ini_save_settings_cb, &inifile, _1, _2 );
+
+#if 0
+    //$ TODO mikesart...
+    ImFont *proggy_tiny = io.Fonts->AddFontFromFileTTF( "./fonts/ProggyTiny.ttf", 10.0f );
+#endif
 
     int x = inifile.GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
     int y = inifile.GetInt( "win_y", SDL_WINDOWPOS_CENTERED );
