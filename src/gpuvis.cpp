@@ -1141,6 +1141,10 @@ public:
 
         return ts0 + val * tsdx;
     }
+    int64_t dx_to_event_ts( float x )
+    {
+        return ( x / w ) * tsdx;
+    }
 
     bool pt_in_graph( const ImVec2& posin )
     {
@@ -1269,7 +1273,7 @@ void TraceWin::render_process_graphs()
             }
 
             // Draw mouse selection location
-            if ( m_mouse_captured )
+            if ( m_mouse_captured == 1 )
             {
                 float mousex0 = m_mouse_capture_pos.x;
                 float mousex1 = gi.mouse_pos.x;
@@ -1286,6 +1290,15 @@ void TraceWin::render_process_graphs()
 
 }
 
+//$ TODO mikesart: This is a horrible hack, but right now panning
+// is busted cause we're using eventids to determine where we start
+// and where we end drawing the graph. It's impossible to pan
+// smoothly with this method - we need to use time stamps only
+// for start/end of graph drawing.
+static int64_t s_ts0;
+static int64_t s_ts1;
+static float s_dx;
+
 void TraceWin::render_mouse_graph( class graph_info_t *pgi )
 {
     graph_info_t &gi = *pgi;
@@ -1295,12 +1308,13 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
 
     if ( m_mouse_captured && imgui_key_pressed( ImGuiKey_Escape ) )
     {
-        m_mouse_captured = false;
+        m_mouse_captured = 0;
         ImGui::CaptureMouseFromApp( false );
     }
 
-    if ( m_mouse_captured )
+    if ( m_mouse_captured == 1 )
     {
+        // shift + click: zoom
         int64_t event_ts0 = gi.screenx_to_event_ts( m_mouse_capture_pos.x );
         int64_t event_ts1 = gi.screenx_to_event_ts( gi.mouse_pos.x );
 
@@ -1316,7 +1330,7 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
         }
         else
         {
-            m_mouse_captured = false;
+            m_mouse_captured = 0;
             ImGui::CaptureMouseFromApp( false );
 
             m_graph_location_stack.push_back( { m_graph_start_eventid, m_graph_end_eventid } );
@@ -1325,43 +1339,81 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
 
             m_graph_start_eventid = ts_to_eventid( event_ts0 );
             m_graph_end_eventid = ts_to_eventid( event_ts1 );
-
             m_do_graph_start = true;
             m_do_graph_end = true;
         }
     }
-    else if ( m_mouse_over_graph)
+    else if ( m_mouse_captured == 2 )
     {
+        // ctrl + click: pan
+        if ( ImGui::IsMouseDown( 0 ) )
+        {
+            s_dx += gi.mouse_pos.x - m_mouse_capture_pos.x ;
+            int64_t tsdiff = gi.dx_to_event_ts( s_dx );
+
+            int graph_start_eventid = ts_to_eventid( s_ts0 - tsdiff );
+            int graph_end_eventid = ts_to_eventid( s_ts1 - tsdiff );
+
+            // If we hit the start or end, don't update anything.
+            if ( ( graph_start_eventid != m_graph_start_eventid ) &&
+                 ( graph_end_eventid != m_graph_end_eventid ) )
+            {
+                m_graph_start_eventid = graph_start_eventid;
+                m_graph_end_eventid = graph_end_eventid;
+                m_do_graph_start = true;
+                m_do_graph_end = true;
+            }
+
+            m_mouse_capture_pos = gi.mouse_pos;
+        }
+        else
+        {
+            m_mouse_captured = 0;
+            ImGui::CaptureMouseFromApp( false );
+        }
+    }
+    else if ( m_mouse_over_graph && !m_mouse_captured )
+    {
+        bool mouse_clicked = ImGui::IsMouseClicked( 0 );
         int64_t event_ts = gi.screenx_to_event_ts( gi.mouse_pos.x );
         std::string time_buf = ts_to_timestr( event_ts, m_tsdelta );
 
         ImGui::SetTooltip( "%s", time_buf.c_str() );
 
-        if ( !m_mouse_captured )
+        if ( mouse_clicked && ImGui::GetIO().KeyShift )
         {
-            if ( ImGui::IsMouseClicked( 0 ) && ImGui::GetIO().KeyShift )
-            {
-                m_mouse_captured = true;
-                ImGui::CaptureMouseFromApp( true );
-                m_mouse_capture_pos = gi.mouse_pos;
-            }
-            else if ( ImGui::IsMouseClicked( 1 ) && !m_graph_location_stack.empty() )
-            {
-                std::pair< int, int > &locs = m_graph_location_stack.back();
+            m_mouse_captured = 1;
+            ImGui::CaptureMouseFromApp( true );
+            m_mouse_capture_pos = gi.mouse_pos;
+        }
+        else if ( mouse_clicked && ImGui::GetIO().KeyCtrl )
+        {
+            s_ts0 = gi.ts0;
+            s_ts1 = gi.ts1;
+            s_dx = 0.0f;
 
-                m_graph_start_eventid = locs.first;
-                m_graph_end_eventid = locs.second;
+            m_mouse_captured = 2;
+            ImGui::CaptureMouseFromApp( true );
+            m_mouse_capture_pos = gi.mouse_pos;
+        }
+        else if ( ImGui::IsMouseClicked( 1 ) && !m_graph_location_stack.empty() )
+        {
+            // Right click restores previous graph location
+            std::pair< int, int > &locs = m_graph_location_stack.back();
 
-                m_do_graph_start = true;
-                m_do_graph_end = true;
+            m_graph_start_eventid = locs.first;
+            m_graph_end_eventid = locs.second;
 
-                m_graph_location_stack.pop_back();
-            }
-            else if ( ImGui::IsMouseDoubleClicked( 0 ) )
-            {
-                m_timegoto_buf = time_buf;
-                m_do_gototime = true;
-            }
+            m_do_graph_start = true;
+            m_do_graph_end = true;
+
+            m_graph_location_stack.pop_back();
+        }
+        else if ( ImGui::IsMouseDoubleClicked( 0 ) )
+        {
+            // Double click moves event log to time.
+            m_timegoto_buf = time_buf;
+            m_do_gototime = true;
         }
     }
 }
@@ -1479,7 +1531,13 @@ void TraceConsole::init( CIniFile *inifile )
 {
     m_clear_color = inifile->GetVec4( "clearcolor", ImColor( 114, 144, 154 ) );
 
-    logf( "Welcome to gpuvis" );
+    logf( "Welcome to gpuvis\n" );
+
+    logf( "graph shortcuts:" );
+    logf( "  double click: go to location in event list" );
+    logf( "  shift+click+drag: zoom to selection" );
+    logf( "  right click: restore previous location before zoom" );
+    logf( "  ctrl+click+drag: pan graph" );
 
     //$ TODO mikesart: use https://github.com/SirCmpwn/libccmd.git
     //$ TODO mikesart: add "load" command

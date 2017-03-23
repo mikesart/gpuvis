@@ -286,7 +286,11 @@ public:
     uint32_t m_selected = ( uint32_t )-1;
 
     bool m_mouse_over_graph = false;
-    bool m_mouse_captured = false;
+
+    // 0:mouse not captured
+    // 1:shift+click+drag: zoom graph
+    // 2:ctrl+click+drag: pan graph
+    int m_mouse_captured = 0;
     ImVec2 m_mouse_capture_pos;
 
     std::string m_timedelta_buf;
