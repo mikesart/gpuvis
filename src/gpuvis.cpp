@@ -44,13 +44,11 @@
 //$ TODO: Small font for events?
 
 //$ TODO: Draw entire graph ourself
-//$ TODO: Graph needs to be entirely time based
 
 //$ TODO: Right click on events - popup menu
 //    start graph at a specific location
 //    find event in graph
 // maybe highlight event in graph when mouse is over
-// draw selected event in graph
 
 // also need to show fields for events (seqno, etc.)
 
@@ -121,6 +119,11 @@ ImU32 get_hue( hue_t hues, uint32_t index )
 ImU32 get_YlRd_hue( uint32_t index )
 {
     return get_hue( Hue_YlRd, index );
+}
+
+ImU32 col_w_alpha( ImU32 col, ImU32 alpha )
+{
+    return ( col & ~IM_COL32_A_MASK ) | IM_COL32( 0, 0, 0, alpha );
 }
 
 // https://www.w3schools.com/colors/colors_groups.asp
@@ -1318,6 +1321,7 @@ void TraceWin::render_process_graphs()
             // Go through all event IDs for this process
             event_renderer_t event_renderer( gi.pos.y, gi.w, gi.h, Hue_YlRd );
 
+            bool draw_selected = false;
             for ( size_t idx = vec_find_eventid( locs, eventstart );
                   idx < locs.size();
                   idx++ )
@@ -1326,6 +1330,9 @@ void TraceWin::render_process_graphs()
 
                 if ( eventid > eventend )
                     break;
+
+                if ( eventid == m_selected )
+                    draw_selected = true;
 
                 trace_event_t &event = m_trace_events->m_events[ eventid ];
                 float x = gi.ts_to_screenx( event.ts );
@@ -1368,6 +1375,14 @@ void TraceWin::render_process_graphs()
                 }
             }
 
+            if ( draw_selected )
+            {
+                trace_event_t &event = m_trace_events->m_events[ m_selected ];
+                float x = gi.ts_to_screenx( event.ts );
+
+                imgui_drawrect( x, 2.0f, gi.pos.y, gi.h, col_w_alpha( col_Aqua, 200 ) );
+            }
+
             // Draw location line for mouse if mouse is over graph
             if ( m_mouse_over_graph &&
                  gi.mouse_pos.x >= gi.pos.x &&
@@ -1381,7 +1396,7 @@ void TraceWin::render_process_graphs()
             {
                 float mousex0 = m_mouse_capture_pos.x;
                 float mousex1 = gi.mouse_pos.x;
-                ImU32 col = ( col_White & ~IM_COL32_A_MASK ) | IM_COL32( 0, 0, 0, 0x50 );
+                ImU32 col = col_w_alpha( col_White, 80 );
 
                 imgui_drawrect( mousex0, mousex1 - mousex0, gi.pos.y, gi.h, col );
             }
