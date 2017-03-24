@@ -1559,9 +1559,9 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
         if ( ImGui::IsMouseDown( 0 ) )
         {
             std::string time_buf0 = ts_to_timestr( event_ts0, m_tsoffset );
-            std::string time_buf1 = ts_to_timestr( event_ts1, m_tsoffset );
+            std::string time_buf1 = ts_to_timestr( event_ts1 - event_ts0 );
 
-            ImGui::SetTooltip( "%s..%s", time_buf0.c_str(), time_buf1.c_str() );
+            ImGui::SetTooltip( "%s (%s ms)", time_buf0.c_str(), time_buf1.c_str() );
         }
         else
         {
