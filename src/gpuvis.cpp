@@ -896,6 +896,21 @@ bool TraceWin::render( class TraceLoader *loader )
         if ( imgui_input_text( "Length:", "##GraphLength", m_graphtime_length_buf, 32, 150 ) )
             m_graph_length_ts = timestr_to_ts( m_graphtime_length_buf.c_str() );
 
+        ImGui::SameLine();
+        bool zoom_in = ImGui::SmallButton( "Zoom In" );
+        ImGui::SameLine();
+        bool zoom_out = ImGui::SmallButton( "Zoom Out" );
+        if ( zoom_in || zoom_out )
+        {
+            int64_t sign = zoom_in ? -1 : +1;
+            int64_t amt = 1000 * sign * ( m_graph_length_ts / 2000 );
+
+            m_graph_start_ts -= amt / 2;
+            m_graph_length_ts += amt;
+            m_do_graph_start_ts = true;
+            m_do_graph_length_ts = true;
+        }
+
         if ( m_do_graph_start_ts )
             m_graphtime_start_buf = ts_to_timestr( m_graph_start_ts, 0, 4 );
         if ( m_do_graph_length_ts )
