@@ -118,6 +118,20 @@ ImU32 col_w_alpha( ImU32 col, ImU32 alpha )
     return ( col & ~IM_COL32_A_MASK ) | IM_COL32( 0, 0, 0, alpha );
 }
 
+// How to Choose Colours Procedurally (Algorithms)
+//   http://devmag.org.za/2012/07/29/how-to-choose-colours-procedurally-algorithms/
+// How to Generate Random Colors Programmatically
+/*
+    // use golden ratio
+    golden_ratio_conjugate = 0.618033988749895
+    h = rand # use random start value
+    gen_html {
+      h += golden_ratio_conjugate
+      h %= 1
+      hsv_to_rgb(h, 0.5, 0.95)
+    }
+ */
+//   http://martin.ankerl.com/2009/12/09/how-to-create-random-colors-programmatically/
 // https://www.w3schools.com/colors/colors_groups.asp
 const ImU32 col_Black   = IM_COL32( 0x00, 0x00, 0x00, 0xFF );
 const ImU32 col_Navy   = IM_COL32( 0x00, 0x00, 0x80, 0xFF );
@@ -883,6 +897,20 @@ bool TraceWin::render( class TraceLoader *loader )
 
     if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
+        if ( ImGui::CollapsingHeader( "Graph Rows" ) )
+        {
+            if ( ImGui::Button( "Update Graph Rows" ) )
+                update_graph_rows_list();
+
+            ImGui::SameLine();
+            if ( ImGui::Button( "Reset Graph Rows" ) )
+                init_graph_rows_str();
+
+            m_graph_rows_str.reserve( 8192 );
+            ImGui::InputTextMultiline( "##GraphRows", &m_graph_rows_str[ 0 ], m_graph_rows_str.capacity(),
+                    ImVec2( -1.0f, ImGui::GetTextLineHeight() * 16 ) );
+        }
+
         if ( imgui_input_text( "Start:", "##GraphStart", m_graphtime_start_buf, 32, 150 ) )
             m_graph_start_ts = timestr_to_ts( m_graphtime_start_buf.c_str() );
 
@@ -909,20 +937,6 @@ bool TraceWin::render( class TraceLoader *loader )
             m_graphtime_start_buf = ts_to_timestr( m_graph_start_ts, 0, 4 );
         if ( m_do_graph_length_ts )
             m_graphtime_length_buf = ts_to_timestr( m_graph_length_ts, 0, 4 );
-
-        if ( ImGui::CollapsingHeader( "Graph Rows" ) )
-        {
-            if ( ImGui::Button( "Update Graph Rows" ) )
-                update_graph_rows_list();
-
-            ImGui::SameLine();
-            if ( ImGui::Button( "Reset Graph Rows" ) )
-                init_graph_rows_str();
-
-            m_graph_rows_str.reserve( 8192 );
-            ImGui::InputTextMultiline( "##GraphRows", &m_graph_rows_str[ 0 ], m_graph_rows_str.capacity(),
-                    ImVec2( -1.0f, ImGui::GetTextLineHeight() * 16 ) );
-        }
 
         render_process_graphs();
     }
@@ -1179,9 +1193,10 @@ void TraceWin::render_events_list( CIniFile &inifile )
             if ( ImGui::Selectable( label, selected, ImGuiSelectableFlags_SpanAllColumns ) )
                 m_selected_eventid = event.id;
 
-            // Check if item is hovered and we don't have a popup menu up.
+            // Check if item is hovered and we don't have a popup menu going already.
             if ( ( m_events_list_popup_eventid == ( uint32_t )-1 ) &&
-                 ImGui::IsItemHovered() )
+                 ImGui::IsItemHovered() &&
+                 ImGui::IsRootWindowOrAnyChildFocused() )
             {
                 // Store the hovered event id.
                 m_hovered_eventid = event.id;
@@ -1190,11 +1205,13 @@ void TraceWin::render_events_list( CIniFile &inifile )
                 {
                     // If they right clicked, show the context menu.
                     m_events_list_popup_eventid = i;
+
+                    // Open the popup for render_events_list_popup().
                     ImGui::OpenPopup("EventsListPopup");
                 }
                 else
                 {
-                    // Otherwise show a tooltop.
+                    // Otherwise show a tooltip.
                     std::string fieldstr = get_event_field_str( event.fields, ": ", '\n' );
 
                     ImGui::SetTooltip( "Id: %u\nTime: %s\nComm: %s\n%s",
@@ -1664,110 +1681,139 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
 {
     graph_info_t &gi = *pgi;
 
-    // Check if the mouse is currently over our graph area
+    // If we've got an active popup menu, render it.
+    if ( m_graph_popup )
+    {
+        //$ TODO mikesart: this needs to be render_graph_popup()
+        m_graph_popup = TraceWin::render_events_list_popup();
+        return;
+    }
 
-    //$ TODO: this needs to check that we're the active window also?
-    // still works when the debug test window is on top of us.
-    m_mouse_over_graph = gi.mouse_pos_in_graph();
+    m_mouse_over_graph = gi.mouse_pos_in_graph() &&
+            ImGui::IsRootWindowOrAnyChildFocused();
 
-    if ( m_mouse_captured && imgui_key_pressed( ImGuiKey_Escape ) )
+    // If we don't own the mouse and we don't have focus, bail.
+    if ( !m_mouse_captured && !m_mouse_over_graph )
+        return;
+
+    // Uncapture mouse if user hits escape
+    if ( m_mouse_captured &&
+         imgui_key_pressed( ImGuiKey_Escape ) )
     {
         m_mouse_captured = 0;
         ImGui::CaptureMouseFromApp( false );
     }
 
-    if ( m_mouse_captured == 1 )
+    if ( m_mouse_captured )
     {
-        // shift + click: zoom
-        int64_t event_ts0 = gi.screenx_to_event_ts( m_mouse_capture_pos.x );
-        int64_t event_ts1 = gi.screenx_to_event_ts( gi.mouse_pos.x );
-
-        if ( event_ts0 > event_ts1 )
-            std::swap( event_ts0, event_ts1 );
-
-        if ( ImGui::IsMouseDown( 0 ) )
+        if ( m_mouse_captured == 1 )
         {
-            std::string time_buf0 = ts_to_timestr( event_ts0, m_tsoffset );
-            std::string time_buf1 = ts_to_timestr( event_ts1 - event_ts0 );
+            // shift + click: zoom
+            int64_t event_ts0 = gi.screenx_to_event_ts( m_mouse_capture_pos.x );
+            int64_t event_ts1 = gi.screenx_to_event_ts( gi.mouse_pos.x );
 
-            ImGui::SetTooltip( "%s (%s ms)", time_buf0.c_str(), time_buf1.c_str() );
+            if ( event_ts0 > event_ts1 )
+                std::swap( event_ts0, event_ts1 );
+
+            if ( ImGui::IsMouseDown( 0 ) )
+            {
+                std::string time_buf0 = ts_to_timestr( event_ts0, m_tsoffset );
+                std::string time_buf1 = ts_to_timestr( event_ts1 - event_ts0 );
+
+                // Show tooltip with starting time and length of selected area.
+                ImGui::SetTooltip( "%s (%s ms)", time_buf0.c_str(), time_buf1.c_str() );
+            }
+            else
+            {
+                // Mouse is no longer down, uncapture mouse...
+                m_mouse_captured = 0;
+                ImGui::CaptureMouseFromApp( false );
+
+                // And zoom into the selected area.
+                m_graph_location_stack.push_back( { m_graph_start_ts, m_graph_length_ts } );
+                if ( m_graph_location_stack.size() > 64 )
+                    m_graph_location_stack.erase( m_graph_location_stack.begin() );
+
+                m_graph_start_ts = event_ts0 - m_tsoffset;
+                m_graph_length_ts = event_ts1 - event_ts0;
+                m_do_graph_start_ts = true;
+                m_do_graph_length_ts = true;
+            }
         }
-        else
+        else if ( m_mouse_captured == 2 )
         {
-            m_mouse_captured = 0;
-            ImGui::CaptureMouseFromApp( false );
+            // ctrl + click: pan
+            if ( ImGui::IsMouseDown( 0 ) )
+            {
+                float dx = gi.mouse_pos.x - m_mouse_capture_pos.x;
+                int64_t tsdiff = gi.dx_to_event_ts( dx );
 
-            m_graph_location_stack.push_back( { m_graph_start_ts, m_graph_length_ts } );
-            if ( m_graph_location_stack.size() > 64 )
-                m_graph_location_stack.erase( m_graph_location_stack.begin() );
+                m_graph_start_ts -= tsdiff;
+                m_do_graph_start_ts = true;
 
-            m_graph_start_ts = event_ts0 - m_tsoffset;
-            m_graph_length_ts = event_ts1 - event_ts0;
-            m_do_graph_start_ts = true;
-            m_do_graph_length_ts = true;
+                m_mouse_capture_pos = gi.mouse_pos;
+            }
+            else
+            {
+                m_mouse_captured = 0;
+                ImGui::CaptureMouseFromApp( false );
+            }
         }
     }
-    else if ( m_mouse_captured == 2 )
-    {
-        // ctrl + click: pan
-        if ( ImGui::IsMouseDown( 0 ) )
-        {
-            float dx = gi.mouse_pos.x - m_mouse_capture_pos.x;
-            int64_t tsdiff = gi.dx_to_event_ts( dx );
-
-            m_graph_start_ts -= tsdiff;
-            m_do_graph_start_ts = true;
-
-            m_mouse_capture_pos = gi.mouse_pos;
-        }
-        else
-        {
-            m_mouse_captured = 0;
-            ImGui::CaptureMouseFromApp( false );
-        }
-    }
-    else if ( m_mouse_over_graph && !m_mouse_captured )
+    else if ( m_mouse_over_graph )
     {
         bool mouse_clicked = ImGui::IsMouseClicked( 0 );
         int64_t event_ts = gi.screenx_to_event_ts( gi.mouse_pos.x );
         std::string time_buf = "Time: " + ts_to_timestr( event_ts, m_tsoffset );
 
+        // Show tooltip with the closest events we could drum up
         for ( graph_info_t::hovered_t &hov: gi.hovered_items )
         {
             trace_event_t &event = m_trace_events->m_events[ hov.eventid ];
             time_buf += string_format( "\n%u % 4.2f %s", hov.eventid, hov.sign * hov.dist, event.name );
         }
-
         ImGui::SetTooltip( "%s", time_buf.c_str() );
 
         if ( mouse_clicked && ImGui::GetIO().KeyShift )
         {
+            // shift + click: zoom
             m_mouse_captured = 1;
             ImGui::CaptureMouseFromApp( true );
             m_mouse_capture_pos = gi.mouse_pos;
         }
         else if ( mouse_clicked && ImGui::GetIO().KeyCtrl )
         {
+            // ctrl + click: pan
             m_mouse_captured = 2;
             ImGui::CaptureMouseFromApp( true );
             m_mouse_capture_pos = gi.mouse_pos;
         }
-        else if ( ImGui::IsMouseClicked( 1 ) && !m_graph_location_stack.empty() )
+        else if ( ImGui::IsMouseClicked( 1 ) )
         {
-            // Right click restores previous graph location
-            std::pair< int64_t, int64_t > &locs = m_graph_location_stack.back();
+            // right click: popup menu
+            m_graph_popup = true;
+            ImGui::OpenPopup( "EventsListPopup" );
+#if 0
+            //$ TODO: Add this to right click menu or a button?
+            if ( !m_graph_location_stack.empty() )
+            {
+                // Right click restores previous graph location
+                std::pair< int64_t, int64_t > &locs = m_graph_location_stack.back();
 
-            m_graph_start_ts = locs.first;
-            m_graph_length_ts = locs.second;
+                m_graph_start_ts = locs.first;
+                m_graph_length_ts = locs.second;
 
-            m_do_graph_start_ts = true;
-            m_do_graph_length_ts = true;
+                m_do_graph_start_ts = true;
+                m_do_graph_length_ts = true;
 
-            m_graph_location_stack.pop_back();
+                m_graph_location_stack.pop_back();
+            }
+#endif
         }
-        else if ( ImGui::IsMouseDoubleClicked( 0 ) && !gi.hovered_items.empty() )
+        else if ( ImGui::IsMouseDoubleClicked( 0 ) &&
+                  !gi.hovered_items.empty() )
         {
-            // Double click moves event log to time.
+            // Double click: move event log to clicked time.
             m_goto_eventid = gi.hovered_items[ 0 ].eventid;
             m_selected_eventid = gi.hovered_items[ 0 ].eventid;
             m_do_gotoevent = true;
@@ -1787,7 +1833,6 @@ void TraceConsole::init( CIniFile *inifile )
     logf( "graph shortcuts:" );
     logf( "  double click: go to location in event list" );
     logf( "  shift+click+drag: zoom to selection" );
-    logf( "  right click: restore previous location before zoom" );
     logf( "  ctrl+click+drag: pan graph" );
 
     //$ TODO mikesart: use https://github.com/SirCmpwn/libccmd.git

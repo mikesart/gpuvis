@@ -304,6 +304,8 @@ public:
     // Event id of event list popup menu
     uint32_t m_events_list_popup_eventid = ( uint32_t )-1;
 
+    bool m_graph_popup = false;
+
     // Graph Start
     bool m_do_graph_start_ts = false;
     int64_t m_graph_start_ts = 0;
