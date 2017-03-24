@@ -1340,6 +1340,8 @@ public:
         scale = ImGui::GetIO().FontGlobalScale;
 
         mouse_pos = ImGui::GetMousePos();
+
+        hovered_items.clear();
     }
 
     void set_cursor_screen_pos( const ImVec2 &posin, const ImVec2 &size )
@@ -1352,6 +1354,12 @@ public:
         pos_min.y = std::min( pos_min.y, pos.y );
         pos_max.x = std::max( pos_max.x, pos.x + w );
         pos_max.y = std::max( pos_max.y, pos.y + h );
+
+        mouse_over =
+                mouse_pos.x >= pos.x &&
+                mouse_pos.x <= pos.x + w &&
+                mouse_pos.y >= pos.y &&
+                mouse_pos.y <= pos.y + h;
     }
 
     float ts_to_x( int64_t ts )
@@ -1398,12 +1406,22 @@ public:
     int64_t tsdx;
     double tsdxrcp;
 
+    bool mouse_over;
     ImVec2 mouse_pos;
     ImVec2 pos_min{ FLT_MAX, FLT_MAX };
     ImVec2 pos_max{ FLT_MIN, FLT_MIN };
 
     uint32_t eventstart;
     uint32_t eventend;
+
+    struct hovered_t
+    {
+        int sign;
+        float dist;
+        uint32_t eventid;
+    };
+    const size_t hovered_max = 6;
+    std::vector< hovered_t > hovered_items;
 };
 
 void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t > &locs, class graph_info_t *pgi )
@@ -1439,6 +1457,34 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
         num_events++;
         trace_event_t &event = m_trace_events->m_events[ eventid ];
         float x = gi.ts_to_screenx( event.ts );
+
+        if ( gi.mouse_over )
+        {
+            float dist_mouse = x - gi.mouse_pos.x;
+            int sign = dist_mouse < 0.0f ? -1 : 1;
+
+            if ( sign < 0 )
+                dist_mouse = -dist_mouse;
+
+            if ( dist_mouse < 8.0f * gi.scale )
+            {
+                bool inserted = false;
+                for ( auto it = gi.hovered_items.begin(); it != gi.hovered_items.end(); it++ )
+                {
+                    if ( dist_mouse < it->dist )
+                    {
+                        gi.hovered_items.insert( it, { sign, dist_mouse, event.id } );
+                        inserted = true;
+                        break;
+                    }
+                }
+
+                if ( !inserted && ( gi.hovered_items.size() < gi.hovered_max ) )
+                    gi.hovered_items.push_back( { sign, dist_mouse, event.id } );
+                else if ( gi.hovered_items.size() > gi.hovered_max )
+                    gi.hovered_items.pop_back();
+            }
+        }
 
         event_renderer.add_event( x );
     }
@@ -1530,7 +1576,7 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
         trace_event_t &event1 = m_trace_events->m_events[ m_eventlist_end_eventid ];
         float xstart = gi.ts_to_screenx( event0.ts );
         float xend = gi.ts_to_screenx( event1.ts );
-        ImU32 col = col_w_alpha( col_Blue, 80 );
+        ImU32 col = col_w_alpha( col_Lime, 60 );
 
         imgui_drawrect( xstart, xend - xstart, gi.pos.y, gi.h, col );
     }
@@ -1684,7 +1730,13 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
     {
         bool mouse_clicked = ImGui::IsMouseClicked( 0 );
         int64_t event_ts = gi.screenx_to_event_ts( gi.mouse_pos.x );
-        std::string time_buf = ts_to_timestr( event_ts, m_tsoffset );
+        std::string time_buf = "Time: " + ts_to_timestr( event_ts, m_tsoffset );
+
+        for ( graph_info_t::hovered_t &hov: gi.hovered_items )
+        {
+            trace_event_t &event = m_trace_events->m_events[ hov.eventid ];
+            time_buf += string_format( "\n%u % 4.2f %s", hov.eventid, hov.sign * hov.dist, event.name );
+        }
 
         ImGui::SetTooltip( "%s", time_buf.c_str() );
 
@@ -1713,11 +1765,11 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
 
             m_graph_location_stack.pop_back();
         }
-        else if ( ImGui::IsMouseDoubleClicked( 0 ) )
+        else if ( ImGui::IsMouseDoubleClicked( 0 ) && !gi.hovered_items.empty() )
         {
             // Double click moves event log to time.
-            m_goto_eventid = timestr_to_eventid( time_buf.c_str(), m_tsoffset );
-            m_selected_eventid = m_goto_eventid;
+            m_goto_eventid = gi.hovered_items[ 0 ].eventid;
+            m_selected_eventid = gi.hovered_items[ 0 ].eventid;
             m_do_gotoevent = true;
         }
     }
