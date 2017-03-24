@@ -2112,9 +2112,13 @@ int main( int argc, char **argv )
     io.IniSaveSettingCB = std::bind( imgui_ini_save_settings_cb, &inifile, _1, _2 );
 
 #if 0
-    //$ TODO mikesart...
-    ImFont *proggy_tiny = io.Fonts->AddFontFromFileTTF( "./fonts/ProggyTiny.ttf", 10.0f );
     io.Fonts->AddFontDefault();
+    io.Fonts->AddFontFromFileTTF( "./fonts/ProggyTiny.ttf", 10.0f );
+
+    // ImFontAtlas *atlas = ImGui::GetIO().Fonts;
+    // ImGui::PushFont( atlas->Fonts[ 1 ] );
+    // ... draw text ...
+    // ImGui::PopFont();
 #endif
 
     int x = inifile.GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
