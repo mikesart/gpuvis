@@ -418,14 +418,14 @@ size_t get_file_size( const char *filename )
     return 0;
 }
 
-static bool imgui_input_int( int *val, float w, const char *label, const char *label2 )
+static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
 {
     bool ret = ImGui::Button( label );
     float scale = ImGui::GetIO().FontGlobalScale;
 
     ImGui::SameLine();
     ImGui::PushItemWidth( w * scale );
-    ret |= ImGui::InputInt( label2, val, 0, 0 );
+    ret |= ImGui::InputInt( label2, val, 0, 0, flags );
     ImGui::PopItemWidth();
 
     return ret;
@@ -920,10 +920,12 @@ bool TraceWin::render( class TraceLoader *loader )
 
     if ( ImGui::CollapsingHeader( "Events List", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        bool update_eventids = imgui_input_int( &m_start_eventid, 75.0f, "Event Start:", "##EventStart" );
+        bool update_eventids = imgui_input_int( &m_start_eventid, 75.0f,
+                "Event Start:", "##EventStart", ImGuiInputTextFlags_EnterReturnsTrue );
 
         ImGui::SameLine();
-        update_eventids |= imgui_input_int( &m_end_eventid, 75.0f, "Event End:", "##EventEnd" );
+        update_eventids |= imgui_input_int( &m_end_eventid, 75.0f,
+                "Event End:", "##EventEnd", ImGuiInputTextFlags_EnterReturnsTrue );
 
         if ( update_eventids )
         {
@@ -1345,10 +1347,10 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
         if ( eventid > gi.eventend )
             break;
 
-        if ( eventid == m_selected_eventid )
-            draw_selected_event = true;
-        else if ( eventid == m_hovered_eventid )
+        if ( eventid == m_hovered_eventid )
             draw_hovered_event = true;
+        else if ( eventid == m_selected_eventid )
+            draw_selected_event = true;
 
         num_events++;
         trace_event_t &event = m_trace_events->m_events[ eventid ];
@@ -1365,7 +1367,7 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
 
         imgui_drawrect( x, 3.0f, gi.pos.y, gi.h, col_Maroon );
     }
-    else if ( draw_selected_event )
+    if ( draw_selected_event )
     {
         trace_event_t &event = m_trace_events->m_events[ m_selected_eventid ];
         float x = gi.ts_to_screenx( event.ts );
