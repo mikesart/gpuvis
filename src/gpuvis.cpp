@@ -1083,13 +1083,16 @@ void TraceWin::render_events_list( CIniFile &inifile )
                 ImGui::NextColumn();
         }
 
+        // Reset our hovered event id
+        m_hovered_eventid = ( uint32_t )-1;
+
         // Draw events
         for ( uint32_t i = start_idx; i < end_idx; i++ )
         {
             char label[ 32 ];
             int colors_pushed = 0;
             trace_event_t &event = events[ m_start_eventid + i ];
-            bool selected = ( m_selected == i );
+            bool selected = ( m_selected_eventid == event.id );
             bool is_vblank = !strcmp( event.name, "drm_vblank_event" );
             std::string ts_str = ts_to_timestr( event.ts, m_tsoffset );
 
@@ -1104,7 +1107,10 @@ void TraceWin::render_events_list( CIniFile &inifile )
 
             snprintf( label, sizeof( label ), "%u", event.id );
             if ( ImGui::Selectable( label, selected, ImGuiSelectableFlags_SpanAllColumns ) )
-                m_selected = i;
+                m_selected_eventid = event.id;
+            if ( ImGui::IsItemHovered() )
+                m_hovered_eventid = event.id;
+
             ImGui::NextColumn();
 
             ImGui::Text( "%s", ts_str.c_str() );
@@ -1327,6 +1333,7 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
     // Go through all event IDs for this process
     uint32_t num_events = 0;
     bool draw_selected_event = false;
+    bool draw_hovered_event = false;
     event_renderer_t event_renderer( gi.pos.y, gi.w, gi.h, Hue_YlRd );
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
@@ -1338,8 +1345,10 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
         if ( eventid > gi.eventend )
             break;
 
-        if ( eventid == m_selected )
+        if ( eventid == m_selected_eventid )
             draw_selected_event = true;
+        else if ( eventid == m_hovered_eventid )
+            draw_hovered_event = true;
 
         num_events++;
         trace_event_t &event = m_trace_events->m_events[ eventid ];
@@ -1349,12 +1358,19 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
     }
     event_renderer.done();
 
-    if ( draw_selected_event )
+    if ( draw_hovered_event )
     {
-        trace_event_t &event = m_trace_events->m_events[ m_selected ];
+        trace_event_t &event = m_trace_events->m_events[ m_hovered_eventid ];
         float x = gi.ts_to_screenx( event.ts );
 
-        imgui_drawrect( x, 2.0f, gi.pos.y, gi.h, col_w_alpha( col_Aqua, 200 ) );
+        imgui_drawrect( x, 3.0f, gi.pos.y, gi.h, col_Maroon );
+    }
+    else if ( draw_selected_event )
+    {
+        trace_event_t &event = m_trace_events->m_events[ m_selected_eventid ];
+        float x = gi.ts_to_screenx( event.ts );
+
+        imgui_drawrect( x, 3.0f, gi.pos.y, gi.h, col_Indigo );
     }
 
     float x = gi.pos.x + ImGui::GetStyle().FramePadding.x;
@@ -1399,7 +1415,7 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
         trace_event_t &event = m_trace_events->m_events[ id ];
         float x = gi.ts_to_screenx( event.ts );
 
-        imgui_drawrect( x, 2.0f, gi.pos.y, gi.h, col_OrangeRed );
+        imgui_drawrect( x, 1.0f, gi.pos.y, gi.h, col_OrangeRed );
     }
 
     // Draw location line for mouse if mouse is over graph
@@ -1616,7 +1632,7 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
         {
             // Double click moves event log to time.
             m_goto_eventid = timestr_to_eventid( time_buf.c_str(), m_tsoffset );
-            m_selected = m_goto_eventid;
+            m_selected_eventid = m_goto_eventid;
             m_do_gotoevent = true;
         }
     }
