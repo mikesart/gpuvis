@@ -1571,6 +1571,7 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
             trace_seq_terminate( &seq );
 
             event_field_t field;
+            field.is_common = true;
             field.key = strpool.getstr( format->name );
             field.value = strpool.getstr( seq.buffer );
             trace_event.fields.push_back( field );
@@ -1609,6 +1610,7 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
             trace_seq_terminate( &seq );
 
             event_field_t field;
+            field.is_common = false;
             field.key = strpool.getstr( format->name );
             field.value = strpool.getstr( seq.buffer );
             trace_event.fields.push_back( field );

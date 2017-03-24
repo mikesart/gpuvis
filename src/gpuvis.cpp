@@ -944,7 +944,7 @@ bool TraceWin::render( class TraceLoader *loader )
             m_goto_eventid = timestr_to_eventid( m_timegoto_buf.c_str(), m_tsoffset );
         }
 
-        render_events_list();
+        render_events_list( loader->m_inifile );
     }
 
     ImGui::End();
@@ -980,7 +980,7 @@ bool TraceWin::render_info()
     return true;
 }
 
-void TraceWin::render_events_list()
+void TraceWin::render_events_list( CIniFile &inifile )
 {
     float scale = ImGui::GetIO().FontGlobalScale;
     size_t event_count = m_end_eventid - m_start_eventid + 1;
@@ -992,6 +992,10 @@ void TraceWin::render_events_list()
 
     // Events list
     ImVec2 avail = ImGui::GetContentRegionAvail();
+
+    ImFontAtlas *atlas = ImGui::GetIO().Fonts;
+    if ( atlas->Fonts.Size > 1 )
+        ImGui::PushFont( atlas->Fonts[ 1 ] );
 
     {
         // Set the child window size to hold count of items + header + separator
@@ -1038,7 +1042,7 @@ void TraceWin::render_events_list()
         uint32_t end_idx = std::min< uint32_t >( start_idx + 2 + rows, event_count );
 
         // Draw columns
-        std::array< const char *, 5 > columns = { "Id", "CPU", "Time Stamp", "Task", "Event" };
+        std::array< const char *, 6 > columns = { "Id", "Time Stamp", "Task", "Event", "seqno", "Info" };
         ImGui::Columns( columns.size(), "events" );
         for ( const char *str : columns )
         {
@@ -1046,6 +1050,28 @@ void TraceWin::render_events_list()
             ImGui::NextColumn();
         }
         ImGui::Separator();
+
+        if ( !m_inited )
+        {
+            // Try to restore the column sizes from our ini file.
+            for ( size_t i = 1; i < columns.size(); i++ )
+            {
+                float val = inifile.GetFloat( string_format( "column_offset%lu", i ).c_str(), -1.0f );
+                if ( val <= 0.0f )
+                    break;
+
+                ImGui::SetColumnOffset( i, val );
+            }
+        }
+        else if ( ImGui::IsWindowHovered() && ImGui::IsMouseReleased( 0 ) )
+        {
+            // Someone release the mouse - save column sizes in case they were changed.
+            for ( size_t i = 1; i < columns.size(); i++ )
+            {
+                inifile.PutFloat( string_format( "column_offset%lu", i ).c_str(),
+                                  ImGui::GetColumnOffset( i ) );
+            }
+        }
 
         if ( start_idx > 0 )
         {
@@ -1081,13 +1107,31 @@ void TraceWin::render_events_list()
                 m_selected = i;
             ImGui::NextColumn();
 
-            ImGui::Text( "%u", event.cpu );
-            ImGui::NextColumn();
             ImGui::Text( "%s", ts_str.c_str() );
             ImGui::NextColumn();
-            ImGui::Text( "%s", event.comm );
+            ImGui::Text( "%s (%u)", event.comm, event.cpu );
             ImGui::NextColumn();
             ImGui::Text( "%s", event.name );
+            ImGui::NextColumn();
+
+            std::string fieldstr;
+            const char *seqno = "";
+
+            for ( const event_field_t &field : event.fields )
+            {
+                if ( field.is_common )
+                    continue;
+
+                if ( !strcmp( field.key, "seqno" ) )
+                    seqno = field.value;
+                else
+                    fieldstr += string_format( "%s=%s ", field.key, field.value );
+            }
+
+            ImGui::Text( "%s", seqno );
+            ImGui::NextColumn();
+
+            ImGui::Text( "%s", fieldstr.c_str() );
             ImGui::NextColumn();
 
             ImGui::PopStyleColor( colors_pushed );
@@ -1096,6 +1140,9 @@ void TraceWin::render_events_list()
         ImGui::Columns( 1 );
         ImGui::EndChild();
     }
+
+    if ( atlas->Fonts.Size > 1 )
+        ImGui::PopFont();
 }
 
 static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
@@ -2086,11 +2133,33 @@ int SDL_GetWindowBordersSize(SDL_Window * window, int *top, int *left, int *bott
 }
 #endif
 
+static void imgui_load_fonts()
+{
+    ImGuiIO& io = ImGui::GetIO();
+
+    io.Fonts->AddFontDefault();
+
+    std::array< const char *, 3 > fontpaths =
+    {
+        "./fonts/ProggyTiny.ttf",
+        "../fonts/ProggyTiny.ttf",
+        "./ProggyTiny.ttf"
+    };
+    for ( const char *fontname : fontpaths )
+    {
+        if ( io.Fonts->AddFontFromFileTTF( fontname, 10.0f ) )
+        {
+            logf( "Loaded font: %s", fontname );
+            break;
+        }
+    }
+}
+
 int main( int argc, char **argv )
 {
     CIniFile inifile;
     TraceConsole console;
-    TraceLoader loader;
+    TraceLoader loader( inifile );
     SDL_Window *window = NULL;
     cmdline_t cmdline;
 
@@ -2111,21 +2180,11 @@ int main( int argc, char **argv )
     io.IniLoadSettingCB = std::bind( imgui_ini_load_settings_cb, &inifile, _1, _2 );
     io.IniSaveSettingCB = std::bind( imgui_ini_save_settings_cb, &inifile, _1, _2 );
 
-#if 0
-    io.Fonts->AddFontDefault();
-    io.Fonts->AddFontFromFileTTF( "./fonts/ProggyTiny.ttf", 10.0f );
-
-    // ImFontAtlas *atlas = ImGui::GetIO().Fonts;
-    // ImGui::PushFont( atlas->Fonts[ 1 ] );
-    // ... draw text ...
-    // ImGui::PopFont();
-#endif
-
     int x = inifile.GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
     int y = inifile.GetInt( "win_y", SDL_WINDOWPOS_CENTERED );
     int w = inifile.GetInt( "win_w", 1280 );
     int h = inifile.GetInt( "win_h", 1024 );
-    ImGui::GetIO().FontGlobalScale = inifile.GetFloat( "win_scale", 1.0f );
+    io.FontGlobalScale = inifile.GetFloat( "win_scale", 1.0f );
 
     console.init( &inifile );
 
@@ -2150,6 +2209,8 @@ int main( int argc, char **argv )
 
     // Setup ImGui binding
     ImGui_ImplSdlGL3_Init( window );
+
+    imgui_load_fonts();
 
     // Main loop
     bool done = false;

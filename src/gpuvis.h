@@ -74,6 +74,7 @@ struct trace_info_t
 
 struct event_field_t
 {
+    bool is_common;
     const char *key;
     const char *value;
 };
@@ -252,7 +253,7 @@ public:
 public:
     bool render( class TraceLoader *loader );
     bool render_info();
-    void render_events_list();
+    void render_events_list( CIniFile &inifile );
     void render_process_graphs();
     void render_graph_row( const std::string &comm, std::vector< uint32_t > &locs, class graph_info_t *pgi );
     void render_graph_vblanks( class graph_info_t *pgi );
@@ -340,7 +341,7 @@ public:
     };
 
 public:
-    TraceLoader() {}
+    TraceLoader( CIniFile &inifile ) : m_inifile( inifile ) {}
     ~TraceLoader() {}
 
     bool load_file( const char *filename );
@@ -363,6 +364,7 @@ protected:
                          const trace_event_t &event );
 
 public:
+    CIniFile &m_inifile;
     std::string m_filename;
     SDL_atomic_t m_state = { 0 };
     SDL_Thread *m_thread = nullptr;
