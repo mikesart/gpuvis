@@ -1155,6 +1155,8 @@ void TraceWin::render_events_list( CIniFile &inifile )
         m_hovered_eventid = ( uint32_t )-1;
 
         // Draw events
+        m_eventlist_start_eventid = m_start_eventid + start_idx;
+        m_eventlist_end_eventid = m_start_eventid + end_idx;
         for ( uint32_t i = start_idx; i < end_idx; i++ )
         {
             char label[ 32 ];
@@ -1518,6 +1520,19 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
         ImU32 col = col_w_alpha( col_White, 80 );
 
         imgui_drawrect( mousex0, mousex1 - mousex0, gi.pos.y, gi.h, col );
+    }
+
+    // Draw rectangle for visible event list contents
+    if ( m_eventlist_start_eventid != ( uint32_t )-1 &&
+         m_eventlist_end_eventid != ( uint32_t )-1 )
+    {
+        trace_event_t &event0 = m_trace_events->m_events[ m_eventlist_start_eventid ];
+        trace_event_t &event1 = m_trace_events->m_events[ m_eventlist_end_eventid ];
+        float xstart = gi.ts_to_screenx( event0.ts );
+        float xend = gi.ts_to_screenx( event1.ts );
+        ImU32 col = col_w_alpha( col_Blue, 80 );
+
+        imgui_drawrect( xstart, xend - xstart, gi.pos.y, gi.h, col );
     }
 }
 

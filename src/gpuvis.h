@@ -321,6 +321,9 @@ public:
     uint32_t m_selected_eventid = ( uint32_t )-1;
     uint32_t m_hovered_eventid = ( uint32_t )-1;
 
+    uint32_t m_eventlist_start_eventid = ( uint32_t )-1;
+    uint32_t m_eventlist_end_eventid = ( uint32_t )-1;
+
     // Stack of last graph locations (right click to pop).
     std::vector< std::pair< int64_t, int64_t > > m_graph_location_stack;
 
