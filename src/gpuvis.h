@@ -74,7 +74,6 @@ struct trace_info_t
 
 struct event_field_t
 {
-    bool is_common;
     const char *key;
     const char *value;
 };
@@ -89,6 +88,8 @@ struct trace_event_t
     const char *comm;
     const char *system;
     const char *name;
+    uint64_t flags; // TRACE_FLAGS_IRQS_OFF, TRACE_FLAG_HARDIRQ, TRACE_FLAG_SOFTIRQ
+    int seqno;
     std::vector< event_field_t > fields;
 };
 
@@ -254,6 +255,7 @@ public:
     bool render( class TraceLoader *loader );
     bool render_info();
     void render_events_list( CIniFile &inifile );
+    bool render_events_list_popup();
     void render_process_graphs();
     void render_graph_row( const std::string &comm, std::vector< uint32_t > &locs, class graph_info_t *pgi );
     void render_graph_vblanks( class graph_info_t *pgi );
@@ -298,6 +300,9 @@ public:
     int m_start_eventid = 0;
     // Event End
     int m_end_eventid = INT32_MAX;
+
+    // Event id of event list popup menu
+    uint32_t m_events_list_popup_eventid = ( uint32_t )-1;
 
     // Graph Start
     bool m_do_graph_start_ts = false;

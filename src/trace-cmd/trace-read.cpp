@@ -1533,11 +1533,10 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
         trace_event.system = strpool.getstr( event->system );
         trace_event.name = strpool.getstr( event->name );
 
+        trace_event.seqno = 0;
+
         // Get count of fields for this event.
         int field_count = 0;
-        format = event->format.common_fields;
-        for ( ; format; format = format->next )
-            field_count++;
         format = event->format.fields;
         for ( ; format; format = format->next )
             field_count++;
@@ -1548,33 +1547,15 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
         format = event->format.common_fields;
         for ( ; format; format = format->next )
         {
-            trace_seq_reset( &seq );
-            pevent_print_field( &seq, record->data, format );
-
             if ( !strcmp( format->name, "common_flags" ) )
             {
                 unsigned long long val = pevent_read_number( pevent,
                         ( char * )record->data + format->offset, format->size );
 
-                if ( val & ( TRACE_FLAG_IRQS_OFF | TRACE_FLAG_HARDIRQ | TRACE_FLAG_SOFTIRQ ) )
-                {
-                    trace_seq_putc( &seq, ' ' );
-
-                    if ( val & TRACE_FLAG_IRQS_OFF )
-                        trace_seq_puts( &seq, "(irqs_off)" );
-                    if ( val & TRACE_FLAG_HARDIRQ )
-                        trace_seq_puts( &seq, "(hardirq)" );
-                    if ( val & TRACE_FLAG_SOFTIRQ )
-                        trace_seq_puts( &seq, "(softirq)" );
-                }
+                // TRACE_FLAG_IRQS_OFF | TRACE_FLAG_HARDIRQ | TRACE_FLAG_SOFTIRQ
+                trace_event.flags = val;
+                break;
             }
-            trace_seq_terminate( &seq );
-
-            event_field_t field;
-            field.is_common = true;
-            field.key = strpool.getstr( format->name );
-            field.value = strpool.getstr( seq.buffer );
-            trace_event.fields.push_back( field );
         }
 
         format = event->format.fields;
@@ -1582,6 +1563,14 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
         {
             trace_seq_reset( &seq );
             pevent_print_field( &seq, record->data, format );
+
+            if ( !strcmp( format->name, "seqno" ) )
+            {
+                unsigned long long val = pevent_read_number( pevent,
+                        ( char * )record->data + format->offset, format->size );
+
+                trace_event.seqno = val;
+            }
 
             if ( is_ftrace_function )
             {
@@ -1610,7 +1599,6 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
             trace_seq_terminate( &seq );
 
             event_field_t field;
-            field.is_common = false;
             field.key = strpool.getstr( format->name );
             field.value = strpool.getstr( seq.buffer );
             trace_event.fields.push_back( field );

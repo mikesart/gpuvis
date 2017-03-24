@@ -40,15 +40,9 @@
 #include "GL/gl3w.h"
 #include "gpuvis.h"
 
-//$ TODO: Restore column sizes?
-//$ TODO: Small font for events?
-
 //$ TODO: Right click on events - popup menu
 //    start graph at a specific location
 //    find event in graph
-// maybe highlight event in graph when mouse is over
-
-// also need to show fields for events (seqno, etc.)
 
 // popup graph tooltip shows events around location you're at?
 
@@ -985,6 +979,7 @@ bool TraceWin::render_info()
         ImGui::Text( "Trace uname: %s", trace_info.uname.c_str() );
 
 #if 0
+    //$ TODO mikesart: figure out best way to display this info
     if ( ImGui::CollapsingHeader( "CPU Stats" ) )
     {
         static std::string blah;
@@ -995,6 +990,62 @@ bool TraceWin::render_info()
 #endif
 
     return true;
+}
+
+//$ TODO mikesart: Temporary popup menu
+bool TraceWin::render_events_list_popup()
+{
+    if ( !ImGui::BeginPopup( "EventsListPopup" ) )
+        return false;
+
+    const char* names[] = { "Bream", "Haddock", "Mackerel", "Pollock", "Tilefish" };
+    static bool toggles[] = { true, false, false, false, false };
+
+    for (int i = 0; i < 5; i++)
+        ImGui::MenuItem(names[i], "", &toggles[i]);
+
+    if (ImGui::BeginMenu("Sub-menu"))
+    {
+        ImGui::MenuItem("Click me");
+        ImGui::EndMenu();
+    }
+
+    ImGui::Separator();
+    ImGui::Text("Tooltip here");
+
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("I am a tooltip over a popup");
+
+    if (ImGui::Button("Stacked Popup"))
+        ImGui::OpenPopup("another popup");
+
+    if (ImGui::BeginPopup("another popup"))
+    {
+        for (int i = 0; i < 5; i++)
+            ImGui::MenuItem(names[i], "", &toggles[i]);
+
+        if (ImGui::BeginMenu("Sub-menu"))
+        {
+            ImGui::MenuItem("Click me");
+            ImGui::EndMenu();
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::EndPopup();
+
+    return true;
+}
+
+std::string get_event_field_str( std::vector< event_field_t > &fields, const char *eqstr, char sep )
+{
+    std::string fieldstr;
+
+    for ( const event_field_t &field : fields )
+    {
+        fieldstr += string_format( "%s%s%s%c", field.key, eqstr, field.value, sep );
+    }
+
+    return fieldstr;
 }
 
 void TraceWin::render_events_list( CIniFile &inifile )
@@ -1125,8 +1176,36 @@ void TraceWin::render_events_list( CIniFile &inifile )
             snprintf( label, sizeof( label ), "%u", event.id );
             if ( ImGui::Selectable( label, selected, ImGuiSelectableFlags_SpanAllColumns ) )
                 m_selected_eventid = event.id;
-            if ( ImGui::IsItemHovered() )
+
+            // Check if item is hovered and we don't have a popup menu up.
+            if ( ( m_events_list_popup_eventid == ( uint32_t )-1 ) &&
+                 ImGui::IsItemHovered() )
+            {
+                // Store the hovered event id.
                 m_hovered_eventid = event.id;
+
+                if ( ImGui::IsMouseClicked( 1 ) )
+                {
+                    // If they right clicked, show the context menu.
+                    m_events_list_popup_eventid = i;
+                    ImGui::OpenPopup("EventsListPopup");
+                }
+                else
+                {
+                    // Otherwise show a tooltop.
+                    std::string fieldstr = get_event_field_str( event.fields, ": ", '\n' );
+
+                    ImGui::SetTooltip( "Id: %u\nTime: %s\nComm: %s\n%s",
+                                        event.id, ts_str.c_str(), event.comm, fieldstr.c_str() );
+                }
+            }
+
+            // If we've got an active popup menu, render it.
+            if ( m_events_list_popup_eventid == i )
+            {
+                if ( !TraceWin::render_events_list_popup() )
+                    m_events_list_popup_eventid = ( uint32_t )-1;
+            }
 
             ImGui::NextColumn();
 
@@ -1137,23 +1216,11 @@ void TraceWin::render_events_list( CIniFile &inifile )
             ImGui::Text( "%s", event.name );
             ImGui::NextColumn();
 
-            std::string fieldstr;
-            const char *seqno = "";
-
-            for ( const event_field_t &field : event.fields )
-            {
-                if ( field.is_common )
-                    continue;
-
-                if ( !strcmp( field.key, "seqno" ) )
-                    seqno = field.value;
-                else
-                    fieldstr += string_format( "%s=%s ", field.key, field.value );
-            }
-
-            ImGui::Text( "%s", seqno );
+            if ( event.seqno )
+                ImGui::Text( "%u", event.seqno );
             ImGui::NextColumn();
 
+            std::string fieldstr = get_event_field_str( event.fields, "=", ' ' );
             ImGui::Text( "%s", fieldstr.c_str() );
             ImGui::NextColumn();
 
@@ -1537,6 +1604,9 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
     graph_info_t &gi = *pgi;
 
     // Check if the mouse is currently over our graph area
+
+    //$ TODO: this needs to check that we're the active window also?
+    // still works when the debug test window is on top of us.
     m_mouse_over_graph = gi.mouse_pos_in_graph();
 
     if ( m_mouse_captured && imgui_key_pressed( ImGuiKey_Escape ) )
