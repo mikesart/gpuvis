@@ -1442,33 +1442,16 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
 void TraceWin::render_process_graphs()
 {
     graph_info_t gi;
-    std::vector< trace_event_t > &events = m_trace_events->m_events;
-
-    if ( m_graph_start_ts + m_tsoffset < events[ m_start_eventid ].ts )
-    {
-        m_graph_start_ts = events[ m_start_eventid ].ts - m_tsoffset;
-        m_do_graph_start_ts = true;
-    }
-    else if ( m_graph_start_ts + m_tsoffset >= events[ m_end_eventid ].ts )
-    {
-        m_graph_start_ts = events[ m_end_eventid ].ts - m_tsoffset;
-        m_do_graph_start_ts = true;
-    }
 
     if ( m_graph_length_ts < 100 )
     {
         m_graph_length_ts = 100;
         m_do_graph_length_ts = true;
     }
-    else if ( m_graph_length_ts > events[ m_end_eventid ].ts )
-    {
-        m_graph_length_ts = events[ m_end_eventid ].ts;
-        m_do_graph_length_ts = true;
-    }
 
     gi.init( m_graph_start_ts + m_tsoffset, m_graph_length_ts );
-    gi.eventstart = ts_to_eventid( gi.ts0 );
-    gi.eventend = ts_to_eventid( gi.ts1 );
+    gi.eventstart = std::max( ts_to_eventid( gi.ts0 ), m_start_eventid );
+    gi.eventend = std::min( ts_to_eventid( gi.ts1 ), m_end_eventid );
 
     uint32_t graph_rows = 0;
     for ( const std::string &comm : m_graph_rows )
