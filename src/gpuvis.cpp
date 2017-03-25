@@ -40,9 +40,6 @@
 #include "GL/gl3w.h"
 #include "gpuvis.h"
 
-//$ TODO: Add --fullscreen option to start the trace file window maximized
-// and resize with the main window.
-
 //$ TODO: option to start "Events List" closed.
 
 //$ TODO: Sort graphs by process with most # of events.
@@ -53,8 +50,6 @@
 // Trace Info header.
 
 //$ TODO: do a pan with just a single click, not ctrl+click.
-
-//$ TODO: mouse wheel should zoom graph in and out.
 
 //$ TODO: Show drm_vblank_event crtc:0 (blue) or crtc1:1 (red)
 
@@ -74,7 +69,7 @@
 
 //$ TODO: Add ability to show row for an event with a parameter?
 
-//$ TODO: Need to handle lots of rows, ie ~100
+//$ TODO: Need to handle lots of graph rows, ie ~100
 
 // popup graph tooltip shows events around location you're at?
 
@@ -964,6 +959,10 @@ bool TraceWin::render( class TraceLoader *loader )
         bool zoom_in = ImGui::SmallButton( "Zoom In" );
         ImGui::SameLine();
         bool zoom_out = ImGui::SmallButton( "Zoom Out" );
+
+        zoom_in |= ( ImGui::GetIO().MouseWheel > 0 );
+        zoom_out |= ( ImGui::GetIO().MouseWheel < 0 );
+
         if ( zoom_in || zoom_out )
         {
             int64_t sign = zoom_in ? -1 : +1;
@@ -1851,14 +1850,6 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
                 m_graph_location_stack.pop_back();
             }
 #endif
-        }
-        else if ( ImGui::IsMouseDoubleClicked( 0 ) &&
-                  !gi.hovered_items.empty() )
-        {
-            // Double click: move event log to clicked time.
-            m_goto_eventid = gi.hovered_items[ 0 ].eventid;
-            m_selected_eventid = gi.hovered_items[ 0 ].eventid;
-            m_do_gotoevent = true;
         }
     }
 }
