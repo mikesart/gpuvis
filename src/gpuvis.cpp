@@ -2408,6 +2408,50 @@ static void imgui_load_fonts()
     }
 }
 
+static void imgui_ini_settings( CIniFile &inifile, bool save = false )
+{
+    ImGuiIO &io = ImGui::GetIO();
+    ImGuiStyle &style = ImGui::GetStyle();
+    const char section[] = "$imgui_settings$";
+
+    if ( save )
+    {
+        inifile.PutFloat( "win_scale", io.FontGlobalScale, section );
+
+        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
+        {
+            const ImVec4 &col = style.Colors[ i ];
+            const char *name = ImGui::GetStyleColName(i);
+
+            inifile.PutVec4( name, col, section );
+        }
+    }
+    else
+    {
+        ImVec4 defcol = { -1.0f, -1.0f, -1.0f, -1.0f };
+
+        io.FontGlobalScale = inifile.GetFloat( "win_scale", 1.0f, section );
+
+        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
+        {
+            const char *name = ImGui::GetStyleColName(i);
+
+            ImVec4 col = inifile.GetVec4( name, defcol, section );
+            if ( col.w == -1.0f )
+            {
+                // Default to no alpha for our windows...
+                if ( i == ImGuiCol_WindowBg )
+                    ImGui::GetStyle().Colors[ i ].w = 1.0f;
+            }
+            else
+            {
+                style.Colors[ i ] = col;
+            }
+        }
+    }
+
+}
+
 int main( int argc, char **argv )
 {
     CIniFile inifile;
@@ -2437,7 +2481,8 @@ int main( int argc, char **argv )
     int y = inifile.GetInt( "win_y", SDL_WINDOWPOS_CENTERED );
     int w = inifile.GetInt( "win_w", 1280 );
     int h = inifile.GetInt( "win_h", 1024 );
-    io.FontGlobalScale = inifile.GetFloat( "win_scale", 1.0f );
+
+    imgui_ini_settings( inifile );
 
     console.init( &inifile );
 
@@ -2524,6 +2569,8 @@ int main( int argc, char **argv )
     inifile.PutInt( "win_y", y - top );
     inifile.PutInt( "win_w", w );
     inifile.PutInt( "win_h", h );
+
+    imgui_ini_settings( inifile, true );
 
     // Shut down our trace loader
     loader.shutdown();
