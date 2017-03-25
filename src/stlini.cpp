@@ -155,7 +155,8 @@ void PutIniSetting( INIFile &theINI, const char *section, const char *key, const
         theINI.insert( std::pair< std::string, INISection >( std::string( section ), newsection ) );
     }
     else if ( key )
-    { // found section, make sure key isn't in there already,
+    {
+        // found section, make sure key isn't in there already,
         // if it is, just drop and re-add
         apair = iniSection->second.find( std::string( key ) );
         if ( apair != iniSection->second.end() )

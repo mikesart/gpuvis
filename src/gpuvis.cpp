@@ -40,8 +40,6 @@
 #include "GL/gl3w.h"
 #include "gpuvis.h"
 
-//$ TODO: option to start "Events List" closed.
-
 //$ TODO: Sort graphs by process with most # of events.
 
 //$ TODO: By default, go to the end of the trace and show a length of 50ms.
@@ -702,6 +700,11 @@ int SDLCALL TraceLoader::thread_func( void *data )
     return 0;
 }
 
+TraceLoader::TraceLoader( CIniFile &inifile ) : m_inifile( inifile )
+{
+    m_show_events_list = inifile.GetInt( "show_events_list", 0 );
+}
+
 void TraceLoader::shutdown()
 {
     if ( m_thread )
@@ -723,6 +726,8 @@ void TraceLoader::shutdown()
     for ( TraceEvents *events : m_trace_events_list )
         delete events;
     m_trace_events_list.clear();
+
+    m_inifile.PutInt( "show_events_list", m_show_events_list );
 }
 
 void TraceLoader::render( bool fullscreen )
@@ -982,7 +987,9 @@ bool TraceWin::render( class TraceLoader *loader )
         render_process_graphs();
     }
 
-    if ( ImGui::CollapsingHeader( "Events List", ImGuiTreeNodeFlags_DefaultOpen ) )
+    ImGuiTreeNodeFlags eventslist_flags = loader->m_show_events_list ?
+        ImGuiTreeNodeFlags_DefaultOpen : 0;
+    if ( ImGui::CollapsingHeader( "Events List", eventslist_flags ) )
     {
         bool update_eventids = imgui_input_int( &m_start_eventid, 75.0f,
                 "Event Start:", "##EventStart", ImGuiInputTextFlags_EnterReturnsTrue );
@@ -1631,7 +1638,7 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
          m_eventlist_end_eventid != ( uint32_t )-1 )
     {
         trace_event_t &event0 = m_trace_events->m_events[ m_eventlist_start_eventid ];
-        trace_event_t &event1 = m_trace_events->m_events[ m_eventlist_end_eventid ];
+        trace_event_t &event1 = m_trace_events->m_events[ m_eventlist_end_eventid - 1 ];
         float xstart = gi.ts_to_screenx( event0.ts );
         float xend = gi.ts_to_screenx( event1.ts );
         ImU32 col = col_w_alpha( col_Lime, 60 );
@@ -1979,6 +1986,9 @@ void TraceConsole::render( class TraceLoader *loader )
         ImGui::Text( "Clear Color:" );
         ImGui::SameLine();
         ImGui::ColorEdit3( "", ( float * )&m_clear_color );
+
+        ImGui::Checkbox( "Show Events List when opening new Trace Windows",
+                         &loader->m_show_events_list );
 
         ImGui::Text( "Imgui debug: " );
 

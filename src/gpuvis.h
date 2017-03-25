@@ -337,7 +337,6 @@ public:
     // 2:ctrl+click+drag: pan graph
     int m_mouse_captured = 0;
     ImVec2 m_mouse_capture_pos;
-
 };
 
 class TraceLoader
@@ -352,7 +351,7 @@ public:
     };
 
 public:
-    TraceLoader( CIniFile &inifile ) : m_inifile( inifile ) {}
+    TraceLoader( CIniFile &inifile );
     ~TraceLoader() {}
 
     bool load_file( const char *filename );
@@ -383,4 +382,6 @@ public:
 
     std::vector< TraceEvents * > m_trace_events_list;
     std::vector< TraceWin * > m_trace_windows_list;
+
+    bool m_show_events_list = false;
 };
