@@ -40,6 +40,28 @@
 #include "GL/gl3w.h"
 #include "gpuvis.h"
 
+//$ TODO: Add --fullscreen option to start the trace file window maximized
+// and resize with the main window.
+
+//$ TODO: option to start "Events List" closed.
+
+//$ TODO: Sort graphs by process with most # of events.
+
+//$ TODO: By default, go to the end of the trace and show a length of 50ms.
+
+//$ TODO: Add information about each comm (total events), etc. in the
+// Trace Info header.
+
+//$ TODO: do a pan with just a single click, not ctrl+click.
+
+//$ TODO: mouse wheel should zoom graph in and out.
+
+//$ TODO: Show drm_vblank_event crtc:0 (blue) or crtc1:1 (red)
+
+//$ TODO: Make colors configurable so they're easy to distinguish.
+
+//$ TODO: Cap graph length to ~5000
+
 //$ TODO: Right click on events - popup menu
 //    start graph at a specific location
 //    find event in graph
