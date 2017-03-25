@@ -37,7 +37,7 @@ VERBOSE ?= 0
 CFG ?= release
 
 SDL2FLAGS=$(shell sdl2-config --cflags)
-SDL2LIBS=$(shell sdl2-config --libs)
+SDL2LIBS=$(shell sdl2-config --static-libs)
 WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wsuggest-attribute=format $(WSHADOW) -Wno-unused-parameter -Wno-missing-field-initializers
 CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 -I./src/sqlite $(SDL2FLAGS)
 CXXFLAGS = -fno-rtti -Woverloaded-virtual
