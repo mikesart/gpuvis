@@ -66,6 +66,16 @@
 //    start graph at a specific location
 //    find event in graph
 
+//$ TODO: in graph tooltip, show distance to previous and next vblank
+
+//$ TODO: allow ability to filter vblanks based on crtc: crtc0, crtc1, crtc0+1
+
+//$ TODO: Enable showing vblank with shortest interval by default
+
+//$ TODO: Add ability to show row for an event with a parameter?
+
+//$ TODO: Need to handle lots of rows, ie ~100
+
 // popup graph tooltip shows events around location you're at?
 
 static SDL_threadID g_main_tid = -1;
