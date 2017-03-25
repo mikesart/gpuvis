@@ -362,7 +362,7 @@ public:
     void new_event_window( TraceEvents *trace_events );
     void close_event_file( TraceEvents *trace_events, bool close_file  );
 
-    void render();
+    void render( bool fullscreen );
 
     void shutdown();
 

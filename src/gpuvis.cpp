@@ -730,8 +730,18 @@ void TraceLoader::shutdown()
     m_trace_events_list.clear();
 }
 
-void TraceLoader::render()
+void TraceLoader::render( bool fullscreen )
 {
+    if ( fullscreen && !m_trace_windows_list.empty() )
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        float w = io.DisplaySize.x;
+        float h = io.DisplaySize.y;
+
+        ImGui::SetNextWindowPosCenter();
+        ImGui::SetNextWindowSizeConstraints( ImVec2( w, h ),  ImVec2( w, h ) );
+    }
+
     for ( int i = m_trace_windows_list.size() - 1; i >= 0; i-- )
     {
         TraceWin *win = m_trace_windows_list[ i ];
@@ -2319,16 +2329,29 @@ static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniDat
 
 struct cmdline_t
 {
+    bool fullscreen = false;
     std::vector< std::string > inputfiles;
 };
 
 static void parse_cmdline( cmdline_t &cmdline, int argc, char **argv )
 {
+    static struct option long_opts[] =
+    {
+        { "fullscreen", no_argument, 0, 0 },
+        { 0, 0, 0, 0 }
+    };
+
     int c;
-    while ( ( c = getopt( argc, argv, "i:" ) ) != -1 )
+    int opt_ind = 0;
+    while ( ( c = getopt_long( argc, argv, "i:",
+                               long_opts, &opt_ind ) ) != -1 )
     {
         switch(c)
         {
+        case 0:
+            if ( !strcasecmp( "fullscreen", long_opts[ opt_ind ].name ) )
+                cmdline.fullscreen = true;
+            break;
         case 'i':
             cmdline.inputfiles.push_back( optarg );
             break;
@@ -2388,10 +2411,10 @@ static void imgui_load_fonts()
 int main( int argc, char **argv )
 {
     CIniFile inifile;
+    cmdline_t cmdline;
     TraceConsole console;
     TraceLoader loader( inifile );
     SDL_Window *window = NULL;
-    cmdline_t cmdline;
 
     parse_cmdline( cmdline, argc, argv );
 
@@ -2464,7 +2487,7 @@ int main( int argc, char **argv )
         console.render( &loader );
 
         // Render trace windows
-        loader.render();
+        loader.render( cmdline.fullscreen );
 
         // Rendering
         const ImVec4 &color = console.m_clear_color;
