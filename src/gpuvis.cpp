@@ -42,8 +42,6 @@
 
 //$ TODO: Sort graphs by process with most # of events.
 
-//$ TODO: By default, go to the end of the trace and show a length of 50ms.
-
 //$ TODO: Add information about each comm (total events), etc. in the
 // Trace Info header.
 
@@ -700,9 +698,10 @@ int SDLCALL TraceLoader::thread_func( void *data )
     return 0;
 }
 
-TraceLoader::TraceLoader( CIniFile &inifile ) : m_inifile( inifile )
+void TraceLoader::init()
 {
-    m_show_events_list = inifile.GetInt( "show_events_list", 0 );
+    m_fullscreen = m_inifile.GetInt( "fullscreen", 0 );
+    m_show_events_list = m_inifile.GetInt( "show_events_list", 0 );
 }
 
 void TraceLoader::shutdown()
@@ -728,11 +727,12 @@ void TraceLoader::shutdown()
     m_trace_events_list.clear();
 
     m_inifile.PutInt( "show_events_list", m_show_events_list );
+    m_inifile.PutInt( "fullscreen", m_fullscreen );
 }
 
-void TraceLoader::render( bool fullscreen )
+void TraceLoader::render()
 {
-    if ( fullscreen && !m_trace_windows_list.empty() )
+    if ( m_fullscreen && !m_trace_windows_list.empty() )
     {
         ImGuiIO& io = ImGui::GetIO();
         float w = io.DisplaySize.x;
@@ -761,26 +761,19 @@ void TraceLoader::render( bool fullscreen )
  */
 void TraceWin::render_time_offset_button_init( TraceEvents &trace_events )
 {
-    int64_t ts = 0;
     std::vector< trace_event_t > &events = trace_events.m_events;
     const std::vector< uint32_t > &vblank_locs = trace_events.get_event_locs( "drm_vblank_event" );
 
-    for ( uint32_t i : vblank_locs )
+    if ( !vblank_locs.empty() )
     {
-        if ( !ts || events[ i ].pid )
-        {
-            m_do_gotoevent = true;
-            m_goto_eventid = i;
+        uint32_t id = vblank_locs.back();
 
-            ts = events[ i ].ts;
+        m_do_gotoevent = true;
+        m_goto_eventid = id;
 
-            if ( events[ i ].pid )
-                break;
-        }
+        m_tsoffset = events[ id ].ts;
+        m_timeoffset_buf = ts_to_timestr( m_tsoffset );
     }
-
-    m_tsoffset = ts;
-    m_timeoffset_buf = ts_to_timestr( ts );
 }
 
 int64_t TraceWin::timestr_to_ts( const char *buf, int64_t tsoffset )
@@ -930,6 +923,14 @@ bool TraceWin::render( class TraceLoader *loader )
         init_graph_rows_str();
 
         render_time_offset_button_init( *m_trace_events );
+
+        int64_t last_ts = m_trace_events->m_events.back().ts;
+
+        m_do_graph_start_ts = true;
+        m_do_graph_length_ts = true;
+        m_graph_length_ts = ( last_ts > 40 * MSECS_PER_SEC ) ?
+                    40 * MSECS_PER_SEC : last_ts;
+        m_graph_start_ts = last_ts - m_tsoffset - m_graph_length_ts;
     }
 
     // Sanity check these aren't out of range.
@@ -961,22 +962,22 @@ bool TraceWin::render( class TraceLoader *loader )
             m_graph_length_ts = timestr_to_ts( m_graphtime_length_buf.c_str() );
 
         ImGui::SameLine();
-        bool zoom_in = ImGui::SmallButton( "Zoom In" );
+        m_do_graph_zoom_in |= ImGui::SmallButton( "Zoom In" );
         ImGui::SameLine();
-        bool zoom_out = ImGui::SmallButton( "Zoom Out" );
+        m_do_graph_zoom_out |= ImGui::SmallButton( "Zoom Out" );
 
-        zoom_in |= ( ImGui::GetIO().MouseWheel > 0 );
-        zoom_out |= ( ImGui::GetIO().MouseWheel < 0 );
-
-        if ( zoom_in || zoom_out )
+        if ( m_do_graph_zoom_in || m_do_graph_zoom_out )
         {
-            int64_t sign = zoom_in ? -1 : +1;
+            int64_t sign = m_do_graph_zoom_in ? -1 : +1;
             int64_t amt = 1000 * sign * ( m_graph_length_ts / 2000 );
 
             m_graph_start_ts -= amt / 2;
             m_graph_length_ts += amt;
             m_do_graph_start_ts = true;
             m_do_graph_length_ts = true;
+
+            m_do_graph_zoom_in = false;
+            m_do_graph_zoom_out = false;
         }
 
         if ( m_do_graph_start_ts )
@@ -1858,6 +1859,11 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
             }
 #endif
         }
+        else
+        {
+            m_do_graph_zoom_in |= ( ImGui::GetIO().MouseWheel > 0 );
+            m_do_graph_zoom_out |= ( ImGui::GetIO().MouseWheel < 0 );
+        }
     }
 }
 
@@ -1987,8 +1993,7 @@ void TraceConsole::render( class TraceLoader *loader )
         ImGui::SameLine();
         ImGui::ColorEdit3( "", ( float * )&m_clear_color );
 
-        ImGui::Checkbox( "Show Events List when opening new Trace Windows",
-                         &loader->m_show_events_list );
+        ImGui::Separator();
 
         ImGui::Text( "Imgui debug: " );
 
@@ -2003,6 +2008,14 @@ void TraceConsole::render( class TraceLoader *loader )
         ImGui::SameLine();
         if ( ImGui::Button( "Test Window" ) )
             m_show_imgui_test_window ^= 1;
+
+        ImGui::Separator();
+
+        ImGui::Checkbox( "Show Events List when opening new Trace Windows",
+                         &loader->m_show_events_list );
+
+        ImGui::Checkbox( "Fullscreen Trace Window",
+                         &loader->m_fullscreen );
     }
 
     if ( ImGui::CollapsingHeader( "Log", ImGuiTreeNodeFlags_DefaultOpen ) )
@@ -2328,13 +2341,7 @@ static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniDat
     return -1;
 }
 
-struct cmdline_t
-{
-    bool fullscreen = false;
-    std::vector< std::string > inputfiles;
-};
-
-static void parse_cmdline( cmdline_t &cmdline, int argc, char **argv )
+static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
 {
     static struct option long_opts[] =
     {
@@ -2351,10 +2358,10 @@ static void parse_cmdline( cmdline_t &cmdline, int argc, char **argv )
         {
         case 0:
             if ( !strcasecmp( "fullscreen", long_opts[ opt_ind ].name ) )
-                cmdline.fullscreen = true;
+                loader.m_fullscreen = true;
             break;
         case 'i':
-            cmdline.inputfiles.push_back( optarg );
+            loader.m_inputfiles.push_back( optarg );
             break;
 
         default:
@@ -2364,7 +2371,7 @@ static void parse_cmdline( cmdline_t &cmdline, int argc, char **argv )
 
     for ( ; optind < argc; optind++ )
     {
-        cmdline.inputfiles.push_back( argv[ optind ] );
+        loader.m_inputfiles.push_back( argv[ optind ] );
     }
 }
 
@@ -2456,12 +2463,11 @@ static void imgui_ini_settings( CIniFile &inifile, bool save = false )
 int main( int argc, char **argv )
 {
     CIniFile inifile;
-    cmdline_t cmdline;
     TraceConsole console;
     TraceLoader loader( inifile );
     SDL_Window *window = NULL;
 
-    parse_cmdline( cmdline, argc, argv );
+    parse_cmdline( loader, argc, argv );
 
     // Setup SDL
     if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_TIMER ) != 0 )
@@ -2473,6 +2479,8 @@ int main( int argc, char **argv )
     logf_init();
 
     inifile.Open( "gpuvis", "gpuvis.ini" );
+
+    loader.init();
 
     ImGuiIO& io = ImGui::GetIO();
     io.IniLoadSettingCB = std::bind( imgui_ini_load_settings_cb, &inifile, _1, _2 );
@@ -2533,7 +2541,7 @@ int main( int argc, char **argv )
         console.render( &loader );
 
         // Render trace windows
-        loader.render( cmdline.fullscreen );
+        loader.render();
 
         // Rendering
         const ImVec4 &color = console.m_clear_color;
@@ -2550,13 +2558,13 @@ int main( int argc, char **argv )
         if ( console.m_quit )
             break;
 
-        if ( !cmdline.inputfiles.empty() && !loader.is_loading() )
+        if ( !loader.m_inputfiles.empty() && !loader.is_loading() )
         {
-            const char *filename = cmdline.inputfiles[ 0 ].c_str();
+            const char *filename = loader.m_inputfiles[ 0 ].c_str();
 
             load_trace_file( loader, console, filename );
 
-            cmdline.inputfiles.erase( cmdline.inputfiles.begin() );
+            loader.m_inputfiles.erase( loader.m_inputfiles.begin() );
         }
     }
 

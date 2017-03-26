@@ -33,7 +33,7 @@ using std::placeholders::_3;
 using std::placeholders::_4;
 using std::placeholders::_5;
 
-#define MSECS_PER_SEC		1000000ULL
+#define MSECS_PER_SEC		1000000LL
 
 extern "C" uint32_t fnv_hashstr32( const char *str );
 
@@ -241,12 +241,6 @@ public:
         m_title = title;
 
         m_timegoto_buf = "0.0";
-
-        m_do_graph_start_ts = true;
-        m_graph_start_ts = -2 * MSECS_PER_SEC;
-
-        m_do_graph_length_ts = true;
-        m_graph_length_ts = 30 * MSECS_PER_SEC;
     }
 
     ~TraceWin() {}
@@ -315,6 +309,9 @@ public:
     int64_t m_graph_length_ts = INT64_MAX;
     std::string m_graphtime_length_buf;
 
+    bool m_do_graph_zoom_in = false;
+    bool m_do_graph_zoom_out = false;
+
     // Graph rows
     std::string m_graph_rows_str;
     std::vector< std::string > m_graph_rows;
@@ -351,7 +348,7 @@ public:
     };
 
 public:
-    TraceLoader( CIniFile &inifile );
+    TraceLoader( CIniFile &inifile ) : m_inifile( inifile ) {}
     ~TraceLoader() {}
 
     bool load_file( const char *filename );
@@ -361,8 +358,9 @@ public:
     void new_event_window( TraceEvents *trace_events );
     void close_event_file( TraceEvents *trace_events, bool close_file  );
 
-    void render( bool fullscreen );
+    void render();
 
+    void init();
     void shutdown();
 
 protected:
@@ -383,5 +381,7 @@ public:
     std::vector< TraceEvents * > m_trace_events_list;
     std::vector< TraceWin * > m_trace_windows_list;
 
+    bool m_fullscreen = false;
     bool m_show_events_list = false;
+    std::vector< std::string > m_inputfiles;
 };
