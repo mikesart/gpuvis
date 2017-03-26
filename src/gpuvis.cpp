@@ -45,8 +45,6 @@
 //$ TODO: Add information about each comm (total events), etc. in the
 // Trace Info header.
 
-//$ TODO: do a pan with just a single click, not ctrl+click.
-
 //$ TODO: Show drm_vblank_event crtc:0 (blue) or crtc1:1 (red)
 
 //$ TODO: Make colors configurable so they're easy to distinguish.
@@ -1799,7 +1797,8 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
         }
         else if ( m_mouse_captured == 2 )
         {
-            // ctrl + click: pan
+            // click: pan
+            //$ TODO mikesart: pan vertically as well
             if ( ImGui::IsMouseDown( 0 ) )
             {
                 float dx = gi.mouse_pos.x - m_mouse_capture_pos.x;
@@ -1838,9 +1837,9 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
             ImGui::CaptureMouseFromApp( true );
             m_mouse_capture_pos = gi.mouse_pos;
         }
-        else if ( mouse_clicked && ImGui::GetIO().KeyCtrl )
+        else if ( mouse_clicked )
         {
-            // ctrl + click: pan
+            // click: pan
             m_mouse_captured = 2;
             ImGui::CaptureMouseFromApp( true );
             m_mouse_capture_pos = gi.mouse_pos;
@@ -1887,7 +1886,7 @@ void TraceConsole::init( CIniFile *inifile )
     logf( "graph shortcuts:" );
     logf( "  double click: go to location in event list" );
     logf( "  shift+click+drag: zoom to selection" );
-    logf( "  ctrl+click+drag: pan graph" );
+    logf( "  click+drag: pan graph" );
 
     //$ TODO mikesart: use https://github.com/SirCmpwn/libccmd.git
     //$ TODO mikesart: add "load" command
