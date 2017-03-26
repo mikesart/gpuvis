@@ -51,8 +51,6 @@
 
 //$ TODO: Make colors configurable so they're easy to distinguish.
 
-//$ TODO: Cap graph length to ~5000
-
 //$ TODO: Right click on events - popup menu
 //    start graph at a specific location
 //    find event in graph
@@ -68,6 +66,8 @@
 //$ TODO: Need to handle lots of graph rows, ie ~100
 
 // popup graph tooltip shows events around location you're at?
+
+static const int64_t g_max_graph_length = 5000 * MSECS_PER_SEC;
 
 static SDL_threadID g_main_tid = -1;
 static std::vector< char * > g_log;
@@ -966,6 +966,9 @@ bool TraceWin::render( class TraceLoader *loader )
         ImGui::SameLine();
         m_do_graph_zoom_out |= ImGui::SmallButton( "Zoom Out" );
 
+        if ( m_graph_length_ts >= g_max_graph_length )
+            m_do_graph_zoom_out = false;
+
         if ( m_do_graph_zoom_in || m_do_graph_zoom_out )
         {
             int64_t sign = m_do_graph_zoom_in ? -1 : +1;
@@ -1655,6 +1658,11 @@ void TraceWin::render_process_graphs()
     if ( m_graph_length_ts < 100 )
     {
         m_graph_length_ts = 100;
+        m_do_graph_length_ts = true;
+    }
+    else if ( m_graph_length_ts > g_max_graph_length )
+    {
+        m_graph_length_ts = 5000 * MSECS_PER_SEC;
         m_do_graph_length_ts = true;
     }
 
