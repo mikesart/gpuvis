@@ -1194,7 +1194,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
         }
         ImGui::Separator();
 
-        if ( !m_inited )
+        if ( !m_columns_inited )
         {
             // Try to restore the column sizes from our ini file.
             for ( size_t i = 1; i < columns.size(); i++ )
@@ -1205,6 +1205,8 @@ void TraceWin::render_events_list( CIniFile &inifile )
 
                 ImGui::SetColumnOffset( i, val );
             }
+
+            m_columns_inited = true;
         }
         else if ( ImGui::IsWindowHovered() && ImGui::IsMouseReleased( 0 ) )
         {

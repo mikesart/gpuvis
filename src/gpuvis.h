@@ -274,6 +274,7 @@ protected:
 
 public:
     bool m_inited = false;
+    bool m_columns_inited = false;
     bool m_open = true;
     int m_setfocus = 0;
     std::string m_title;
