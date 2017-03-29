@@ -1498,6 +1498,10 @@ static bool is_timestamp_in_us( char *trace_clock, bool use_trace_clock )
     return false;
 }
 
+extern "C" void print_str_arg( struct trace_seq *s, void *data, int size,
+              struct event_format *event, const char *format,
+              int len_arg, struct print_arg *arg );
+
 static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_info_t &trace_info,
                              tracecmd_input_t *handle, pevent_record_t *record )
 {
@@ -1514,6 +1518,7 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
         int pid = pevent_data_pid( pevent, record );
         const char *comm = pevent_data_comm_from_pid( pevent, pid );
         bool is_ftrace_function = !strcmp( "ftrace", event->system ) && !strcmp( "function", event->name );
+        bool is_printk_function = !strcmp( "ftrace", event->system ) && !strcmp( "print", event->name );
 
         trace_seq_init( &seq );
 
@@ -1596,6 +1601,25 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
                     }
                 }
             }
+            else if ( is_printk_function && !strcmp( format->name, "buf" ) )
+            {
+                struct print_arg *args = event->print_fmt.args;
+
+                // We are assuming print_fmt for ftrace/print function is:
+                //   print fmt: "%ps: %s", (void *)REC->ip, REC->buf
+                if ( args->type != PRINT_FIELD )
+                    args = args->next;
+
+                trace_seq_reset( &seq );
+                print_str_arg( &seq, record->data, record->size,
+                               event, "%s", -1, args );
+
+                // pretty_print prints IP and print string (buf).
+                //   pretty_print( &seq, record->data, record->size, event );
+
+                trace_event.system = "ftrace-print";
+            }
+
             trace_seq_terminate( &seq );
 
             event_field_t field;

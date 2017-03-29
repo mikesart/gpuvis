@@ -1112,6 +1112,17 @@ std::string get_event_field_str( std::vector< event_field_t > &fields, const cha
     return fieldstr;
 }
 
+const event_field_t *find_event_field( std::vector< event_field_t > &fields, const char *name )
+{
+    for ( const event_field_t &field : fields )
+    {
+        if ( !strcmp( field.key, name ) )
+            return &field;
+    }
+
+    return NULL;
+}
+
 void TraceWin::render_events_list( CIniFile &inifile )
 {
     float scale = ImGui::GetIO().FontGlobalScale;
@@ -1827,6 +1838,17 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
         {
             trace_event_t &event = m_trace_events->m_events[ hov.eventid ];
             time_buf += string_format( "\n%u % 4.2f %s", hov.eventid, hov.sign * hov.dist, event.name );
+
+            if ( !strcmp( event.system, "ftrace-print" ) )
+            {
+                const event_field_t *field = find_event_field( event.fields, "buf" );
+
+                if ( field )
+                {
+                    time_buf += " ";
+                    time_buf += field->value;
+                }
+            }
         }
         ImGui::SetTooltip( "%s", time_buf.c_str() );
 

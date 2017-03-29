@@ -3869,7 +3869,7 @@ static void print_bitmask_to_seq(struct pevent *pevent,
 	free(str);
 }
 
-static void print_str_arg(struct trace_seq *s, void *data, int size,
+void print_str_arg(struct trace_seq *s, void *data, int size,
 			  struct event_format *event, const char *format,
 			  int len_arg, struct print_arg *arg)
 {
