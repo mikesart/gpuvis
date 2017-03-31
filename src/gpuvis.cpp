@@ -1541,7 +1541,7 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
     ImGui::Text( "Rows:" );
     ImGui::SameLine();
     ImGui::PushItemWidth( imgui_scale( 200.0f ) );
-    if ( ImGui::SliderInt( "##GraphRows", &row_count, 1, graph_row_count ) )
+    if ( ImGui::SliderInt( "##GraphRowsCount", &row_count, 1, graph_row_count ) )
     {
         loader->m_graph_row_count = ( row_count >= graph_row_count ) ?
                     -1 : row_count;
