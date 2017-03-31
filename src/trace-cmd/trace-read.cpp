@@ -1618,6 +1618,20 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
                 //   pretty_print( &seq, record->data, record->size, event );
 
                 trace_event.system = "ftrace-print";
+
+                // Convert all LFs to spaces.
+                for ( unsigned int i = 0; i < seq.len; i++ )
+                {
+                    if ( seq.buffer[ i ] == '\n' )
+                        seq.buffer[ i ] = ' ';
+                }
+            }
+
+            // Trim trailing whitespace
+            while ( ( seq.len > 0 ) &&
+                    isspace( seq.buffer[ seq.len - 1 ] ) )
+            {
+                seq.len--;
             }
 
             trace_seq_terminate( &seq );
