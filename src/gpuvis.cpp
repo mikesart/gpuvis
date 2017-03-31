@@ -1711,9 +1711,11 @@ void TraceWin::render_process_graphs()
     }
 
     {
-        const float graph_row_h = 50.0f * gi.scale;
-        const float graph_padding = ImGui::GetStyle().FramePadding.y;
-        const float graph_height = graph_rows * ( graph_row_h + graph_padding );
+        float graph_row_h = 50.0f * gi.scale;
+        float graph_padding = ImGui::GetStyle().FramePadding.y;
+        float graph_height = graph_rows * ( graph_row_h + graph_padding );
+
+        graph_height = std::max( graph_height, graph_row_h + graph_padding );
 
         ImGui::BeginChild( "EventGraph", ImVec2( 0, graph_height ), true );
 
