@@ -1260,6 +1260,8 @@ public:
                 mouse_pos.x <= pos.x + w &&
                 mouse_pos.y >= pos.y &&
                 mouse_pos.y <= pos.y + h;
+
+        num++;
     }
 
     float ts_to_x( int64_t ts )
@@ -1295,6 +1297,7 @@ public:
     }
 
 public:
+    uint32_t num = 0;
     ImVec2 pos;
 
     float h;
@@ -1408,11 +1411,14 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
                         col_get( col_Indigo ) );
     }
 
+    std::string label;
     float x = gi.pos.x + ImGui::GetStyle().FramePadding.x;
-    std::string label = string_format( "%u events", num_events );
 
-    imgui_draw_text( x, gi.pos.y, comm.c_str(),
+    label = string_format( "%u) %s", gi.num, comm.c_str() );
+    imgui_draw_text( x, gi.pos.y, label.c_str(),
                      col_get( col_LightYellow ) );
+
+    label = string_format( "%u events", num_events );
     imgui_draw_text( x, gi.pos.y + ImGui::GetTextLineHeight(), label.c_str(),
                      col_get( col_LightYellow ) );
 }
