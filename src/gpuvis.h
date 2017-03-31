@@ -249,7 +249,7 @@ public:
     void render_info();
     void render_events_list( CIniFile &inifile );
     bool render_events_list_popup();
-    void render_process_graphs();
+    void render_process_graphs( TraceLoader *loader );
     void render_graph_row( const std::string &comm, std::vector< uint32_t > &locs, class graph_info_t *pgi );
     void render_graph_vblanks( class graph_info_t *pgi );
     void render_mouse_graph( class graph_info_t *pgi );
@@ -308,6 +308,8 @@ public:
     bool m_do_graph_length_ts = false;
     int64_t m_graph_length_ts = INT64_MAX;
     std::string m_graphtime_length_buf;
+
+    float m_graph_start_y = 0.0f;
 
     bool m_do_graph_zoom_in = false;
     bool m_do_graph_zoom_out = false;
@@ -388,6 +390,7 @@ public:
     std::vector< TraceEvents * > m_trace_events_list;
     std::vector< TraceWin * > m_trace_windows_list;
 
+    int m_graph_row_count = -1;
     bool m_fullscreen = false;
     bool m_show_events_list = false;
     std::vector< std::string > m_inputfiles;

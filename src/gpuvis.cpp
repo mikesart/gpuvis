@@ -463,6 +463,7 @@ void TraceLoader::init()
 {
     m_fullscreen = m_inifile.GetInt( "fullscreen", 0 );
     m_show_events_list = m_inifile.GetInt( "show_events_list", 0 );
+    m_graph_row_count = m_inifile.GetInt( "graph_row_count", -1 );
 }
 
 void TraceLoader::shutdown()
@@ -489,6 +490,7 @@ void TraceLoader::shutdown()
 
     m_inifile.PutInt( "show_events_list", m_show_events_list );
     m_inifile.PutInt( "fullscreen", m_fullscreen );
+    m_inifile.PutInt( "graph_row_count", m_graph_row_count );
 }
 
 void TraceLoader::render()
@@ -708,7 +710,8 @@ bool TraceWin::render( class TraceLoader *loader )
 
     if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        if ( ImGui::CollapsingHeader( "  Graph Rows" ) )
+        ImGui::Indent();
+        if ( ImGui::CollapsingHeader( "Graph Rows" ) )
         {
             if ( ImGui::Button( "Update Graph Rows" ) )
                 update_graph_rows_list();
@@ -721,6 +724,7 @@ bool TraceWin::render( class TraceLoader *loader )
             ImGui::InputTextMultiline( "##GraphRows", &m_graph_rows_str[ 0 ], m_graph_rows_str.capacity(),
                     ImVec2( -1.0f, ImGui::GetTextLineHeight() * 16 ) );
         }
+        ImGui::Unindent();
 
         if ( imgui_input_text( "Start:", "##GraphStart", m_graphtime_start_buf, 32, 150 ) )
             m_graph_start_ts = timestr_to_ts( m_graphtime_start_buf.c_str() );
@@ -756,7 +760,7 @@ bool TraceWin::render( class TraceLoader *loader )
         if ( m_do_graph_length_ts )
             m_graphtime_length_buf = ts_to_timestr( m_graph_length_ts, 0, 4 );
 
-        render_process_graphs();
+        render_process_graphs( loader );
     }
 
     ImGuiTreeNodeFlags eventslist_flags = loader->m_show_events_list ?
@@ -823,7 +827,8 @@ void TraceWin::render_info()
         if ( !trace_info.uname.empty() )
             ImGui::Text( "Trace uname: %s", trace_info.uname.c_str() );
 
-        if ( ImGui::CollapsingHeader( "  Comm Info",  ImGuiTreeNodeFlags_DefaultOpen ) )
+        ImGui::Indent();
+        if ( ImGui::CollapsingHeader( "Comm Info",  ImGuiTreeNodeFlags_DefaultOpen ) )
         {
             if ( !m_comm_info.empty() )
             {
@@ -844,7 +849,7 @@ void TraceWin::render_info()
             }
         }
 
-        if ( ImGui::CollapsingHeader( "  CPU Info" ) )
+        if ( ImGui::CollapsingHeader( "CPU Info" ) )
         {
             if ( !trace_info.cpustats.empty() )
             {
@@ -870,6 +875,8 @@ void TraceWin::render_info()
                 ImGui::Columns( 1 );
             }
         }
+
+        ImGui::Unindent();
     }
 }
 
@@ -1482,7 +1489,7 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
     }
 }
 
-void TraceWin::render_process_graphs()
+void TraceWin::render_process_graphs( TraceLoader *loader )
 {
     graph_info_t gi;
 
@@ -1501,7 +1508,7 @@ void TraceWin::render_process_graphs()
     gi.eventstart = std::max( ts_to_eventid( gi.ts0 ), m_start_eventid );
     gi.eventend = std::min( ts_to_eventid( gi.ts1 ), m_end_eventid );
 
-    uint32_t graph_rows = 0;
+    int graph_row_count = 0;
     for ( const std::string &comm : m_graph_rows )
     {
         std::vector< uint32_t > &locs = m_trace_events->get_comm_locs( comm.c_str() );
@@ -1513,13 +1520,28 @@ void TraceWin::render_process_graphs()
                 continue;
         }
 
-        graph_rows++;
+        graph_row_count++;
+    }
+
+    // Get current count of rows. -1: show all rows.
+    int row_count = ( loader->m_graph_row_count < 1 ) ?
+                graph_row_count : loader->m_graph_row_count;
+    row_count = std::min< int >( row_count, graph_row_count );
+
+    ImGui::SameLine();
+    ImGui::Text( "Rows:" );
+    ImGui::SameLine();
+    ImGui::PushItemWidth( 200.0f * gi.scale );
+    if ( ImGui::SliderInt( "##GraphRows", &row_count, 1, graph_row_count ) )
+    {
+        loader->m_graph_row_count = ( row_count >= graph_row_count ) ?
+                    -1 : row_count;
     }
 
     {
         float graph_row_h = 50.0f * gi.scale;
         float graph_padding = ImGui::GetStyle().FramePadding.y;
-        float graph_height = graph_rows * ( graph_row_h + graph_padding );
+        float graph_height = row_count * ( graph_row_h + graph_padding );
 
         graph_height = std::max( graph_height, graph_row_h + graph_padding );
 
@@ -1528,7 +1550,11 @@ void TraceWin::render_process_graphs()
         ImVec2 windowpos = ImGui::GetWindowPos();
         ImVec2 windowsize = ImGui::GetWindowSize();
 
-        windowpos.y += graph_padding;
+        m_graph_start_y = std::max( m_graph_start_y,
+            ( row_count - graph_row_count ) * ( graph_row_h + graph_padding ) );
+        m_graph_start_y = std::min( m_graph_start_y, 0.0f );
+
+        windowpos.y += graph_padding + m_graph_start_y;
         windowsize.y -= 2 * graph_padding;
 
         // Draw graph background
@@ -1633,7 +1659,6 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
         else if ( m_mouse_captured == 2 )
         {
             // click: pan
-            //$ TODO mikesart: pan vertically as well
             if ( ImGui::IsMouseDown( 0 ) )
             {
                 float dx = gi.mouse_pos.x - m_mouse_capture_pos.x;
@@ -1641,6 +1666,8 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
 
                 m_graph_start_ts -= tsdiff;
                 m_do_graph_start_ts = true;
+
+                m_graph_start_y += gi.mouse_pos.y - m_mouse_capture_pos.y;
 
                 m_mouse_capture_pos = gi.mouse_pos;
             }
