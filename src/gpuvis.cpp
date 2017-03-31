@@ -210,13 +210,17 @@ size_t get_file_size( const char *filename )
     return 0;
 }
 
+static float imgui_scale( float val )
+{
+    return val * ImGui::GetIO().FontGlobalScale;
+}
+
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
 {
     bool ret = ImGui::Button( label );
-    float scale = ImGui::GetIO().FontGlobalScale;
 
     ImGui::SameLine();
-    ImGui::PushItemWidth( w * scale );
+    ImGui::PushItemWidth( imgui_scale( w ) );
     ret |= ImGui::InputInt( label2, val, 0, 0, flags );
     ImGui::PopItemWidth();
 
@@ -949,7 +953,6 @@ const event_field_t *find_event_field( std::vector< event_field_t > &fields, con
 
 void TraceWin::render_events_list( CIniFile &inifile )
 {
-    float scale = ImGui::GetIO().FontGlobalScale;
     size_t event_count = m_end_eventid - m_start_eventid + 1;
     std::vector< trace_event_t > &events = m_trace_events->m_events;
 
@@ -967,7 +970,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
     {
         // Set the child window size to hold count of items + header + separator
         float lineh = ImGui::GetTextLineHeightWithSpacing();
-        float y = ( avail.y < 384.0f * scale ) ? 384.0f * scale : 0.0f;
+        float y = ( avail.y < imgui_scale( 384.0f ) ) ? imgui_scale( 384.0f ) : 0.0f;
 
         ImGui::SetNextWindowContentSize( { 0.0f, ( event_count + 1 ) * lineh + 1 } );
         ImGui::BeginChild( "eventlistbox", ImVec2( 0.0f, y ) );
@@ -1236,8 +1239,6 @@ public:
         tsdx = ts1 - ts0 + 1;
         tsdxrcp = 1.0 / tsdx;
 
-        scale = ImGui::GetIO().FontGlobalScale;
-
         mouse_pos = ImGui::GetMousePos();
 
         hovered_items.clear();
@@ -1296,7 +1297,6 @@ public:
 public:
     ImVec2 pos;
 
-    float scale;
     float h;
     float w;
 
@@ -1365,7 +1365,7 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
             if ( sign < 0 )
                 dist_mouse = -dist_mouse;
 
-            if ( dist_mouse < 8.0f * gi.scale )
+            if ( dist_mouse < imgui_scale( 8.0f ) )
             {
                 bool inserted = false;
                 for ( auto it = gi.hovered_items.begin(); it != gi.hovered_items.end(); it++ )
@@ -1394,7 +1394,8 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
         trace_event_t &event = m_trace_events->m_events[ m_hovered_eventid ];
         float x = gi.ts_to_screenx( event.ts );
 
-        imgui_drawrect( x, 3.0f, gi.pos.y, gi.h,
+        imgui_drawrect( x, imgui_scale( 3.0f ),
+                        gi.pos.y, gi.h,
                         col_get( col_Maroon ) );
     }
     if ( draw_selected_event )
@@ -1402,7 +1403,8 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
         trace_event_t &event = m_trace_events->m_events[ m_selected_eventid ];
         float x = gi.ts_to_screenx( event.ts );
 
-        imgui_drawrect( x, 3.0f, gi.pos.y, gi.h,
+        imgui_drawrect( x, imgui_scale( 3.0f ),
+                        gi.pos.y, gi.h,
                         col_get( col_Indigo ) );
     }
 
@@ -1426,13 +1428,15 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
 
     for ( ; x0 <= gi.w; x0 += dx )
     {
-        imgui_drawrect( gi.pos.x + x0, 1.0f, gi.pos.y, 16.0f,
+        imgui_drawrect( gi.pos.x + x0, imgui_scale( 1.0f ),
+                        gi.pos.y, imgui_scale( 16.0f ),
                         col_get( col_Lime ) );
 
         if ( dx >= 35.0f )
         {
             for ( int i = 1; i < 4; i++ )
-                imgui_drawrect( gi.pos.x + x0 + i * dx / 4, 1.0f, gi.pos.y, 4.0f,
+                imgui_drawrect( gi.pos.x + x0 + i * dx / 4, imgui_scale( 1.0f ),
+                                gi.pos.y, imgui_scale( 4.0f ),
                                 col_get( col_Lime ) );
         }
     }
@@ -1452,7 +1456,8 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
         trace_event_t &event = m_trace_events->m_events[ id ];
         float x = gi.ts_to_screenx( event.ts );
 
-        imgui_drawrect( x, 1.0f, gi.pos.y, gi.h,
+        imgui_drawrect( x, imgui_scale( 1.0f ),
+                        gi.pos.y, gi.h,
                         col_get( col_OrangeRed ) );
     }
 
@@ -1461,7 +1466,8 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
          gi.mouse_pos.x >= gi.pos.x &&
          gi.mouse_pos.x <= gi.pos.x + gi.w )
     {
-        imgui_drawrect( gi.mouse_pos.x, 2.0f, gi.pos.y, gi.h,
+        imgui_drawrect( gi.mouse_pos.x, imgui_scale( 2.0f ),
+                        gi.pos.y, gi.h,
                         col_get( col_DeepPink ) );
     }
 
@@ -1470,9 +1476,10 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
     {
         float mousex0 = m_mouse_capture_pos.x;
         float mousex1 = gi.mouse_pos.x;
-        ImU32 col = col_get( col_White, 80 );
 
-        imgui_drawrect( mousex0, mousex1 - mousex0, gi.pos.y, gi.h, col );
+        imgui_drawrect( mousex0, mousex1 - mousex0,
+                        gi.pos.y, gi.h,
+                        col_get( col_White, 80 ) );
     }
 
     // Draw rectangle for visible event list contents
@@ -1483,9 +1490,10 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
         trace_event_t &event1 = m_trace_events->m_events[ m_eventlist_end_eventid - 1 ];
         float xstart = gi.ts_to_screenx( event0.ts );
         float xend = gi.ts_to_screenx( event1.ts );
-        ImU32 col = col_get( col_Lime, 60 );
 
-        imgui_drawrect( xstart, xend - xstart, gi.pos.y, gi.h, col );
+        imgui_drawrect( xstart, xend - xstart,
+                        gi.pos.y, gi.h,
+                        col_get( col_Lime, 60 ) );
     }
 }
 
@@ -1523,7 +1531,7 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
         graph_row_count++;
     }
 
-    // Get current count of rows. -1: show all rows.
+    // Get current count of rows. -1 means show all rows.
     int row_count = ( loader->m_graph_row_count < 1 ) ?
                 graph_row_count : loader->m_graph_row_count;
     row_count = std::min< int >( row_count, graph_row_count );
@@ -1531,7 +1539,7 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
     ImGui::SameLine();
     ImGui::Text( "Rows:" );
     ImGui::SameLine();
-    ImGui::PushItemWidth( 200.0f * gi.scale );
+    ImGui::PushItemWidth( imgui_scale( 200.0f ) );
     if ( ImGui::SliderInt( "##GraphRows", &row_count, 1, graph_row_count ) )
     {
         loader->m_graph_row_count = ( row_count >= graph_row_count ) ?
@@ -1539,11 +1547,12 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
     }
 
     {
-        float graph_row_h = 50.0f * gi.scale;
+        float graph_row_h = imgui_scale( 50.0f );
         float graph_padding = ImGui::GetStyle().FramePadding.y;
-        float graph_height = row_count * ( graph_row_h + graph_padding );
+        float graph_row_h_total = graph_row_h + graph_padding;
+        float graph_height = row_count * graph_row_h_total;
 
-        graph_height = std::max( graph_height, graph_row_h + graph_padding );
+        graph_height = std::max( graph_height, graph_row_h_total );
 
         ImGui::BeginChild( "EventGraph", ImVec2( 0, graph_height ), true );
 
@@ -1551,19 +1560,19 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
         ImVec2 windowsize = ImGui::GetWindowSize();
 
         m_graph_start_y = std::max( m_graph_start_y,
-            ( row_count - graph_row_count ) * ( graph_row_h + graph_padding ) );
+            ( row_count - graph_row_count ) * graph_row_h_total );
         m_graph_start_y = std::min( m_graph_start_y, 0.0f );
 
-        windowpos.y += graph_padding + m_graph_start_y;
-        windowsize.y -= 2 * graph_padding;
+        float posy = windowpos.y + graph_padding + m_graph_start_y;
+        float sizey = windowsize.y - 2 * graph_padding;
 
         // Draw graph background
         ImGui::GetWindowDrawList()->AddRectFilled(
-                    ImVec2( windowpos.x, windowpos.y ),
-                    ImVec2( windowpos.x + windowsize.x, windowpos.y + windowsize.y ),
+                    ImVec2( windowpos.x, posy ),
+                    ImVec2( windowpos.x + windowsize.x, posy + sizey ),
                     col_get( col_Black ) );
 
-        gi.set_cursor_screen_pos( ImVec2( windowpos.x, windowpos.y ),
+        gi.set_cursor_screen_pos( ImVec2( windowpos.x, posy ),
                                   ImVec2( windowsize.x, graph_row_h ) );
         for ( const std::string &comm : m_graph_rows )
         {
@@ -1578,7 +1587,7 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
 
             render_graph_row( comm, locs, &gi );
 
-            gi.set_cursor_screen_pos( ImVec2( gi.pos.x, gi.pos.y + graph_row_h + graph_padding ),
+            gi.set_cursor_screen_pos( ImVec2( gi.pos.x, gi.pos.y + graph_row_h_total ),
                                       ImVec2( gi.w, gi.h ) );
         }
 
