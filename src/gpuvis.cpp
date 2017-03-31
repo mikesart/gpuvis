@@ -1233,6 +1233,8 @@ class graph_info_t
 public:
     void init( int64_t start_ts, int64_t length_ts )
     {
+        num = 0;
+
         ts0 = start_ts;
         ts1 = start_ts + length_ts;
 
@@ -1249,11 +1251,6 @@ public:
         pos = posin;
         w = size.x;
         h = size.y;
-
-        pos_min.x = std::min( pos_min.x, pos.x );
-        pos_min.y = std::min( pos_min.y, pos.y );
-        pos_max.x = std::max( pos_max.x, pos.x + w );
-        pos_max.y = std::max( pos_max.y, pos.y + h );
 
         mouse_over =
                 mouse_pos.x >= pos.x &&
@@ -1276,7 +1273,7 @@ public:
 
     int64_t screenx_to_event_ts( float x )
     {
-        double val = ( x - pos_min.x ) / w;
+        double val = ( x - pos.x ) / w;
 
         return ts0 + val * tsdx;
     }
@@ -1287,8 +1284,8 @@ public:
 
     bool pt_in_graph( const ImVec2& posin )
     {
-        return ( posin.x >= pos_min.x && posin.x <= pos_max.x &&
-                 posin.y >= pos_min.y && posin.y <= pos_max.y );
+        return ( posin.x >= pos.x && posin.x <= pos.x + w &&
+                 posin.y >= pos.y && posin.y <= pos.y + h );
     }
 
     bool mouse_pos_in_graph()
@@ -1297,7 +1294,7 @@ public:
     }
 
 public:
-    uint32_t num = 0;
+    uint32_t num;
     ImVec2 pos;
 
     float h;
@@ -1310,8 +1307,6 @@ public:
 
     bool mouse_over;
     ImVec2 mouse_pos;
-    ImVec2 pos_min{ FLT_MAX, FLT_MAX };
-    ImVec2 pos_max{ FLT_MIN, FLT_MIN };
 
     uint32_t eventstart;
     uint32_t eventend;
