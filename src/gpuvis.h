@@ -130,7 +130,6 @@ public:
     m_loc_t m_locations;
 };
 
-
 // Given a sorted array (like from TraceLocations), binary search for eventid
 //   and return the vector index, or vec.size() if not found.
 inline size_t vec_find_eventid( const std::vector< uint32_t > &vec, uint32_t eventid )
@@ -247,7 +246,7 @@ public:
 
 public:
     bool render( class TraceLoader *loader );
-    bool render_info();
+    void render_info();
     void render_events_list( CIniFile &inifile );
     bool render_events_list_popup();
     void render_process_graphs();
@@ -335,6 +334,13 @@ public:
     // 2:ctrl+click+drag: pan graph
     int m_mouse_captured = 0;
     ImVec2 m_mouse_capture_pos;
+
+    struct comm_t
+    {
+        size_t event_count;
+        const char *comm;
+    };
+    std::vector< comm_t > m_comm_info;
 };
 
 class TraceLoader

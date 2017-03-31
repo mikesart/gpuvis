@@ -556,13 +556,6 @@ std::string TraceWin::ts_to_timestr( int64_t event_ts, int64_t tsoffset, int pre
 
 void TraceWin::init_graph_rows_str()
 {
-    struct comm_t
-    {
-        size_t event_count;
-        const char *comm;
-    };
-    std::vector< comm_t > comm_info;
-
     m_graph_rows_str = "# comm and event names to graph\n\n";
     m_graph_rows_str += "# fence_signaled\n";
     m_graph_rows_str += "# amd_sched_job\n\n";
@@ -573,18 +566,18 @@ void TraceWin::init_graph_rows_str()
         const char *comm = m_trace_events->m_strpool.getstr( hashval );
 
         item.second.size();
-        comm_info.push_back( { item.second.size(), comm } );
+        m_comm_info.push_back( { item.second.size(), comm } );
     }
 
     // Sort by count of events
-    std::sort( comm_info.begin(), comm_info.end(),
+    std::sort( m_comm_info.begin(), m_comm_info.end(),
         [=]( const comm_t &lx, const comm_t &rx )
         {
             return rx.event_count < lx.event_count;
         }
     );
 
-    for ( const comm_t &item : comm_info )
+    for ( const comm_t &item : m_comm_info )
     {
         m_graph_rows_str += string_format( "# %lu events:\n%s\n",
             item.event_count, item.comm );
@@ -684,12 +677,12 @@ bool TraceWin::render( class TraceLoader *loader )
     ImGui::Begin( m_title.c_str(), &m_open );
 
     if ( ImGui::CollapsingHeader( "Trace Info" ) )
+        render_info();
+
+    if ( m_trace_events->m_events.empty() )
     {
-        if ( !render_info() )
-        {
-            ImGui::End();
-            return false;
-        }
+        ImGui::End();
+        return true;
     }
 
     if ( !m_inited )
@@ -715,7 +708,7 @@ bool TraceWin::render( class TraceLoader *loader )
 
     if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        if ( ImGui::CollapsingHeader( "Graph Rows" ) )
+        if ( ImGui::CollapsingHeader( "  Graph Rows" ) )
         {
             if ( ImGui::Button( "Update Graph Rows" ) )
                 update_graph_rows_list();
@@ -805,32 +798,79 @@ bool TraceWin::render( class TraceLoader *loader )
     return m_open;
 }
 
-bool TraceWin::render_info()
+template < typename T >
+void imgui_headers( const char *title, const T& headers )
+{
+    ImGui::Columns( headers.size(), "events" );
+    for ( const char *str : headers )
+    {
+        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", str );
+        ImGui::NextColumn();
+    }
+    ImGui::Separator();
+}
+
+void TraceWin::render_info()
 {
     size_t event_count = m_trace_events->m_events.size();
-    ImGui::Text( "Events: %lu\n", event_count );
+    ImGui::Text( "Total Events: %lu\n", event_count );
 
-    if ( !event_count )
-        return false;
-
-    trace_info_t& trace_info = m_trace_events->m_trace_info;
-    ImGui::Text( "Trace cpus: %u", trace_info.cpus );
-
-    if ( !trace_info.uname.empty() )
-        ImGui::Text( "Trace uname: %s", trace_info.uname.c_str() );
-
-#if 0
-    //$ TODO mikesart: figure out best way to display this info
-    if ( ImGui::CollapsingHeader( "CPU Stats" ) )
+    if ( event_count )
     {
-        static std::string blah;
-        for ( const std::string &str : trace_info.cpustats )
-            blah += str;
-        ImGui::InputTextMultiline( "##CpuStats", &blah[ 0 ], blah.capacity(), ImVec2( 0, 0 ), ImGuiInputTextFlags_ReadOnly );
-    }
-#endif
+        trace_info_t& trace_info = m_trace_events->m_trace_info;
+        ImGui::Text( "Trace cpus: %u", trace_info.cpus );
 
-    return true;
+        if ( !trace_info.uname.empty() )
+            ImGui::Text( "Trace uname: %s", trace_info.uname.c_str() );
+
+        if ( ImGui::CollapsingHeader( "  Comm Info",  ImGuiTreeNodeFlags_DefaultOpen ) )
+        {
+            if ( !m_comm_info.empty() )
+            {
+                static const std::array< const char *, 2 > columns =
+                    { "Comm", "Events" };
+
+                imgui_headers( "comm_info", columns );
+
+                for ( const comm_t &info : m_comm_info )
+                {
+                    ImGui::Text( "%s", info.comm );
+                    ImGui::NextColumn();
+                    ImGui::Text( "%lu", info.event_count );
+                    ImGui::NextColumn();
+                }
+
+                ImGui::Columns( 1 );
+            }
+        }
+
+        if ( ImGui::CollapsingHeader( "  CPU Info" ) )
+        {
+            if ( !trace_info.cpustats.empty() )
+            {
+                static const std::array< const char *, 2 > columns =
+                    { "CPU", "Stats" };
+
+                imgui_headers( "cpu_stats", columns );
+
+                for ( const std::string &str : trace_info.cpustats )
+                {
+                    const char *lf = strchr( str.c_str(), '\n' );
+
+                    if ( lf )
+                    {
+                        ImGui::Text( "%.*s", ( int )( lf - str.c_str() ), str.c_str() );
+                        ImGui::NextColumn();
+                        ImGui::Text( "%s", lf + 1 );
+                        ImGui::NextColumn();
+                        ImGui::Separator();
+                    }
+                }
+
+                ImGui::Columns( 1 );
+            }
+        }
+    }
 }
 
 //$ TODO mikesart: Temporary popup menu
@@ -962,14 +1002,9 @@ void TraceWin::render_events_list( CIniFile &inifile )
         uint32_t end_idx = std::min< uint32_t >( start_idx + 2 + rows, event_count );
 
         // Draw columns
-        std::array< const char *, 6 > columns = { "Id", "Time Stamp", "Task", "Event", "seqno", "Info" };
-        ImGui::Columns( columns.size(), "events" );
-        for ( const char *str : columns )
-        {
-            ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", str );
-            ImGui::NextColumn();
-        }
-        ImGui::Separator();
+        static const std::array< const char *, 6 > columns =
+            { "Id", "Time Stamp", "Task", "Event", "seqno", "Info" };
+        imgui_headers( "events", columns );
 
         if ( !m_columns_inited )
         {
