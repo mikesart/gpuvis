@@ -793,24 +793,38 @@ std::string TraceWin::ts_to_timestr( int64_t event_ts, int64_t tsoffset, int pre
 
 void TraceWin::init_graph_rows_str()
 {
+    struct comm_t
+    {
+        size_t event_count;
+        const char *comm;
+    };
+    std::vector< comm_t > comm_info;
+
     m_graph_rows_str = "# comm and event names to graph\n\n";
     m_graph_rows_str += "# fence_signaled\n";
-    m_graph_rows_str += "# amd_sched_job\n";
+    m_graph_rows_str += "# amd_sched_job\n\n";
 
     for ( auto item : m_trace_events->m_comm_locations.m_locations )
     {
         uint32_t hashval = item.first;
         const char *comm = m_trace_events->m_strpool.getstr( hashval );
 
-        if ( strstr( comm, "trace-cmd" ) ||
-             strstr( comm, "ksoftirqd" ) ||
-             strstr( comm, "kworker" ) )
-        {
-            m_graph_rows_str += "# ";
-        }
+        item.second.size();
+        comm_info.push_back( { item.second.size(), comm } );
+    }
 
-        m_graph_rows_str += comm;
-        m_graph_rows_str += "\n";
+    // Sort by count of events
+    std::sort( comm_info.begin(), comm_info.end(),
+        [=]( const comm_t &lx, const comm_t &rx )
+        {
+            return rx.event_count < lx.event_count;
+        }
+    );
+
+    for ( const comm_t &item : comm_info )
+    {
+        m_graph_rows_str += string_format( "# %lu events:\n%s\n",
+            item.event_count, item.comm );
     }
 
     update_graph_rows_list();
