@@ -41,9 +41,6 @@
 #include "gpuvis.h"
 #include "gpuvis_colors.h"
 
-//$ TODO: Show drm_vblank_event crtc:0 (blue) or crtc1:1 (red)
-//$ TODO: allow ability to filter vblanks based on crtc: crtc0, crtc1, crtc0+1
-//$ TODO: Enable showing vblank with shortest interval by default
 //$ TODO: in graph tooltip, show distance to previous and next vblank
 
 //$ TODO: Make colors configurable so they're easy to distinguish.
@@ -423,6 +420,8 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
     if ( event.cpu < trace_events->m_cpucount.size() )
         trace_events->m_cpucount[ event.cpu ]++;
 
+    loader->m_crtc_max = std::max( loader->m_crtc_max, event.crtc );
+
     if ( id == 0 )
         trace_events->m_ts_min = event.ts;
 
@@ -471,6 +470,13 @@ void TraceLoader::init()
     m_fullscreen = m_inifile.GetInt( "fullscreen", 0 );
     m_show_events_list = m_inifile.GetInt( "show_events_list", 0 );
     m_graph_row_count = m_inifile.GetInt( "graph_row_count", -1 );
+
+    for ( size_t i = 0; i < m_render_crtc.size(); i++ )
+    {
+        std::string key = string_format( "render_crtc%lu", i );
+
+        m_render_crtc[ i ] = m_inifile.GetInt( key.c_str(), 1 );
+    }
 }
 
 void TraceLoader::shutdown()
@@ -498,6 +504,13 @@ void TraceLoader::shutdown()
     m_inifile.PutInt( "show_events_list", m_show_events_list );
     m_inifile.PutInt( "fullscreen", m_fullscreen );
     m_inifile.PutInt( "graph_row_count", m_graph_row_count );
+
+    for ( size_t i = 0; i < m_render_crtc.size(); i++ )
+    {
+        std::string key = string_format( "render_crtc%lu", i );
+
+        m_inifile.PutInt( key.c_str(), m_render_crtc[ i ] );
+    }
 }
 
 void TraceLoader::render()
@@ -1425,7 +1438,7 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
                      col_get( col_LightYellow ) );
 }
 
-void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
+void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pgi )
 {
     graph_info_t &gi = *pgi;
 
@@ -1467,11 +1480,16 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
             break;
 
         trace_event_t &event = m_trace_events->m_events[ id ];
-        float x = gi.ts_to_screenx( event.ts );
+        if ( loader->m_render_crtc[ event.crtc ] )
+        {
+            // drm_vblank_event0: blue, drm_vblank_event1: red
+            colors_t col = ( event.crtc > 0 ) ? col_Red : col_Blue;
+            float x = gi.ts_to_screenx( event.ts );
 
-        imgui_drawrect( x, imgui_scale( 1.0f ),
-                        gi.pos.y, gi.h,
-                        col_get( col_OrangeRed ) );
+            imgui_drawrect( x, imgui_scale( 2.0f ),
+                            gi.pos.y, gi.h,
+                            col_get( col, 220 ) );
+        }
     }
 
     // Draw location line for mouse if mouse is over graph
@@ -1621,7 +1639,7 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
         // Render full graph lines: vblanks, mouse cursors, etc...
         gi.set_cursor_screen_pos( ImVec2( windowpos.x, windowpos.y ),
                                   ImVec2( windowsize.x, windowsize.y ) );
-        render_graph_vblanks( &gi );
+        render_graph_vblanks( loader, &gi );
 
         ImGui::EndChild();
     }
@@ -1723,8 +1741,13 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
         // Show tooltip with the closest events we could drum up
         for ( graph_info_t::hovered_t &hov : gi.hovered_items )
         {
+            std::string crtc;
             trace_event_t &event = m_trace_events->m_events[ hov.eventid ];
-            time_buf += string_format( "\n%u % 4.2f %s", hov.eventid, hov.sign * hov.dist, event.name );
+
+            if ( event.crtc >= 0 )
+                crtc = std::to_string( event.crtc );
+
+            time_buf += string_format( "\n%u % 4.2f %s%s", hov.eventid, hov.sign * hov.dist, event.name, crtc.c_str() );
 
             if ( !strcmp( event.system, "ftrace-print" ) )
             {
@@ -1948,6 +1971,14 @@ void TraceConsole::render( class TraceLoader *loader )
 
         ImGui::Checkbox( "Fullscreen Trace Window",
                          &loader->m_fullscreen );
+
+        for ( int i = 0; i <= loader->m_crtc_max; i++ )
+        {
+            std::string label = string_format(
+                "Show drm_vblank_event crtc%d markers", i );
+
+            ImGui::Checkbox( label.c_str(), &loader->m_render_crtc[ i ] );
+        }
     }
 
     if ( ImGui::CollapsingHeader( "Log", ImGuiTreeNodeFlags_DefaultOpen ) )

@@ -1539,6 +1539,7 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
         trace_event.name = strpool.getstr( event->name );
 
         trace_event.seqno = 0;
+        trace_event.crtc = -1;
 
         // Get count of fields for this event.
         int field_count = 0;
@@ -1575,6 +1576,13 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
                         ( char * )record->data + format->offset, format->size );
 
                 trace_event.seqno = val;
+            }
+            else if ( !strcmp( format->name, "crtc" ) )
+            {
+                unsigned long long val = pevent_read_number( pevent,
+                        ( char * )record->data + format->offset, format->size );
+
+                trace_event.crtc = val;
             }
 
             if ( is_ftrace_function )
