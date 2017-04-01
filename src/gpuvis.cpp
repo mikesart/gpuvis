@@ -1215,15 +1215,11 @@ protected:
 
     void draw()
     {
-        // Try to figure out how many events per x unit.
-        // Usually is around 1 (not crowded) to 40 (really crowded)
-        float crowding = num_events / floor( x1 - x0 + 1.0f );
+        ImU32 color = get_hue( hue, num_events ) | IM_COL32_A_MASK;
+        float min_width = std::min( num_events + 1.0f, 4.0f );
+        float width = std::max( x1 - x0, min_width );
 
-        // Try to map crowding to color hue.
-        uint32_t index = crowding * 6.0f / 42.0f;
-        ImU32 color = get_hue( hue, index );
-
-        imgui_drawrect( x0, x1 - x0, y, h, color );
+        imgui_drawrect( x0, width, y, h, color );
     }
 
 public:
