@@ -664,31 +664,46 @@ int TraceWin::timestr_to_eventid( const char *buf, int64_t tsoffset )
 void TraceWin::render_color_picker()
 {
     //$ TODO mikesart: color picker WIP
-    return 0;
+    return;
 
     if ( !ImGui::CollapsingHeader( "Color Picker" ) )
         return;
 
-    for ( int i = 0; i < col_Max; i++ )
+    static float s = 0.9f;
+    static float v = 0.9f;
+
+    ImGui::Text( "%s", "s value:" );
+    ImGui::PushItemWidth( 250 );
+    ImGui::SameLine();
+    ImGui::SliderFloat( "##s_value", &s, 0.0f, 1.0f, "s = %.2f");
+    ImGui::PopItemWidth();
+
+    ImGui::SameLine();
+    ImGui::Text( "%s", "v value:" );
+    ImGui::PushItemWidth( 250 );
+    ImGui::SameLine();
+    ImGui::SliderFloat( "##v_value", &v, 0.0f, 1.0f, "v = %.2f");
+    ImGui::PopItemWidth();
+
+    for ( int i = 0; i < 64; i++ )
     {
-        ImU32 color = col_get( ( colors_t )i );
-        const char *name = col_get_name( ( colors_t )i );
+        float h = i / 63.0f;
+        std::string name = string_format( "h%2u s%2u v%2u",
+            ( uint32_t )( h * 10 ),
+            ( uint32_t )( s * 10 ),
+            ( uint32_t )( v * 10 ) );
 
         if ( i % 8 )
             ImGui::SameLine();
 
         ImGui::PushID( i );
-#if 1
-        ImGui::PushStyleColor( ImGuiCol_Button, ImGui::ColorConvertU32ToFloat4( color ) );
-        ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImGui::ColorConvertU32ToFloat4( color ) );
-#else
-        ImGui::PushStyleColor(ImGuiCol_Button, ImColor::HSV(i/7.0f, 0.6f, 0.6f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColor::HSV(i/7.0f, 0.7f, 0.7f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColor::HSV(i/7.0f, 0.8f, 0.8f));
-#endif
-        ImGui::Button( name, ImVec2( imgui_scale( 90.0f ), 0.0f ) );
+        ImGui::PushStyleColor( ImGuiCol_Button, ImColor::HSV( h, s, v ) );
+        ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImColor::HSV( h, s, v ) );
+        ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImColor::HSV( h, s, v ) );
 
-        ImGui::PopStyleColor( 2 );
+        ImGui::Button( name.c_str(), ImVec2( imgui_scale( 90.0f ), 0.0f ) );
+
+        ImGui::PopStyleColor( 3 );
         ImGui::PopID();
     }
 }
