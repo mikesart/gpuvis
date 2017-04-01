@@ -1333,8 +1333,8 @@ public:
 
     struct hovered_t
     {
-        int sign;
-        float dist;
+        bool neg;
+        int64_t dist_ts;
         uint32_t eventid;
     };
     const size_t hovered_max = 6;
@@ -1377,27 +1377,29 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
 
         if ( gi.mouse_over )
         {
-            float dist_mouse = x - gi.mouse_pos.x;
-            int sign = dist_mouse < 0.0f ? -1 : 1;
+            float xdist_mouse = x - gi.mouse_pos.x;
+            bool neg = xdist_mouse < 0.0f;
 
-            if ( sign < 0 )
-                dist_mouse = -dist_mouse;
+            if ( neg )
+                xdist_mouse = -xdist_mouse;
 
-            if ( dist_mouse < imgui_scale( 8.0f ) )
+            if ( xdist_mouse < imgui_scale( 8.0f ) )
             {
                 bool inserted = false;
+                int64_t dist_ts = gi.dx_to_ts( xdist_mouse );
+
                 for ( auto it = gi.hovered_items.begin(); it != gi.hovered_items.end(); it++ )
                 {
-                    if ( dist_mouse < it->dist )
+                    if ( dist_ts < it->dist_ts )
                     {
-                        gi.hovered_items.insert( it, { sign, dist_mouse, event.id } );
+                        gi.hovered_items.insert( it, { neg, dist_ts, event.id } );
                         inserted = true;
                         break;
                     }
                 }
 
                 if ( !inserted && ( gi.hovered_items.size() < gi.hovered_max ) )
-                    gi.hovered_items.push_back( { sign, dist_mouse, event.id } );
+                    gi.hovered_items.push_back( { neg, dist_ts, event.id } );
                 else if ( gi.hovered_items.size() > gi.hovered_max )
                     gi.hovered_items.pop_back();
             }
@@ -1783,8 +1785,10 @@ void TraceWin::render_mouse_graph( TraceLoader *loader, class graph_info_t *pgi 
             if ( event.crtc >= 0 )
                 crtc = std::to_string( event.crtc );
 
-            time_buf += string_format( "\n%u % 4.2f %s%s",
-                hov.eventid, hov.sign * hov.dist, event.name, crtc.c_str() );
+            time_buf += string_format( "\n%u %c%s %s%s",
+                hov.eventid, hov.neg ? '-' : ' ',
+                ts_to_timestr( hov.dist_ts ).c_str(),
+                event.name, crtc.c_str() );
 
             if ( !strcmp( event.system, "ftrace-print" ) )
             {
