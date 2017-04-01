@@ -1433,18 +1433,23 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
     float x0 = gi.ts_to_x( tsstart );
     float dx = gi.w * MSECS_PER_SEC * gi.tsdxrcp;
 
-    for ( ; x0 <= gi.w; x0 += dx )
+    if ( dx > 4.0f )
     {
-        imgui_drawrect( gi.pos.x + x0, imgui_scale( 1.0f ),
-                        gi.pos.y, imgui_scale( 16.0f ),
-                        col_get( col_Lime ) );
-
-        if ( dx >= 35.0f )
+        for ( ; x0 <= gi.w; x0 += dx )
         {
-            for ( int i = 1; i < 4; i++ )
-                imgui_drawrect( gi.pos.x + x0 + i * dx / 4, imgui_scale( 1.0f ),
-                                gi.pos.y, imgui_scale( 4.0f ),
-                                col_get( col_Lime ) );
+            imgui_drawrect( gi.pos.x + x0, imgui_scale( 1.0f ),
+                            gi.pos.y, imgui_scale( 16.0f ),
+                            col_get( col_Lime ) );
+
+            if ( dx >= 35.0f )
+            {
+                for ( int i = 1; i < 4; i++ )
+                {
+                    imgui_drawrect( gi.pos.x + x0 + i * dx / 4, imgui_scale( 1.0f ),
+                                    gi.pos.y, imgui_scale( 4.0f ),
+                                    col_get( col_Lime ) );
+                }
+            }
         }
     }
 
