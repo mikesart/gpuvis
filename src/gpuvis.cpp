@@ -1480,7 +1480,8 @@ void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pg
             break;
 
         trace_event_t &event = m_trace_events->m_events[ id ];
-        if ( loader->m_render_crtc[ event.crtc ] )
+        if ( ( ( size_t )event.crtc < loader->m_render_crtc.size() ) &&
+             loader->m_render_crtc[ event.crtc ] )
         {
             // drm_vblank_event0: blue, drm_vblank_event1: red
             colors_t col = ( event.crtc > 0 ) ? col_Red : col_Blue;
@@ -1747,7 +1748,8 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
             if ( event.crtc >= 0 )
                 crtc = std::to_string( event.crtc );
 
-            time_buf += string_format( "\n%u % 4.2f %s%s", hov.eventid, hov.sign * hov.dist, event.name, crtc.c_str() );
+            time_buf += string_format( "\n%u % 4.2f %s%s",
+                hov.eventid, hov.sign * hov.dist, event.name, crtc.c_str() );
 
             if ( !strcmp( event.system, "ftrace-print" ) )
             {
