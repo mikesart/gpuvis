@@ -641,7 +641,9 @@ int TraceWin::ts_to_eventid( int64_t ts )
     x.ts = ts;
 
     auto eventidx = std::lower_bound( events.begin(), events.end(), x,
-        []( const trace_event_t &f1, const trace_event_t &f2 ){ return f1.ts < f2.ts; } );
+        []( const trace_event_t &f1, const trace_event_t &f2 ) {
+            return f1.ts < f2.ts;
+        } );
 
     int id = eventidx - events.begin();
 
@@ -657,6 +659,38 @@ int TraceWin::timestr_to_eventid( const char *buf, int64_t tsoffset )
     int64_t ts = timestr_to_ts( buf, tsoffset );
 
     return ts_to_eventid( ts );
+}
+
+void TraceWin::render_color_picker()
+{
+    //$ TODO mikesart: color picker WIP
+    return 0;
+
+    if ( !ImGui::CollapsingHeader( "Color Picker" ) )
+        return;
+
+    for ( int i = 0; i < col_Max; i++ )
+    {
+        ImU32 color = col_get( ( colors_t )i );
+        const char *name = col_get_name( ( colors_t )i );
+
+        if ( i % 8 )
+            ImGui::SameLine();
+
+        ImGui::PushID( i );
+#if 1
+        ImGui::PushStyleColor( ImGuiCol_Button, ImGui::ColorConvertU32ToFloat4( color ) );
+        ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImGui::ColorConvertU32ToFloat4( color ) );
+#else
+        ImGui::PushStyleColor(ImGuiCol_Button, ImColor::HSV(i/7.0f, 0.6f, 0.6f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColor::HSV(i/7.0f, 0.7f, 0.7f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColor::HSV(i/7.0f, 0.8f, 0.8f));
+#endif
+        ImGui::Button( name, ImVec2( imgui_scale( 90.0f ), 0.0f ) );
+
+        ImGui::PopStyleColor( 2 );
+        ImGui::PopID();
+    }
 }
 
 bool TraceWin::render( class TraceLoader *loader )
@@ -783,6 +817,10 @@ bool TraceWin::render( class TraceLoader *loader )
             m_graphtime_length_buf = ts_to_timestr( m_graph_length_ts, 0, 4 );
 
         render_process_graphs( loader );
+
+        ImGui::Indent();
+        render_color_picker();
+        ImGui::Unindent();
     }
 
     ImGuiTreeNodeFlags eventslist_flags = loader->m_show_events_list ?
