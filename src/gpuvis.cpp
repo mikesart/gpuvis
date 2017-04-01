@@ -1154,7 +1154,7 @@ static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
     }
 
     if ( w <= 1.0f )
-        ImGui::GetWindowDrawList()->AddLine( ImVec2( x, y ), ImVec2( x, y + h ), color );
+        ImGui::GetWindowDrawList()->AddLine( ImVec2( x, y - 0.5f ), ImVec2( x, y + h - 0.5f ), color );
     else
         ImGui::GetWindowDrawList()->AddRectFilled( ImVec2( x, y ), ImVec2( x + w, y + h ), color );
 }
