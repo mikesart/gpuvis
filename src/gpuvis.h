@@ -301,11 +301,11 @@ public:
     bool m_graph_popup = false;
 
     // Graph Start
-    bool m_do_graph_start_ts = false;
+    bool m_do_graph_start_timestr = false;
     int64_t m_graph_start_ts = 0;
     std::string m_graphtime_start_buf;
     // Graph Length
-    bool m_do_graph_length_ts = false;
+    bool m_do_graph_length_timestr = false;
     int64_t m_graph_length_ts = INT64_MAX;
     std::string m_graphtime_length_buf;
 

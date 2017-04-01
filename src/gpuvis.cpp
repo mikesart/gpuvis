@@ -704,8 +704,8 @@ bool TraceWin::render( class TraceLoader *loader )
 
         int64_t last_ts = m_trace_events->m_events.back().ts;
 
-        m_do_graph_start_ts = true;
-        m_do_graph_length_ts = true;
+        m_do_graph_start_timestr = true;
+        m_do_graph_length_timestr = true;
         m_graph_length_ts = ( last_ts > 40 * MSECS_PER_SEC ) ?
                     40 * MSECS_PER_SEC : last_ts;
         m_graph_start_ts = last_ts - m_tsoffset - m_graph_length_ts;
@@ -756,16 +756,16 @@ bool TraceWin::render( class TraceLoader *loader )
 
             m_graph_start_ts -= amt / 2;
             m_graph_length_ts += amt;
-            m_do_graph_start_ts = true;
-            m_do_graph_length_ts = true;
+            m_do_graph_start_timestr = true;
+            m_do_graph_length_timestr = true;
 
             m_do_graph_zoom_in = false;
             m_do_graph_zoom_out = false;
         }
 
-        if ( m_do_graph_start_ts )
+        if ( m_do_graph_start_timestr )
             m_graphtime_start_buf = ts_to_timestr( m_graph_start_ts, 0, 4 );
-        if ( m_do_graph_length_ts )
+        if ( m_do_graph_length_timestr )
             m_graphtime_length_buf = ts_to_timestr( m_graph_length_ts, 0, 4 );
 
         render_process_graphs( loader );
@@ -1507,16 +1507,29 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
 void TraceWin::render_process_graphs( TraceLoader *loader )
 {
     graph_info_t gi;
+    std::vector< trace_event_t > &events = m_trace_events->m_events;
 
     if ( m_graph_length_ts < 100 )
     {
         m_graph_length_ts = 100;
-        m_do_graph_length_ts = true;
+        m_do_graph_length_timestr = true;
     }
     else if ( m_graph_length_ts > g_max_graph_length )
     {
-        m_graph_length_ts = 5000 * MSECS_PER_SEC;
-        m_do_graph_length_ts = true;
+        m_graph_length_ts = g_max_graph_length;
+        m_do_graph_length_timestr = true;
+    }
+
+    // Sanity check the graph start doesn't go completely off the rails.
+    if ( m_graph_start_ts + m_tsoffset < events.front().ts - 1 * MSECS_PER_SEC )
+    {
+        m_graph_start_ts = events.front().ts - m_tsoffset - 1 * MSECS_PER_SEC;
+        m_do_graph_start_timestr = true;
+    }
+    else if ( m_graph_start_ts + m_tsoffset > events.back().ts )
+    {
+        m_graph_start_ts = events.back().ts - m_tsoffset;
+        m_do_graph_start_timestr = true;
     }
 
     gi.init( m_graph_start_ts + m_tsoffset, m_graph_length_ts );
@@ -1669,8 +1682,8 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
 
                 m_graph_start_ts = event_ts0 - m_tsoffset;
                 m_graph_length_ts = event_ts1 - event_ts0;
-                m_do_graph_start_ts = true;
-                m_do_graph_length_ts = true;
+                m_do_graph_start_timestr = true;
+                m_do_graph_length_timestr = true;
             }
         }
         else if ( m_mouse_captured == 2 )
@@ -1682,7 +1695,7 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
                 int64_t tsdiff = gi.dx_to_event_ts( dx );
 
                 m_graph_start_ts -= tsdiff;
-                m_do_graph_start_ts = true;
+                m_do_graph_start_timestr = true;
 
                 m_graph_start_y += gi.mouse_pos.y - m_mouse_capture_pos.y;
 
@@ -1749,8 +1762,8 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
                 m_graph_start_ts = locs.first;
                 m_graph_length_ts = locs.second;
 
-                m_do_graph_start_ts = true;
-                m_do_graph_length_ts = true;
+                m_do_graph_start_timestr = true;
+                m_do_graph_length_timestr = true;
 
                 m_graph_location_stack.pop_back();
             }
