@@ -28,21 +28,18 @@
 #include <algorithm>
 #include <array>
 #include <future>
+#include <getopt.h>
+#include <set>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unordered_map>
 #include <vector>
-#include <set>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <getopt.h>
 
 #include <SDL2/SDL.h>
 
 #include "GL/gl3w.h"
 #include "gpuvis.h"
 #include "gpuvis_colors.h"
-
-//$ TODO: Add information about each comm (total events), etc. in the
-// Trace Info header.
 
 //$ TODO: Show drm_vblank_event crtc:0 (blue) or crtc1:1 (red)
 //$ TODO: allow ability to filter vblanks based on crtc: crtc0, crtc1, crtc0+1
@@ -57,9 +54,12 @@
 
 //$ TODO: Add ability to show row for an event with a parameter?
 
-//$ TODO: Need to handle lots of graph rows, ie ~100
+//$ TODO: Limit graph so you can't get too far lost
 
-// popup graph tooltip shows events around location you're at?
+//$ TODO: Need to handle lots of graph rows, ie ~100
+//$ TODO: Figure out crash when you have too many graph rows and zoom out
+
+//$ TODO: popup graph tooltip shows events around location you're at?
 
 static const int64_t g_max_graph_length = 5000 * MSECS_PER_SEC;
 
@@ -67,7 +67,6 @@ static SDL_threadID g_main_tid = -1;
 static std::vector< char * > g_log;
 static std::vector< char * > g_thread_log;
 static SDL_mutex *g_mutex = nullptr;
-
 
 /*
  * log routines
@@ -159,42 +158,42 @@ std::string string_format( const char *fmt, ... )
  * http://stackoverflow.com/questions/216823/whats-the-best-way-to-trim-stdstring
  */
 // trim from start (in place)
-void string_ltrim(std::string &s)
+void string_ltrim( std::string &s )
 {
-    s.erase( s.begin(), std::find_if(s.begin(), s.end(),
-             std::not1(std::ptr_fun<int, int>(std::isspace))) );
+    s.erase( s.begin(), std::find_if( s.begin(), s.end(),
+             std::not1( std::ptr_fun< int, int >( std::isspace ) ) ) );
 }
 
 // trim from end (in place)
-void string_rtrim(std::string &s)
+void string_rtrim( std::string &s )
 {
-    s.erase( std::find_if(s.rbegin(), s.rend(),
-             std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end() );
+    s.erase( std::find_if( s.rbegin(), s.rend(),
+             std::not1( std::ptr_fun< int, int >( std::isspace ) ) ).base(), s.end() );
 }
 
 // trim from both ends (in place)
-void string_trim(std::string &s)
+void string_trim( std::string &s )
 {
     string_ltrim( s );
     string_rtrim( s );
 }
 
 // trim from start (copying)
-std::string string_ltrimmed(std::string s)
+std::string string_ltrimmed( std::string s )
 {
     string_ltrim( s );
     return s;
 }
 
 // trim from end (copying)
-std::string string_rtrimmed(std::string s)
+std::string string_rtrimmed( std::string s )
 {
     string_rtrim( s );
     return s;
 }
 
 // trim from both ends (copying)
-std::string string_trimmed(std::string s)
+std::string string_trimmed( std::string s )
 {
     string_trim( s );
     return s;
@@ -204,7 +203,7 @@ size_t get_file_size( const char *filename )
 {
     struct stat st;
 
-    if( !stat( filename, &st ) )
+    if ( !stat( filename, &st ) )
         return st.st_size;
 
     return 0;
@@ -228,14 +227,16 @@ static bool imgui_input_int( int *val, float w, const char *label, const char *l
 }
 
 static bool imgui_input_text( const char *button_label, const char *text_label,
-                       std::string &str, size_t capacity, float w )
+                              std::string &str, size_t capacity, float w )
 {
     bool ret = ImGui::Button( button_label );
 
     ImGui::SameLine();
     ImGui::PushItemWidth( w );
+
     str.reserve( capacity );
     ret |= ImGui::InputText( text_label, &str[ 0 ], str.capacity(), 0, 0 );
+
     ImGui::PopItemWidth();
 
     return ret;
@@ -251,8 +252,8 @@ static void imgui_draw_text( float x, float y, const char *text, ImU32 color )
     ImVec2 textsize = ImGui::CalcTextSize( text );
 
     ImGui::GetWindowDrawList()->AddRectFilled(
-                ImVec2( x, y ), ImVec2( x + textsize.x, y + textsize.y ),
-                col_get( col_Black, 150 ) );
+        ImVec2( x, y ), ImVec2( x + textsize.x, y + textsize.y ),
+        col_get( col_Black, 150 ) );
 
     ImGui::GetWindowDrawList()->AddText( ImVec2( x, y ), color, text );
 }
@@ -321,6 +322,7 @@ bool TraceLoader::load_file( const char *filename )
         logf( "[Error] %s (%s) failed: %s", __func__, filename, strerror( errno ) );
         return false;
     }
+
     size_t filesize = get_file_size( filename );
     std::string title = string_format( "%s (%.2f MB)", filename, filesize / ( 1024.0f * 1024.0f ) );
 
@@ -381,7 +383,7 @@ void TraceLoader::new_event_window( TraceEvents *trace_events )
     win->m_setfocus = 2;
 }
 
-void TraceLoader::close_event_file( TraceEvents *trace_events, bool close_file  )
+void TraceLoader::close_event_file( TraceEvents *trace_events, bool close_file )
 {
     for ( int i = m_trace_windows_list.size() - 1; i >= 0; i-- )
     {
@@ -406,7 +408,7 @@ void TraceLoader::close_event_file( TraceEvents *trace_events, bool close_file  
 }
 
 int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
-                                const trace_event_t &event )
+                               const trace_event_t &event )
 {
     TraceEvents *trace_events = loader->m_trace_events;
     size_t id = trace_events->m_events.size();
@@ -501,12 +503,12 @@ void TraceLoader::render()
 {
     if ( m_fullscreen && !m_trace_windows_list.empty() )
     {
-        ImGuiIO& io = ImGui::GetIO();
+        ImGuiIO &io = ImGui::GetIO();
         float w = io.DisplaySize.x;
         float h = io.DisplaySize.y;
 
         ImGui::SetNextWindowPosCenter();
-        ImGui::SetNextWindowSizeConstraints( ImVec2( w, h ),  ImVec2( w, h ) );
+        ImGui::SetNextWindowSizeConstraints( ImVec2( w, h ), ImVec2( w, h ) );
     }
 
     for ( int i = m_trace_windows_list.size() - 1; i >= 0; i-- )
@@ -586,7 +588,7 @@ void TraceWin::init_graph_rows_str()
     for ( const comm_t &item : m_comm_info )
     {
         m_graph_rows_str += string_format( "# %lu events:\n%s\n",
-            item.event_count, item.comm );
+                                           item.event_count, item.comm );
     }
 
     update_graph_rows_list();
@@ -597,7 +599,8 @@ void TraceWin::update_graph_rows_list()
     const char *begin = m_graph_rows_str.c_str();
 
     m_graph_rows.clear();
-    for( ;; )
+
+    for ( ;; )
     {
         const char *end = strchr( begin, '\n' );
         std::string val = end ? std::string( begin, end - begin ) : begin;
@@ -663,20 +666,21 @@ bool TraceWin::render( class TraceLoader *loader )
     if ( eventsloaded > 0 )
     {
         ImGui::Begin( m_title.c_str(), &m_open );
-        ImGui::Text( "Loading events %u...", eventsloaded );
 
+        ImGui::Text( "Loading events %u...", eventsloaded );
         if ( ImGui::Button( "Cancel" ) )
             loader->cancel_load_file();
-        ImGui::End();
 
+        ImGui::End();
         return true;
     }
     else if ( eventsloaded == -1 )
     {
         ImGui::Begin( m_title.c_str(), &m_open );
-        ImGui::Text( "Error loading filed %s...\n", m_trace_events->m_filename.c_str() );
-        ImGui::End();
 
+        ImGui::Text( "Error loading filed %s...\n", m_trace_events->m_filename.c_str() );
+
+        ImGui::End();
         return true;
     }
 
@@ -726,7 +730,7 @@ bool TraceWin::render( class TraceLoader *loader )
 
             m_graph_rows_str.reserve( 8192 );
             ImGui::InputTextMultiline( "##GraphRows", &m_graph_rows_str[ 0 ], m_graph_rows_str.capacity(),
-                    ImVec2( -1.0f, ImGui::GetTextLineHeight() * 16 ) );
+                                       ImVec2( -1.0f, ImGui::GetTextLineHeight() * 16 ) );
         }
         ImGui::Unindent();
 
@@ -807,7 +811,7 @@ bool TraceWin::render( class TraceLoader *loader )
 }
 
 template < typename T >
-void imgui_headers( const char *title, const T& headers )
+void imgui_headers( const char *title, const T &headers )
 {
     ImGui::Columns( headers.size(), "events" );
     for ( const char *str : headers )
@@ -821,18 +825,20 @@ void imgui_headers( const char *title, const T& headers )
 void TraceWin::render_info()
 {
     size_t event_count = m_trace_events->m_events.size();
+
     ImGui::Text( "Total Events: %lu\n", event_count );
 
     if ( event_count )
     {
-        trace_info_t& trace_info = m_trace_events->m_trace_info;
+        trace_info_t &trace_info = m_trace_events->m_trace_info;
         ImGui::Text( "Trace cpus: %u", trace_info.cpus );
 
         if ( !trace_info.uname.empty() )
             ImGui::Text( "Trace uname: %s", trace_info.uname.c_str() );
 
         ImGui::Indent();
-        if ( ImGui::CollapsingHeader( "Comm Info",  ImGuiTreeNodeFlags_DefaultOpen ) )
+
+        if ( ImGui::CollapsingHeader( "Comm Info", ImGuiTreeNodeFlags_DefaultOpen ) )
         {
             if ( !m_comm_info.empty() )
             {
@@ -890,35 +896,35 @@ bool TraceWin::render_events_list_popup()
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
         return false;
 
-    const char* names[] = { "Bream", "Haddock", "Mackerel", "Pollock", "Tilefish" };
+    const char *names[] = { "Bream", "Haddock", "Mackerel", "Pollock", "Tilefish" };
     static bool toggles[] = { true, false, false, false, false };
 
-    for (int i = 0; i < 5; i++)
-        ImGui::MenuItem(names[i], "", &toggles[i]);
+    for ( int i = 0; i < 5; i++ )
+        ImGui::MenuItem( names[ i ], "", &toggles[ i ] );
 
-    if (ImGui::BeginMenu("Sub-menu"))
+    if ( ImGui::BeginMenu( "Sub-menu" ) )
     {
-        ImGui::MenuItem("Click me");
+        ImGui::MenuItem( "Click me" );
         ImGui::EndMenu();
     }
 
     ImGui::Separator();
-    ImGui::Text("Tooltip here");
+    ImGui::Text( "Tooltip here" );
 
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("I am a tooltip over a popup");
+    if ( ImGui::IsItemHovered() )
+        ImGui::SetTooltip( "I am a tooltip over a popup" );
 
-    if (ImGui::Button("Stacked Popup"))
-        ImGui::OpenPopup("another popup");
+    if ( ImGui::Button( "Stacked Popup" ) )
+        ImGui::OpenPopup( "another popup" );
 
-    if (ImGui::BeginPopup("another popup"))
+    if ( ImGui::BeginPopup( "another popup" ) )
     {
-        for (int i = 0; i < 5; i++)
-            ImGui::MenuItem(names[i], "", &toggles[i]);
+        for ( int i = 0; i < 5; i++ )
+            ImGui::MenuItem( names[ i ], "", &toggles[ i ] );
 
-        if (ImGui::BeginMenu("Sub-menu"))
+        if ( ImGui::BeginMenu( "Sub-menu" ) )
         {
-            ImGui::MenuItem("Click me");
+            ImGui::MenuItem( "Click me" );
             ImGui::EndMenu();
         }
         ImGui::EndPopup();
@@ -1092,7 +1098,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
                     m_events_list_popup_eventid = i;
 
                     // Open the popup for render_events_list_popup().
-                    ImGui::OpenPopup("EventsListPopup");
+                    ImGui::OpenPopup( "EventsListPopup" );
                 }
                 else
                 {
@@ -1100,7 +1106,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
                     std::string fieldstr = get_event_field_str( event.fields, ": ", '\n' );
 
                     ImGui::SetTooltip( "Id: %u\nTime: %s\nComm: %s\n%s",
-                                        event.id, ts_str.c_str(), event.comm, fieldstr.c_str() );
+                                       event.id, ts_str.c_str(), event.comm, fieldstr.c_str() );
                 }
             }
 
@@ -1253,10 +1259,10 @@ public:
         h = size.y;
 
         mouse_over =
-                mouse_pos.x >= pos.x &&
-                mouse_pos.x <= pos.x + w &&
-                mouse_pos.y >= pos.y &&
-                mouse_pos.y <= pos.y + h;
+            mouse_pos.x >= pos.x &&
+            mouse_pos.x <= pos.x + w &&
+            mouse_pos.y >= pos.y &&
+            mouse_pos.y <= pos.y + h;
 
         num++;
     }
@@ -1282,7 +1288,7 @@ public:
         return ( x / w ) * tsdx;
     }
 
-    bool pt_in_graph( const ImVec2& posin )
+    bool pt_in_graph( const ImVec2 &posin )
     {
         return ( posin.x >= pos.x && posin.x <= pos.x + w &&
                  posin.y >= pos.y && posin.y <= pos.y + h );
@@ -1327,9 +1333,9 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
 
     // Draw background
     ImGui::GetWindowDrawList()->AddRectFilled(
-                ImVec2( gi.pos.x, gi.pos.y ),
-                ImVec2( gi.pos.x + gi.w, gi.pos.y + gi.h ),
-                col_get( col_DarkSlateGray ) );
+        ImVec2( gi.pos.x, gi.pos.y ),
+        ImVec2( gi.pos.x + gi.w, gi.pos.y + gi.h ),
+        col_get( col_DarkSlateGray ) );
 
     // Go through all event IDs for this process
     uint32_t num_events = 0;
@@ -1569,9 +1575,9 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
 
         // Draw graph background
         ImGui::GetWindowDrawList()->AddRectFilled(
-                    ImVec2( windowpos.x, posy ),
-                    ImVec2( windowpos.x + windowsize.x, posy + sizey ),
-                    col_get( col_Black ) );
+            ImVec2( windowpos.x, posy ),
+            ImVec2( windowpos.x + windowsize.x, posy + sizey ),
+            col_get( col_Black ) );
 
         gi.set_cursor_screen_pos( ImVec2( windowpos.x, posy ),
                                   ImVec2( windowsize.x, graph_row_h ) );
@@ -1586,6 +1592,7 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
                     continue;
             }
 
+            //$ TODO mikesart: Check if entire row is clipped...
             render_graph_row( comm, locs, &gi );
 
             gi.set_cursor_screen_pos( ImVec2( gi.pos.x, gi.pos.y + graph_row_h_total ),
@@ -1616,7 +1623,7 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
     }
 
     m_mouse_over_graph = gi.mouse_pos_in_graph() &&
-            ImGui::IsRootWindowOrAnyChildFocused();
+                         ImGui::IsRootWindowOrAnyChildFocused();
 
     // If we don't own the mouse and we don't have focus, bail.
     if ( !m_mouse_captured && !m_mouse_over_graph )
@@ -1695,7 +1702,7 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
         std::string time_buf = "Time: " + ts_to_timestr( event_ts, m_tsoffset );
 
         // Show tooltip with the closest events we could drum up
-        for ( graph_info_t::hovered_t &hov: gi.hovered_items )
+        for ( graph_info_t::hovered_t &hov : gi.hovered_items )
         {
             trace_event_t &event = m_trace_events->m_events[ hov.eventid ];
             time_buf += string_format( "\n%u % 4.2f %s", hov.eventid, hov.sign * hov.dist, event.name );
@@ -1991,9 +1998,9 @@ void TraceConsole::render( class TraceLoader *loader )
         m_inputbuf.reserve( 512 );
         if ( ImGui::InputText( "##log-command", &m_inputbuf[ 0 ], m_inputbuf.capacity(),
                                ImGuiInputTextFlags_EnterReturnsTrue |
-                               ImGuiInputTextFlags_CallbackCompletion |
-                               ImGuiInputTextFlags_CallbackHistory |
-                               ImGuiInputTextFlags_CallbackCharFilter,
+                                   ImGuiInputTextFlags_CallbackCompletion |
+                                   ImGuiInputTextFlags_CallbackHistory |
+                                   ImGuiInputTextFlags_CallbackCharFilter,
                                &text_edit_cb_stub, ( void * )this ) )
         {
             exec_command( m_inputbuf.c_str() );
@@ -2113,10 +2120,8 @@ int TraceConsole::text_edit_cb_completion( ImGuiTextEditCallbackData *data )
                      m_commands.find( m_history[ i ].c_str() ) == m_commands.end() )
                 {
                     m_completions.push_back( m_history[ i ].c_str() );
-                    printf( "%s\n",  m_history[ i ].c_str() );
                 }
             }
-
         }
 
         m_completion_index = 0;
@@ -2133,7 +2138,7 @@ int TraceConsole::text_edit_cb_completion( ImGuiTextEditCallbackData *data )
         data->InsertChars( len, " " );
         data->CursorPos = len + 1;
 
-        if (++m_completion_index >= m_completions.size() )
+        if ( ++m_completion_index >= m_completions.size() )
             m_completion_index = 0;
     }
 
@@ -2244,7 +2249,7 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
     while ( ( c = getopt_long( argc, argv, "i:",
                                long_opts, &opt_ind ) ) != -1 )
     {
-        switch(c)
+        switch ( c )
         {
         case 0:
             if ( !strcasecmp( "fullscreen", long_opts[ opt_ind ].name ) )
@@ -2272,8 +2277,8 @@ static bool load_trace_file( TraceLoader &loader, TraceConsole &console, const c
     return loader.load_file( filename );
 }
 
-#if SDL_VERSIONNUM(SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL) < SDL_VERSIONNUM(2, 0, 5)
-int SDL_GetWindowBordersSize(SDL_Window * window, int *top, int *left, int *bottom, int *right)
+#if SDL_VERSIONNUM( SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL ) < SDL_VERSIONNUM( 2, 0, 5 )
+int SDL_GetWindowBordersSize( SDL_Window *window, int *top, int *left, int *bottom, int *right )
 {
     *top = 0;
     *left = 0;
@@ -2286,7 +2291,7 @@ int SDL_GetWindowBordersSize(SDL_Window * window, int *top, int *left, int *bott
 
 static void imgui_load_fonts()
 {
-    ImGuiIO& io = ImGui::GetIO();
+    ImGuiIO &io = ImGui::GetIO();
 
     io.Fonts->AddFontDefault();
 
@@ -2319,7 +2324,7 @@ static void imgui_ini_settings( CIniFile &inifile, bool save = false )
         for ( int i = 0; i < ImGuiCol_COUNT; i++ )
         {
             const ImVec4 &col = style.Colors[ i ];
-            const char *name = ImGui::GetStyleColName(i);
+            const char *name = ImGui::GetStyleColName( i );
 
             inifile.PutVec4( name, col, section );
         }
@@ -2332,7 +2337,7 @@ static void imgui_ini_settings( CIniFile &inifile, bool save = false )
 
         for ( int i = 0; i < ImGuiCol_COUNT; i++ )
         {
-            const char *name = ImGui::GetStyleColName(i);
+            const char *name = ImGui::GetStyleColName( i );
 
             ImVec4 col = inifile.GetVec4( name, defcol, section );
             if ( col.w == -1.0f )
@@ -2347,7 +2352,6 @@ static void imgui_ini_settings( CIniFile &inifile, bool save = false )
             }
         }
     }
-
 }
 
 int main( int argc, char **argv )
@@ -2372,7 +2376,7 @@ int main( int argc, char **argv )
 
     loader.init();
 
-    ImGuiIO& io = ImGui::GetIO();
+    ImGuiIO &io = ImGui::GetIO();
     io.IniLoadSettingCB = std::bind( imgui_ini_load_settings_cb, &inifile, _1, _2 );
     io.IniSaveSettingCB = std::bind( imgui_ini_save_settings_cb, &inifile, _1, _2 );
 
