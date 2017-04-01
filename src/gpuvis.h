@@ -253,7 +253,7 @@ public:
     void render_process_graphs( TraceLoader *loader );
     void render_graph_row( const std::string &comm, std::vector< uint32_t > &locs, class graph_info_t *pgi );
     void render_graph_vblanks( TraceLoader *loader, class graph_info_t *pgi );
-    void render_mouse_graph( class graph_info_t *pgi );
+    void render_mouse_graph( TraceLoader *loader, class graph_info_t *pgi );
 
 protected:
     void render_time_offset_button_init( TraceEvents &trace_events );

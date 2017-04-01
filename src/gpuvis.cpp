@@ -1645,10 +1645,10 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
         ImGui::EndChild();
     }
 
-    render_mouse_graph( &gi );
+    render_mouse_graph( loader, &gi );
 }
 
-void TraceWin::render_mouse_graph( class graph_info_t *pgi )
+void TraceWin::render_mouse_graph( TraceLoader *loader, class graph_info_t *pgi )
 {
     graph_info_t &gi = *pgi;
 
@@ -1738,6 +1738,41 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
         bool mouse_clicked = ImGui::IsMouseClicked( 0 );
         int64_t event_ts = gi.screenx_to_ts( gi.mouse_pos.x );
         std::string time_buf = "Time: " + ts_to_timestr( event_ts, m_tsoffset );
+
+        const std::vector< uint32_t > &vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
+        if ( !vblank_locs.empty() )
+        {
+            int64_t prev_vblank_ts = INT64_MAX;
+            int64_t next_vblank_ts = INT64_MAX;
+            int eventid = ts_to_eventid( event_ts );
+            size_t idx = vec_find_eventid( vblank_locs, eventid );
+            size_t idxmax = std::min( idx + 20, vblank_locs.size() );
+
+            for ( idx = ( idx > 10 ) ? ( idx - 10 ) : 0; idx < idxmax; idx++ )
+            {
+                trace_event_t &event = m_trace_events->m_events[ vblank_locs[ idx ] ];
+
+                if ( ( ( size_t )event.crtc < loader->m_render_crtc.size() ) &&
+                        loader->m_render_crtc[ event.crtc ] )
+                {
+                    if ( event.ts < event_ts )
+                    {
+                        if ( event_ts - event.ts < prev_vblank_ts )
+                            prev_vblank_ts = event_ts - event.ts;
+                    }
+                    if ( event.ts > event_ts )
+                    {
+                        if ( event.ts - event_ts < next_vblank_ts )
+                            next_vblank_ts = event.ts - event_ts;
+                    }
+                }
+            }
+
+            if ( prev_vblank_ts != INT64_MAX )
+                time_buf += "\nPrev vblank: " + ts_to_timestr( prev_vblank_ts, 0, 2 );
+            if ( next_vblank_ts != INT64_MAX )
+                time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 );
+        }
 
         // Show tooltip with the closest events we could drum up
         for ( graph_info_t::hovered_t &hov : gi.hovered_items )
