@@ -61,6 +61,7 @@
 
 //$ TODO: popup graph tooltip shows events around location you're at?
 
+static const int64_t g_min_graph_length = 100;
 static const int64_t g_max_graph_length = 5000 * MSECS_PER_SEC;
 
 static SDL_threadID g_main_tid = -1;
@@ -752,12 +753,16 @@ bool TraceWin::render( class TraceLoader *loader )
         if ( m_do_graph_zoom_in || m_do_graph_zoom_out )
         {
             int64_t sign = m_do_graph_zoom_in ? -1 : +1;
-            int64_t amt = 1000 * sign * ( m_graph_length_ts / 2000 );
+            int64_t amt = sign * m_graph_length_ts / 2;
+            int64_t newlen = m_graph_length_ts + amt;
 
-            m_graph_start_ts -= amt / 2;
-            m_graph_length_ts += amt;
-            m_do_graph_start_timestr = true;
-            m_do_graph_length_timestr = true;
+            if ( ( newlen > g_min_graph_length ) && ( newlen < g_max_graph_length ) )
+            {
+                m_graph_start_ts -= amt / 2;
+                m_graph_length_ts = newlen;
+                m_do_graph_start_timestr = true;
+                m_do_graph_length_timestr = true;
+            }
 
             m_do_graph_zoom_in = false;
             m_do_graph_zoom_out = false;
@@ -1273,13 +1278,13 @@ public:
         return pos.x + ts_to_x( ts );
     }
 
-    int64_t screenx_to_event_ts( float x )
+    int64_t screenx_to_ts( float x )
     {
         double val = ( x - pos.x ) / w;
 
         return ts0 + val * tsdx;
     }
-    int64_t dx_to_event_ts( float x )
+    int64_t dx_to_ts( float x )
     {
         return ( x / w ) * tsdx;
     }
@@ -1510,9 +1515,9 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
     graph_info_t gi;
     std::vector< trace_event_t > &events = m_trace_events->m_events;
 
-    if ( m_graph_length_ts < 100 )
+    if ( m_graph_length_ts < g_min_graph_length )
     {
-        m_graph_length_ts = 100;
+        m_graph_length_ts = g_min_graph_length;
         m_do_graph_length_timestr = true;
     }
     else if ( m_graph_length_ts > g_max_graph_length )
@@ -1655,9 +1660,9 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
     {
         if ( m_mouse_captured == 1 )
         {
-            // shift + click: zoom
-            int64_t event_ts0 = gi.screenx_to_event_ts( m_mouse_capture_pos.x );
-            int64_t event_ts1 = gi.screenx_to_event_ts( gi.mouse_pos.x );
+            // shift + click: zoom area
+            int64_t event_ts0 = gi.screenx_to_ts( m_mouse_capture_pos.x );
+            int64_t event_ts1 = gi.screenx_to_ts( gi.mouse_pos.x );
 
             if ( event_ts0 > event_ts1 )
                 std::swap( event_ts0, event_ts1 );
@@ -1693,7 +1698,7 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
             if ( ImGui::IsMouseDown( 0 ) )
             {
                 float dx = gi.mouse_pos.x - m_mouse_capture_pos.x;
-                int64_t tsdiff = gi.dx_to_event_ts( dx );
+                int64_t tsdiff = gi.dx_to_ts( dx );
 
                 m_graph_start_ts -= tsdiff;
                 m_do_graph_start_timestr = true;
@@ -1712,7 +1717,7 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
     else if ( m_mouse_over_graph )
     {
         bool mouse_clicked = ImGui::IsMouseClicked( 0 );
-        int64_t event_ts = gi.screenx_to_event_ts( gi.mouse_pos.x );
+        int64_t event_ts = gi.screenx_to_ts( gi.mouse_pos.x );
         std::string time_buf = "Time: " + ts_to_timestr( event_ts, m_tsoffset );
 
         // Show tooltip with the closest events we could drum up
@@ -1772,8 +1777,24 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
         }
         else
         {
-            m_do_graph_zoom_in |= ( ImGui::GetIO().MouseWheel > 0 );
-            m_do_graph_zoom_out |= ( ImGui::GetIO().MouseWheel < 0 );
+            float mousewheel = ImGui::GetIO().MouseWheel;
+
+            if ( mousewheel )
+            {
+                bool zoomin = ( mousewheel > 0.0f );
+                int64_t len0 = m_graph_length_ts;
+                int64_t amt = zoomin ? -( m_graph_length_ts / 2 ) : ( m_graph_length_ts / 2 );
+                int64_t len1 = len0 + amt;
+
+                if ( ( len1 > g_min_graph_length ) && ( len1 < g_max_graph_length ) )
+                {
+                    m_graph_start_ts = event_ts - len1 * ( event_ts - gi.ts0 ) / len0 - m_tsoffset;
+                    m_graph_length_ts = len1;
+
+                    m_do_graph_start_timestr = true;
+                    m_do_graph_length_timestr = true;
+                }
+            }
         }
     }
 }
