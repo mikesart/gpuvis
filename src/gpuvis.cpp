@@ -41,8 +41,6 @@
 #include "gpuvis.h"
 #include "gpuvis_colors.h"
 
-//$ TODO: in graph tooltip, show distance to previous and next vblank
-
 //$ TODO: Make colors configurable so they're easy to distinguish.
 
 //$ TODO: Right click on events - popup menu
@@ -50,8 +48,6 @@
 //    find event in graph
 
 //$ TODO: Add ability to show row for an event with a parameter?
-
-//$ TODO: Limit graph so you can't get too far lost
 
 //$ TODO: Need to handle lots of graph rows, ie ~100
 //$ TODO: Figure out crash when you have too many graph rows and zoom out
