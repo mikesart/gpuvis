@@ -513,11 +513,42 @@ void TraceWin::render_color_picker( TraceLoader *loader )
     if ( !ImGui::CollapsingHeader( "Color Picker", ImGuiTreeNodeFlags_DefaultOpen ) )
         return;
 
+    ImGui::Columns( 2 );
+    ImGui::SetColumnOffset( 1, imgui_scale( 200.0f ) );
+
+    /*
+     * Column 1: draw our graph items and their colors
+     */
+    float w = imgui_scale( 32.0f );
+    float text_h = ImGui::GetTextLineHeight();
+
+    for ( int i = col_1Event; i < col_Max; i++ )
+    {
+        bool selected = i == m_selected_color;
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImU32 col = col_get( ( colors_t )i );
+        const char *name = col_get_name( ( colors_t )i );
+
+        ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + w, pos.y + text_h ), col );
+
+        ImGui::Indent( imgui_scale( 40.0f ) );
+        if ( ImGui::Selectable( name, selected, 0 ) )
+            m_selected_color = i;
+        ImGui::Unindent( imgui_scale( 40.0f ) );
+    }
+
+    ImGui::NextColumn();
+
+    /*
+     * Column 2: Draw our color picker
+     */
     ImU32 color;
     if ( m_colorpicker.render( &color ) )
     {
-        //$ TODO
+        col_set( ( colors_t )m_selected_color, color );
     }
+
+    ImGui::Columns( 1 );
 }
 
 bool TraceWin::render( class TraceLoader *loader )
@@ -1346,12 +1377,12 @@ void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pg
              loader->m_render_crtc[ event.crtc ] )
         {
             // drm_vblank_event0: blue, drm_vblank_event1: red
-            colors_t col = ( event.crtc > 0 ) ? col_VBlank0 : col_VBlank1;
+            colors_t col = ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0;
             float x = gi.ts_to_screenx( event.ts );
 
             imgui_drawrect( x, imgui_scale( 2.0f ),
                             gi.pos.y, gi.h,
-                            col_get( col, 220 ) );
+                            col_get( col ) );
         }
     }
 
@@ -1373,7 +1404,7 @@ void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pg
 
         imgui_drawrect( mousex0, mousex1 - mousex0,
                         gi.pos.y, gi.h,
-                        col_get( col_ZoomSel, 80 ) );
+                        col_get( col_ZoomSel ) );
     }
 
     if ( m_show_eventlist )
@@ -1389,7 +1420,7 @@ void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pg
 
             imgui_drawrect( xstart, xend - xstart,
                             gi.pos.y, gi.h,
-                            col_get( col_EventListSel, 60 ) );
+                            col_get( col_EventListSel ) );
         }
     }
 }
@@ -2348,6 +2379,7 @@ int main( int argc, char **argv )
 
     inifile.Open( "gpuvis", "gpuvis.ini" );
 
+    col_init( inifile );
     loader.init();
 
     ImGuiIO &io = ImGui::GetIO();
@@ -2455,6 +2487,7 @@ int main( int argc, char **argv )
     // Shut down our console / option window
     console.shutdown( &inifile );
 
+    col_shutdown( inifile );
     logf_clear();
 
     // Cleanup

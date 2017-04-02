@@ -34,6 +34,7 @@
 #include "imgui/imgui.h"
 #include "gpuvis_macros.h"
 #include "gpuvis_utils.h"
+#include "stlini.h"
 
 static SDL_threadID g_main_tid = -1;
 static std::vector< char * > g_log;
@@ -244,7 +245,7 @@ bool ColorPicker::render( ImU32 *pcolor )
         ImGui::PushStyleColor( ImGuiCol_Button, col );
         ImGui::PushStyleColor( ImGuiCol_ButtonActive, col );
 
-        if ( ImGui::Button( name.c_str(), ImVec2( imgui_scale( 90.0f ), 0.0f ) ) )
+        if ( ImGui::Button( name.c_str(), ImVec2( imgui_scale( 80.0f ), 0.0f ) ) )
         {
             ret = true;
             *pcolor = ( ImU32 )col;
@@ -257,22 +258,57 @@ bool ColorPicker::render( ImU32 *pcolor )
     return ret;
 }
 
-static const struct
+static struct
 {
     const char *name;
     ImU32 color;
+    bool modified;
 } g_colordata[] =
 {
 #define _XTAG( _name, _color ) { #_name, _color },
-#include "gpuvis_colors.inl"
+  #include "gpuvis_colors.inl"
 #undef _XTAG
 };
 
-ImU32 col_get( colors_t col, ImU32 alpha )
+void col_init( CIniFile &inifile )
 {
-    ImU32 color = g_colordata[ col ].color;
+    for ( int i = 0; i < col_Max; i++ )
+    {
+        const char *key = g_colordata[ i ].name;
+        uint64_t val = inifile.GetUint64( key, UINT64_MAX, "$graph_colors$" );
 
-    return color | ( alpha << IM_COL32_A_SHIFT );
+        if ( val != UINT64_MAX )
+        {
+            g_colordata[ i ].color = ( ImU32 )val;
+        }
+    }
+}
+
+void col_shutdown( CIniFile &inifile )
+{
+    for ( int i = 0; i < col_Max; i++ )
+    {
+        if ( g_colordata[ i ].modified )
+        {
+            const char *key = g_colordata[ i ].name;
+
+            inifile.PutUint64( key, g_colordata[ i ].color, "$graph_colors$" );
+        }
+    }
+}
+
+ImU32 col_get( colors_t col )
+{
+    return g_colordata[ col ].color;
+}
+
+void col_set( colors_t col, ImU32 color )
+{
+    if ( g_colordata[ col ].color != color )
+    {
+        g_colordata[ col ].color = color;
+        g_colordata[ col ].modified = true;
+    }
 }
 
 const char *col_get_name( colors_t col )

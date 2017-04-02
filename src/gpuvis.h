@@ -344,6 +344,7 @@ public:
     int m_mouse_captured = 0;
     ImVec2 m_mouse_capture_pos;
 
+    int m_selected_color = 0;
     ColorPicker m_colorpicker;
 
     struct comm_t

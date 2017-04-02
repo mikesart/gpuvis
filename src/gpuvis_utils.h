@@ -74,5 +74,10 @@ enum colors_t
     col_Max
 };
 
-ImU32 col_get( colors_t col, ImU32 alpha = 0xff );
+class CIniFile;
+void col_init( CIniFile &inifile );
+void col_shutdown( CIniFile &inifile );
+
+ImU32 col_get( colors_t col );
+void col_set( colors_t col, ImU32 color );
 const char *col_get_name( colors_t col );
