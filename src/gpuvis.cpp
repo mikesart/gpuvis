@@ -54,6 +54,8 @@
 
 //$ TODO: popup graph tooltip shows events around location you're at?
 
+//$ TODO: event list follows mouse cursor option
+
 static const int64_t g_min_graph_length = 100;
 static const int64_t g_max_graph_length = 5000 * MSECS_PER_SEC;
 
@@ -840,7 +842,8 @@ bool TraceWin::render( class TraceLoader *loader )
 
     ImGuiTreeNodeFlags eventslist_flags = loader->m_show_events_list ?
         ImGuiTreeNodeFlags_DefaultOpen : 0;
-    if ( ImGui::CollapsingHeader( "Events List", eventslist_flags ) )
+    m_show_eventlist = ImGui::CollapsingHeader( "Events List", eventslist_flags );
+    if ( m_show_eventlist )
     {
         bool update_eventids = imgui_input_int( &m_start_eventid, 75.0f,
                 "Event Start:", "##EventStart", ImGuiInputTextFlags_EnterReturnsTrue );
@@ -1565,18 +1568,21 @@ void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pg
                         col_get( col_White, 80 ) );
     }
 
-    // Draw rectangle for visible event list contents
-    if ( m_eventlist_start_eventid != ( uint32_t )-1 &&
-         m_eventlist_end_eventid != ( uint32_t )-1 )
+    if ( m_show_eventlist )
     {
-        trace_event_t &event0 = m_trace_events->m_events[ m_eventlist_start_eventid ];
-        trace_event_t &event1 = m_trace_events->m_events[ m_eventlist_end_eventid - 1 ];
-        float xstart = gi.ts_to_screenx( event0.ts );
-        float xend = gi.ts_to_screenx( event1.ts );
+        // Draw rectangle for visible event list contents
+        if ( m_eventlist_start_eventid != ( uint32_t )-1 &&
+             m_eventlist_end_eventid != ( uint32_t )-1 )
+        {
+            trace_event_t &event0 = m_trace_events->m_events[ m_eventlist_start_eventid ];
+            trace_event_t &event1 = m_trace_events->m_events[ m_eventlist_end_eventid - 1 ];
+            float xstart = gi.ts_to_screenx( event0.ts );
+            float xend = gi.ts_to_screenx( event1.ts );
 
-        imgui_drawrect( xstart, xend - xstart,
-                        gi.pos.y, gi.h,
-                        col_get( col_Lime, 60 ) );
+            imgui_drawrect( xstart, xend - xstart,
+                            gi.pos.y, gi.h,
+                            col_get( col_Lime, 60 ) );
+        }
     }
 }
 

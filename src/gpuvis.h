@@ -285,6 +285,8 @@ public:
     bool m_do_gotoevent = false;
     int m_goto_eventid = 0;
 
+    bool m_show_eventlist = false;
+
     // Goto Time buffer
     std::string m_timegoto_buf;
 
