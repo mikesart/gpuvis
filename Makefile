@@ -53,6 +53,7 @@ LIBS = -Wl,--no-as-needed -lm -ldl -lpthread  -lstdc++ $(SDL2LIBS)
 
 CFILES = \
 	src/gpuvis.cpp \
+	src/gpuvis_utils.cpp \
 	src/gpuvis_colors.cpp \
 	src/hash_fnv.c \
 	src/stlini.cpp \

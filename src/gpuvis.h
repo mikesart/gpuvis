@@ -22,9 +22,12 @@
  * THE SOFTWARE.
  */
 #include <limits.h>
-#include "gpuvis_macros.h"
+
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_sdl_gl3.h"
+
+#include "gpuvis_macros.h"
+#include "gpuvis_utils.h"
 #include "stlini.h"
 
 using std::placeholders::_1;
@@ -254,7 +257,7 @@ public:
     void render_graph_row( const std::string &comm, std::vector< uint32_t > &locs, class graph_info_t *pgi );
     void render_graph_vblanks( TraceLoader *loader, class graph_info_t *pgi );
     void render_mouse_graph( TraceLoader *loader, class graph_info_t *pgi );
-    void render_color_picker();
+    void render_color_picker( TraceLoader *loader );
 
 protected:
     void render_time_offset_button_init( TraceEvents &trace_events );
@@ -341,6 +344,8 @@ public:
     int m_mouse_captured = 0;
     ImVec2 m_mouse_capture_pos;
 
+    ColorPicker m_colorpicker;
+
     struct comm_t
     {
         size_t event_count;
@@ -398,6 +403,7 @@ public:
     int m_graph_row_count = -1;
     bool m_fullscreen = false;
     bool m_show_events_list = false;
+    bool m_show_color_picker = false;
     std::array< bool, 10 > m_render_crtc;
     std::vector< std::string > m_inputfiles;
 };

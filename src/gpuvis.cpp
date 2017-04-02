@@ -26,7 +26,6 @@
 #include <unistd.h>
 
 #include <algorithm>
-#include <array>
 #include <future>
 #include <getopt.h>
 #include <set>
@@ -59,157 +58,6 @@
 static const int64_t g_min_graph_length = 100;
 static const int64_t g_max_graph_length = 5000 * MSECS_PER_SEC;
 
-static SDL_threadID g_main_tid = -1;
-static std::vector< char * > g_log;
-static std::vector< char * > g_thread_log;
-static SDL_mutex *g_mutex = nullptr;
-
-/*
- * log routines
- */
-static void logf_init()
-{
-    g_main_tid = SDL_ThreadID();
-    g_mutex = SDL_CreateMutex();
-}
-
-static void logf_shutdown()
-{
-    SDL_DestroyMutex( g_mutex );
-    g_mutex = NULL;
-}
-
-void logf( const char *fmt, ... )
-{
-    va_list args;
-    char *buf = NULL;
-
-    va_start( args, fmt );
-    vasprintf( &buf, fmt, args );
-    va_end( args );
-
-    if ( buf )
-    {
-        if ( SDL_ThreadID() == g_main_tid )
-        {
-            g_log.push_back( buf );
-        }
-        else
-        {
-            SDL_LockMutex( g_mutex );
-            g_thread_log.push_back( buf );
-            SDL_UnlockMutex( g_mutex );
-        }
-    }
-}
-
-static void logf_update()
-{
-    if ( g_thread_log.size() )
-    {
-        SDL_LockMutex( g_mutex );
-
-        for ( char *str : g_thread_log )
-            g_log.push_back( str );
-        g_thread_log.clear();
-
-        SDL_UnlockMutex( g_mutex );
-    }
-}
-
-void logf_clear()
-{
-    logf_update();
-
-    for ( char *str : g_log )
-        free( str );
-    g_log.clear();
-}
-
-std::string string_format( const char *fmt, ... )
-{
-    std::string str;
-    int size = 512;
-
-    for ( ;; )
-    {
-        va_list ap;
-
-        va_start( ap, fmt );
-        str.resize( size );
-        int n = vsnprintf( ( char * )str.c_str(), size, fmt, ap );
-        va_end( ap );
-
-        if ( ( n > -1 ) && ( n < size ) )
-        {
-            str.resize( n );
-            return str;
-        }
-
-        size = ( n > -1 ) ? ( n + 1 ) : ( size * 2 );
-    }
-}
-
-/*
- * http://stackoverflow.com/questions/216823/whats-the-best-way-to-trim-stdstring
- */
-// trim from start (in place)
-void string_ltrim( std::string &s )
-{
-    s.erase( s.begin(), std::find_if( s.begin(), s.end(),
-             std::not1( std::ptr_fun< int, int >( std::isspace ) ) ) );
-}
-
-// trim from end (in place)
-void string_rtrim( std::string &s )
-{
-    s.erase( std::find_if( s.rbegin(), s.rend(),
-             std::not1( std::ptr_fun< int, int >( std::isspace ) ) ).base(), s.end() );
-}
-
-// trim from both ends (in place)
-void string_trim( std::string &s )
-{
-    string_ltrim( s );
-    string_rtrim( s );
-}
-
-// trim from start (copying)
-std::string string_ltrimmed( std::string s )
-{
-    string_ltrim( s );
-    return s;
-}
-
-// trim from end (copying)
-std::string string_rtrimmed( std::string s )
-{
-    string_rtrim( s );
-    return s;
-}
-
-// trim from both ends (copying)
-std::string string_trimmed( std::string s )
-{
-    string_trim( s );
-    return s;
-}
-
-size_t get_file_size( const char *filename )
-{
-    struct stat st;
-
-    if ( !stat( filename, &st ) )
-        return st.st_size;
-
-    return 0;
-}
-
-static float imgui_scale( float val )
-{
-    return val * ImGui::GetIO().FontGlobalScale;
-}
-
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
 {
     bool ret = ImGui::Button( label );
@@ -236,11 +84,6 @@ static bool imgui_input_text( const char *button_label, const char *text_label,
     ImGui::PopItemWidth();
 
     return ret;
-}
-
-static bool imgui_key_pressed( ImGuiKey key )
-{
-    return ImGui::IsKeyPressed( ImGui::GetKeyIndex( key ) );
 }
 
 static void imgui_draw_text( float x, float y, const char *text, ImU32 color )
@@ -663,50 +506,18 @@ int TraceWin::timestr_to_eventid( const char *buf, int64_t tsoffset )
     return ts_to_eventid( ts );
 }
 
-void TraceWin::render_color_picker()
+void TraceWin::render_color_picker( TraceLoader *loader )
 {
-    //$ TODO mikesart: color picker WIP
-    return;
-
-    if ( !ImGui::CollapsingHeader( "Color Picker" ) )
+    if ( !loader->m_show_color_picker )
         return;
 
-    static float s = 0.9f;
-    static float v = 0.9f;
+    if ( !ImGui::CollapsingHeader( "Color Picker", ImGuiTreeNodeFlags_DefaultOpen ) )
+        return;
 
-    ImGui::Text( "%s", "s value:" );
-    ImGui::PushItemWidth( 250 );
-    ImGui::SameLine();
-    ImGui::SliderFloat( "##s_value", &s, 0.0f, 1.0f, "s = %.2f");
-    ImGui::PopItemWidth();
-
-    ImGui::SameLine();
-    ImGui::Text( "%s", "v value:" );
-    ImGui::PushItemWidth( 250 );
-    ImGui::SameLine();
-    ImGui::SliderFloat( "##v_value", &v, 0.0f, 1.0f, "v = %.2f");
-    ImGui::PopItemWidth();
-
-    for ( int i = 0; i < 64; i++ )
+    ImU32 color;
+    if ( m_colorpicker.render( &color ) )
     {
-        float h = i / 63.0f;
-        std::string name = string_format( "h%2u s%2u v%2u",
-            ( uint32_t )( h * 10 ),
-            ( uint32_t )( s * 10 ),
-            ( uint32_t )( v * 10 ) );
-
-        if ( i % 8 )
-            ImGui::SameLine();
-
-        ImGui::PushID( i );
-        ImGui::PushStyleColor( ImGuiCol_Button, ImColor::HSV( h, s, v ) );
-        ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImColor::HSV( h, s, v ) );
-        ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImColor::HSV( h, s, v ) );
-
-        ImGui::Button( name.c_str(), ImVec2( imgui_scale( 90.0f ), 0.0f ) );
-
-        ImGui::PopStyleColor( 3 );
-        ImGui::PopID();
+        //$ TODO
     }
 }
 
@@ -836,7 +647,7 @@ bool TraceWin::render( class TraceLoader *loader )
         render_process_graphs( loader );
 
         ImGui::Indent();
-        render_color_picker();
+        render_color_picker( loader );
         ImGui::Unindent();
     }
 
@@ -2075,6 +1886,9 @@ void TraceConsole::render( class TraceLoader *loader )
 
             ImGui::Checkbox( label.c_str(), &loader->m_render_crtc[ i ] );
         }
+
+        ImGui::Checkbox( "Show graph color picker",
+                         &loader->m_show_color_picker );
     }
 
     if ( ImGui::CollapsingHeader( "Log", ImGuiTreeNodeFlags_DefaultOpen ) )
@@ -2123,7 +1937,8 @@ void TraceConsole::render( class TraceLoader *loader )
             // Tighten spacing
             ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2( 4, 1 ) );
 
-            for ( const char *item : g_log )
+            const std::vector< char * > &log = logf_get();
+            for ( const char *item : log )
             {
                 if ( !m_filter.PassFilter( item ) )
                     continue;
@@ -2140,11 +1955,11 @@ void TraceConsole::render( class TraceLoader *loader )
                 ImGui::PopStyleColor();
             }
 
-            if ( m_log_size != g_log.size() )
+            if ( m_log_size != log.size() )
             {
                 ImGui::SetScrollHere();
 
-                m_log_size = g_log.size();
+                m_log_size = log.size();
             }
 
             ImGui::PopStyleVar();
