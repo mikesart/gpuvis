@@ -39,8 +39,6 @@
 #include "GL/gl3w.h"
 #include "gpuvis.h"
 
-//$ TODO: Make colors configurable so they're easy to distinguish.
-
 //$ TODO: Right click on events - popup menu
 //    start graph at a specific location
 //    find event in graph
@@ -215,7 +213,7 @@ void TraceLoader::new_event_window( TraceEvents *trace_events )
     if ( refcount )
         title += string_format( " #%lu", refcount + 1 );
 
-    TraceWin *win = new TraceWin( trace_events, title );
+    TraceWin *win = new TraceWin( *this, trace_events, title );
 
     m_trace_windows_list.push_back( win );
     win->m_setfocus = 2;
@@ -370,7 +368,7 @@ void TraceLoader::render()
         TraceWin *win = m_trace_windows_list[ i ];
 
         if ( win->m_open )
-            win->render( this );
+            win->render();
         if ( !win->m_open )
         {
             delete win;
@@ -505,9 +503,9 @@ int TraceWin::timestr_to_eventid( const char *buf, int64_t tsoffset )
     return ts_to_eventid( ts );
 }
 
-void TraceWin::render_color_picker( TraceLoader *loader )
+void TraceWin::render_color_picker()
 {
-    if ( !loader->m_show_color_picker )
+    if ( !m_loader.m_show_color_picker )
         return;
 
     if ( !ImGui::CollapsingHeader( "Color Picker", ImGuiTreeNodeFlags_DefaultOpen ) )
@@ -551,7 +549,7 @@ void TraceWin::render_color_picker( TraceLoader *loader )
     ImGui::Columns( 1 );
 }
 
-bool TraceWin::render( class TraceLoader *loader )
+bool TraceWin::render()
 {
     ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
 
@@ -571,7 +569,7 @@ bool TraceWin::render( class TraceLoader *loader )
 
         ImGui::Text( "Loading events %u...", eventsloaded );
         if ( ImGui::Button( "Cancel" ) )
-            loader->cancel_load_file();
+            m_loader.cancel_load_file();
 
         ImGui::End();
         return true;
@@ -674,14 +672,14 @@ bool TraceWin::render( class TraceLoader *loader )
         if ( m_do_graph_length_timestr )
             m_graphtime_length_buf = ts_to_timestr( m_graph_length_ts, 0, 4 );
 
-        render_process_graphs( loader );
+        render_process_graphs();
 
         ImGui::Indent();
-        render_color_picker( loader );
+        render_color_picker();
         ImGui::Unindent();
     }
 
-    ImGuiTreeNodeFlags eventslist_flags = loader->m_show_events_list ?
+    ImGuiTreeNodeFlags eventslist_flags = m_loader.m_show_events_list ?
         ImGuiTreeNodeFlags_DefaultOpen : 0;
     m_show_eventlist = ImGui::CollapsingHeader( "Events List", eventslist_flags );
     if ( m_show_eventlist )
@@ -712,7 +710,7 @@ bool TraceWin::render( class TraceLoader *loader )
             m_goto_eventid = timestr_to_eventid( m_timegoto_buf.c_str(), m_tsoffset );
         }
 
-        render_events_list( loader->m_inifile );
+        render_events_list( m_loader.m_inifile );
     }
 
     ImGui::End();
@@ -1331,7 +1329,7 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
                      col_get( col_RowLabel ) );
 }
 
-void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pgi )
+void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
 {
     graph_info_t &gi = *pgi;
 
@@ -1373,8 +1371,8 @@ void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pg
             break;
 
         trace_event_t &event = m_trace_events->m_events[ id ];
-        if ( ( ( size_t )event.crtc < loader->m_render_crtc.size() ) &&
-             loader->m_render_crtc[ event.crtc ] )
+        if ( ( ( size_t )event.crtc < m_loader.m_render_crtc.size() ) &&
+             m_loader.m_render_crtc[ event.crtc ] )
         {
             // drm_vblank_event0: blue, drm_vblank_event1: red
             colors_t col = ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0;
@@ -1425,7 +1423,7 @@ void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pg
     }
 }
 
-void TraceWin::render_process_graphs( TraceLoader *loader )
+void TraceWin::render_process_graphs()
 {
     graph_info_t gi;
     std::vector< trace_event_t > &events = m_trace_events->m_events;
@@ -1473,8 +1471,8 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
     }
 
     // Get current count of rows. -1 means show all rows.
-    int row_count = ( loader->m_graph_row_count < 1 ) ?
-                graph_row_count : loader->m_graph_row_count;
+    int row_count = ( m_loader.m_graph_row_count < 1 ) ?
+                graph_row_count : m_loader.m_graph_row_count;
     row_count = std::min< int >( row_count, graph_row_count );
 
     ImGui::SameLine();
@@ -1483,7 +1481,7 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
     ImGui::PushItemWidth( imgui_scale( 200.0f ) );
     if ( ImGui::SliderInt( "##GraphRowsCount", &row_count, 1, graph_row_count ) )
     {
-        loader->m_graph_row_count = ( row_count >= graph_row_count ) ?
+        m_loader.m_graph_row_count = ( row_count >= graph_row_count ) ?
                     -1 : row_count;
     }
 
@@ -1536,15 +1534,15 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
         // Render full graph lines: vblanks, mouse cursors, etc...
         gi.set_cursor_screen_pos( ImVec2( windowpos.x, windowpos.y ),
                                   ImVec2( windowsize.x, windowsize.y ) );
-        render_graph_vblanks( loader, &gi );
+        render_graph_vblanks( &gi );
 
         ImGui::EndChild();
     }
 
-    render_mouse_graph( loader, &gi );
+    render_mouse_graph( &gi );
 }
 
-void TraceWin::render_mouse_graph( TraceLoader *loader, class graph_info_t *pgi )
+void TraceWin::render_mouse_graph( class graph_info_t *pgi )
 {
     graph_info_t &gi = *pgi;
 
@@ -1648,8 +1646,8 @@ void TraceWin::render_mouse_graph( TraceLoader *loader, class graph_info_t *pgi 
             {
                 trace_event_t &event = m_trace_events->m_events[ vblank_locs[ idx ] ];
 
-                if ( ( ( size_t )event.crtc < loader->m_render_crtc.size() ) &&
-                        loader->m_render_crtc[ event.crtc ] )
+                if ( ( ( size_t )event.crtc < m_loader.m_render_crtc.size() ) &&
+                        m_loader.m_render_crtc[ event.crtc ] )
                 {
                     if ( event.ts < event_ts )
                     {
@@ -1790,7 +1788,7 @@ void TraceConsole::shutdown( CIniFile *inifile )
     m_history.clear();
 }
 
-void TraceConsole::render( class TraceLoader *loader )
+void TraceConsole::render( TraceLoader &loader )
 {
     ImGui::SetNextWindowSize( ImVec2( 720, 600 ), ImGuiSetCond_FirstUseEver );
 
@@ -1804,9 +1802,9 @@ void TraceConsole::render( class TraceLoader *loader )
                  1000.0f / ImGui::GetIO().Framerate,
                  ImGui::GetIO().Framerate );
 
-    if ( loader && ImGui::CollapsingHeader( "Trace File", ImGuiTreeNodeFlags_DefaultOpen ) )
+    if ( ImGui::CollapsingHeader( "Trace File", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        bool is_loading = loader->is_loading();
+        bool is_loading = loader.is_loading();
 
         ImGui::Text( "File:" );
         ImGui::SameLine();
@@ -1838,7 +1836,7 @@ void TraceConsole::render( class TraceLoader *loader )
         }
         else if ( do_load )
         {
-            loader->load_file( m_trace_file );
+            loader.load_file( m_trace_file );
         }
     }
 
@@ -1848,9 +1846,9 @@ void TraceConsole::render( class TraceLoader *loader )
 
         ImGui::Separator();
 
-        for ( size_t i = 0; i < loader->m_trace_events_list.size(); i++ )
+        for ( size_t i = 0; i < loader.m_trace_events_list.size(); i++ )
         {
-            TraceEvents *events = loader->m_trace_events_list[ i ];
+            TraceEvents *events = loader.m_trace_events_list[ i ];
             int eventsloaded = SDL_AtomicGet( &events->m_eventsloaded );
 
             if ( !eventsloaded )
@@ -1859,15 +1857,15 @@ void TraceConsole::render( class TraceLoader *loader )
                 ImGui::NextColumn();
 
                 if ( ImGui::SmallButton( string_format( "Events##%lu", i ).c_str() ) )
-                    loader->new_event_window( events );
+                    loader.new_event_window( events );
 
                 ImGui::SameLine();
                 if ( ImGui::SmallButton( string_format( "Close Windows##%lu", i ).c_str() ) )
-                    loader->close_event_file( events, false );
+                    loader.close_event_file( events, false );
 
                 ImGui::SameLine();
                 if ( ImGui::SmallButton( string_format( "Free##%lu", i ).c_str() ) )
-                    loader->close_event_file( events, true );
+                    loader.close_event_file( events, true );
 
                 ImGui::NextColumn();
             }
@@ -1902,21 +1900,21 @@ void TraceConsole::render( class TraceLoader *loader )
         ImGui::Separator();
 
         ImGui::Checkbox( "Show Events List when opening new Trace Windows",
-                         &loader->m_show_events_list );
+                         &loader.m_show_events_list );
 
         ImGui::Checkbox( "Fullscreen Trace Window",
-                         &loader->m_fullscreen );
+                         &loader.m_fullscreen );
 
-        for ( int i = 0; i <= loader->m_crtc_max; i++ )
+        for ( int i = 0; i <= loader.m_crtc_max; i++ )
         {
             std::string label = string_format(
                 "Show drm_vblank_event crtc%d markers", i );
 
-            ImGui::Checkbox( label.c_str(), &loader->m_render_crtc[ i ] );
+            ImGui::Checkbox( label.c_str(), &loader.m_render_crtc[ i ] );
         }
 
         ImGui::Checkbox( "Show graph color picker",
-                         &loader->m_show_color_picker );
+                         &loader.m_show_color_picker );
     }
 
     if ( ImGui::CollapsingHeader( "Log", ImGuiTreeNodeFlags_DefaultOpen ) )
@@ -2294,71 +2292,6 @@ int SDL_GetWindowBordersSize( SDL_Window *window, int *top, int *left, int *bott
 }
 #endif
 
-static void imgui_load_fonts()
-{
-    ImGuiIO &io = ImGui::GetIO();
-
-    io.Fonts->AddFontDefault();
-
-    std::array< const char *, 3 > fontpaths =
-    {
-        "./fonts/ProggyTiny.ttf",
-        "../fonts/ProggyTiny.ttf",
-        "./ProggyTiny.ttf"
-    };
-    for ( const char *fontname : fontpaths )
-    {
-        if ( io.Fonts->AddFontFromFileTTF( fontname, 10.0f ) )
-        {
-            logf( "Loaded font: %s", fontname );
-            break;
-        }
-    }
-}
-
-static void imgui_ini_settings( CIniFile &inifile, bool save = false )
-{
-    ImGuiIO &io = ImGui::GetIO();
-    ImGuiStyle &style = ImGui::GetStyle();
-    const char section[] = "$imgui_settings$";
-
-    if ( save )
-    {
-        inifile.PutFloat( "win_scale", io.FontGlobalScale, section );
-
-        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
-        {
-            const ImVec4 &col = style.Colors[ i ];
-            const char *name = ImGui::GetStyleColName( i );
-
-            inifile.PutVec4( name, col, section );
-        }
-    }
-    else
-    {
-        ImVec4 defcol = { -1.0f, -1.0f, -1.0f, -1.0f };
-
-        io.FontGlobalScale = inifile.GetFloat( "win_scale", 1.0f, section );
-
-        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
-        {
-            const char *name = ImGui::GetStyleColName( i );
-
-            ImVec4 col = inifile.GetVec4( name, defcol, section );
-            if ( col.w == -1.0f )
-            {
-                // Default to no alpha for our windows...
-                if ( i == ImGuiCol_WindowBg )
-                    ImGui::GetStyle().Colors[ i ].w = 1.0f;
-            }
-            else
-            {
-                style.Colors[ i ] = col;
-            }
-        }
-    }
-}
-
 int main( int argc, char **argv )
 {
     CIniFile inifile;
@@ -2438,7 +2371,7 @@ int main( int argc, char **argv )
         logf_update();
 
         // Render console / options window
-        console.render( &loader );
+        console.render( loader );
 
         // Render trace windows
         loader.render();

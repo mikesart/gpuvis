@@ -214,6 +214,71 @@ bool imgui_key_pressed( ImGuiKey key )
     return ImGui::IsKeyPressed( ImGui::GetKeyIndex( key ) );
 }
 
+void imgui_load_fonts()
+{
+    ImGuiIO &io = ImGui::GetIO();
+
+    io.Fonts->AddFontDefault();
+
+    std::array< const char *, 3 > fontpaths =
+    {
+        "./fonts/ProggyTiny.ttf",
+        "../fonts/ProggyTiny.ttf",
+        "./ProggyTiny.ttf"
+    };
+    for ( const char *fontname : fontpaths )
+    {
+        if ( io.Fonts->AddFontFromFileTTF( fontname, 10.0f ) )
+        {
+            logf( "Loaded font: %s", fontname );
+            break;
+        }
+    }
+}
+
+void imgui_ini_settings( CIniFile &inifile, bool save )
+{
+    ImGuiIO &io = ImGui::GetIO();
+    ImGuiStyle &style = ImGui::GetStyle();
+    const char section[] = "$imgui_settings$";
+
+    if ( save )
+    {
+        inifile.PutFloat( "win_scale", io.FontGlobalScale, section );
+
+        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
+        {
+            const ImVec4 &col = style.Colors[ i ];
+            const char *name = ImGui::GetStyleColName( i );
+
+            inifile.PutVec4( name, col, section );
+        }
+    }
+    else
+    {
+        ImVec4 defcol = { -1.0f, -1.0f, -1.0f, -1.0f };
+
+        io.FontGlobalScale = inifile.GetFloat( "win_scale", 1.0f, section );
+
+        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
+        {
+            const char *name = ImGui::GetStyleColName( i );
+
+            ImVec4 col = inifile.GetVec4( name, defcol, section );
+            if ( col.w == -1.0f )
+            {
+                // Default to no alpha for our windows...
+                if ( i == ImGuiCol_WindowBg )
+                    ImGui::GetStyle().Colors[ i ].w = 1.0f;
+            }
+            else
+            {
+                style.Colors[ i ] = col;
+            }
+        }
+    }
+}
+
 bool ColorPicker::render( ImU32 *pcolor )
 {
     bool ret = false;

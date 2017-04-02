@@ -190,6 +190,8 @@ public:
     SDL_atomic_t m_eventsloaded = { 0 };
 };
 
+class TraceLoader;
+
 struct TraceConsole
 {
 public:
@@ -201,7 +203,7 @@ public:
 
     void exec_command( const std::string &command_line );
 
-    void render( class TraceLoader *loader );
+    void render( TraceLoader &loader );
 
 protected:
     static int text_edit_cb_stub( ImGuiTextEditCallbackData *data );
@@ -235,7 +237,7 @@ public:
 class TraceWin
 {
 public:
-    TraceWin( TraceEvents *trace_events, std::string &title )
+    TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string &title ) : m_loader( loader )
     {
         // Note that m_trace_events is possibly being loaded in
         //  a background thread at this moment, so be sure to check
@@ -249,15 +251,15 @@ public:
     ~TraceWin() {}
 
 public:
-    bool render( class TraceLoader *loader );
+    bool render();
     void render_info();
     void render_events_list( CIniFile &inifile );
     bool render_events_list_popup();
-    void render_process_graphs( TraceLoader *loader );
+    void render_process_graphs();
     void render_graph_row( const std::string &comm, std::vector< uint32_t > &locs, class graph_info_t *pgi );
-    void render_graph_vblanks( TraceLoader *loader, class graph_info_t *pgi );
-    void render_mouse_graph( TraceLoader *loader, class graph_info_t *pgi );
-    void render_color_picker( TraceLoader *loader );
+    void render_graph_vblanks( class graph_info_t *pgi );
+    void render_mouse_graph( class graph_info_t *pgi );
+    void render_color_picker();
 
 protected:
     void render_time_offset_button_init( TraceEvents &trace_events );
@@ -277,6 +279,8 @@ protected:
     std::unordered_map< int64_t, int > m_ts_to_eventid_cache;
 
 public:
+    TraceLoader &m_loader;
+
     bool m_inited = false;
     bool m_columns_inited = false;
     bool m_open = true;
