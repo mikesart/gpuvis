@@ -256,3 +256,26 @@ bool ColorPicker::render( ImU32 *pcolor )
 
     return ret;
 }
+
+static const struct
+{
+    const char *name;
+    ImU32 color;
+} g_colordata[] =
+{
+#define _XTAG( _name, _color ) { #_name, _color },
+#include "gpuvis_colors.inl"
+#undef _XTAG
+};
+
+ImU32 col_get( colors_t col, ImU32 alpha )
+{
+    ImU32 color = g_colordata[ col ].color;
+
+    return color | ( alpha << IM_COL32_A_SHIFT );
+}
+
+const char *col_get_name( colors_t col )
+{
+    return g_colordata[ col ].name;
+}

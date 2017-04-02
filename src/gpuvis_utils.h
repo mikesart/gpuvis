@@ -65,3 +65,14 @@ public:
     float m_v = 0.9f;
     float m_a = 1.0f;
 };
+
+enum colors_t
+{
+#define _XTAG( _name, _color ) col_ ## _name,
+#include "gpuvis_colors.inl"
+#undef _XTAG
+    col_Max
+};
+
+ImU32 col_get( colors_t col, ImU32 alpha = 0xff );
+const char *col_get_name( colors_t col );

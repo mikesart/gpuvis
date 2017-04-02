@@ -38,7 +38,6 @@
 
 #include "GL/gl3w.h"
 #include "gpuvis.h"
-#include "gpuvis_colors.h"
 
 //$ TODO: Make colors configurable so they're easy to distinguish.
 
@@ -92,7 +91,7 @@ static void imgui_draw_text( float x, float y, const char *text, ImU32 color )
 
     ImGui::GetWindowDrawList()->AddRectFilled(
         ImVec2( x, y ), ImVec2( x + textsize.x, y + textsize.y ),
-        col_get( col_Black, 150 ) );
+        col_get( col_RowLabelBk) );
 
     ImGui::GetWindowDrawList()->AddText( ImVec2( x, y ), color, text );
 }
@@ -1043,13 +1042,11 @@ static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
 class event_renderer_t
 {
 public:
-    event_renderer_t( float y_in, float w_in, float h_in, hue_t hue_in )
+    event_renderer_t( float y_in, float w_in, float h_in )
     {
         y = y_in;
         w = w_in;
         h = h_in;
-
-        hue = hue_in;
 
         start( -1.0f );
     }
@@ -1096,7 +1093,8 @@ protected:
 
     void draw()
     {
-        ImU32 color = get_hue( hue, num_events ) | IM_COL32_A_MASK;
+        int index = std::min< int >( col_1Event + num_events, col_6Event );
+        ImU32 color = col_get( ( colors_t )index );
         float min_width = std::min( num_events + 1.0f, 4.0f );
         float width = std::max( x1 - x0, min_width );
 
@@ -1108,7 +1106,6 @@ public:
     uint32_t num_events;
 
     float y, w, h;
-    hue_t hue;
 };
 
 class graph_info_t
@@ -1212,13 +1209,13 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
     ImGui::GetWindowDrawList()->AddRectFilled(
         ImVec2( gi.pos.x, gi.pos.y ),
         ImVec2( gi.pos.x + gi.w, gi.pos.y + gi.h ),
-        col_get( col_DarkSlateGray ) );
+        col_get( col_GraphRowBk ) );
 
     // Go through all event IDs for this process
     uint32_t num_events = 0;
     bool draw_selected_event = false;
     bool draw_hovered_event = false;
-    event_renderer_t event_renderer( gi.pos.y, gi.w, gi.h, Hue_YlRd );
+    event_renderer_t event_renderer( gi.pos.y, gi.w, gi.h );
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -1279,7 +1276,7 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
 
         imgui_drawrect( x, imgui_scale( 3.0f ),
                         gi.pos.y, gi.h,
-                        col_get( col_Maroon ) );
+                        col_get( col_HovEvent ) );
     }
     if ( draw_selected_event )
     {
@@ -1288,7 +1285,7 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
 
         imgui_drawrect( x, imgui_scale( 3.0f ),
                         gi.pos.y, gi.h,
-                        col_get( col_Indigo ) );
+                        col_get( col_SelEvent ) );
     }
 
     std::string label;
@@ -1296,11 +1293,11 @@ void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t 
 
     label = string_format( "%u) %s", gi.num, comm.c_str() );
     imgui_draw_text( x, gi.pos.y, label.c_str(),
-                     col_get( col_LightYellow ) );
+                     col_get( col_RowLabel ) );
 
     label = string_format( "%u events", num_events );
     imgui_draw_text( x, gi.pos.y + ImGui::GetTextLineHeight(), label.c_str(),
-                     col_get( col_LightYellow ) );
+                     col_get( col_RowLabel ) );
 }
 
 void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pgi )
@@ -1318,7 +1315,7 @@ void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pg
         {
             imgui_drawrect( gi.pos.x + x0, imgui_scale( 1.0f ),
                             gi.pos.y, imgui_scale( 16.0f ),
-                            col_get( col_Lime ) );
+                            col_get( col_TimeTick ) );
 
             if ( dx >= 35.0f )
             {
@@ -1326,7 +1323,7 @@ void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pg
                 {
                     imgui_drawrect( gi.pos.x + x0 + i * dx / 4, imgui_scale( 1.0f ),
                                     gi.pos.y, imgui_scale( 4.0f ),
-                                    col_get( col_Lime ) );
+                                    col_get( col_TimeTick ) );
                 }
             }
         }
@@ -1349,7 +1346,7 @@ void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pg
              loader->m_render_crtc[ event.crtc ] )
         {
             // drm_vblank_event0: blue, drm_vblank_event1: red
-            colors_t col = ( event.crtc > 0 ) ? col_Red : col_Blue;
+            colors_t col = ( event.crtc > 0 ) ? col_VBlank0 : col_VBlank1;
             float x = gi.ts_to_screenx( event.ts );
 
             imgui_drawrect( x, imgui_scale( 2.0f ),
@@ -1365,7 +1362,7 @@ void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pg
     {
         imgui_drawrect( gi.mouse_pos.x, imgui_scale( 2.0f ),
                         gi.pos.y, gi.h,
-                        col_get( col_DeepPink ) );
+                        col_get( col_MousePos ) );
     }
 
     // Draw mouse selection location
@@ -1376,7 +1373,7 @@ void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pg
 
         imgui_drawrect( mousex0, mousex1 - mousex0,
                         gi.pos.y, gi.h,
-                        col_get( col_White, 80 ) );
+                        col_get( col_ZoomSel, 80 ) );
     }
 
     if ( m_show_eventlist )
@@ -1392,7 +1389,7 @@ void TraceWin::render_graph_vblanks( TraceLoader *loader, class graph_info_t *pg
 
             imgui_drawrect( xstart, xend - xstart,
                             gi.pos.y, gi.h,
-                            col_get( col_Lime, 60 ) );
+                            col_get( col_EventListSel, 60 ) );
         }
     }
 }
@@ -1483,7 +1480,7 @@ void TraceWin::render_process_graphs( TraceLoader *loader )
         ImGui::GetWindowDrawList()->AddRectFilled(
             ImVec2( windowpos.x, posy ),
             ImVec2( windowpos.x + windowsize.x, posy + sizey ),
-            col_get( col_Black ) );
+            col_get( col_GraphBk ) );
 
         gi.set_cursor_screen_pos( ImVec2( windowpos.x, posy ),
                                   ImVec2( windowsize.x, graph_row_h ) );
