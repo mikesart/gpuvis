@@ -883,9 +883,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
         ImGui::SetNextWindowFocus();
 
     // Events list
-    ImFontAtlas *atlas = ImGui::GetIO().Fonts;
-    if ( atlas->Fonts.Size > 1 )
-        ImGui::PushFont( atlas->Fonts[ 1 ] );
+    imgui_push_smallfont();
 
     {
         // Set the child window size to hold count of items + header + separator
@@ -1055,8 +1053,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
         ImGui::EndChild();
     }
 
-    if ( atlas->Fonts.Size > 1 )
-        ImGui::PopFont();
+    imgui_pop_smallfont();
 }
 
 static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )

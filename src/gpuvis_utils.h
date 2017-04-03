@@ -54,6 +54,9 @@ ImU32 imgui_hsv( float h, float s, float v, float a );
 ImVec4 imgui_u32_to_vec4( ImU32 col );
 ImU32 imgui_vec4_to_u32( const ImVec4 &vec );
 
+bool imgui_push_smallfont();
+void imgui_pop_smallfont();
+
 void imgui_load_fonts();
 void imgui_ini_settings( CIniFile &inifile, bool save = false );
 

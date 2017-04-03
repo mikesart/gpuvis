@@ -204,6 +204,27 @@ ImU32 imgui_vec4_to_u32( const ImVec4 &vec )
     return ImGui::ColorConvertFloat4ToU32( vec );
 }
 
+bool imgui_push_smallfont()
+{
+    ImFontAtlas *atlas = ImGui::GetIO().Fonts;
+
+    if ( atlas->Fonts.Size > 1 )
+    {
+        ImGui::PushFont( atlas->Fonts[ 1 ] );
+        return true;
+    }
+
+    return false;
+}
+
+void imgui_pop_smallfont()
+{
+    ImFontAtlas *atlas = ImGui::GetIO().Fonts;
+
+    if ( atlas->Fonts.Size > 1 )
+        ImGui::PopFont();
+}
+
 float imgui_scale( float val )
 {
     return val * ImGui::GetIO().FontGlobalScale;
