@@ -204,6 +204,8 @@ public:
     void exec_command( const std::string &command_line );
 
     void render( TraceLoader &loader );
+    void render_options( TraceLoader &loader );
+    void render_log( TraceLoader &loader );
 
 protected:
     static int text_edit_cb_stub( ImGuiTextEditCallbackData *data );

@@ -92,6 +92,70 @@ static void imgui_draw_text( float x, float y, const char *text, ImU32 color )
     ImGui::GetWindowDrawList()->AddText( ImVec2( x, y ), color, text );
 }
 
+static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
+{
+    if ( w < 0.0f )
+    {
+        x += w;
+        w = -w;
+    }
+
+    if ( w <= 1.0f )
+        ImGui::GetWindowDrawList()->AddLine( ImVec2( x, y - 0.5f ), ImVec2( x, y + h - 0.5f ), color );
+    else
+        ImGui::GetWindowDrawList()->AddRectFilled( ImVec2( x, y ), ImVec2( x + w, y + h ), color );
+}
+
+static int imgui_ini_save_settings_cb( CIniFile *inifile, int index, const ImGuiIniData &data )
+{
+    std::string section = "imguiwin_";
+
+    section += data.Name;
+
+    inifile->PutStr( "name", data.Name, section.c_str() );
+    inifile->PutVec2( "pos", data.Pos, section.c_str() );
+    inifile->PutVec2( "size", data.Size, section.c_str() );
+    inifile->PutInt( "collapsed", data.Collapsed, section.c_str() );
+
+    inifile->PutStr( std::to_string( index ).c_str(), section.c_str(), "$imguiwindows$" );
+    inifile->PutStr( std::to_string( index + 1 ).c_str(), "", "$imguiwindows$" );
+    return 0;
+}
+
+static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniData &data )
+{
+    std::string section = inifile->GetStr( std::to_string( index ).c_str(), "", "$imguiwindows$" );
+
+    if ( !section.empty() )
+    {
+        std::string name = inifile->GetStr( "name", "", section.c_str() );
+
+        if ( !name.empty() )
+        {
+            data.Pos = inifile->GetVec2( "pos", ImVec2( 0, 0 ), section.c_str() );
+            data.Size = inifile->GetVec2( "size", ImVec2( 0, 0 ), section.c_str() );
+            data.Collapsed = inifile->GetInt( "collapsed", 0, section.c_str() );
+            data.Name = strdup( name.c_str() );
+        }
+        return 0;
+    }
+
+    return -1;
+}
+
+template < typename T >
+void imgui_headers( const char *title, const T &headers )
+{
+    ImGui::Columns( headers.size(), "events" );
+
+    for ( const char *str : headers )
+    {
+        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", str );
+        ImGui::NextColumn();
+    }
+    ImGui::Separator();
+}
+
 /*
  * StrPool
  */
@@ -340,8 +404,8 @@ void TraceLoader::shutdown()
         delete events;
     m_trace_events_list.clear();
 
-    m_inifile.PutInt( "show_events_list", m_show_events_list );
     m_inifile.PutInt( "fullscreen", m_fullscreen );
+    m_inifile.PutInt( "show_events_list", m_show_events_list );
     m_inifile.PutInt( "graph_row_count", m_graph_row_count );
     m_inifile.PutInt( "show_color_picker", m_show_color_picker );
     m_inifile.PutInt( "sync_eventlist_to_graph", m_sync_eventlist_to_graph );
@@ -724,18 +788,6 @@ bool TraceWin::render()
     return m_open;
 }
 
-template < typename T >
-void imgui_headers( const char *title, const T &headers )
-{
-    ImGui::Columns( headers.size(), "events" );
-    for ( const char *str : headers )
-    {
-        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", str );
-        ImGui::NextColumn();
-    }
-    ImGui::Separator();
-}
-
 void TraceWin::render_info()
 {
     size_t event_count = m_trace_events->m_events.size();
@@ -1054,20 +1106,6 @@ void TraceWin::render_events_list( CIniFile &inifile )
     imgui_pop_smallfont();
 }
 
-static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
-{
-    if ( w < 0.0f )
-    {
-        x += w;
-        w = -w;
-    }
-
-    if ( w <= 1.0f )
-        ImGui::GetWindowDrawList()->AddLine( ImVec2( x, y - 0.5f ), ImVec2( x, y + h - 0.5f ), color );
-    else
-        ImGui::GetWindowDrawList()->AddRectFilled( ImVec2( x, y ), ImVec2( x + w, y + h ), color );
-}
-
 class event_renderer_t
 {
 public:
@@ -1338,7 +1376,7 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
     float x0 = gi.ts_to_x( tsstart );
     float dx = gi.w * MSECS_PER_SEC * gi.tsdxrcp;
 
-    if ( dx > 4.0f )
+    if ( dx > imgui_scale( 4.0f ) )
     {
         for ( ; x0 <= gi.w; x0 += dx )
         {
@@ -1346,7 +1384,7 @@ void TraceWin::render_graph_vblanks( class graph_info_t *pgi )
                             gi.pos.y, imgui_scale( 16.0f ),
                             col_get( col_TimeTick ) );
 
-            if ( dx >= 35.0f )
+            if ( dx >= imgui_scale( 35.0f ) )
             {
                 for ( int i = 1; i < 4; i++ )
                 {
@@ -1773,7 +1811,6 @@ void TraceConsole::init( CIniFile *inifile )
     logf( "Welcome to gpuvis\n" );
 
     logf( "graph shortcuts:" );
-    logf( "  double click: go to location in event list" );
     logf( "  shift+click+drag: zoom to selection" );
     logf( "  click+drag: pan graph" );
 
@@ -1794,6 +1831,161 @@ void TraceConsole::shutdown( CIniFile *inifile )
     inifile->PutVec4( "clearcolor", m_clear_color );
 
     m_history.clear();
+}
+
+void TraceConsole::render_options( TraceLoader &loader )
+{
+    ImGui::Text( "Clear Color:" );
+    ImGui::SameLine();
+    ImGui::ColorEdit3( "", ( float * )&m_clear_color );
+
+    ImGui::Separator();
+
+    ImGui::Text( "Imgui debug: " );
+
+    ImGui::SameLine();
+    if ( ImGui::Button( "Style Editor" ) )
+        m_show_imgui_style_editor ^= 1;
+
+    ImGui::SameLine();
+    if ( ImGui::Button( "Metrics" ) )
+        m_show_imgui_metrics_editor ^= 1;
+
+    ImGui::SameLine();
+    if ( ImGui::Button( "Test Window" ) )
+        m_show_imgui_test_window ^= 1;
+
+    ImGui::Separator();
+
+    ImGui::Checkbox( "Show Events List when opening new Trace Windows",
+                     &loader.m_show_events_list );
+
+    ImGui::Checkbox( "Fullscreen Trace Window",
+                     &loader.m_fullscreen );
+
+    ImGui::Checkbox( "Sync event list to graph mouse location",
+                     &loader.m_sync_eventlist_to_graph );
+
+    for ( int i = 0; i <= loader.m_crtc_max; i++ )
+    {
+        std::string label = string_format(
+                    "Show drm_vblank_event crtc%d markers", i );
+
+        ImGui::Checkbox( label.c_str(), &loader.m_render_crtc[ i ] );
+    }
+
+    ImGui::Checkbox( "Show graph color picker",
+                     &loader.m_show_color_picker );
+
+    ImGui::Text( "Event List Row Count:" );
+
+    ImGui::SameLine();
+    ImGui::PushItemWidth( imgui_scale( 150.0f ) );
+    ImGui::SliderInt( "##EventListRowCount", &loader.m_eventlist_row_count, 0, 100 );
+    ImGui::PopItemWidth();
+}
+
+void TraceConsole::render_log( TraceLoader &loader )
+{
+    ImGui::Text( "Log Filter:" );
+    ImGui::SameLine();
+    ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, ImVec2( 0, 0 ) );
+    m_filter.Draw( "##log-filter", 180 );
+    ImGui::PopStyleVar();
+
+    ImGui::SameLine();
+    if ( ImGui::SmallButton( "Clear" ) )
+        logf_clear();
+
+    ImGui::SameLine();
+    if ( ImGui::SmallButton( "Scroll to bottom" ) )
+        m_log_size = ( size_t )-1;
+
+    ImGui::Separator();
+
+    {
+        ImGui::BeginChild( "ScrollingRegion",
+                           ImVec2( 0, -ImGui::GetItemsLineHeightWithSpacing() ),
+                           false, ImGuiWindowFlags_HorizontalScrollbar );
+
+        // Log popup menu
+        if ( ImGui::BeginPopupContextWindow() )
+        {
+            if ( ImGui::Selectable( "Clear" ) )
+                logf_clear();
+            ImGui::EndPopup();
+        }
+
+        // Display every line as a separate entry so we can change their color or add custom widgets. If you only want raw text you can use ImGui::TextUnformatted(log.begin(), log.end());
+        // NB- if you have thousands of entries this approach may be too inefficient and may require user-side clipping to only process visible items.
+        // You can seek and display only the lines that are visible using the ImGuiListClipper helper, if your elements are evenly spaced and you have cheap random access to the elements.
+        // To use the clipper we could replace the 'for (int i = 0; i < Items.Size; i++)' loop with:
+        //     ImGuiListClipper clipper(Items.Size);
+        //     while (clipper.Step())
+        //         for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
+        // However take note that you can not use this code as is if a filter is active because it breaks the 'cheap random-access' property. We would need random-access on the post-filtered list.
+        // A typical application wanting coarse clipping and filtering may want to pre-compute an array of indices that passed the filtering test, recomputing this array when user changes the filter,
+        // and appending newly elements as they are inserted. This is left as a task to the user until we can manage to improve this example code!
+        // If your items are of variable size you may want to implement code similar to what ImGuiListClipper does. Or split your data into fixed height items to allow random-seeking into your list.
+
+        // Tighten spacing
+        ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2( 4, 1 ) );
+
+        const std::vector< char * > &log = logf_get();
+        for ( const char *item : log )
+        {
+            if ( !m_filter.PassFilter( item ) )
+                continue;
+
+            ImVec4 col = ImVec4( 1.0f, 1.0f, 1.0f, 1.0f );
+
+            if ( !strncasecmp( item, "[error]", 7 ) )
+                col = ImColor( 1.0f, 0.4f, 0.4f, 1.0f );
+            else if ( strncmp( item, "# ", 2 ) == 0 )
+                col = ImColor( 1.0f, 0.78f, 0.58f, 1.0f );
+
+            ImGui::PushStyleColor( ImGuiCol_Text, col );
+            ImGui::TextUnformatted( item );
+            ImGui::PopStyleColor();
+        }
+
+        if ( m_log_size != log.size() )
+        {
+            ImGui::SetScrollHere();
+
+            m_log_size = log.size();
+        }
+
+        ImGui::PopStyleVar();
+        ImGui::EndChild();
+    }
+
+    ImGui::Separator();
+
+    // Command-line
+    ImGui::Text( "Command:" );
+
+    ImGui::SameLine();
+    m_inputbuf.reserve( 512 );
+    if ( ImGui::InputText( "##log-command", &m_inputbuf[ 0 ], m_inputbuf.capacity(),
+                           ImGuiInputTextFlags_EnterReturnsTrue |
+                               ImGuiInputTextFlags_CallbackCompletion |
+                               ImGuiInputTextFlags_CallbackHistory |
+                               ImGuiInputTextFlags_CallbackCharFilter,
+                           &text_edit_cb_stub, ( void * )this ) )
+    {
+        exec_command( m_inputbuf.c_str() );
+
+        m_inputbuf = "";
+    }
+
+    // Keep auto focus on the input box
+    if ( ImGui::IsItemHovered() ||
+         ( ImGui::IsRootWindowOrAnyChildFocused() && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked( 0 ) ) )
+    {
+        // Auto focus previous widget
+        ImGui::SetKeyboardFocusHere( -1 );
+    }
 }
 
 void TraceConsole::render( TraceLoader &loader )
@@ -1884,158 +2076,10 @@ void TraceConsole::render( TraceLoader &loader )
     }
 
     if ( ImGui::CollapsingHeader( "Options", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        ImGui::Text( "Clear Color:" );
-        ImGui::SameLine();
-        ImGui::ColorEdit3( "", ( float * )&m_clear_color );
-
-        ImGui::Separator();
-
-        ImGui::Text( "Imgui debug: " );
-
-        ImGui::SameLine();
-        if ( ImGui::Button( "Style Editor" ) )
-            m_show_imgui_style_editor ^= 1;
-
-        ImGui::SameLine();
-        if ( ImGui::Button( "Metrics" ) )
-            m_show_imgui_metrics_editor ^= 1;
-
-        ImGui::SameLine();
-        if ( ImGui::Button( "Test Window" ) )
-            m_show_imgui_test_window ^= 1;
-
-        ImGui::Separator();
-
-        ImGui::Checkbox( "Show Events List when opening new Trace Windows",
-                         &loader.m_show_events_list );
-
-        ImGui::Checkbox( "Fullscreen Trace Window",
-                         &loader.m_fullscreen );
-
-        ImGui::Checkbox( "Sync event list to graph mouse location",
-                         &loader.m_sync_eventlist_to_graph );
-
-        for ( int i = 0; i <= loader.m_crtc_max; i++ )
-        {
-            std::string label = string_format(
-                "Show drm_vblank_event crtc%d markers", i );
-
-            ImGui::Checkbox( label.c_str(), &loader.m_render_crtc[ i ] );
-        }
-
-        ImGui::Checkbox( "Show graph color picker",
-                         &loader.m_show_color_picker );
-
-        ImGui::Text( "Event List Row Count:" );
-        ImGui::SameLine();
-        ImGui::PushItemWidth( imgui_scale( 150.0f ) );
-        ImGui::SliderInt( "##EventListRowCount", &loader.m_eventlist_row_count, 0, 100 );
-        ImGui::PopItemWidth();
-    }
+        render_options( loader );
 
     if ( ImGui::CollapsingHeader( "Log", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        ImGui::Text( "Log Filter:" );
-        ImGui::SameLine();
-        ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, ImVec2( 0, 0 ) );
-        m_filter.Draw( "##log-filter", 180 );
-        ImGui::PopStyleVar();
-
-        ImGui::SameLine();
-        if ( ImGui::SmallButton( "Clear" ) )
-            logf_clear();
-
-        ImGui::SameLine();
-        if ( ImGui::SmallButton( "Scroll to bottom" ) )
-            m_log_size = ( size_t )-1;
-
-        ImGui::Separator();
-
-        {
-            ImGui::BeginChild( "ScrollingRegion",
-                               ImVec2( 0, -ImGui::GetItemsLineHeightWithSpacing() ),
-                               false, ImGuiWindowFlags_HorizontalScrollbar );
-
-            // Log popup menu
-            if ( ImGui::BeginPopupContextWindow() )
-            {
-                if ( ImGui::Selectable( "Clear" ) )
-                    logf_clear();
-                ImGui::EndPopup();
-            }
-
-            // Display every line as a separate entry so we can change their color or add custom widgets. If you only want raw text you can use ImGui::TextUnformatted(log.begin(), log.end());
-            // NB- if you have thousands of entries this approach may be too inefficient and may require user-side clipping to only process visible items.
-            // You can seek and display only the lines that are visible using the ImGuiListClipper helper, if your elements are evenly spaced and you have cheap random access to the elements.
-            // To use the clipper we could replace the 'for (int i = 0; i < Items.Size; i++)' loop with:
-            //     ImGuiListClipper clipper(Items.Size);
-            //     while (clipper.Step())
-            //         for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
-            // However take note that you can not use this code as is if a filter is active because it breaks the 'cheap random-access' property. We would need random-access on the post-filtered list.
-            // A typical application wanting coarse clipping and filtering may want to pre-compute an array of indices that passed the filtering test, recomputing this array when user changes the filter,
-            // and appending newly elements as they are inserted. This is left as a task to the user until we can manage to improve this example code!
-            // If your items are of variable size you may want to implement code similar to what ImGuiListClipper does. Or split your data into fixed height items to allow random-seeking into your list.
-
-            // Tighten spacing
-            ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2( 4, 1 ) );
-
-            const std::vector< char * > &log = logf_get();
-            for ( const char *item : log )
-            {
-                if ( !m_filter.PassFilter( item ) )
-                    continue;
-
-                ImVec4 col = ImVec4( 1.0f, 1.0f, 1.0f, 1.0f );
-
-                if ( !strncasecmp( item, "[error]", 7 ) )
-                    col = ImColor( 1.0f, 0.4f, 0.4f, 1.0f );
-                else if ( strncmp( item, "# ", 2 ) == 0 )
-                    col = ImColor( 1.0f, 0.78f, 0.58f, 1.0f );
-
-                ImGui::PushStyleColor( ImGuiCol_Text, col );
-                ImGui::TextUnformatted( item );
-                ImGui::PopStyleColor();
-            }
-
-            if ( m_log_size != log.size() )
-            {
-                ImGui::SetScrollHere();
-
-                m_log_size = log.size();
-            }
-
-            ImGui::PopStyleVar();
-            ImGui::EndChild();
-        }
-
-        ImGui::Separator();
-
-        // Command-line
-        ImGui::Text( "Command:" );
-
-        ImGui::SameLine();
-        m_inputbuf.reserve( 512 );
-        if ( ImGui::InputText( "##log-command", &m_inputbuf[ 0 ], m_inputbuf.capacity(),
-                               ImGuiInputTextFlags_EnterReturnsTrue |
-                                   ImGuiInputTextFlags_CallbackCompletion |
-                                   ImGuiInputTextFlags_CallbackHistory |
-                                   ImGuiInputTextFlags_CallbackCharFilter,
-                               &text_edit_cb_stub, ( void * )this ) )
-        {
-            exec_command( m_inputbuf.c_str() );
-
-            m_inputbuf = "";
-        }
-
-        // Keep auto focus on the input box
-        if ( ImGui::IsItemHovered() ||
-             ( ImGui::IsRootWindowOrAnyChildFocused() && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked( 0 ) ) )
-        {
-            // Auto focus previous widget
-            ImGui::SetKeyboardFocusHere( -1 );
-        }
-    }
+        render_log( loader );
 
     if ( m_show_imgui_test_window )
         ImGui::ShowTestWindow( &m_show_imgui_test_window );
@@ -2217,43 +2261,6 @@ int TraceConsole::text_edit_cb_stub( ImGuiTextEditCallbackData *data )
     }
 
     return ret;
-}
-
-static int imgui_ini_save_settings_cb( CIniFile *inifile, int index, const ImGuiIniData &data )
-{
-    std::string section = "imguiwin_";
-
-    section += data.Name;
-
-    inifile->PutStr( "name", data.Name, section.c_str() );
-    inifile->PutVec2( "pos", data.Pos, section.c_str() );
-    inifile->PutVec2( "size", data.Size, section.c_str() );
-    inifile->PutInt( "collapsed", data.Collapsed, section.c_str() );
-
-    inifile->PutStr( std::to_string( index ).c_str(), section.c_str(), "$imguiwindows$" );
-    inifile->PutStr( std::to_string( index + 1 ).c_str(), "", "$imguiwindows$" );
-    return 0;
-}
-
-static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniData &data )
-{
-    std::string section = inifile->GetStr( std::to_string( index ).c_str(), "", "$imguiwindows$" );
-
-    if ( !section.empty() )
-    {
-        std::string name = inifile->GetStr( "name", "", section.c_str() );
-
-        if ( !name.empty() )
-        {
-            data.Pos = inifile->GetVec2( "pos", ImVec2( 0, 0 ), section.c_str() );
-            data.Size = inifile->GetVec2( "size", ImVec2( 0, 0 ), section.c_str() );
-            data.Collapsed = inifile->GetInt( "collapsed", 0, section.c_str() );
-            data.Name = strdup( name.c_str() );
-        }
-        return 0;
-    }
-
-    return -1;
 }
 
 static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
