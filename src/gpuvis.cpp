@@ -2309,6 +2309,24 @@ int SDL_GetWindowBordersSize( SDL_Window *window, int *top, int *left, int *bott
 }
 #endif
 
+static void sdl_setwindow_icon( SDL_Window *window )
+{
+#include "gpuvis_icon.c"
+
+    SDL_Surface *surface = SDL_CreateRGBSurfaceFrom(
+                s_icon.pixel_data,
+                s_icon.width,
+                s_icon.height,
+                s_icon.bytes_per_pixel * 8,
+                s_icon.width * s_icon.bytes_per_pixel,
+                IM_COL32( 0xff, 0, 0, 0 ),
+                IM_COL32( 0, 0xff, 0, 0 ),
+                IM_COL32( 0, 0, 0xff, 0 ),
+                IM_COL32( 0, 0, 0, 0xff ) );
+
+    SDL_SetWindowIcon( window, surface );
+}
+
 int main( int argc, char **argv )
 {
     CIniFile inifile;
@@ -2359,6 +2377,7 @@ int main( int argc, char **argv )
 
     window = SDL_CreateWindow( "GPUVis", x, y, w, h,
                                SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE );
+    sdl_setwindow_icon( window );
 
     SDL_GLContext glcontext = SDL_GL_CreateContext( window );
 
