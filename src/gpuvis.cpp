@@ -310,6 +310,7 @@ void TraceLoader::init()
     m_graph_row_count = m_inifile.GetInt( "graph_row_count", -1 );
     m_show_color_picker = m_inifile.GetInt( "show_color_picker", 0 );
     m_sync_eventlist_to_graph = m_inifile.GetInt( "sync_eventlist_to_graph", 0 );
+    m_eventlist_row_count = m_inifile.GetInt( "eventlist_row_count", 0 );
 
     for ( size_t i = 0; i < m_render_crtc.size(); i++ )
     {
@@ -346,6 +347,7 @@ void TraceLoader::shutdown()
     m_inifile.PutInt( "graph_row_count", m_graph_row_count );
     m_inifile.PutInt( "show_color_picker", m_show_color_picker );
     m_inifile.PutInt( "sync_eventlist_to_graph", m_sync_eventlist_to_graph );
+    m_inifile.PutInt( "eventlist_row_count", m_eventlist_row_count );
 
     for ( size_t i = 0; i < m_render_crtc.size(); i++ )
     {
@@ -881,8 +883,6 @@ void TraceWin::render_events_list( CIniFile &inifile )
         ImGui::SetNextWindowFocus();
 
     // Events list
-    ImVec2 avail = ImGui::GetContentRegionAvail();
-
     ImFontAtlas *atlas = ImGui::GetIO().Fonts;
     if ( atlas->Fonts.Size > 1 )
         ImGui::PushFont( atlas->Fonts[ 1 ] );
@@ -890,7 +890,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
     {
         // Set the child window size to hold count of items + header + separator
         float lineh = ImGui::GetTextLineHeightWithSpacing();
-        float y = ( avail.y < imgui_scale( 384.0f ) ) ? imgui_scale( 384.0f ) : 0.0f;
+        float y = m_loader.m_eventlist_row_count * lineh;
 
         ImGui::SetNextWindowContentSize( { 0.0f, ( event_count + 1 ) * lineh + 1 } );
         ImGui::BeginChild( "eventlistbox", ImVec2( 0.0f, y ) );
@@ -1931,6 +1931,12 @@ void TraceConsole::render( TraceLoader &loader )
 
         ImGui::Checkbox( "Show graph color picker",
                          &loader.m_show_color_picker );
+
+        ImGui::Text( "Event List Row Count:" );
+        ImGui::SameLine();
+        ImGui::PushItemWidth( imgui_scale( 150.0f ) );
+        ImGui::SliderInt( "##EventListRowCount", &loader.m_eventlist_row_count, 0, 100 );
+        ImGui::PopItemWidth();
     }
 
     if ( ImGui::CollapsingHeader( "Log", ImGuiTreeNodeFlags_DefaultOpen ) )
