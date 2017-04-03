@@ -359,6 +359,9 @@ public:
         const char *comm;
     };
     std::vector< comm_t > m_comm_info;
+
+    const int64_t g_min_graph_length = 100;
+    const int64_t g_max_graph_length = 5000 * MSECS_PER_SEC;
 };
 
 class TraceLoader
