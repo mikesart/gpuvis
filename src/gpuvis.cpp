@@ -309,6 +309,7 @@ void TraceLoader::init()
     m_show_events_list = m_inifile.GetInt( "show_events_list", 0 );
     m_graph_row_count = m_inifile.GetInt( "graph_row_count", -1 );
     m_show_color_picker = m_inifile.GetInt( "show_color_picker", 0 );
+    m_sync_eventlist_to_graph = m_inifile.GetInt( "sync_eventlist_to_graph", 0 );
 
     for ( size_t i = 0; i < m_render_crtc.size(); i++ )
     {
@@ -344,6 +345,7 @@ void TraceLoader::shutdown()
     m_inifile.PutInt( "fullscreen", m_fullscreen );
     m_inifile.PutInt( "graph_row_count", m_graph_row_count );
     m_inifile.PutInt( "show_color_picker", m_show_color_picker );
+    m_inifile.PutInt( "sync_eventlist_to_graph", m_sync_eventlist_to_graph );
 
     for ( size_t i = 0; i < m_render_crtc.size(); i++ )
     {
@@ -703,6 +705,7 @@ bool TraceWin::render()
         if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_timeoffset_buf, 32, 150 ) )
             m_tsoffset = timestr_to_ts( m_timeoffset_buf.c_str() );
 
+        ImGui::SameLine();
         m_do_gotoevent |= imgui_input_int( &m_goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
 
         ImGui::SameLine();
@@ -918,7 +921,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
         if ( m_do_gotoevent )
         {
             m_goto_eventid = std::min< uint32_t >( m_goto_eventid, event_count - 1 );
-            ImGui::SetScrollY( std::max< int >( 0, m_goto_eventid - m_start_eventid - 6 ) * lineh );
+            ImGui::SetScrollY( std::max< int >( 0, m_goto_eventid - m_start_eventid ) * lineh );
 
             m_do_gotoevent = false;
         }
@@ -1670,6 +1673,14 @@ void TraceWin::render_mouse_graph( class graph_info_t *pgi )
                 time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 );
         }
 
+        if ( m_loader.m_sync_eventlist_to_graph &&
+             m_show_eventlist &&
+             !gi.hovered_items.empty() )
+        {
+            m_do_gotoevent = true;
+            m_goto_eventid = gi.hovered_items[ 0 ].eventid;
+        }
+
         // Show tooltip with the closest events we could drum up
         for ( graph_info_t::hovered_t &hov : gi.hovered_items )
         {
@@ -1906,6 +1917,9 @@ void TraceConsole::render( TraceLoader &loader )
 
         ImGui::Checkbox( "Fullscreen Trace Window",
                          &loader.m_fullscreen );
+
+        ImGui::Checkbox( "Sync event list to graph mouse location",
+                         &loader.m_sync_eventlist_to_graph );
 
         for ( int i = 0; i <= loader.m_crtc_max; i++ )
         {

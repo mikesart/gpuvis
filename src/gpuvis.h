@@ -409,6 +409,7 @@ public:
     bool m_fullscreen = false;
     bool m_show_events_list = false;
     bool m_show_color_picker = false;
+    bool m_sync_eventlist_to_graph = false;
     std::array< bool, 10 > m_render_crtc;
     std::vector< std::string > m_inputfiles;
 };
