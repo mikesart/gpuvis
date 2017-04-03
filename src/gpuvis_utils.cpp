@@ -237,24 +237,16 @@ bool imgui_key_pressed( ImGuiKey key )
 
 void imgui_load_fonts()
 {
+#include "proggy_tiny.cpp"
+
     ImGuiIO &io = ImGui::GetIO();
 
+    // Add default font
     io.Fonts->AddFontDefault();
 
-    std::array< const char *, 3 > fontpaths =
-    {
-        "./fonts/ProggyTiny.ttf",
-        "../fonts/ProggyTiny.ttf",
-        "./ProggyTiny.ttf"
-    };
-    for ( const char *fontname : fontpaths )
-    {
-        if ( io.Fonts->AddFontFromFileTTF( fontname, 10.0f ) )
-        {
-            logf( "Loaded font: %s", fontname );
-            break;
-        }
-    }
+    // Add ProggyTiny font
+    ImFont* font = io.Fonts->AddFontFromMemoryCompressedTTF(
+        ProggyTiny_compressed_data, ProggyTiny_compressed_size, 10.0f );
 }
 
 void imgui_ini_settings( CIniFile &inifile, bool save )
