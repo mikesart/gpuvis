@@ -50,8 +50,6 @@
 
 //$ TODO: popup graph tooltip shows events around location you're at?
 
-//$ TODO: event list follows mouse cursor option
-
 static const int64_t g_min_graph_length = 100;
 static const int64_t g_max_graph_length = 5000 * MSECS_PER_SEC;
 
