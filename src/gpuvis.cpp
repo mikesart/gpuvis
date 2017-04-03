@@ -308,6 +308,7 @@ void TraceLoader::init()
     m_fullscreen = m_inifile.GetInt( "fullscreen", 0 );
     m_show_events_list = m_inifile.GetInt( "show_events_list", 0 );
     m_graph_row_count = m_inifile.GetInt( "graph_row_count", -1 );
+    m_show_color_picker = m_inifile.GetInt( "show_color_picker", 0 );
 
     for ( size_t i = 0; i < m_render_crtc.size(); i++ )
     {
@@ -342,6 +343,7 @@ void TraceLoader::shutdown()
     m_inifile.PutInt( "show_events_list", m_show_events_list );
     m_inifile.PutInt( "fullscreen", m_fullscreen );
     m_inifile.PutInt( "graph_row_count", m_graph_row_count );
+    m_inifile.PutInt( "show_color_picker", m_show_color_picker );
 
     for ( size_t i = 0; i < m_render_crtc.size(); i++ )
     {
