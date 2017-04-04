@@ -151,24 +151,18 @@ public:
 
 public:
     // Return vec of locations for an event name. Ie: "drm_handle_vblank"
-    std::vector< uint32_t > &get_event_locs( const char *name )
+    const std::vector< uint32_t > *get_event_locs( const char *name )
     {
-        std::vector< uint32_t > *pvec = m_event_locations.get_locations( name );
-
-        return pvec ? *pvec : m_emptyvec;
+        return m_event_locations.get_locations( name );
     }
 
     // Return vec of locations for a cmdline. Ie: "SkinningApp-1536"
-    std::vector< uint32_t > &get_comm_locs( const char *name )
+    const std::vector< uint32_t > *get_comm_locs( const char *name )
     {
-        std::vector< uint32_t > *pvec = m_comm_locations.get_locations( name );
-
-        return pvec ? *pvec : m_emptyvec;
+        return m_comm_locations.get_locations( name );
     }
 
 public:
-    std::vector< uint32_t > m_emptyvec;
-
     int64_t m_ts_min = 0;
     std::vector< uint32_t > m_cpucount;
 
@@ -263,7 +257,7 @@ protected:
     void render_color_picker();
 
     void render_process_graph();
-    void render_graph_row( const std::string &comm, std::vector< uint32_t > &locs, class graph_info_t &gi );
+    void render_graph_row( const std::string &comm, const std::vector< uint32_t > &locs, class graph_info_t &gi );
     void render_graph_vblanks( class graph_info_t &gi );
     bool render_graph_popup();
 

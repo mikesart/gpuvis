@@ -416,11 +416,11 @@ void TraceLoader::render()
 void TraceWin::render_time_offset_button_init( TraceEvents &trace_events )
 {
     std::vector< trace_event_t > &events = trace_events.m_events;
-    const std::vector< uint32_t > &vblank_locs = trace_events.get_event_locs( "drm_vblank_event" );
+    const std::vector< uint32_t > *vblank_locs = trace_events.get_event_locs( "drm_vblank_event" );
 
-    if ( !vblank_locs.empty() )
+    if ( vblank_locs )
     {
-        uint32_t id = vblank_locs.back();
+        uint32_t id = vblank_locs->back();
 
         m_do_gotoevent = true;
         m_goto_eventid = id;

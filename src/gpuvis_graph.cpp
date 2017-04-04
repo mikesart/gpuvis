@@ -292,7 +292,7 @@ void TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, trace_e
     }
 }
 
-void TraceWin::render_graph_row( const std::string &comm, std::vector< uint32_t > &locs, graph_info_t &gi )
+void TraceWin::render_graph_row( const std::string &comm, const std::vector< uint32_t > &locs, graph_info_t &gi )
 {
     // Draw background
     ImGui::GetWindowDrawList()->AddRectFilled(
@@ -392,28 +392,31 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
     }
 
     // Draw vblank events on every graph.
-    const std::vector< uint32_t > &vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
+    const std::vector< uint32_t > *vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
 
-    for ( size_t idx = vec_find_eventid( vblank_locs, gi.eventstart );
-          idx < vblank_locs.size();
-          idx++ )
+    if ( vblank_locs )
     {
-        uint32_t id = vblank_locs[ idx ];
-
-        if ( id > gi.eventend )
-            break;
-
-        trace_event_t &event = m_trace_events->m_events[ id ];
-        if ( ( ( size_t )event.crtc < m_loader.m_render_crtc.size() ) &&
-             m_loader.m_render_crtc[ event.crtc ] )
+        for ( size_t idx = vec_find_eventid( *vblank_locs, gi.eventstart );
+              idx < vblank_locs->size();
+              idx++ )
         {
-            // drm_vblank_event0: blue, drm_vblank_event1: red
-            colors_t col = ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0;
-            float x = gi.ts_to_screenx( event.ts );
+            uint32_t id = vblank_locs->at( idx );
 
-            imgui_drawrect( x, imgui_scale( 2.0f ),
-                            gi.y, gi.h,
-                            col_get( col ) );
+            if ( id > gi.eventend )
+                break;
+
+            trace_event_t &event = m_trace_events->m_events[ id ];
+            if ( ( ( size_t )event.crtc < m_loader.m_render_crtc.size() ) &&
+                 m_loader.m_render_crtc[ event.crtc ] )
+            {
+                // drm_vblank_event0: blue, drm_vblank_event1: red
+                colors_t col = ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0;
+                float x = gi.ts_to_screenx( event.ts );
+
+                imgui_drawrect( x, imgui_scale( 2.0f ),
+                                gi.y, gi.h,
+                                col_get( col ) );
+            }
         }
     }
 
@@ -489,22 +492,19 @@ void TraceWin::render_process_graph()
     struct row_info_t
     {
         const std::string &comm;
-        std::vector< uint32_t > &locs;
+        const std::vector< uint32_t > &locs;
     };
     std::vector< row_info_t > row_info;
 
     for ( const std::string &comm : m_graph_rows )
     {
-        std::vector< uint32_t > &locs = m_trace_events->get_comm_locs( comm.c_str() );
+        const std::vector< uint32_t > *plocs = m_trace_events->get_comm_locs( comm.c_str() );
 
-        if ( locs.empty() )
-        {
-            locs = m_trace_events->get_event_locs( comm.c_str() );
-            if ( locs.empty() )
-                continue;
-        }
+        if ( !plocs )
+            plocs = m_trace_events->get_event_locs( comm.c_str() );
 
-        row_info.push_back( { comm, locs } );
+        if ( plocs )
+            row_info.push_back( { comm, *plocs } );
     }
     if ( row_info.empty() )
         return;
@@ -691,18 +691,18 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
 {
     std::string time_buf = "Time: " + ts_to_timestr( mouse_ts, m_tsoffset );
 
-    const std::vector< uint32_t > &vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
-    if ( !vblank_locs.empty() )
+    const std::vector< uint32_t > *vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
+    if ( vblank_locs )
     {
         int64_t prev_vblank_ts = INT64_MAX;
         int64_t next_vblank_ts = INT64_MAX;
         int eventid = ts_to_eventid( mouse_ts );
-        size_t idx = vec_find_eventid( vblank_locs, eventid );
-        size_t idxmax = std::min( idx + 20, vblank_locs.size() );
+        size_t idx = vec_find_eventid( *vblank_locs, eventid );
+        size_t idxmax = std::min( idx + 20, vblank_locs->size() );
 
         for ( idx = ( idx > 10 ) ? ( idx - 10 ) : 0; idx < idxmax; idx++ )
         {
-            trace_event_t &event = m_trace_events->m_events[ vblank_locs[ idx ] ];
+            trace_event_t &event = m_trace_events->m_events[ vblank_locs->at( idx ) ];
 
             if ( ( ( size_t )event.crtc < m_loader.m_render_crtc.size() ) &&
                  m_loader.m_render_crtc[ event.crtc ] )
@@ -738,15 +738,18 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
     for ( graph_info_t::hovered_t &hov : gi.hovered_items )
     {
         std::string crtc;
+        std::string seqno;
         trace_event_t &event = m_trace_events->m_events[ hov.eventid ];
 
         if ( event.crtc >= 0 )
             crtc = std::to_string( event.crtc );
+        if ( event.seqno > 0 )
+            seqno = string_format( " seqno:%d", event.seqno );
 
-        time_buf += string_format( "\n%u %c%s %s%s",
+        time_buf += string_format( "\n%u %c%s %s%s%s",
                                    hov.eventid, hov.neg ? '-' : ' ',
                                    ts_to_timestr( hov.dist_ts ).c_str(),
-                                   event.name, crtc.c_str() );
+                                   event.name, crtc.c_str(), seqno.c_str() );
 
         if ( !strcmp( event.system, "ftrace-print" ) )
         {
