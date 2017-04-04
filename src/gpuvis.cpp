@@ -39,16 +39,9 @@
 #include "GL/gl3w.h"
 #include "gpuvis.h"
 
-//$ TODO: Right click on events - popup menu
-//    start graph at a specific location
-//    find event in graph
-
 //$ TODO: Add ability to show row for an event with a parameter?
-
 //$ TODO: Need to handle lots of graph rows, ie ~100
 //$ TODO: Figure out crash when you have too many graph rows and zoom out
-
-//$ TODO: popup graph tooltip shows events around location you're at?
 
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
 {
