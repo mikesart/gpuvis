@@ -828,47 +828,21 @@ void TraceWin::render_trace_info()
     }
 }
 
-//$ TODO mikesart: Temporary popup menu
 bool TraceWin::render_events_list_popup()
 {
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
         return false;
 
-    const char *names[] = { "Bream", "Haddock", "Mackerel", "Pollock", "Tilefish" };
-    static bool toggles[] = { true, false, false, false, false };
+    trace_event_t &event = m_trace_events->m_events[ m_events_list_popup_eventid ];
 
-    for ( int i = 0; i < 5; i++ )
-        ImGui::MenuItem( names[ i ], "", &toggles[ i ] );
-
-    if ( ImGui::BeginMenu( "Sub-menu" ) )
+    std::string label = string_format( "center %u on graph...", event.id );
+    if ( ImGui::MenuItem( label.c_str() ) )
     {
-        ImGui::MenuItem( "Click me" );
-        ImGui::EndMenu();
+        m_graph_start_ts = event.ts - m_tsoffset - m_graph_length_ts / 2;
+        m_do_graph_start_timestr = true;
     }
 
-    ImGui::Separator();
-    ImGui::Text( "Tooltip here" );
-
-    if ( ImGui::IsItemHovered() )
-        ImGui::SetTooltip( "I am a tooltip over a popup" );
-
-    if ( ImGui::Button( "Stacked Popup" ) )
-        ImGui::OpenPopup( "another popup" );
-
-    if ( ImGui::BeginPopup( "another popup" ) )
-    {
-        for ( int i = 0; i < 5; i++ )
-            ImGui::MenuItem( names[ i ], "", &toggles[ i ] );
-
-        if ( ImGui::BeginMenu( "Sub-menu" ) )
-        {
-            ImGui::MenuItem( "Click me" );
-            ImGui::EndMenu();
-        }
-        ImGui::EndPopup();
-    }
     ImGui::EndPopup();
-
     return true;
 }
 
