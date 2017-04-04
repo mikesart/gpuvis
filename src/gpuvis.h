@@ -277,6 +277,7 @@ protected:
 
     void init_graph_rows_str();
     void update_graph_rows_list();
+    void sanity_check_graphloc();
 
     std::unordered_map< int64_t, int > m_ts_to_eventid_cache;
 
