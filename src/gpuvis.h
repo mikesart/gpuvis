@@ -254,16 +254,25 @@ public:
 
 public:
     bool render();
-    void render_info();
-    void render_events_list( CIniFile &inifile );
-    bool render_events_list_popup();
-    void render_process_graphs();
-    void render_graph_row( const std::string &comm, std::vector< uint32_t > &locs, class graph_info_t *pgi );
-    void render_graph_vblanks( class graph_info_t *pgi );
-    void render_mouse_graph( class graph_info_t *pgi );
-    void render_color_picker();
 
 protected:
+    void render_trace_info();
+
+    void render_events_list( CIniFile &inifile );
+    bool render_events_list_popup();
+    void render_color_picker();
+
+    void render_process_graph();
+    void render_graph_row( const std::string &comm, std::vector< uint32_t > &locs, class graph_info_t &gi );
+    void render_graph_vblanks( class graph_info_t &gi );
+    bool render_graph_popup();
+
+    void handle_mouse_graph( class graph_info_t &gi );
+    void handle_mouse_graph_captured( class graph_info_t &gi );
+    void set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts );
+
+    void add_mouse_hovered_event( float x, class graph_info_t &gi,  trace_event_t &event );
+
     void render_time_offset_button_init( TraceEvents &trace_events );
 
     // Return an event id for a given time stamp
@@ -277,7 +286,7 @@ protected:
 
     void init_graph_rows_str();
     void update_graph_rows_list();
-    void sanity_check_graphloc();
+    void range_check_graph_location();
 
     std::unordered_map< int64_t, int > m_ts_to_eventid_cache;
 
@@ -334,13 +343,10 @@ public:
 
     // Currently selected event.
     uint32_t m_selected_eventid = ( uint32_t )-1;
-    uint32_t m_hovered_eventid = ( uint32_t )-1;
+    uint32_t m_hovered_eventlist_eventid = ( uint32_t )-1;
 
     uint32_t m_eventlist_start_eventid = ( uint32_t )-1;
     uint32_t m_eventlist_end_eventid = ( uint32_t )-1;
-
-    // Stack of last graph locations (right click to pop).
-    std::vector< std::pair< int64_t, int64_t > > m_graph_location_stack;
 
     // Mouse currently over our events graph?
     bool m_mouse_over_graph = false;
@@ -411,7 +417,7 @@ public:
     std::vector< TraceWin * > m_trace_windows_list;
 
     int m_crtc_max = 0;
-    int m_graph_row_count = -1;
+    int m_graph_row_count = 0;
     bool m_fullscreen = false;
     bool m_show_events_list = false;
     bool m_show_color_picker = false;

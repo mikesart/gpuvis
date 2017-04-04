@@ -341,7 +341,7 @@ void TraceLoader::init()
 {
     m_fullscreen = m_inifile.GetInt( "fullscreen", 0 );
     m_show_events_list = m_inifile.GetInt( "show_events_list", 0 );
-    m_graph_row_count = m_inifile.GetInt( "graph_row_count", -1 );
+    m_graph_row_count = m_inifile.GetInt( "graph_row_count", 0 );
     m_show_color_picker = m_inifile.GetInt( "show_color_picker", 0 );
     m_sync_eventlist_to_graph = m_inifile.GetInt( "sync_eventlist_to_graph", 0 );
     m_eventlist_row_count = m_inifile.GetInt( "eventlist_row_count", 0 );
@@ -627,7 +627,7 @@ bool TraceWin::render()
     ImGui::Begin( m_title.c_str(), &m_open );
 
     if ( ImGui::CollapsingHeader( "Trace Info" ) )
-        render_info();
+        render_trace_info();
 
     if ( m_trace_events->m_events.empty() )
     {
@@ -712,7 +712,7 @@ bool TraceWin::render()
         if ( m_do_graph_length_timestr )
             m_graphtime_length_buf = ts_to_timestr( m_graph_length_ts, 0, 4 );
 
-        render_process_graphs();
+        render_process_graph();
 
         ImGui::Indent();
         render_color_picker();
@@ -760,7 +760,7 @@ bool TraceWin::render()
     return m_open;
 }
 
-void TraceWin::render_info()
+void TraceWin::render_trace_info()
 {
     size_t event_count = m_trace_events->m_events.size();
 
@@ -980,7 +980,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
         }
 
         // Reset our hovered event id
-        m_hovered_eventid = ( uint32_t )-1;
+        m_hovered_eventlist_eventid = ( uint32_t )-1;
 
         // Draw events
         m_eventlist_start_eventid = m_start_eventid + start_idx;
@@ -1013,7 +1013,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
                  ImGui::IsRootWindowOrAnyChildFocused() )
             {
                 // Store the hovered event id.
-                m_hovered_eventid = event.id;
+                m_hovered_eventlist_eventid = event.id;
 
                 if ( ImGui::IsMouseClicked( 1 ) )
                 {
