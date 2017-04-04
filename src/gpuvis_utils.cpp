@@ -245,7 +245,7 @@ void imgui_load_fonts()
     io.Fonts->AddFontDefault();
 
     // Add ProggyTiny font
-    ImFont* font = io.Fonts->AddFontFromMemoryCompressedTTF(
+    io.Fonts->AddFontFromMemoryCompressedTTF(
         ProggyTiny_compressed_data, ProggyTiny_compressed_size, 10.0f );
 }
 

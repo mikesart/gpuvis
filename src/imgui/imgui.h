@@ -1036,8 +1036,8 @@ struct ImGuiTextEditCallbackData
     int                 SelectionEnd;   //                                      // Read-write
 
     // NB: Helper functions for text manipulation. Calling those function loses selection.
-    void    DeleteChars(int pos, int bytes_count);
-    void    InsertChars(int pos, const char* text, const char* text_end = NULL);
+    IMGUI_API void    DeleteChars(int pos, int bytes_count);
+    IMGUI_API void    InsertChars(int pos, const char* text, const char* text_end = NULL);
     bool    HasSelection() const { return SelectionStart != SelectionEnd; }
 };
 
@@ -1383,6 +1383,7 @@ struct ImFont
     ImFontConfig*               ConfigData;         //              // Pointer within ContainerAtlas->ConfigData
     ImFontAtlas*                ContainerAtlas;     //              // What we has been loaded into
     float                       Ascent, Descent;    //              // Ascent: distance from top to bottom of e.g. 'A' [0..FontSize]
+    int                         MetricsTotalSurface;//              // Total surface in pixels to get an idea of the font rasterization/texture cost (not exact, we approximate the cost of padding between glyphs)
 
     // Methods
     IMGUI_API ImFont();

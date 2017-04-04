@@ -40,7 +40,7 @@ Dear ImGui was developed by [Omar Cornut](http://www.miracleworld.net) and every
 
 Dear ImGui is licensed under the [MIT License](https://github.com/ocornut/imgui/blob/master/LICENSE)
 
-Embeds [ProggyClean.ttf](http://upperbounds.net) font by Tristan Grimmer (MIT license).
+Embeds [ProggyClean.ttf and ProggyTiny.ttf](http://upperbounds.net) font by Tristan Grimmer (MIT license).
 
 Embeds [stb_textedit.h, stb_truetype.h, stb_rectpack.h](https://github.com/nothings/stb/) by Sean Barrett (public domain).
 
