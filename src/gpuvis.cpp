@@ -445,8 +445,10 @@ void TraceWin::render_time_offset_button_init( TraceEvents &trace_events )
         m_do_gotoevent = true;
         m_goto_eventid = id;
 
-        m_tsoffset = events[ id ].ts;
-        m_timeoffset_buf = ts_to_timestr( m_tsoffset );
+        // Don't set offset time. If user cancels when loading it'll be at different locations
+        //  so let the user explicitly control this.
+        // m_tsoffset = events[ id ].ts;
+        // m_timeoffset_buf = ts_to_timestr( m_tsoffset );
     }
 }
 
