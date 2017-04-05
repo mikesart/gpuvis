@@ -392,38 +392,38 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
         {
             uint32_t eventid = locs[ idx ];
             const trace_event_t &event = m_trace_events->m_events[ eventid ];
-            const trace_event_t *event0 = ( event.id_start != ( uint32_t )-1 ) ?
-                        &m_trace_events->m_events[ event.id_start ] : NULL;
 
-            //$ TODO mikesart: can we bail out of this loop at some point if
-            //  our start times for all the graphs are > gi.ts1?
-            if ( event0 && ( event0->ts < gi.ts1 ) )
+            if ( ( event.id_start != ( uint32_t )-1 ) &&
+                 strstr( event.name, "fence_signaled" ) )
             {
-                float x0 = gi.ts_to_screenx( event0->ts );
-                float x1 = gi.ts_to_screenx( event.ts );
-                float dx = x1 - x0;
+                const trace_event_t *event1 = &m_trace_events->m_events[ event.id_start ];
+                const trace_event_t *event0 = ( event1->id_start != ( uint32_t )-1 ) ?
+                            &m_trace_events->m_events[ event1->id_start ] : event1;
 
-                if ( dx >= imgui_scale( 2.0f ) )
+                //$ TODO mikesart: can we bail out of this loop at some point if
+                //  our start times for all the graphs are > gi.ts1?
+                if ( event0->ts < gi.ts1 )
                 {
-                    ImU32 col;
-                    float y = gi.y + ( event0->blah % 3 ) * text_h;
+                    float x0 = gi.ts_to_screenx( event0->ts );
+                    float x1 = gi.ts_to_screenx( event1->ts );
+                    float x2 = gi.ts_to_screenx( event.ts );
+                    float dx = x2 - x0;
 
-                    if ( !strcmp( event0->name, "amdgpu_sched_run_job" ) )
+                    if ( dx >= imgui_scale( 2.0f ) )
                     {
-                        col = IM_COL32( 0xff, 0, 0, 80 );
-                    }
-                    else
-                    {
-                        col = IM_COL32( 0, 0xff, 0, 80 );
-                    }
+                        ImU32 col_red = IM_COL32( 0xff, 0, 0, 80 );
+                        ImU32 col_green = IM_COL32( 0, 0xff, 0, 80 );
+                        float y = gi.y + ( event1->blah % 3 ) * text_h;
 
-                    imgui_drawrect( x0, dx, y, text_h, col );
+                        imgui_drawrect( x0, x1 - x0, y, text_h, col_green );
+                        imgui_drawrect( x1, x2 - x1, y, text_h, col_red );
 
-                    if ( ( dx >= imgui_scale( 16.0f ) ) && !strcmp( event0->name, "amdgpu_sched_run_job" ) )
-                    {
-                        std::string context = get_event_gfxcontext_str( *event0 );
+                        if ( dx >= imgui_scale( 16.0f ) )
+                        {
+                            float x = std::max( x0, gi.x ) + imgui_scale( 2.0f );
 
-                        ImGui::GetWindowDrawList()->AddText( ImVec2( x0, y ), IM_COL32_WHITE, context.c_str() );
+                            ImGui::GetWindowDrawList()->AddText( ImVec2( x, y ), IM_COL32_WHITE, event0->user_comm );
+                        }
                     }
                 }
             }
@@ -452,15 +452,12 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
     }
 
     // Draw row label
-    std::string label;
-    float x = gi.x + ImGui::GetStyle().FramePadding.x;
-
-    label = string_format( "%u) %s", gi.row_num, comm.c_str() );
-    imgui_draw_text( x, gi.y, label.c_str(),
+    std::string label = string_format( "%u) %s", gi.row_num, comm.c_str() );
+    imgui_draw_text( gi.x, gi.y, label.c_str(),
                      col_get( col_RowLabel ) );
 
     label = string_format( "%u events", num_events );
-    imgui_draw_text( x, gi.y + ImGui::GetTextLineHeight(), label.c_str(),
+    imgui_draw_text( gi.x, gi.y + ImGui::GetTextLineHeight(), label.c_str(),
                      col_get( col_RowLabel ) );
 }
 
@@ -636,12 +633,14 @@ void TraceWin::render_process_graph()
         float graph_row_h = imgui_scale( 50.0f );
         float graph_row_padding = ImGui::GetStyle().FramePadding.y;
         float graph_row_h_total = graph_row_h + graph_row_padding;
-        float graph_height = std::max( row_count * graph_row_h_total, graph_row_h_total );
+        float graph_height = std::max( row_count * graph_row_h_total, graph_row_h_total ) +
+                graph_row_padding + imgui_scale( 2.0f );
 
         ImGui::BeginChild( "EventGraph", ImVec2( 0, graph_height ), true );
         {
-            ImVec2 windowpos = ImGui::GetWindowPos();
-            ImVec2 windowsize = ImGui::GetWindowSize();
+            ImVec2 windowpos = ImGui::GetWindowClipRectMin();
+            ImVec2 cliprectmax = ImGui::GetWindowClipRectMax();
+            ImVec2 windowsize = ImVec2( cliprectmax.x - windowpos.x, cliprectmax.y - windowpos.y );
 
             // Clear entire graph background
             imgui_drawrect( windowpos.x, windowsize.x,
