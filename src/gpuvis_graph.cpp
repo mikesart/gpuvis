@@ -423,14 +423,24 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
                         imgui_drawrect( x0, x1 - x0, y, text_h, col_green );
                         imgui_drawrect( x1, x2 - x1, y, text_h, col_red );
 
-                        if ( mousex >= x0 && mousex <= x2 && mousey >= y && mousey <= y + text_h )
-                            gi.hovered_graph_event = event0->id;
+                        if ( gi.hovered_graph_event == ( uint32_t )-1 )
+                        {
+                            if ( mousex >= x0 && mousex <= x2 && mousey >= y && mousey <= y + text_h )
+                            {
+                                gi.hovered_graph_event = event0->id;
+
+                                ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ),
+                                                                     ImVec2( x2, y + text_h ),
+                                                                     IM_COL32( 0, 0, 0xff, 255 ) );
+                            }
+                        }
 
                         if ( dx >= imgui_scale( 16.0f ) )
                         {
                             float x = std::max( x0, gi.x ) + imgui_scale( 2.0f );
 
-                            ImGui::GetWindowDrawList()->AddText( ImVec2( x, y ), IM_COL32_WHITE, event0->user_comm );
+                            ImGui::GetWindowDrawList()->AddText( ImVec2( x, y + imgui_scale( 1.0f ) ),
+                                                                 IM_COL32_WHITE, event0->user_comm );
                         }
                     }
                 }
