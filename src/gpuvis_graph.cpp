@@ -863,6 +863,11 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
         const std::vector< uint32_t > *plocs = m_trace_events->get_gfxcontext_locs( context.c_str() );
 
         time_buf += string_format( "\n%s [%s]", event_hov.user_comm, context.c_str() );
+
+        int64_t total_ts = m_trace_events->m_events[ plocs->back() ].ts - m_trace_events->m_events[ plocs->front() ].ts;
+        time_buf += ": ";
+        time_buf += ts_to_timestr( total_ts );
+
         int64_t ts0 = -1;
         for ( uint32_t id : *plocs )
         {
