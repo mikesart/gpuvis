@@ -323,8 +323,7 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
         trace_events->m_gfxcontext_locations.add_location_str( name.c_str(), id );
 
         // Add this event under the "gfx" map
-        //$ TODO mikesart: timeline=gfx, sdma0, other?
-        trace_events->m_timeline_locations.add_location_str( "gfx", id );
+        trace_events->m_timeline_locations.add_location_str( event.timeline, id );
 
         // Grab the event locations for this event context
         const std::vector< uint32_t > *plocs = trace_events->get_gfxcontext_locs( name.c_str() );
@@ -530,7 +529,9 @@ void TraceWin::init_graph_rows_str()
     m_graph_rows_str += "# amd_sched_job\n\n";
 
     m_graph_rows_str += "# show all items in gfx timeline\n";
-    m_graph_rows_str += "gfx\n\n";
+    m_graph_rows_str += "gfx\n";
+    m_graph_rows_str += "sdma0\n";
+    m_graph_rows_str += "sdma1\n\n";
 
     for ( auto item : m_trace_events->m_comm_locations.m_locations )
     {

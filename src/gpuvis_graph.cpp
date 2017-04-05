@@ -343,7 +343,7 @@ void TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, const t
     }
 }
 
-void TraceWin::render_graph_row( const std::string &comm, const std::vector< uint32_t > &locs, graph_info_t &gi )
+void TraceWin::render_graph_row( const std::string &comm, const std::vector< uint32_t > &locs, graph_info_t &gi, bool is_timeline )
 {
     // Draw background
     ImGui::GetWindowDrawList()->AddRectFilled(
@@ -383,13 +383,14 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
     }
     event_renderer.done();
 
-    if ( comm == "gfx" )
+    if ( is_timeline )
     {
         imgui_push_smallfont();
 
         ImVec2 hov_p0, hov_p1;
         float text_h = ImGui::GetTextLineHeightWithSpacing();
 
+        float last_fence_signaled_x = -1.0f;
         for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
               idx < locs.size();
               idx++ )
@@ -415,12 +416,25 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
 
                     if ( dx >= imgui_scale( 2.0f ) )
                     {
-                        ImU32 col_red = IM_COL32( 0xff, 0, 0, 80 );
-                        ImU32 col_green = IM_COL32( 0, 0xff, 0, 80 );
+                        ImU32 col_red = col_get( col_BarHwRunning );
+                        ImU32 col_green = col_get( col_BarUserspace );
+                        ImU32 col_purple = col_get( col_BarHwQueue );
                         float y = gi.y + ( event1.blah % 3 ) * text_h;
 
-                        imgui_drawrect( x0, x1 - x0, y, text_h, col_green );
-                        imgui_drawrect( x1, x2 - x1, y, text_h, col_red );
+                        // Current job doesn't start until the last one finishes.
+                        if ( ( last_fence_signaled_x > x1 ) && ( last_fence_signaled_x < x2 ) )
+                        {
+                            imgui_drawrect( x0, x1 - x0, y, text_h, col_green );
+                            imgui_drawrect( x1, last_fence_signaled_x - x1, y, text_h, col_purple );
+                            imgui_drawrect( last_fence_signaled_x, x2 - last_fence_signaled_x, y, text_h, col_red );
+                        }
+                        else
+                        {
+                            imgui_drawrect( x0, x1 - x0, y, text_h, col_green );
+                            imgui_drawrect( x1, x2 - x1, y, text_h, col_red );
+                        }
+
+                        last_fence_signaled_x = x2;
 
                         if ( gi.hovered_graph_event == ( uint32_t )-1 )
                         {
@@ -614,6 +628,7 @@ void TraceWin::render_process_graph()
 {
     struct row_info_t
     {
+        bool is_timeline;
         const std::string &comm;
         const std::vector< uint32_t > &locs;
     };
@@ -621,6 +636,7 @@ void TraceWin::render_process_graph()
 
     for ( const std::string &comm : m_graph_rows )
     {
+        bool is_timeline = false;
         const std::vector< uint32_t > *plocs;
 
         plocs = m_trace_events->get_comm_locs( comm.c_str() );
@@ -629,10 +645,13 @@ void TraceWin::render_process_graph()
         if ( !plocs )
             plocs = m_trace_events->get_gfxcontext_locs( comm.c_str() );
         if ( !plocs )
+        {
+            is_timeline = true;
             plocs = m_trace_events->get_timeline_locs( comm.c_str() );
+        }
 
         if ( plocs )
-            row_info.push_back( { comm, *plocs } );
+            row_info.push_back( { is_timeline, comm, *plocs } );
     }
     if ( row_info.empty() )
         return;
@@ -692,7 +711,7 @@ void TraceWin::render_process_graph()
             for ( const row_info_t &ri : row_info )
             {
                 //$ TODO mikesart: Check if entire row is clipped...
-                render_graph_row( ri.comm, ri.locs, gi );
+                render_graph_row( ri.comm, ri.locs, gi, ri.is_timeline );
 
                 // Move position to next row
                 gi.set_pos_y( gi.y + graph_row_h_total, graph_row_h );
