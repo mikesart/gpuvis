@@ -387,6 +387,7 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
     {
         imgui_push_smallfont();
 
+        ImVec2 hov_p0, hov_p1;
         float text_h = ImGui::GetTextLineHeightWithSpacing();
 
         for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
@@ -430,9 +431,10 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
                             {
                                 gi.hovered_graph_event = event0.id;
 
-                                ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ),
-                                                                     ImVec2( x2, y + text_h ),
-                                                                     IM_COL32( 0, 0, 0xff, 255 ) );
+                                hov_p0.x = x0;
+                                hov_p0.y = y;
+                                hov_p1.x = x2;
+                                hov_p1.y = y + text_h;
                             }
                         }
 
@@ -446,6 +448,11 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
                     }
                 }
             }
+        }
+
+        if ( gi.hovered_graph_event != ( uint32_t )-1 )
+        {
+            ImGui::GetWindowDrawList()->AddRect( hov_p0, hov_p1, IM_COL32( 0, 0, 0xff, 255 ) );
         }
 
         imgui_pop_smallfont();
