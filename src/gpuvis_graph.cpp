@@ -310,7 +310,7 @@ bool graph_info_t::mouse_pos_in_graph()
     return pt_in_graph( mouse_pos );
 }
 
-void TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, trace_event_t &event )
+void TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, const trace_event_t &event )
 {
     float xdist_mouse = x - gi.mouse_pos.x;
     bool neg = xdist_mouse < 0.0f;
@@ -369,7 +369,7 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
             draw_selected_event = true;
 
         num_events++;
-        trace_event_t &event = m_trace_events->m_events[ eventid ];
+        const trace_event_t &event = m_trace_events->m_events[ eventid ];
         float x = gi.ts_to_screenx( event.ts );
 
         // Check if we're mouse hovering this event
@@ -379,6 +379,58 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
         event_renderer.add_event( x );
     }
     event_renderer.done();
+
+    if ( comm == "gfx" )
+    {
+        imgui_push_smallfont();
+
+        float text_h = ImGui::GetTextLineHeightWithSpacing();
+
+        for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
+              idx < locs.size();
+              idx++ )
+        {
+            uint32_t eventid = locs[ idx ];
+            const trace_event_t &event = m_trace_events->m_events[ eventid ];
+            const trace_event_t *event0 = ( event.id_start != ( uint32_t )-1 ) ?
+                        &m_trace_events->m_events[ event.id_start ] : NULL;
+
+            //$ TODO mikesart: can we bail out of this loop at some point if
+            //  our start times for all the graphs are > gi.ts1?
+            if ( event0 && ( event0->ts < gi.ts1 ) )
+            {
+                float x0 = gi.ts_to_screenx( event0->ts );
+                float x1 = gi.ts_to_screenx( event.ts );
+                float dx = x1 - x0;
+
+                if ( dx >= imgui_scale( 2.0f ) )
+                {
+                    ImU32 col;
+                    float y = gi.y + ( event0->blah % 3 ) * text_h;
+
+                    if ( !strcmp( event0->name, "amdgpu_sched_run_job" ) )
+                    {
+                        col = IM_COL32( 0xff, 0, 0, 80 );
+                    }
+                    else
+                    {
+                        col = IM_COL32( 0, 0xff, 0, 80 );
+                    }
+
+                    imgui_drawrect( x0, dx, y, text_h, col );
+
+                    if ( ( dx >= imgui_scale( 16.0f ) ) && !strcmp( event0->name, "amdgpu_sched_run_job" ) )
+                    {
+                        std::string context = get_event_gfxcontext_str( *event0 );
+
+                        ImGui::GetWindowDrawList()->AddText( ImVec2( x0, y ), IM_COL32_WHITE, context.c_str() );
+                    }
+                }
+            }
+        }
+
+        imgui_pop_smallfont();
+    }
 
     if ( draw_hovered_event )
     {
@@ -800,8 +852,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
         if ( !gfxcontext_str.empty() )
         {
-            context = string_format( " [%s] %s", gfxcontext_str.c_str(),
-                                     event.user_comm ? event.user_comm : event.comm );
+            context = string_format( " [%s] %s", gfxcontext_str.c_str(), event.user_comm );
         }
 
         time_buf += string_format( "\n%u %c%s %s%s%s",

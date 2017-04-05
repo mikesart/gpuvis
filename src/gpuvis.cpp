@@ -297,7 +297,10 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
     loader->m_crtc_max = std::max( loader->m_crtc_max, event.crtc );
 
     if ( id == 0 )
+    {
         trace_events->m_ts_min = event.ts;
+        loader->m_blah = 0;
+    }
 
     trace_events->m_events.push_back( event );
     trace_events->m_events[ id ].id = id;
@@ -313,16 +316,27 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
     {
         std::string name = get_event_gfxcontext_str( event );
 
+        if ( !strcmp( event.name, "amdgpu_cs_ioctl" ) )
+            trace_events->m_events[ id ].blah = loader->m_blah++;
+
         // Add this event under the "gfx_ctx_seq" map
         trace_events->m_gfxcontext_locations.add_location_str( name.c_str(), id );
 
         // Add this event under the "gfx" map
-        trace_events->m_timeline_locations.add_location_str( event.timeline, id );
+        //$ TODO mikesart: timeline=gfx, sdma0, other?
+        trace_events->m_timeline_locations.add_location_str( "gfx", id );
 
+        // Grab the event locations for this event context
         const std::vector< uint32_t > *plocs = trace_events->get_gfxcontext_locs( name.c_str() );
         if ( plocs->size() > 1 )
         {
-            trace_event_t &event0 = trace_events->m_events[ plocs->front() ];
+            // First event: hopefully amdgpu_cs_ioctl
+            const trace_event_t &event0 = trace_events->m_events[ plocs->front() ];
+            // Event right before last event we just added: amdgpu_cs_ioctl0 or amdgpu_sched_run_job
+            auto it = plocs->rbegin() + 1;
+            const trace_event_t &event_prev = trace_events->m_events[ *it ];
+
+            // Event we just added: amdgpu_sched_run_job or fence_signaled
             trace_event_t &event1 = trace_events->m_events[ plocs->back() ];
 
             // Assume the user comm is the first event in this set. For amd, it goes:
@@ -330,6 +344,31 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
             //  amdgpu_sched_run_job (kernel)
             //  fence_signaled (kernel)
             event1.user_comm = event0.comm;
+            event1.id_start = event_prev.id;
+            event1.blah = event_prev.blah;
+
+#if 0
+            // If this is a fence_signaled event, the start is either amdgpu_sched_run_job or a
+            //  an earlier fence_signaled event.
+            if ( id && strstr( event.name, "fence_signaled" ) )
+            {
+                for ( uint32_t idx = id - 1; idx > event1.id_start; idx-- )
+                {
+                    trace_event_t &tevent = trace_events->m_events[ idx ];
+
+                    if ( strstr( tevent.name, "fence_signaled" ) &&
+                         tevent.timeline &&
+                         tevent.context &&
+                         tevent.seqno )
+                    {
+                        // tevent.id_start = event1.id_start;
+
+                        event1.id_start = idx;
+                        break;
+                    }
+                }
+            }
+#endif
         }
     }
 
@@ -462,8 +501,8 @@ void TraceWin::render_time_offset_button_init( TraceEvents &trace_events )
 
         // Don't set offset time. If user cancels when loading it'll be at different locations
         //  so let the user explicitly control this.
-        // m_tsoffset = events[ id ].ts;
-        // m_timeoffset_buf = ts_to_timestr( m_tsoffset );
+        m_tsoffset = 0; // events[ id ].ts;
+        m_timeoffset_buf = ts_to_timestr( m_tsoffset );
     }
 }
 
@@ -884,7 +923,7 @@ std::string get_event_field_str( const trace_event_t &event, const char *eqstr, 
     std::string fieldstr;
     const std::vector< event_field_t > &fields = event.fields;
 
-    if ( event.user_comm )
+    if ( event.user_comm != event.comm )
         fieldstr += string_format( "%s%s%s%c", "user_comm", eqstr, event.user_comm, sep );
 
     for ( const event_field_t &field : fields )
