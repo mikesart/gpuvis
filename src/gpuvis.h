@@ -95,6 +95,7 @@ struct trace_event_t
     const char *timeline;
     uint32_t context;
     uint32_t seqno;
+    const char *user_comm; // User space comm (if we can figure this out)
     int crtc;
     std::vector< event_field_t > fields;
 };
@@ -151,6 +152,13 @@ inline size_t vec_find_eventid( const std::vector< uint32_t > &vec, uint32_t eve
     return i - vec.begin();
 }
 
+inline std::string get_event_gfxcontext_str( const trace_event_t &event )
+{
+    if ( event.timeline && event.context && event.seqno )
+        return string_format( "%s_%u_%u", event.timeline, event.context, event.seqno );
+    return "";
+}
+
 class TraceEvents
 {
 public:
@@ -170,14 +178,15 @@ public:
         return m_comm_locations.get_locations_str( name );
     }
 
-    const std::vector< uint32_t > *get_context_locs( const char *name )
-    {
-        return m_context_locations.get_locations_str( name );
-    }
-
     const std::vector< uint32_t > *get_timeline_locs( const char *name )
     {
         return m_timeline_locations.get_locations_str( name );
+    }
+
+    // Pass a string like "gfx_249_91446"
+    const std::vector< uint32_t > *get_gfxcontext_locs( const char *name )
+    {
+        return m_gfxcontext_locations.get_locations_str( name );
     }
 
 public:
@@ -199,7 +208,7 @@ public:
     TraceLocations m_comm_locations;
 
     // Map of timeline/context/seqno to array of event locations.
-    TraceLocations m_context_locations;
+    TraceLocations m_gfxcontext_locations;
 
     // Map of timeline (gfx, sdma0, etc) event locations.
     TraceLocations m_timeline_locations;

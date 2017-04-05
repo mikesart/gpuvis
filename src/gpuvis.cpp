@@ -273,9 +273,10 @@ void TraceLoader::close_event_file( TraceEvents *trace_events, bool close_file )
 // See notes at top of gpuvis_graph.cpp for explanation of these events.
 static bool is_timeline_event( const char *name )
 {
+    // fence_signaled was renamed to dma_fence_signaled post v4.9
     return ( !strcmp( name, "amdgpu_cs_ioctl" ) ||
              !strcmp( name, "amdgpu_sched_run_job" ) ||
-             strstr( name, "fence_signaled" ) );
+              strstr( name, "fence_signaled" ) );
 }
 
 int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
@@ -310,11 +311,26 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
          event.context &&
          is_timeline_event( event.name ) )
     {
-        std::string name = string_format( "%s_%u_%u", event.timeline, event.context, event.seqno );
+        std::string name = get_event_gfxcontext_str( event );
 
-        trace_events->m_context_locations.add_location_str( name.c_str(), id );
+        // Add this event under the "gfx_ctx_seq" map
+        trace_events->m_gfxcontext_locations.add_location_str( name.c_str(), id );
 
+        // Add this event under the "gfx" map
         trace_events->m_timeline_locations.add_location_str( event.timeline, id );
+
+        const std::vector< uint32_t > *plocs = trace_events->get_gfxcontext_locs( name.c_str() );
+        if ( plocs->size() > 1 )
+        {
+            trace_event_t &event0 = trace_events->m_events[ plocs->front() ];
+            trace_event_t &event1 = trace_events->m_events[ plocs->back() ];
+
+            // Assume the user comm is the first event in this set. For amd, it goes:
+            //  amdgpu_cs_ioctl (user space)
+            //  amdgpu_sched_run_job (kernel)
+            //  fence_signaled (kernel)
+            event1.user_comm = event0.comm;
+        }
     }
 
     SDL_AtomicAdd( &trace_events->m_eventsloaded, 1 );
@@ -435,7 +451,6 @@ void TraceLoader::render()
  */
 void TraceWin::render_time_offset_button_init( TraceEvents &trace_events )
 {
-    std::vector< trace_event_t > &events = trace_events.m_events;
     const std::vector< uint32_t > *vblank_locs = trace_events.get_event_locs( "drm_vblank_event" );
 
     if ( vblank_locs )
@@ -474,6 +489,9 @@ void TraceWin::init_graph_rows_str()
     m_graph_rows_str = "# comm and event names to graph\n\n";
     m_graph_rows_str += "# fence_signaled\n";
     m_graph_rows_str += "# amd_sched_job\n\n";
+
+    m_graph_rows_str += "# show all items in gfx timeline\n";
+    m_graph_rows_str += "gfx\n\n";
 
     for ( auto item : m_trace_events->m_comm_locations.m_locations )
     {
@@ -861,9 +879,13 @@ bool TraceWin::render_events_list_popup()
     return true;
 }
 
-std::string get_event_field_str( std::vector< event_field_t > &fields, const char *eqstr, char sep )
+std::string get_event_field_str( const trace_event_t &event, const char *eqstr, char sep )
 {
     std::string fieldstr;
+    const std::vector< event_field_t > &fields = event.fields;
+
+    if ( event.user_comm )
+        fieldstr += string_format( "%s%s%s%c", "user_comm", eqstr, event.user_comm, sep );
 
     for ( const event_field_t &field : fields )
     {
@@ -1015,7 +1037,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
                 else
                 {
                     // Otherwise show a tooltip.
-                    std::string fieldstr = get_event_field_str( event.fields, ": ", '\n' );
+                    std::string fieldstr = get_event_field_str( event, ": ", '\n' );
 
                     ImGui::SetTooltip( "Id: %u\nTime: %s\nComm: %s\n%s",
                                        event.id, ts_str.c_str(), event.comm, fieldstr.c_str() );
@@ -1039,10 +1061,10 @@ void TraceWin::render_events_list( CIniFile &inifile )
             ImGui::NextColumn();
 
             if ( event.timeline && event.context && event.seqno )
-                ImGui::Text( "%s_%u_%u", event.timeline, event.context, event.seqno );
+                ImGui::Text( "%s", get_event_gfxcontext_str( event ).c_str() );
             ImGui::NextColumn();
 
-            std::string fieldstr = get_event_field_str( event.fields, "=", ' ' );
+            std::string fieldstr = get_event_field_str( event, "=", ' ' );
             ImGui::Text( "%s", fieldstr.c_str() );
             ImGui::NextColumn();
 

@@ -1542,6 +1542,7 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
         trace_event.context = 0;
         trace_event.seqno = 0;
         trace_event.crtc = -1;
+        trace_event.user_comm = NULL;
 
         // Get count of fields for this event.
         int field_count = 0;

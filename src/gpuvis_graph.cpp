@@ -71,6 +71,10 @@
       Most apps will probably only have a gfx timeline
       So if you populate those lazily it should avoid clogging the ui
 
+  Andres warning:
+    btw, expect to see traffic on some queues that was not directly initiated by an app
+    There is some work the kernel submits itself and that won't be linked to any cs_ioctl
+
   Example:
 
   ; userspace submission
@@ -548,7 +552,7 @@ void TraceWin::render_process_graph()
         if ( !plocs )
             plocs = m_trace_events->get_event_locs( comm.c_str() );
         if ( !plocs )
-            plocs = m_trace_events->get_context_locs( comm.c_str() );
+            plocs = m_trace_events->get_gfxcontext_locs( comm.c_str() );
         if ( !plocs )
             plocs = m_trace_events->get_timeline_locs( comm.c_str() );
 
@@ -787,18 +791,23 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
     for ( graph_info_t::hovered_t &hov : gi.hovered_items )
     {
         std::string crtc;
-        std::string seqno;
+        std::string context;
         trace_event_t &event = m_trace_events->m_events[ hov.eventid ];
+        std::string gfxcontext_str = get_event_gfxcontext_str( event );
 
         if ( event.crtc >= 0 )
             crtc = std::to_string( event.crtc );
-        if ( event.timeline && event.context && event.seqno )
-            seqno = string_format( " [%s_%u_%u]", event.timeline, event.context, event.seqno );
+
+        if ( !gfxcontext_str.empty() )
+        {
+            context = string_format( " [%s] %s", gfxcontext_str.c_str(),
+                                     event.user_comm ? event.user_comm : event.comm );
+        }
 
         time_buf += string_format( "\n%u %c%s %s%s%s",
                                    hov.eventid, hov.neg ? '-' : ' ',
                                    ts_to_timestr( hov.dist_ts ).c_str(),
-                                   event.name, crtc.c_str(), seqno.c_str() );
+                                   event.name, crtc.c_str(), context.c_str() );
 
         if ( !strcmp( event.system, "ftrace-print" ) )
         {
