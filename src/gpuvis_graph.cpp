@@ -413,10 +413,10 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
                 //  our start times for all the graphs are > gi.ts1?
                 if ( event0.ts < gi.ts1 )
                 {
-                    float x0 = gi.ts_to_screenx( event0.ts );
+                    //$$$ float x0 = gi.ts_to_screenx( event0.ts );
                     float x1 = gi.ts_to_screenx( event1.ts );
                     float x2 = gi.ts_to_screenx( event.ts );
-                    float dx = x2 - x0;
+                    float dx = x2 - x1;
 
                     if ( dx >= imgui_scale( 2.0f ) )
                     {
@@ -456,12 +456,17 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
                             }
                         }
 
-                        if ( m_loader.m_timeline_labels && ( dx >= imgui_scale( 16.0f ) ) )
+                        if ( m_loader.m_timeline_labels )
                         {
-                            float x = std::max( x0, gi.x ) + imgui_scale( 2.0f );
+                            const ImVec2& size = ImGui::CalcTextSize( event0.user_comm );
 
-                            ImGui::GetWindowDrawList()->AddText( ImVec2( x, y + imgui_scale( 1.0f ) ),
-                                                                 IM_COL32_WHITE, event0.user_comm );
+                            if ( dx >= size.x )
+                            {
+                                float x = std::max( x1, gi.x ) + imgui_scale( 2.0f );
+
+                                ImGui::GetWindowDrawList()->AddText( ImVec2( x, y + imgui_scale( 1.0f ) ),
+                                                                     IM_COL32_WHITE, event0.user_comm );
+                            }
                         }
                     }
                 }
