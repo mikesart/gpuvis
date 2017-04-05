@@ -144,6 +144,8 @@ public:
     };
     const size_t hovered_max = 6;
     std::vector< hovered_t > hovered_items;
+
+    uint32_t hovered_graph_event;
 };
 
 static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
@@ -262,6 +264,7 @@ void graph_info_t::init( float x_in, float w_in, int64_t start_ts, int64_t lengt
     mouse_pos = ImGui::GetMousePos();
 
     hovered_items.clear();
+    hovered_graph_event = ( uint32_t )-1;
 }
 
 void graph_info_t::set_pos_y( float y_in, float h_in )
@@ -385,6 +388,8 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
         imgui_push_smallfont();
 
         float text_h = ImGui::GetTextLineHeightWithSpacing();
+        float mousex = gi.mouse_pos.x;
+        float mousey = gi.mouse_pos.y;
 
         for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
               idx < locs.size();
@@ -417,6 +422,9 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
 
                         imgui_drawrect( x0, x1 - x0, y, text_h, col_green );
                         imgui_drawrect( x1, x2 - x1, y, text_h, col_red );
+
+                        if ( mousex >= x0 && mousex <= x2 && mousey >= y && mousey <= y + text_h )
+                            gi.hovered_graph_event = event0->id;
 
                         if ( dx >= imgui_scale( 16.0f ) )
                         {
@@ -838,26 +846,48 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
         m_goto_eventid = gi.hovered_items[ 0 ].eventid;
     }
 
+    if ( gi.hovered_graph_event != ( uint32_t )-1 )
+    {
+        const trace_event_t &event_hov = m_trace_events->m_events[ gi.hovered_graph_event ];
+        std::string context = get_event_gfxcontext_str( event_hov );
+        const std::vector< uint32_t > *plocs = m_trace_events->get_gfxcontext_locs( context.c_str() );
+
+        time_buf += string_format( "\n%s [%s]", event_hov.user_comm, context.c_str() );
+        int64_t ts0 = -1;
+        for ( uint32_t id : *plocs )
+        {
+            const trace_event_t &event = m_trace_events->m_events[ id ];
+
+            time_buf += string_format( "\n  %u %s", event.id, event.name );
+
+            if ( ts0 >= 0 )
+            {
+                time_buf += ": ";
+                time_buf += ts_to_timestr( event.ts - ts0 );
+            }
+            ts0 = event.ts;
+        }
+    }
+
     // Show tooltip with the closest events we could drum up
     for ( graph_info_t::hovered_t &hov : gi.hovered_items )
     {
-        std::string crtc;
-        std::string context;
         trace_event_t &event = m_trace_events->m_events[ hov.eventid ];
         std::string gfxcontext_str = get_event_gfxcontext_str( event );
 
-        if ( event.crtc >= 0 )
-            crtc = std::to_string( event.crtc );
-
-        if ( !gfxcontext_str.empty() )
-        {
-            context = string_format( " [%s] %s", gfxcontext_str.c_str(), event.user_comm );
-        }
-
-        time_buf += string_format( "\n%u %c%s %s%s%s",
+        time_buf += string_format( "\n%u %c%s %s",
                                    hov.eventid, hov.neg ? '-' : ' ',
                                    ts_to_timestr( hov.dist_ts ).c_str(),
-                                   event.name, crtc.c_str(), context.c_str() );
+                                   event.name );
+
+        if ( event.crtc >= 0 )
+        {
+            time_buf += " ";
+            time_buf += std::to_string( event.crtc );
+        }
+
+        if ( !gfxcontext_str.empty() )
+            time_buf += string_format( " [%s] %s", gfxcontext_str.c_str(), event.user_comm );
 
         if ( !strcmp( event.system, "ftrace-print" ) )
         {
