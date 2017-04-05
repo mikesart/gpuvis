@@ -4939,6 +4939,20 @@ ImVec2 ImGui::GetWindowPos()
     return window->Pos;
 }
 
+ImVec2 ImGui::GetWindowClipRectMin()
+{
+    ImGuiContext& g = *GImGui;
+    ImGuiWindow* window = g.CurrentWindow;
+    return window->ClipRect.Min;
+}
+
+ImVec2 ImGui::GetWindowClipRectMax()
+{
+    ImGuiContext& g = *GImGui;
+    ImGuiWindow* window = g.CurrentWindow;
+    return window->ClipRect.Max;
+}
+
 static void SetWindowScrollY(ImGuiWindow* window, float new_scroll_y)
 {
     window->DC.CursorMaxPos.y += window->Scroll.y;
