@@ -905,7 +905,7 @@ bool TraceWin::render_events_list_popup()
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
         return false;
 
-    trace_event_t &event = m_trace_events->m_events[ m_events_list_popup_eventid ];
+    trace_event_t &event = get_event( m_events_list_popup_eventid );
 
     std::string label = string_format( "center %u on graph...", event.id );
     if ( ImGui::MenuItem( label.c_str() ) )

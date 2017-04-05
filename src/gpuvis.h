@@ -319,6 +319,11 @@ protected:
 
     std::unordered_map< int64_t, int > m_ts_to_eventid_cache;
 
+    trace_event_t &get_event( uint32_t id )
+    {
+        return m_trace_events->m_events[ id ];
+    }
+
 public:
     TraceLoader &m_loader;
 

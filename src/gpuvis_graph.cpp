@@ -372,7 +372,7 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
             draw_selected_event = true;
 
         num_events++;
-        const trace_event_t &event = m_trace_events->m_events[ eventid ];
+        const trace_event_t &event = get_event( eventid );
         float x = gi.ts_to_screenx( event.ts );
 
         // Check if we're mouse hovering this event
@@ -388,29 +388,27 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
         imgui_push_smallfont();
 
         float text_h = ImGui::GetTextLineHeightWithSpacing();
-        float mousex = gi.mouse_pos.x;
-        float mousey = gi.mouse_pos.y;
 
         for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
               idx < locs.size();
               idx++ )
         {
             uint32_t eventid = locs[ idx ];
-            const trace_event_t &event = m_trace_events->m_events[ eventid ];
+            const trace_event_t &event = get_event( eventid );
 
             if ( ( event.id_start != ( uint32_t )-1 ) &&
                  strstr( event.name, "fence_signaled" ) )
             {
-                const trace_event_t *event1 = &m_trace_events->m_events[ event.id_start ];
-                const trace_event_t *event0 = ( event1->id_start != ( uint32_t )-1 ) ?
-                            &m_trace_events->m_events[ event1->id_start ] : event1;
+                const trace_event_t &event1 = get_event( event.id_start );
+                const trace_event_t &event0 = ( event1.id_start != ( uint32_t )-1 ) ?
+                            get_event( event1.id_start ) : event1;
 
                 //$ TODO mikesart: can we bail out of this loop at some point if
                 //  our start times for all the graphs are > gi.ts1?
-                if ( event0->ts < gi.ts1 )
+                if ( event0.ts < gi.ts1 )
                 {
-                    float x0 = gi.ts_to_screenx( event0->ts );
-                    float x1 = gi.ts_to_screenx( event1->ts );
+                    float x0 = gi.ts_to_screenx( event0.ts );
+                    float x1 = gi.ts_to_screenx( event1.ts );
                     float x2 = gi.ts_to_screenx( event.ts );
                     float dx = x2 - x0;
 
@@ -418,16 +416,19 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
                     {
                         ImU32 col_red = IM_COL32( 0xff, 0, 0, 80 );
                         ImU32 col_green = IM_COL32( 0, 0xff, 0, 80 );
-                        float y = gi.y + ( event1->blah % 3 ) * text_h;
+                        float y = gi.y + ( event1.blah % 3 ) * text_h;
 
                         imgui_drawrect( x0, x1 - x0, y, text_h, col_green );
                         imgui_drawrect( x1, x2 - x1, y, text_h, col_red );
 
                         if ( gi.hovered_graph_event == ( uint32_t )-1 )
                         {
-                            if ( mousex >= x0 && mousex <= x2 && mousey >= y && mousey <= y + text_h )
+                            if ( gi.mouse_pos.x >= x0 &&
+                                 gi.mouse_pos.x <= x2 &&
+                                 gi.mouse_pos.y >= y &&
+                                 gi.mouse_pos.y <= y + text_h )
                             {
-                                gi.hovered_graph_event = event0->id;
+                                gi.hovered_graph_event = event0.id;
 
                                 ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ),
                                                                      ImVec2( x2, y + text_h ),
@@ -440,7 +441,7 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
                             float x = std::max( x0, gi.x ) + imgui_scale( 2.0f );
 
                             ImGui::GetWindowDrawList()->AddText( ImVec2( x, y + imgui_scale( 1.0f ) ),
-                                                                 IM_COL32_WHITE, event0->user_comm );
+                                                                 IM_COL32_WHITE, event0.user_comm );
                         }
                     }
                 }
@@ -452,7 +453,7 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
 
     if ( draw_hovered_event )
     {
-        trace_event_t &event = m_trace_events->m_events[ m_hovered_eventlist_eventid ];
+        trace_event_t &event = get_event( m_hovered_eventlist_eventid );
         float x = gi.ts_to_screenx( event.ts );
 
         imgui_drawrect( x, imgui_scale( 3.0f ),
@@ -461,7 +462,7 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
     }
     if ( draw_selected_event )
     {
-        trace_event_t &event = m_trace_events->m_events[ m_selected_eventid ];
+        trace_event_t &event = get_event( m_selected_eventid );
         float x = gi.ts_to_screenx( event.ts );
 
         imgui_drawrect( x, imgui_scale( 3.0f ),
@@ -520,7 +521,7 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
             if ( id > gi.eventend )
                 break;
 
-            trace_event_t &event = m_trace_events->m_events[ id ];
+            trace_event_t &event = get_event( id );
             if ( ( ( size_t )event.crtc < m_loader.m_render_crtc.size() ) &&
                  m_loader.m_render_crtc[ event.crtc ] )
             {
@@ -562,8 +563,8 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
         if ( m_eventlist_start_eventid != ( uint32_t )-1 &&
              m_eventlist_end_eventid != ( uint32_t )-1 )
         {
-            trace_event_t &event0 = m_trace_events->m_events[ m_eventlist_start_eventid ];
-            trace_event_t &event1 = m_trace_events->m_events[ m_eventlist_end_eventid - 1 ];
+            trace_event_t &event0 = get_event( m_eventlist_start_eventid );
+            trace_event_t &event1 = get_event( m_eventlist_end_eventid - 1 );
             float xstart = gi.ts_to_screenx( event0.ts );
             float xend = gi.ts_to_screenx( event1.ts );
 
@@ -824,7 +825,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
         for ( idx = ( idx > 10 ) ? ( idx - 10 ) : 0; idx < idxmax; idx++ )
         {
-            trace_event_t &event = m_trace_events->m_events[ vblank_locs->at( idx ) ];
+            trace_event_t &event = get_event( vblank_locs->at( idx ) );
 
             if ( ( ( size_t )event.crtc < m_loader.m_render_crtc.size() ) &&
                  m_loader.m_render_crtc[ event.crtc ] )
@@ -858,20 +859,20 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
     if ( gi.hovered_graph_event != ( uint32_t )-1 )
     {
-        const trace_event_t &event_hov = m_trace_events->m_events[ gi.hovered_graph_event ];
+        const trace_event_t &event_hov = get_event( gi.hovered_graph_event );
         std::string context = get_event_gfxcontext_str( event_hov );
         const std::vector< uint32_t > *plocs = m_trace_events->get_gfxcontext_locs( context.c_str() );
 
         time_buf += string_format( "\n%s [%s]", event_hov.user_comm, context.c_str() );
 
-        int64_t total_ts = m_trace_events->m_events[ plocs->back() ].ts - m_trace_events->m_events[ plocs->front() ].ts;
+        int64_t total_ts = get_event( plocs->back() ).ts - get_event( plocs->front() ).ts;
         time_buf += ": ";
         time_buf += ts_to_timestr( total_ts );
 
         int64_t ts0 = -1;
         for ( uint32_t id : *plocs )
         {
-            const trace_event_t &event = m_trace_events->m_events[ id ];
+            const trace_event_t &event = get_event( id );
 
             time_buf += string_format( "\n  %u %s", event.id, event.name );
 
@@ -887,7 +888,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
     // Show tooltip with the closest events we could drum up
     for ( graph_info_t::hovered_t &hov : gi.hovered_items )
     {
-        trace_event_t &event = m_trace_events->m_events[ hov.eventid ];
+        trace_event_t &event = get_event( hov.eventid );
         std::string gfxcontext_str = get_event_gfxcontext_str( event );
 
         time_buf += string_format( "\n%u %c%s %s",
