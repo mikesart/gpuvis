@@ -92,7 +92,9 @@ struct trace_event_t
     const char *system;
     const char *name;
     uint64_t flags; // TRACE_FLAGS_IRQS_OFF, TRACE_FLAG_HARDIRQ, TRACE_FLAG_SOFTIRQ
-    int seqno;
+    const char *timeline;
+    uint32_t context;
+    uint32_t seqno;
     int crtc;
     std::vector< event_field_t > fields;
 };
@@ -106,26 +108,32 @@ public:
     TraceLocations() {}
     ~TraceLocations() {}
 
-    void add_location( const char *name, uint32_t location )
+    void add_location_u32( uint32_t val, uint32_t location )
     {
-        uint32_t hashval = fnv_hashstr32( name );
-
-        auto i = m_locations.find( hashval );
+        auto i = m_locations.find( val );
         if ( i == m_locations.end() )
-            m_locations.emplace( hashval, std::vector< uint32_t >() );
+            m_locations.emplace( val, std::vector< uint32_t >() );
 
-        m_locations.at( hashval ).push_back( location );
+        m_locations.at( val ).push_back( location );
     }
 
-    std::vector< uint32_t > *get_locations( const char *name )
+    std::vector< uint32_t > *get_locations_u32( uint32_t val )
     {
-        uint32_t hashval = fnv_hashstr32( name );
-
-        auto i = m_locations.find( hashval );
+        auto i = m_locations.find( val );
         if ( i == m_locations.end() )
             return NULL;
 
-        return &m_locations.at( hashval );
+        return &m_locations.at( val );
+    }
+
+    void add_location_str( const char *name, uint32_t location )
+    {
+        add_location_u32( fnv_hashstr32( name ), location );
+    }
+
+    std::vector< uint32_t > *get_locations_str( const char *name )
+    {
+        return get_locations_u32( fnv_hashstr32( name ) );
     }
 
 public:
@@ -153,13 +161,23 @@ public:
     // Return vec of locations for an event name. Ie: "drm_handle_vblank"
     const std::vector< uint32_t > *get_event_locs( const char *name )
     {
-        return m_event_locations.get_locations( name );
+        return m_event_locations.get_locations_str( name );
     }
 
     // Return vec of locations for a cmdline. Ie: "SkinningApp-1536"
     const std::vector< uint32_t > *get_comm_locs( const char *name )
     {
-        return m_comm_locations.get_locations( name );
+        return m_comm_locations.get_locations_str( name );
+    }
+
+    const std::vector< uint32_t > *get_context_locs( const char *name )
+    {
+        return m_context_locations.get_locations_str( name );
+    }
+
+    const std::vector< uint32_t > *get_timeline_locs( const char *name )
+    {
+        return m_timeline_locations.get_locations_str( name );
     }
 
 public:
@@ -179,6 +197,12 @@ public:
 
     // Map of comm hashval to array of event locations.
     TraceLocations m_comm_locations;
+
+    // Map of timeline/context/seqno to array of event locations.
+    TraceLocations m_context_locations;
+
+    // Map of timeline (gfx, sdma0, etc) event locations.
+    TraceLocations m_timeline_locations;
 
     // 0: events loaded, 1+: loading events, -1: error
     SDL_atomic_t m_eventsloaded = { 0 };

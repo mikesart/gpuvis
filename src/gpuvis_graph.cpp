@@ -39,6 +39,50 @@
 #include "GL/gl3w.h"
 #include "gpuvis.h"
 
+/*
+  From conversations with Andres and Pierre-Loup...
+
+  These are the important events:
+
+  amdgpu_cs_ioctl:
+    this event links a userspace submission with a kernel job
+    it appears when a job is received from userspace
+    dictates the userspace PID for the whole unit of work
+      ie, the process that owns the work executing on the gpu represented by the bar
+    only event executed within the context of the userspace process
+
+  amdgpu_sched_run_job:
+    links a job to a dma_fence object, the queue into the HW event
+    start of the bar in the gpu timeline; either right now if no job is running, or when the currently running job finishes
+
+  *fence_signaled:
+    job completed
+    dictates the end of the bar
+
+  notes:
+    amdgpu_cs_ioctl and amdgpu_sched_run_job have a common job handle
+
+  We want to match: timeline, context, seqno.
+
+    There are separate timelines for each gpu engine
+    There are two dma timelines (one per engine)
+    And 8 compute timelines (one per hw queue)
+    They are all concurrently executed
+      Most apps will probably only have a gfx timeline
+      So if you populate those lazily it should avoid clogging the ui
+
+  Example:
+
+  ; userspace submission
+    SkinningApp-2837 475.1688: amdgpu_cs_ioctl:      sched_job=185904, timeline=gfx, context=249, seqno=91446, ring_name=ffff94d7a00d4694, num_ibs=3
+
+  ; gpu starting job
+            gfx-477  475.1689: amdgpu_sched_run_job: sched_job=185904, timeline=gfx, context=249, seqno=91446, ring_name=ffff94d7a00d4694, num_ibs=3
+
+  ; job completed
+         <idle>-0    475.1690: fence_signaled:       driver=amd_sched timeline=gfx context=249 seqno=91446
+ */
+
 class event_renderer_t
 {
 public:
@@ -498,10 +542,15 @@ void TraceWin::render_process_graph()
 
     for ( const std::string &comm : m_graph_rows )
     {
-        const std::vector< uint32_t > *plocs = m_trace_events->get_comm_locs( comm.c_str() );
+        const std::vector< uint32_t > *plocs;
 
+        plocs = m_trace_events->get_comm_locs( comm.c_str() );
         if ( !plocs )
             plocs = m_trace_events->get_event_locs( comm.c_str() );
+        if ( !plocs )
+            plocs = m_trace_events->get_context_locs( comm.c_str() );
+        if ( !plocs )
+            plocs = m_trace_events->get_timeline_locs( comm.c_str() );
 
         if ( plocs )
             row_info.push_back( { comm, *plocs } );
@@ -743,8 +792,8 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
         if ( event.crtc >= 0 )
             crtc = std::to_string( event.crtc );
-        if ( event.seqno > 0 )
-            seqno = string_format( " seqno:%d", event.seqno );
+        if ( event.timeline && event.context && event.seqno )
+            seqno = string_format( " [%s_%u_%u]", event.timeline, event.context, event.seqno );
 
         time_buf += string_format( "\n%u %c%s %s%s%s",
                                    hov.eventid, hov.neg ? '-' : ' ',

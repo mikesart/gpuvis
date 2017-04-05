@@ -270,6 +270,14 @@ void TraceLoader::close_event_file( TraceEvents *trace_events, bool close_file )
     }
 }
 
+// See notes at top of gpuvis_graph.cpp for explanation of these events.
+static bool is_timeline_event( const char *name )
+{
+    return ( !strcmp( name, "amdgpu_cs_ioctl" ) ||
+             !strcmp( name, "amdgpu_sched_run_job" ) ||
+             strstr( name, "fence_signaled" ) );
+}
+
 int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
                                const trace_event_t &event )
 {
@@ -294,8 +302,20 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
     trace_events->m_events[ id ].id = id;
     trace_events->m_events[ id ].ts -= trace_events->m_ts_min;
 
-    trace_events->m_event_locations.add_location( event.name, id );
-    trace_events->m_comm_locations.add_location( event.comm, id );
+    trace_events->m_event_locations.add_location_str( event.name, id );
+    trace_events->m_comm_locations.add_location_str( event.comm, id );
+
+    if ( event.timeline &&
+         event.seqno &&
+         event.context &&
+         is_timeline_event( event.name ) )
+    {
+        std::string name = string_format( "%s_%u_%u", event.timeline, event.context, event.seqno );
+
+        trace_events->m_context_locations.add_location_str( name.c_str(), id );
+
+        trace_events->m_timeline_locations.add_location_str( event.timeline, id );
+    }
 
     SDL_AtomicAdd( &trace_events->m_eventsloaded, 1 );
 
@@ -909,7 +929,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
 
         // Draw columns
         static const std::array< const char *, 6 > columns =
-            { "Id", "Time Stamp", "Task", "Event", "seqno", "Info" };
+            { "Id", "Time Stamp", "Task", "Event", "context", "Info" };
         imgui_headers( "events", columns );
 
         if ( !m_columns_inited )
@@ -1016,8 +1036,8 @@ void TraceWin::render_events_list( CIniFile &inifile )
             ImGui::Text( "%s", event.name );
             ImGui::NextColumn();
 
-            if ( event.seqno )
-                ImGui::Text( "%u", event.seqno );
+            if ( event.timeline && event.context && event.seqno )
+                ImGui::Text( "%s_%u_%u", event.timeline, event.context, event.seqno );
             ImGui::NextColumn();
 
             std::string fieldstr = get_event_field_str( event.fields, "=", ' ' );
