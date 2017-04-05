@@ -299,7 +299,7 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
     if ( id == 0 )
     {
         trace_events->m_ts_min = event.ts;
-        loader->m_blah = 0;
+        loader->m_graph_row_id = 0;
     }
 
     trace_events->m_events.push_back( event );
@@ -317,7 +317,7 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
         std::string name = get_event_gfxcontext_str( event );
 
         if ( !strcmp( event.name, "amdgpu_cs_ioctl" ) )
-            trace_events->m_events[ id ].blah = loader->m_blah++;
+            trace_events->m_events[ id ].graph_row_id = loader->m_graph_row_id++;
 
         // Add this event under the "gfx_ctx_seq" map
         trace_events->m_gfxcontext_locations.add_location_str( name.c_str(), id );
@@ -344,7 +344,7 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
             //  fence_signaled (kernel)
             event1.user_comm = event0.comm;
             event1.id_start = event_prev.id;
-            event1.blah = event_prev.blah;
+            event1.graph_row_id = event_prev.graph_row_id;
 
 #if 0
             // If this is a fence_signaled event, the start is either amdgpu_sched_run_job or a
@@ -413,6 +413,9 @@ void TraceLoader::init()
     m_sync_eventlist_to_graph = m_inifile.GetInt( "sync_eventlist_to_graph", 0 );
     m_eventlist_row_count = m_inifile.GetInt( "eventlist_row_count", 0 );
 
+    m_timeline_labels = m_inifile.GetInt( "timeline_labels", 1 );
+    m_timeline_events = m_inifile.GetInt( "timeline_events", 0 );
+
     for ( size_t i = 0; i < m_render_crtc.size(); i++ )
     {
         std::string key = string_format( "render_crtc%lu", i );
@@ -449,6 +452,9 @@ void TraceLoader::shutdown()
     m_inifile.PutInt( "show_color_picker", m_show_color_picker );
     m_inifile.PutInt( "sync_eventlist_to_graph", m_sync_eventlist_to_graph );
     m_inifile.PutInt( "eventlist_row_count", m_eventlist_row_count );
+
+    m_inifile.PutInt( "timeline_labels", m_timeline_labels );
+    m_inifile.PutInt( "timeline_events", m_timeline_events );
 
     for ( size_t i = 0; i < m_render_crtc.size(); i++ )
     {
@@ -1193,6 +1199,9 @@ void TraceConsole::render_options( TraceLoader &loader )
 
     ImGui::Checkbox( "Show graph color picker",
                      &loader.m_show_color_picker );
+
+    ImGui::Checkbox( "Show timeline labels", &loader.m_timeline_labels );
+    ImGui::Checkbox( "Show timeline events", &loader.m_timeline_events );
 
     ImGui::Text( "Event List Row Count:" );
 

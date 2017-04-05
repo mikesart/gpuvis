@@ -355,33 +355,37 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
     uint32_t num_events = 0;
     bool draw_selected_event = false;
     bool draw_hovered_event = false;
-    event_renderer_t event_renderer( gi.y, gi.w, gi.h );
 
-    for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
-          idx < locs.size();
-          idx++ )
+    if ( !is_timeline || m_loader.m_timeline_events )
     {
-        uint32_t eventid = locs[ idx ];
+        event_renderer_t event_renderer( gi.y, gi.w, gi.h );
 
-        if ( eventid > gi.eventend )
-            break;
+        for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
+              idx < locs.size();
+              idx++ )
+        {
+            uint32_t eventid = locs[ idx ];
 
-        if ( eventid == m_hovered_eventlist_eventid )
-            draw_hovered_event = true;
-        else if ( eventid == m_selected_eventid )
-            draw_selected_event = true;
+            if ( eventid > gi.eventend )
+                break;
 
-        num_events++;
-        const trace_event_t &event = get_event( eventid );
-        float x = gi.ts_to_screenx( event.ts );
+            if ( eventid == m_hovered_eventlist_eventid )
+                draw_hovered_event = true;
+            else if ( eventid == m_selected_eventid )
+                draw_selected_event = true;
 
-        // Check if we're mouse hovering this event
-        if ( gi.mouse_over )
-            add_mouse_hovered_event( x, gi, event );
+            num_events++;
+            const trace_event_t &event = get_event( eventid );
+            float x = gi.ts_to_screenx( event.ts );
 
-        event_renderer.add_event( x );
+            // Check if we're mouse hovering this event
+            if ( gi.mouse_over )
+                add_mouse_hovered_event( x, gi, event );
+
+            event_renderer.add_event( x );
+        }
+        event_renderer.done();
     }
-    event_renderer.done();
 
     if ( is_timeline )
     {
@@ -419,7 +423,7 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
                         ImU32 col_red = col_get( col_BarHwRunning );
                         ImU32 col_green = col_get( col_BarUserspace );
                         ImU32 col_purple = col_get( col_BarHwQueue );
-                        float y = gi.y + ( event1.blah % 3 ) * text_h;
+                        float y = gi.y + ( event1.graph_row_id % 3 ) * text_h;
 
                         // Current job doesn't start until the last one finishes.
                         if ( ( last_fence_signaled_x > x1 ) && ( last_fence_signaled_x < x2 ) )
@@ -452,7 +456,7 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
                             }
                         }
 
-                        if ( dx >= imgui_scale( 16.0f ) )
+                        if ( m_loader.m_timeline_labels && ( dx >= imgui_scale( 16.0f ) ) )
                         {
                             float x = std::max( x0, gi.x ) + imgui_scale( 2.0f );
 

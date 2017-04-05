@@ -97,7 +97,7 @@ struct trace_event_t
     uint32_t seqno;
     const char *user_comm; // User space comm (if we can figure this out)
     uint32_t id_start; // start event if this is an end event (ie fence_signaled)
-    uint32_t blah;
+    uint32_t graph_row_id;
     int crtc;
     std::vector< event_field_t > fields;
 };
@@ -461,5 +461,8 @@ public:
     std::array< bool, 10 > m_render_crtc;
     std::vector< std::string > m_inputfiles;
 
-    int m_blah = 0;
+    bool m_timeline_labels = true;
+    bool m_timeline_events = false;
+
+    int m_graph_row_id = 0;
 };
