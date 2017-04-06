@@ -661,28 +661,35 @@ void TraceWin::handle_graph_hotkeys()
 
     if ( ImGui::GetIO().KeyCtrl )
     {
-        bool keyshift = ImGui::GetIO().KeyShift;
-
-        for ( int key = '1'; key <= '9'; key++ )
+        if ( ImGui::IsKeyPressed( 'z' ) )
         {
-            if ( ImGui::IsKeyPressed( key ) )
-            {
-                int index = key - '1';
+            m_loader.m_options[ TraceLoader::OPT_TimelineZoomGfx ].val ^= 1;
+        }
+        else
+        {
+            bool keyshift = ImGui::GetIO().KeyShift;
 
-                if ( keyshift )
+            for ( int key = '1'; key <= '9'; key++ )
+            {
+                if ( ImGui::IsKeyPressed( key ) )
                 {
-                    // ctrl+shift+#: save location
-                    m_locations[ index ] = std::make_pair( m_graph_start_ts, m_graph_length_ts );
+                    int index = key - '1';
+
+                    if ( keyshift )
+                    {
+                        // ctrl+shift+#: save location
+                        m_locations[ index ] = std::make_pair( m_graph_start_ts, m_graph_length_ts );
+                    }
+                    else if ( m_locations[ index ].second )
+                    {
+                        // ctrl+#: goto location
+                        m_graph_start_ts = m_locations[ index ].first;
+                        m_graph_length_ts = m_locations[ index ].second;
+                        m_do_graph_start_timestr = true;
+                        m_do_graph_length_timestr = true;
+                    }
+                    break;
                 }
-                else if ( m_locations[ index ].second )
-                {
-                    // ctrl+#: goto location
-                    m_graph_start_ts = m_locations[ index ].first;
-                    m_graph_length_ts = m_locations[ index ].second;
-                    m_do_graph_start_timestr = true;
-                    m_do_graph_length_timestr = true;
-                }
-                break;
             }
         }
     }
@@ -728,8 +735,19 @@ void TraceWin::render_process_graph()
             plocs = m_trace_events->get_gfxcontext_locs( comm.c_str() );
         if ( !plocs )
         {
+            int rows = 4;
+
+            if ( comm == "gfx" )
+                rows = m_loader.get_opt( TraceLoader::OPT_TimelineGfxRowCount );
+            else if ( comm == "sdma0" )
+                rows = m_loader.get_opt( TraceLoader::OPT_TimelineSdma0RowCount );
+            else if ( comm == "sdma1" )
+                rows = m_loader.get_opt( TraceLoader::OPT_TimelineSdma1RowCount );
+
+            rows = Clamp( rows, 2, 50 );
+
             rinfo.is_timeline = true;
-            rinfo.row_h = text_h * 8;
+            rinfo.row_h = text_h * rows;
 
             plocs = m_trace_events->get_timeline_locs( comm.c_str() );
         }

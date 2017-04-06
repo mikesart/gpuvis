@@ -480,13 +480,13 @@ public:
     enum option_id_t
     {
         OPT_TimelineZoomGfx,
+        OPT_TimelineLabels,
+        OPT_TimelineEvents,
         OPT_Fullscreen,
         OPT_ShowEventList,
         OPT_SyncEventListToGraph,
         OPT_EventListRowCount,
         OPT_ShowColorPicker,
-        OPT_TimelineLabels,
-        OPT_TimelineEvents,
         OPT_TimelineGfxRowCount,
         OPT_TimelineSdma0RowCount,
         OPT_TimelineSdma1RowCount,

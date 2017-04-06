@@ -422,17 +422,19 @@ void TraceLoader::init()
     m_options.resize( OPT_Max );
 
     m_options[ OPT_Fullscreen ] = { "Fullscreen Trace Window", "fullscreen", false, 0, 1 };
+
+    m_options[ OPT_TimelineZoomGfx ] = { "Zoom gfx timeline (^Z)", "zoom_gfx_timeline", 0, 0, 1 };
+    m_options[ OPT_TimelineLabels ] = { "Show timeline labels", "timeline_labels", true, 0, 1 };
+    m_options[ OPT_TimelineEvents ] = { "Show timeline events", "timeline_events", false, 0, 1 };
+
     m_options[ OPT_ShowEventList ] = { "Show Event List", "show_event_list", true, 0, 1 };
     m_options[ OPT_SyncEventListToGraph ] = { "Sync Event List to graph mouse location", "sync_eventlist_to_graph", false, 0, 1 };
     m_options[ OPT_EventListRowCount ] = { "Event List Row Count", "eventlist_row_count", 0, 0, 100 };
     m_options[ OPT_ShowColorPicker ] = { "Show graph color picker", "show_color_picker", false, 0, 1 };
 
-    m_options[ OPT_TimelineLabels ] = { "Show timeline labels", "timeline_labels", true, 0, 1 };
-    m_options[ OPT_TimelineEvents ] = { "Show timeline events", "timeline_events", false, 0, 1 };
-    m_options[ OPT_TimelineGfxRowCount ] = { "gfx Timeline Row Count", "gfx_timeline_row_count", 4, 4, 20 };
-    m_options[ OPT_TimelineSdma0RowCount ] = { "sdma0 Timeline Row Count", "sdma0_timeline_row_count", 4, 4, 20 };
-    m_options[ OPT_TimelineSdma1RowCount ] = { "sdma1 Timeline Row Count", "sdma1_timeline_row_count", 4, 4, 20 };
-    m_options[ OPT_TimelineZoomGfx ] = { "Zoom gfx timeline", "zoom_gfx_timeline", 0, 0, 1 };
+    m_options[ OPT_TimelineGfxRowCount ] = { "gfx Timeline Row Count", "gfx_timeline_row_count", 8, 4, 20 };
+    m_options[ OPT_TimelineSdma0RowCount ] = { "sdma0 Timeline Row Count", "sdma0_timeline_row_count", 4, 2, 20 };
+    m_options[ OPT_TimelineSdma1RowCount ] = { "sdma1 Timeline Row Count", "sdma1_timeline_row_count", 4, 2, 20 };
 
     for ( int i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
