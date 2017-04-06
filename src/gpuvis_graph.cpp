@@ -149,7 +149,7 @@ public:
 
     bool is_timeline;
     uint32_t timeline_row_count;
-    bool timeline_render_user = false;
+    bool timeline_render_user;
 };
 
 static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
@@ -383,7 +383,8 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
                 float x0 = gi.ts_to_screenx( event0.ts );
                 float x1 = gi.ts_to_screenx( event1.ts );
                 float x2 = gi.ts_to_screenx( event.ts );
-                float dx = gi.timeline_render_user ? x2 - x0 : x2 - x1;
+                float xleft = gi.timeline_render_user ? x0 : x1;
+                float dx = x2 - xleft;
                 float y = gi.y + ( event1.graph_row_id % gi.timeline_row_count ) * text_h;
 
                 if ( dx < imgui_scale( 2.0f ) )
@@ -396,7 +397,6 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
 
                     if ( gi.hovered_graph_event == ( uint32_t )-1 )
                     {
-                        float xleft = gi.timeline_render_user ? x0 : x1;
                         if ( gi.mouse_pos.x >= xleft &&
                              gi.mouse_pos.x <= x2 &&
                              gi.mouse_pos.y >= y &&
@@ -700,14 +700,16 @@ void TraceWin::render_process_graph()
         m_loader.m_graph_row_count = ( ( uint32_t )row_count >= row_info.size() ) ? 0 : row_count;
     }
 
+    static bool gfx_timeline_zoom = false;
+    ImGui::SameLine();
+    ImGui::Checkbox( "Zoom gfx timeline", &gfx_timeline_zoom );
+
     // Make sure our ts start and length values are sane
     range_check_graph_location();
 
     imgui_push_smallfont();
     float text_h = ImGui::GetTextLineHeightWithSpacing();
     imgui_pop_smallfont();
-
-    bool gfx_timeline_zoom = true;
 
     {
         graph_info_t gi;
@@ -735,6 +737,7 @@ void TraceWin::render_process_graph()
             gi.eventstart = std::max( ts_to_eventid( gi.ts0 ), m_start_eventid );
             gi.eventend = std::min( ts_to_eventid( gi.ts1 ), m_end_eventid );
 
+            gi.timeline_render_user = false;
             gi.timeline_row_count = m_loader.m_timeline_row_count;
 
             // Range check our mouse pan values
