@@ -429,7 +429,7 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
 
                     last_fence_signaled_x = x2;
 
-                    if ( m_loader.m_timeline_labels )
+                    if ( m_loader.get_opt( TraceLoader::OPT_TimelineLabels ) )
                     {
                         const ImVec2& size = ImGui::CalcTextSize( event0.user_comm );
 
@@ -480,7 +480,7 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
 
         num_events++;
 
-        if ( !gi.is_timeline || m_loader.m_timeline_events )
+        if ( !gi.is_timeline || m_loader.get_opt( TraceLoader::OPT_TimelineEvents ) )
         {
             if ( eventid == m_hovered_eventlist_eventid )
                 draw_hovered_event = true;
@@ -573,8 +573,8 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
                 break;
 
             trace_event_t &event = get_event( id );
-            if ( ( ( size_t )event.crtc < m_loader.m_render_crtc.size() ) &&
-                 m_loader.m_render_crtc[ event.crtc ] )
+
+            if ( m_loader.get_opt_crtc( event.crtc ) )
             {
                 // drm_vblank_event0: blue, drm_vblank_event1: red
                 colors_t col = ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0;
@@ -789,41 +789,25 @@ bool TraceWin::render_graph_popup()
     if ( !ImGui::BeginPopup( "GraphPopup" ) )
         return false;
 
-    const char *names[] = { "GraphBream", "GraphHaddock", "GraphMackerel", "GraphPollock", "GraphTilefish" };
-    static bool toggles[] = { true, false, false, false, false };
-
-    for ( int i = 0; i < 5; i++ )
-        ImGui::MenuItem( names[ i ], "", &toggles[ i ] );
-
-    if ( ImGui::BeginMenu( "Sub-menu" ) )
+    for ( int i = 0; i < TraceLoader::OPT_Max; i++ )
     {
-        ImGui::MenuItem( "Click me" );
-        ImGui::EndMenu();
-    }
+        TraceLoader::option_t &opt = m_loader.m_options[ i ];
 
-    ImGui::Separator();
-    ImGui::Text( "Tooltip here" );
-
-    if ( ImGui::IsItemHovered() )
-        ImGui::SetTooltip( "I am a tooltip over a popup" );
-
-    if ( ImGui::Button( "Stacked Popup" ) )
-        ImGui::OpenPopup( "another popup" );
-
-    if ( ImGui::BeginPopup( "another popup" ) )
-    {
-        for ( int i = 0; i < 5; i++ )
-            ImGui::MenuItem( names[ i ], "", &toggles[ i ] );
-
-        if ( ImGui::BeginMenu( "Sub-menu" ) )
+        if ( i >= TraceLoader::OPT_RenderCrtc0 && i <= TraceLoader::OPT_RenderCrtc9 )
         {
-            ImGui::MenuItem( "Click me" );
-            ImGui::EndMenu();
+            if ( i - TraceLoader::OPT_RenderCrtc0 > m_loader.m_crtc_max )
+                continue;
         }
-        ImGui::EndPopup();
-    }
-    ImGui::EndPopup();
 
+        if ( opt.val_min == 0 && opt.val_max == 1 )
+        {
+            bool val = opt.val;
+            if ( ImGui::MenuItem( opt.desc.c_str(), "", &val ) )
+                opt.val = val;
+        }
+    }
+
+    ImGui::EndPopup();
     return true;
 }
 
@@ -908,8 +892,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
         {
             trace_event_t &event = get_event( vblank_locs->at( idx ) );
 
-            if ( ( ( size_t )event.crtc < m_loader.m_render_crtc.size() ) &&
-                 m_loader.m_render_crtc[ event.crtc ] )
+            if ( m_loader.get_opt_crtc( event.crtc ) )
             {
                 if ( event.ts < mouse_ts )
                 {
@@ -930,7 +913,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
             time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 );
     }
 
-    if ( m_loader.m_sync_eventlist_to_graph &&
+    if ( m_loader.get_opt( TraceLoader::OPT_SyncEventListToGraph ) &&
          m_show_eventlist &&
          !gi.hovered_items.empty() )
     {

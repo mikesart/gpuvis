@@ -419,22 +419,34 @@ int SDLCALL TraceLoader::thread_func( void *data )
 
 void TraceLoader::init()
 {
-    m_fullscreen = m_inifile.GetInt( "fullscreen", 0 );
-    m_show_events_list = m_inifile.GetInt( "show_events_list", 0 );
-    m_graph_row_count = m_inifile.GetInt( "graph_row_count", 0 );
-    m_show_color_picker = m_inifile.GetInt( "show_color_picker", 0 );
-    m_sync_eventlist_to_graph = m_inifile.GetInt( "sync_eventlist_to_graph", 0 );
-    m_eventlist_row_count = m_inifile.GetInt( "eventlist_row_count", 0 );
+    m_options.resize( OPT_Max );
 
-    m_timeline_labels = m_inifile.GetInt( "timeline_labels", 1 );
-    m_timeline_events = m_inifile.GetInt( "timeline_events", 0 );
+    m_options[ OPT_Fullscreen ] = { "Fullscreen Trace Window", "fullscreen", false, 0, 1 };
+    m_options[ OPT_ShowEventList ] = { "Show Event List", "show_event_list", true, 0, 1 };
+    m_options[ OPT_SyncEventListToGraph ] = { "Sync Event List to graph mouse location", "sync_eventlist_to_graph", false, 0, 1 };
+    m_options[ OPT_ShowColorPicker ] = { "Show graph color picker", "show_color_picker", false, 0, 1 };
+    m_options[ OPT_TimelineLabels ] = { "Show timeline labels", "timeline_labels", true, 0, 1 };
+    m_options[ OPT_TimelineEvents ] = { "Show timeline events", "timeline_events", false, 0, 1 };
 
-    for ( size_t i = 0; i < m_render_crtc.size(); i++ )
+    for ( int i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
-        std::string key = string_format( "render_crtc%lu", i );
-
-        m_render_crtc[ i ] = m_inifile.GetInt( key.c_str(), 1 );
+        m_options[ i ].desc = string_format( "Show drm_vblank_event crtc%d markers", i - OPT_RenderCrtc0 );
+        m_options[ i ].inikey = string_format( "render_crtc%d", i - OPT_RenderCrtc0 );
+        m_options[ i ].val = 1;
+        m_options[ i ].val_min = 0;
+        m_options[ i ].val_max = 1;
     }
+
+    // Read option settings from ini file
+    for ( int i = 0; i < OPT_Max; i++ )
+    {
+        option_t &opt = m_options[ i ];
+
+        opt.val = m_inifile.GetInt( opt.inikey.c_str(), opt.val );
+    }
+
+    m_graph_row_count = m_inifile.GetInt( "graph_row_count", 0 );
+    m_eventlist_row_count = m_inifile.GetInt( "eventlist_row_count", 0 );
 }
 
 void TraceLoader::shutdown()
@@ -459,27 +471,21 @@ void TraceLoader::shutdown()
         delete events;
     m_trace_events_list.clear();
 
-    m_inifile.PutInt( "fullscreen", m_fullscreen );
-    m_inifile.PutInt( "show_events_list", m_show_events_list );
-    m_inifile.PutInt( "graph_row_count", m_graph_row_count );
-    m_inifile.PutInt( "show_color_picker", m_show_color_picker );
-    m_inifile.PutInt( "sync_eventlist_to_graph", m_sync_eventlist_to_graph );
-    m_inifile.PutInt( "eventlist_row_count", m_eventlist_row_count );
-
-    m_inifile.PutInt( "timeline_labels", m_timeline_labels );
-    m_inifile.PutInt( "timeline_events", m_timeline_events );
-
-    for ( size_t i = 0; i < m_render_crtc.size(); i++ )
+    // Write option settings to ini file
+    for ( int i = 0; i < OPT_Max; i++ )
     {
-        std::string key = string_format( "render_crtc%lu", i );
+        const option_t &opt = m_options[ i ];
 
-        m_inifile.PutInt( key.c_str(), m_render_crtc[ i ] );
+        m_inifile.PutInt( opt.inikey.c_str(), opt.val );
     }
+
+    m_inifile.PutInt( "graph_row_count", m_graph_row_count );
+    m_inifile.PutInt( "eventlist_row_count", m_eventlist_row_count );
 }
 
 void TraceLoader::render()
 {
-    if ( m_fullscreen && !m_trace_windows_list.empty() )
+    if ( get_opt( OPT_Fullscreen ) && !m_trace_windows_list.empty() )
     {
         ImGuiIO &io = ImGui::GetIO();
         float w = io.DisplaySize.x;
@@ -637,7 +643,7 @@ int TraceWin::timestr_to_eventid( const char *buf, int64_t tsoffset )
 
 void TraceWin::render_color_picker()
 {
-    if ( !m_loader.m_show_color_picker )
+    if ( !m_loader.get_opt( TraceLoader::OPT_ShowColorPicker ) )
         return;
 
     if ( !ImGui::CollapsingHeader( "Color Picker", ImGuiTreeNodeFlags_DefaultOpen ) )
@@ -811,7 +817,7 @@ bool TraceWin::render()
         ImGui::Unindent();
     }
 
-    ImGuiTreeNodeFlags eventslist_flags = m_loader.m_show_events_list ?
+    ImGuiTreeNodeFlags eventslist_flags = m_loader.get_opt( TraceLoader::OPT_ShowEventList) ?
         ImGuiTreeNodeFlags_DefaultOpen : 0;
     m_show_eventlist = ImGui::CollapsingHeader( "Events List", eventslist_flags );
     if ( m_show_eventlist )
@@ -1193,31 +1199,25 @@ void TraceConsole::render_options( TraceLoader &loader )
 
     ImGui::Separator();
 
-    ImGui::Checkbox( "Show Events List when opening new Trace Windows",
-                     &loader.m_show_events_list );
-
-    ImGui::Checkbox( "Fullscreen Trace Window",
-                     &loader.m_fullscreen );
-
-    ImGui::Checkbox( "Sync event list to graph mouse location",
-                     &loader.m_sync_eventlist_to_graph );
-
-    for ( int i = 0; i <= loader.m_crtc_max; i++ )
+    for ( int i = 0; i < TraceLoader::OPT_Max; i++ )
     {
-        std::string label = string_format(
-                    "Show drm_vblank_event crtc%d markers", i );
+        TraceLoader::option_t &opt = loader.m_options[ i ];
 
-        ImGui::Checkbox( label.c_str(), &loader.m_render_crtc[ i ] );
+        if ( i >= TraceLoader::OPT_RenderCrtc0 && i <= TraceLoader::OPT_RenderCrtc9 )
+        {
+            if ( i - TraceLoader::OPT_RenderCrtc0 > loader.m_crtc_max )
+                continue;
+        }
+
+        if ( opt.val_min == 0 && opt.val_max == 1 )
+        {
+            bool val = opt.val;
+            if ( ImGui::Checkbox( opt.desc.c_str(), &val ) )
+                opt.val = val;
+        }
     }
 
-    ImGui::Checkbox( "Show graph color picker",
-                     &loader.m_show_color_picker );
-
-    ImGui::Checkbox( "Show timeline labels", &loader.m_timeline_labels );
-    ImGui::Checkbox( "Show timeline events", &loader.m_timeline_events );
-
     ImGui::Text( "Event List Row Count:" );
-
     ImGui::SameLine();
     ImGui::PushItemWidth( imgui_scale( 150.0f ) );
     ImGui::SliderInt( "##EventListRowCount", &loader.m_eventlist_row_count, 0, 100 );
@@ -1619,7 +1619,7 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
         {
         case 0:
             if ( !strcasecmp( "fullscreen", long_opts[ opt_ind ].name ) )
-                loader.m_fullscreen = true;
+                loader.m_options[ TraceLoader::OPT_Fullscreen ].val = true;
             break;
         case 'i':
             loader.m_inputfiles.push_back( optarg );
@@ -1680,8 +1680,6 @@ int main( int argc, char **argv )
     TraceLoader loader( inifile );
     SDL_Window *window = NULL;
 
-    parse_cmdline( loader, argc, argv );
-
     // Setup SDL
     if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_TIMER ) != 0 )
     {
@@ -1695,6 +1693,8 @@ int main( int argc, char **argv )
 
     col_init( inifile );
     loader.init();
+
+    parse_cmdline( loader, argc, argv );
 
     ImGuiIO &io = ImGui::GetIO();
     io.IniLoadSettingCB = std::bind( imgui_ini_load_settings_cb, &inifile, _1, _2 );

@@ -471,16 +471,48 @@ public:
     int m_crtc_max = 0;
     int m_graph_row_count = 0;
     int m_timeline_row_count = 4;
-    bool m_fullscreen = false;
-    bool m_show_events_list = false;
-    bool m_show_color_picker = false;
-    bool m_sync_eventlist_to_graph = false;
     int m_eventlist_row_count = 0;
-    std::array< bool, 10 > m_render_crtc;
     std::vector< std::string > m_inputfiles;
 
-    bool m_timeline_labels = true;
-    bool m_timeline_events = false;
+    enum option_id_t
+    {
+        OPT_Fullscreen,
+        OPT_ShowEventList,
+        OPT_SyncEventListToGraph,
+        OPT_ShowColorPicker,
+        OPT_TimelineLabels,
+        OPT_TimelineEvents,
+        OPT_RenderCrtc0,
+        OPT_RenderCrtc1,
+        OPT_RenderCrtc2,
+        OPT_RenderCrtc3,
+        OPT_RenderCrtc4,
+        OPT_RenderCrtc5,
+        OPT_RenderCrtc6,
+        OPT_RenderCrtc7,
+        OPT_RenderCrtc8,
+        OPT_RenderCrtc9,
+        OPT_Max
+    };
+    struct option_t
+    {
+        std::string desc;
+        std::string inikey;
+        int val;
+        int val_min;
+        int val_max;
+    };
+    std::vector< option_t > m_options;
+    int get_opt( option_id_t opt )
+    {
+        return m_options[ opt ].val;
+    }
+    int get_opt_crtc( int crtc )
+    {
+        int val = crtc + OPT_RenderCrtc0;
+
+        return ( val <= OPT_RenderCrtc9 ) ? m_options[ val ].val : 0;
+    }
 
     std::unordered_map< uint32_t, uint32_t > m_timeline_info;
     uint32_t &get_timeline_row_id( const char *timeline )
