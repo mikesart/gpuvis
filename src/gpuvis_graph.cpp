@@ -356,25 +356,26 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
     bool draw_selected_event = false;
     bool draw_hovered_event = false;
 
-    if ( !is_timeline || m_loader.m_timeline_events )
+    event_renderer_t event_renderer( gi.y, gi.w, gi.h );
+
+    for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
+          idx < locs.size();
+          idx++ )
     {
-        event_renderer_t event_renderer( gi.y, gi.w, gi.h );
+        uint32_t eventid = locs[ idx ];
 
-        for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
-              idx < locs.size();
-              idx++ )
+        if ( eventid > gi.eventend )
+            break;
+
+        num_events++;
+
+        if ( !is_timeline || m_loader.m_timeline_events )
         {
-            uint32_t eventid = locs[ idx ];
-
-            if ( eventid > gi.eventend )
-                break;
-
             if ( eventid == m_hovered_eventlist_eventid )
                 draw_hovered_event = true;
             else if ( eventid == m_selected_eventid )
                 draw_selected_event = true;
 
-            num_events++;
             const trace_event_t &event = get_event( eventid );
             float x = gi.ts_to_screenx( event.ts );
 
@@ -384,8 +385,8 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
 
             event_renderer.add_event( x );
         }
-        event_renderer.done();
     }
+    event_renderer.done();
 
     if ( is_timeline )
     {
@@ -413,32 +414,22 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
                 //  our start times for all the graphs are > gi.ts1?
                 if ( event0.ts < gi.ts1 )
                 {
-                    //$$$ float x0 = gi.ts_to_screenx( event0.ts );
+                    float x0 = gi.ts_to_screenx( event0.ts );
                     float x1 = gi.ts_to_screenx( event1.ts );
                     float x2 = gi.ts_to_screenx( event.ts );
                     float dx = x2 - x1;
+                    ImU32 col_hwrunning = col_get( col_BarHwRunning );
+                    ImU32 col_userspace = col_get( col_BarUserspace );
+                    ImU32 col_hwqueue = col_get( col_BarHwQueue );
+                    float y = gi.y + ( event1.graph_row_id % 3 ) * text_h;
 
-                    if ( dx >= imgui_scale( 2.0f ) )
+                    if ( dx < imgui_scale( 2.0f ) )
                     {
-                        ImU32 col_hwrunning = col_get( col_BarHwRunning );
-                        //$$$ ImU32 col_userspace = col_get( col_BarUserspace );
-                        ImU32 col_hwqueue = col_get( col_BarHwQueue );
-                        float y = gi.y + ( event1.graph_row_id % 3 ) * text_h;
-
-                        // Current job doesn't start until the last one finishes.
-                        if ( ( last_fence_signaled_x > x1 ) && ( last_fence_signaled_x < x2 ) )
-                        {
-                            //$$$ imgui_drawrect( x0, x1 - x0, y, text_h, col_userspace );
-                            imgui_drawrect( x1, last_fence_signaled_x - x1, y, text_h, col_hwqueue );
-                            imgui_drawrect( last_fence_signaled_x, x2 - last_fence_signaled_x, y, text_h, col_hwrunning );
-                        }
-                        else
-                        {
-                            //$$$ imgui_drawrect( x0, x1 - x0, y, text_h, col_userspace );
-                            imgui_drawrect( x1, x2 - x1, y, text_h, col_hwrunning );
-                        }
-
-                        last_fence_signaled_x = x2;
+                        imgui_drawrect( x1, dx, y, text_h, col_hwrunning );
+                    }
+                    else
+                    {
+                        bool hovered = false;
 
                         if ( gi.hovered_graph_event == ( uint32_t )-1 )
                         {
@@ -447,14 +438,32 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
                                  gi.mouse_pos.y >= y &&
                                  gi.mouse_pos.y <= y + text_h )
                             {
+                                hovered = true;
                                 gi.hovered_graph_event = event0.id;
 
-                                hov_p0.x = x1;
+                                hov_p0.x = x0;
                                 hov_p0.y = y;
                                 hov_p1.x = x2;
                                 hov_p1.y = y + text_h;
                             }
                         }
+
+                        // Current job doesn't start until the last one finishes.
+                        if ( ( last_fence_signaled_x > x1 ) && ( last_fence_signaled_x < x2 ) )
+                        {
+                            if ( hovered )
+                                imgui_drawrect( x0, x1 - x0, y, text_h, col_userspace );
+                            imgui_drawrect( x1, last_fence_signaled_x - x1, y, text_h, col_hwqueue );
+                            imgui_drawrect( last_fence_signaled_x, x2 - last_fence_signaled_x, y, text_h, col_hwrunning );
+                        }
+                        else
+                        {
+                            if ( hovered )
+                                imgui_drawrect( x0, x1 - x0, y, text_h, col_userspace );
+                            imgui_drawrect( x1, x2 - x1, y, text_h, col_hwrunning );
+                        }
+
+                        last_fence_signaled_x = x2;
 
                         if ( m_loader.m_timeline_labels )
                         {

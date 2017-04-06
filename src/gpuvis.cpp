@@ -314,60 +314,39 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
          event.context &&
          is_timeline_event( event.name ) )
     {
-        std::string name = get_event_gfxcontext_str( event );
+        std::string gfxcontext = get_event_gfxcontext_str( event );
 
-        if ( !strcmp( event.name, "amdgpu_cs_ioctl" ) )
-            trace_events->m_events[ id ].graph_row_id = loader->m_graph_row_id++;
+        // Add this event under the "gfx_ctx_seq" or "sdma0_ctx_seq", etc. map
+        trace_events->m_gfxcontext_locations.add_location_str( gfxcontext.c_str(), id );
 
-        // Add this event under the "gfx_ctx_seq" map
-        trace_events->m_gfxcontext_locations.add_location_str( name.c_str(), id );
-
-        // Add this event under the "gfx" map
+        // Add this event under the "gfx", "sdma0", etc map
         trace_events->m_timeline_locations.add_location_str( event.timeline, id );
 
         // Grab the event locations for this event context
-        const std::vector< uint32_t > *plocs = trace_events->get_gfxcontext_locs( name.c_str() );
-        if ( plocs->size() > 1 )
+        const std::vector< uint32_t > *plocs = trace_events->get_gfxcontext_locs( gfxcontext.c_str() );
+        if ( plocs->size() == 1 )
         {
-            // First event: hopefully amdgpu_cs_ioctl
+            // This is the first event - set the id for the series.
+            trace_events->m_events[ id ].graph_row_id = loader->m_graph_row_id++;
+        }
+        else
+        {
+            // First event...
             const trace_event_t &event0 = trace_events->m_events[ plocs->front() ];
-            // Event right before last event we just added: amdgpu_cs_ioctl0 or amdgpu_sched_run_job
+            // Event right before the event we just added...
             auto it = plocs->rbegin() + 1;
             const trace_event_t &event_prev = trace_events->m_events[ *it ];
-
-            // Event we just added: amdgpu_sched_run_job or fence_signaled
+            // Event we just added...
             trace_event_t &event1 = trace_events->m_events[ plocs->back() ];
 
-            // Assume the user comm is the first event in this set. For amd, it goes:
-            //  amdgpu_cs_ioctl (user space)
-            //  amdgpu_sched_run_job (kernel)
-            //  fence_signaled (kernel)
+            // Assume the user comm is the first event in this set.
             event1.user_comm = event0.comm;
+
+            // Point the event we just added to the previous event in this series
             event1.id_start = event_prev.id;
+
+            // Set the graph_row_id to be the same as the previous one
             event1.graph_row_id = event_prev.graph_row_id;
-
-#if 0
-            // If this is a fence_signaled event, the start is either amdgpu_sched_run_job or a
-            //  an earlier fence_signaled event.
-            if ( id && strstr( event.name, "fence_signaled" ) )
-            {
-                for ( uint32_t idx = id - 1; idx > event1.id_start; idx-- )
-                {
-                    trace_event_t &tevent = trace_events->m_events[ idx ];
-
-                    if ( strstr( tevent.name, "fence_signaled" ) &&
-                         tevent.timeline &&
-                         tevent.context &&
-                         tevent.seqno )
-                    {
-                        // tevent.id_start = event1.id_start;
-
-                        event1.id_start = idx;
-                        break;
-                    }
-                }
-            }
-#endif
         }
     }
 
