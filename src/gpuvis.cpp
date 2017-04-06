@@ -296,7 +296,7 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
         m_trace_events->m_cpucount[ event.cpu ]++;
 
     // Record the maximum crtc we've ever seen.
-    m_crtc_max = std::max( m_crtc_max, event.crtc );
+    m_crtc_max = std::max< int >( m_crtc_max, event.crtc );
 
     event.ts -= m_trace_events->m_ts_min;
 
@@ -426,8 +426,13 @@ void TraceLoader::init()
     m_options[ OPT_SyncEventListToGraph ] = { "Sync Event List to graph mouse location", "sync_eventlist_to_graph", false, 0, 1 };
     m_options[ OPT_EventListRowCount ] = { "Event List Row Count", "eventlist_row_count", 0, 0, 100 };
     m_options[ OPT_ShowColorPicker ] = { "Show graph color picker", "show_color_picker", false, 0, 1 };
+
     m_options[ OPT_TimelineLabels ] = { "Show timeline labels", "timeline_labels", true, 0, 1 };
     m_options[ OPT_TimelineEvents ] = { "Show timeline events", "timeline_events", false, 0, 1 };
+    m_options[ OPT_TimelineGfxRowCount ] = { "gfx Timeline Row Count", "gfx_timeline_row_count", 4, 4, 20 };
+    m_options[ OPT_TimelineSdma0RowCount ] = { "sdma0 Timeline Row Count", "sdma0_timeline_row_count", 4, 4, 20 };
+    m_options[ OPT_TimelineSdma1RowCount ] = { "sdma1 Timeline Row Count", "sdma1_timeline_row_count", 4, 4, 20 };
+    m_options[ OPT_TimelineZoomGfx ] = { "Zoom gfx timeline", "zoom_gfx_timeline", 0, 0, 1 };
 
     for ( int i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
@@ -439,7 +444,7 @@ void TraceLoader::init()
     }
 
     // Read option settings from ini file
-    for ( int i = 0; i < OPT_Max; i++ )
+    for ( size_t i = 0; i < m_options.size(); i++ )
     {
         option_t &opt = m_options[ i ];
 
@@ -472,7 +477,7 @@ void TraceLoader::shutdown()
     m_trace_events_list.clear();
 
     // Write option settings to ini file
-    for ( int i = 0; i < OPT_Max; i++ )
+    for ( size_t i = 0; i < m_options.size(); i++ )
     {
         const option_t &opt = m_options[ i ];
 
@@ -1198,11 +1203,12 @@ void TraceConsole::render_options( TraceLoader &loader )
 
     ImGui::Separator();
 
-    for ( int i = 0; i < TraceLoader::OPT_Max; i++ )
+    for ( size_t i = 0; i < loader.m_options.size(); i++ )
     {
         TraceLoader::option_t &opt = loader.m_options[ i ];
 
-        if ( i >= TraceLoader::OPT_RenderCrtc0 && i <= TraceLoader::OPT_RenderCrtc9 )
+        if ( ( i >= TraceLoader::OPT_RenderCrtc0 ) &&
+             ( i <= TraceLoader::OPT_RenderCrtc9 ) )
         {
             if ( i - TraceLoader::OPT_RenderCrtc0 > loader.m_crtc_max )
                 continue;

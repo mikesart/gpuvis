@@ -148,7 +148,6 @@ public:
     uint32_t hovered_graph_event;
 
     bool is_timeline;
-    uint32_t timeline_row_count;
     bool timeline_render_user;
 };
 
@@ -271,7 +270,6 @@ void graph_info_t::init( float x_in, float w_in, int64_t start_ts, int64_t lengt
     hovered_graph_event = ( uint32_t )-1;
 
     is_timeline = false;
-    timeline_row_count = 4;
 }
 
 void graph_info_t::set_pos_y( float y_in, float h_in )
@@ -363,6 +361,8 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
     ImU32 col_hwqueue = col_get( col_BarHwQueue );
     float text_h = ImGui::GetTextLineHeightWithSpacing();
 
+    uint32_t timeline_row_count = gi.h / text_h;
+
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
           idx++ )
@@ -385,7 +385,7 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
                 float x2 = gi.ts_to_screenx( event.ts );
                 float xleft = gi.timeline_render_user ? x0 : x1;
                 float dx = x2 - xleft;
-                float y = gi.y + ( event1.graph_row_id % gi.timeline_row_count ) * text_h;
+                float y = gi.y + ( event1.graph_row_id % timeline_row_count ) * text_h;
 
                 if ( dx < imgui_scale( 2.0f ) )
                 {
@@ -692,15 +692,33 @@ void TraceWin::render_process_graph()
 {
     struct row_info_t
     {
+        float row_y;
+        float row_h;
         bool is_timeline;
-        const std::string &comm;
-        const std::vector< uint32_t > &locs;
+        std::string comm;
+        const std::vector< uint32_t > *plocs;
     };
     std::vector< row_info_t > row_info;
 
+    uint32_t timeline_gfx_index = ( uint32_t )-1;
+
+    imgui_push_smallfont();
+
+    float text_h = ImGui::GetTextLineHeightWithSpacing();
+    float graph_row_padding = ImGui::GetStyle().FramePadding.y;
+    float total_graph_height = graph_row_padding;
+
+    imgui_pop_smallfont();
+
     for ( const std::string &comm : m_graph_rows )
     {
-        bool is_timeline = false;
+        row_info_t rinfo;
+
+        rinfo.row_y = total_graph_height;
+        rinfo.row_h = text_h * 2;
+        rinfo.is_timeline = false;
+        rinfo.comm = comm;
+
         const std::vector< uint32_t > *plocs;
 
         plocs = m_trace_events->get_comm_locs( comm.c_str() );
@@ -710,13 +728,26 @@ void TraceWin::render_process_graph()
             plocs = m_trace_events->get_gfxcontext_locs( comm.c_str() );
         if ( !plocs )
         {
-            is_timeline = true;
+            rinfo.is_timeline = true;
+            rinfo.row_h = text_h * 8;
+
             plocs = m_trace_events->get_timeline_locs( comm.c_str() );
         }
 
         if ( plocs )
-            row_info.push_back( { is_timeline, comm, *plocs } );
+        {
+            rinfo.plocs = plocs;
+
+            row_info.push_back( rinfo );
+            if ( comm == "gfx" )
+                timeline_gfx_index = row_info.size() - 1;
+
+            total_graph_height += rinfo.row_h + graph_row_padding;
+        }
     }
+
+    total_graph_height += imgui_scale( 2.0f );
+
     if ( row_info.empty() )
         return;
 
@@ -736,32 +767,25 @@ void TraceWin::render_process_graph()
         m_loader.m_graph_row_count = ( ( uint32_t )row_count >= row_info.size() ) ? 0 : row_count;
     }
 
-    static bool gfx_timeline_zoom = false;
-    ImGui::SameLine();
-    ImGui::Checkbox( "Zoom gfx timeline", &gfx_timeline_zoom );
+    bool gfx_timeline_zoom = ( timeline_gfx_index != ( uint32_t )-1 ) ?
+                m_loader.get_opt( TraceLoader::OPT_TimelineZoomGfx ) : false;
 
     // Make sure our ts start and length values are sane
     range_check_graph_location();
 
-    imgui_push_smallfont();
-    float text_h = ImGui::GetTextLineHeightWithSpacing();
-    imgui_pop_smallfont();
-
     {
         graph_info_t gi;
-        float graph_row_h = imgui_scale( text_h * m_loader.m_timeline_row_count );
-        float graph_row_padding = ImGui::GetStyle().FramePadding.y;
-        float graph_row_h_total = graph_row_h + graph_row_padding;
-        float graph_height = std::max( row_count * graph_row_h_total, graph_row_h_total ) +
-                graph_row_padding + imgui_scale( 2.0f );
 
-        ImGui::BeginChild( "EventGraph", ImVec2( 0, graph_height ), true );
+        float visible_graph_height = ( ( size_t )row_count >= row_info.size() ) ?
+            total_graph_height : row_info[ row_count ].row_y;
+
+        ImGui::BeginChild( "EventGraph", ImVec2( 0, visible_graph_height ), true );
         {
             ImVec2 windowpos = ImGui::GetWindowClipRectMin();
             ImVec2 cliprectmax = ImGui::GetWindowClipRectMax();
             ImVec2 windowsize = ImVec2( cliprectmax.x - windowpos.x, cliprectmax.y - windowpos.y );
 
-            // Clear entire graph background
+            // Clear graph background
             imgui_drawrect( windowpos.x, windowsize.x,
                             windowpos.y, windowsize.y, col_get( col_GraphBk ) );
 
@@ -773,29 +797,22 @@ void TraceWin::render_process_graph()
             gi.eventstart = std::max( ts_to_eventid( gi.ts0 ), m_start_eventid );
             gi.eventend = std::min( ts_to_eventid( gi.ts1 ), m_end_eventid );
 
-            gi.timeline_render_user = false;
-            gi.timeline_row_count = m_loader.m_timeline_row_count;
-
             // Range check our mouse pan values
             m_graph_start_y = Clamp< float >( m_graph_start_y,
-                ( row_count - ( float )row_info.size() ) * graph_row_h_total,
-                0.0f );
+                                              visible_graph_height - total_graph_height, 0.0f );
 
             if ( !gfx_timeline_zoom )
             {
-                // Initialize first row position
-                gi.set_pos_y( windowpos.y + graph_row_padding + m_graph_start_y, graph_row_h );
-
                 // Go through and render all the rows
                 for ( const row_info_t &ri : row_info )
                 {
                     gi.is_timeline = ri.is_timeline;
+                    gi.timeline_render_user = false;
+
+                    gi.set_pos_y( windowpos.y + ri.row_y + m_graph_start_y, ri.row_h );
 
                     //$ TODO mikesart: Check if entire row is clipped...
-                    render_graph_row( ri.comm, ri.locs, gi );
-
-                    // Move position to next row
-                    gi.set_pos_y( gi.y + graph_row_h_total, graph_row_h );
+                    render_graph_row( ri.comm, *ri.plocs, gi );
                 }
             }
 
@@ -806,9 +823,8 @@ void TraceWin::render_process_graph()
             {
                 gi.is_timeline = true;
                 gi.timeline_render_user = true;
-                gi.timeline_row_count = windowsize.y / text_h;
 
-                render_graph_row( row_info[ 0 ].comm, row_info[ 0 ].locs, gi );
+                render_graph_row( row_info[ timeline_gfx_index ].comm, *row_info[ timeline_gfx_index ].plocs, gi );
             }
 
             render_graph_vblanks( gi );
@@ -877,11 +893,12 @@ bool TraceWin::render_graph_popup()
 
     ImGui::Separator();
 
-    for ( int i = 0; i < TraceLoader::OPT_Max; i++ )
+    for ( size_t i = 0; i < m_loader.m_options.size(); i++ )
     {
         TraceLoader::option_t &opt = m_loader.m_options[ i ];
 
-        if ( i >= TraceLoader::OPT_RenderCrtc0 && i <= TraceLoader::OPT_RenderCrtc9 )
+        if ( ( i >= TraceLoader::OPT_RenderCrtc0 ) &&
+             ( i <= TraceLoader::OPT_RenderCrtc9 ) )
         {
             if ( i - TraceLoader::OPT_RenderCrtc0 > m_loader.m_crtc_max )
                 continue;

@@ -472,13 +472,14 @@ public:
     std::vector< TraceEvents * > m_trace_events_list;
     std::vector< TraceWin * > m_trace_windows_list;
 
-    int m_crtc_max = 0;
+    uint32_t m_crtc_max = 0;
     int m_graph_row_count = 0;
     int m_timeline_row_count = 4;
     std::vector< std::string > m_inputfiles;
 
     enum option_id_t
     {
+        OPT_TimelineZoomGfx,
         OPT_Fullscreen,
         OPT_ShowEventList,
         OPT_SyncEventListToGraph,
@@ -486,6 +487,9 @@ public:
         OPT_ShowColorPicker,
         OPT_TimelineLabels,
         OPT_TimelineEvents,
+        OPT_TimelineGfxRowCount,
+        OPT_TimelineSdma0RowCount,
+        OPT_TimelineSdma1RowCount,
         OPT_RenderCrtc0,
         OPT_RenderCrtc1,
         OPT_RenderCrtc2,
