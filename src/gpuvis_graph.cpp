@@ -353,8 +353,8 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
 {
     imgui_push_smallfont();
 
-    ImVec2 hov_p0 = { -1, -1 };
-    ImVec2 hov_p1 = { -1, -1 };
+    ImVec2 hov_p0 = { FLT_MAX, FLT_MAX };
+    ImVec2 hov_p1 = { FLT_MAX, FLT_MAX };
     float last_fence_signaled_x = -1.0f;
     ImU32 col_hwrunning = col_get( col_BarHwRunning );
     ImU32 col_userspace = col_get( col_BarUserspace );
@@ -451,7 +451,7 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
         }
     }
 
-    if ( hov_p0.x >= 0.0f )
+    if ( hov_p0.x < gi.x + gi.w )
     {
         ImGui::GetWindowDrawList()->AddRect( hov_p0, hov_p1, col_get( col_BarSelRect ) );
     }
