@@ -453,6 +453,7 @@ public:
 
     int m_crtc_max = 0;
     int m_graph_row_count = 0;
+    int m_timeline_row_count = 4;
     bool m_fullscreen = false;
     bool m_show_events_list = false;
     bool m_show_color_picker = false;

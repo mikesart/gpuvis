@@ -421,7 +421,7 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
                     ImU32 col_hwrunning = col_get( col_BarHwRunning );
                     ImU32 col_userspace = col_get( col_BarUserspace );
                     ImU32 col_hwqueue = col_get( col_BarHwQueue );
-                    float y = gi.y + ( event1.graph_row_id % 3 ) * text_h;
+                    float y = gi.y + ( event1.graph_row_id % m_loader.m_timeline_row_count ) * text_h;
 
                     if ( dx < imgui_scale( 2.0f ) )
                     {
@@ -691,9 +691,13 @@ void TraceWin::render_process_graph()
     // Make sure our ts start and length values are sane
     range_check_graph_location();
 
+    imgui_push_smallfont();
+    float text_h = ImGui::GetTextLineHeightWithSpacing();
+    imgui_pop_smallfont();
+
     {
         graph_info_t gi;
-        float graph_row_h = imgui_scale( 50.0f );
+        float graph_row_h = imgui_scale( text_h * m_loader.m_timeline_row_count );
         float graph_row_padding = ImGui::GetStyle().FramePadding.y;
         float graph_row_h_total = graph_row_h + graph_row_padding;
         float graph_height = std::max( row_count * graph_row_h_total, graph_row_h_total ) +
