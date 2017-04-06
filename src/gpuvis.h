@@ -307,7 +307,7 @@ protected:
 
     void render_process_graph();
     void render_graph_row( const std::string &comm, const std::vector< uint32_t > &locs,
-                           class graph_info_t &gi, bool is_timeline );
+                           class graph_info_t &gi );
     void render_graph_row_timeline( const std::string &comm,
                                     const std::vector< uint32_t > &locs, graph_info_t &gi );
     void render_graph_vblanks( class graph_info_t &gi );

@@ -147,6 +147,7 @@ public:
 
     uint32_t hovered_graph_event;
 
+    bool is_timeline;
     uint32_t timeline_row_count;
     bool timeline_render_user = false;
 };
@@ -269,6 +270,7 @@ void graph_info_t::init( float x_in, float w_in, int64_t start_ts, int64_t lengt
     hovered_items.clear();
     hovered_graph_event = ( uint32_t )-1;
 
+    is_timeline = false;
     timeline_row_count = 4;
 }
 
@@ -381,7 +383,7 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
                 float x0 = gi.ts_to_screenx( event0.ts );
                 float x1 = gi.ts_to_screenx( event1.ts );
                 float x2 = gi.ts_to_screenx( event.ts );
-                float dx = x2 - x1;
+                float dx = gi.timeline_render_user ? x2 - x0 : x2 - x1;
                 float y = gi.y + ( event1.graph_row_id % gi.timeline_row_count ) * text_h;
 
                 if ( dx < imgui_scale( 2.0f ) )
@@ -409,13 +411,6 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
                             hov_p1.y = y + text_h;
                         }
                     }
-
-                    //$ TODO: there are graph items that don't draw when you zoom out
-                    //$ TODO: there are graph items where the selection bar doesn't select when you zoom out on the left
-                    //$ TODO: make it an option to show green bars
-                    //$ TODO: make it an option to set size of gfx, sdma0, sdma1, etc with right click?
-                    //$ TODO: or maybe a checkbox that says extended graph?
-                    //$ TODO: or a slider on the right of the graph? Or something?
 
                     // Current job doesn't start until the last one finishes.
                     if ( ( last_fence_signaled_x > x1 ) && ( last_fence_signaled_x < x2 ) )
@@ -459,8 +454,7 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
     imgui_pop_smallfont();
 }
 
-void TraceWin::render_graph_row( const std::string &comm, const std::vector< uint32_t > &locs, graph_info_t &gi,
-                                 bool is_timeline )
+void TraceWin::render_graph_row( const std::string &comm, const std::vector< uint32_t > &locs, graph_info_t &gi )
 {
     // Draw background
     ImGui::GetWindowDrawList()->AddRectFilled(
@@ -486,7 +480,7 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
 
         num_events++;
 
-        if ( !is_timeline || m_loader.m_timeline_events )
+        if ( !gi.is_timeline || m_loader.m_timeline_events )
         {
             if ( eventid == m_hovered_eventlist_eventid )
                 draw_hovered_event = true;
@@ -505,7 +499,7 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
     }
     event_renderer.done();
 
-    if ( is_timeline )
+    if ( gi.is_timeline )
         render_graph_row_timeline( comm, locs, gi );
 
     if ( draw_hovered_event )
@@ -713,10 +707,7 @@ void TraceWin::render_process_graph()
     float text_h = ImGui::GetTextLineHeightWithSpacing();
     imgui_pop_smallfont();
 
-    //$ TODO: perhaps this could be a little "zoom" button on gfx or sdma0?
-    //$ or right click, zoom?
-    //$ have right click do the show color picker, etc.
-    bool gfx_timeline_only = false;
+    bool gfx_timeline_zoom = true;
 
     {
         graph_info_t gi;
@@ -751,7 +742,7 @@ void TraceWin::render_process_graph()
                 ( row_count - ( float )row_info.size() ) * graph_row_h_total,
                 0.0f );
 
-            if ( !gfx_timeline_only )
+            if ( !gfx_timeline_zoom )
             {
                 // Initialize first row position
                 gi.set_pos_y( windowpos.y + graph_row_padding + m_graph_start_y, graph_row_h );
@@ -759,8 +750,10 @@ void TraceWin::render_process_graph()
                 // Go through and render all the rows
                 for ( const row_info_t &ri : row_info )
                 {
+                    gi.is_timeline = ri.is_timeline;
+
                     //$ TODO mikesart: Check if entire row is clipped...
-                    render_graph_row( ri.comm, ri.locs, gi, ri.is_timeline );
+                    render_graph_row( ri.comm, ri.locs, gi );
 
                     // Move position to next row
                     gi.set_pos_y( gi.y + graph_row_h_total, graph_row_h );
@@ -770,12 +763,13 @@ void TraceWin::render_process_graph()
             // Render full graph lines: vblanks, mouse cursors, etc...
             gi.set_pos_y( windowpos.y, windowsize.y );
 
-            if ( gfx_timeline_only )
+            if ( gfx_timeline_zoom )
             {
+                gi.is_timeline = true;
                 gi.timeline_render_user = true;
                 gi.timeline_row_count = windowsize.y / text_h;
 
-                render_graph_row( row_info[ 0 ].comm, row_info[ 0 ].locs, gi, true );
+                render_graph_row( row_info[ 0 ].comm, row_info[ 0 ].locs, gi );
             }
 
             render_graph_vblanks( gi );
