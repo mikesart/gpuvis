@@ -81,24 +81,38 @@ struct event_field_t
     const char *value;
 };
 
+enum trace_flag_type_t {
+    // TRACE_FLAG_IRQS_OFF = 0x01, // interrupts were disabled
+    // TRACE_FLAG_IRQS_NOSUPPORT = 0x02,
+    // TRACE_FLAG_NEED_RESCHED = 0x04,
+    // TRACE_FLAG_HARDIRQ = 0x08, // inside an interrupt handler
+    // TRACE_FLAG_SOFTIRQ = 0x10, // inside a softirq handler
+    TRACE_FLAG_FENCE_SIGNALED = 0x100,
+};
+
 struct trace_event_t
 {
+    bool is_fence_signaled() const
+    {
+        return !!( flags & TRACE_FLAG_FENCE_SIGNALED );
+    }
+
     uint32_t id;
     int pid;
-    uint32_t cpu;
+    int crtc;
     int missed_events;
+    uint32_t cpu;
     int64_t ts;
     const char *comm;
     const char *system;
     const char *name;
-    uint64_t flags; // TRACE_FLAGS_IRQS_OFF, TRACE_FLAG_HARDIRQ, TRACE_FLAG_SOFTIRQ
     const char *timeline;
+    const char *user_comm; // User space comm (if we can figure this out)
+    uint32_t flags; // TRACE_FLAGS_IRQS_OFF, TRACE_FLAG_HARDIRQ, TRACE_FLAG_SOFTIRQ
     uint32_t context;
     uint32_t seqno;
-    const char *user_comm; // User space comm (if we can figure this out)
-    uint32_t id_start; // start event if this is an end event (ie fence_signaled)
+    uint32_t id_start; // start event if this is a graph sequence event (ie amdgpu_sched_run_job, fence_signaled)
     uint32_t graph_row_id;
-    int crtc;
     std::vector< event_field_t > fields;
 };
 
@@ -442,6 +456,7 @@ protected:
     static int SDLCALL thread_func( void *data );
     static int new_event_cb( TraceLoader *loader, const trace_info_t &info,
                          const trace_event_t &event );
+    int init_new_event( trace_event_t &event, const trace_info_t &info );
 
 public:
     CIniFile &m_inifile;
@@ -468,4 +483,14 @@ public:
     bool m_timeline_events = false;
 
     std::unordered_map< uint32_t, uint32_t > m_timeline_info;
+    uint32_t &get_timeline_row_id( const char *timeline )
+    {
+        uint32_t hashval = fnv_hashstr32( timeline );
+
+        auto i = m_timeline_info.find( hashval );
+        if ( i == m_timeline_info.end() )
+            m_timeline_info.emplace( hashval, 0 );
+
+        return m_timeline_info.at( hashval );
+    }
 };

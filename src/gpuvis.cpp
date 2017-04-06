@@ -271,12 +271,113 @@ void TraceLoader::close_event_file( TraceEvents *trace_events, bool close_file )
 }
 
 // See notes at top of gpuvis_graph.cpp for explanation of these events.
-static bool is_timeline_event( const char *name )
+static bool is_timeline_event( const trace_event_t &event )
 {
+    return ( event.is_fence_signaled() ||
+             !strcmp( event.name, "amdgpu_cs_ioctl" ) ||
+             !strcmp( event.name, "amdgpu_sched_run_job" ) );
+}
+
+int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info )
+{
+    if ( event.id == 0 )
+    {
+        m_trace_events->m_ts_min = event.ts;
+        m_timeline_info.clear();
+    }
+
+    if ( m_trace_events->m_cpucount.empty() )
+    {
+        m_trace_events->m_trace_info = info;
+        m_trace_events->m_cpucount.resize( info.cpus, 0 );
+    }
+
+    if ( event.cpu < m_trace_events->m_cpucount.size() )
+        m_trace_events->m_cpucount[ event.cpu ]++;
+
+    // Record the maximum crtc we've ever seen.
+    m_crtc_max = std::max( m_crtc_max, event.crtc );
+
+    event.ts -= m_trace_events->m_ts_min;
+
     // fence_signaled was renamed to dma_fence_signaled post v4.9
-    return ( !strcmp( name, "amdgpu_cs_ioctl" ) ||
-             !strcmp( name, "amdgpu_sched_run_job" ) ||
-              strstr( name, "fence_signaled" ) );
+    if ( strstr( event.name, "fence_signaled" ) )
+        event.flags |= TRACE_FLAG_FENCE_SIGNALED;
+    else
+        event.flags &= ~TRACE_FLAG_FENCE_SIGNALED;
+
+    // Add this event name to our event locations map
+    m_trace_events->m_event_locations.add_location_str( event.name, event.id );
+
+    // Add this event comm to our comm locations map
+    m_trace_events->m_comm_locations.add_location_str( event.comm, event.id );
+
+    if ( event.timeline &&
+         event.seqno &&
+         event.context &&
+         is_timeline_event( event ) )
+    {
+        const std::string gfxcontext = get_event_gfxcontext_str( event );
+
+        // Add this event under the "gfx", "sdma0", etc timeline map
+        m_trace_events->m_timeline_locations.add_location_str( event.timeline, event.id );
+
+        // Add this event under our "gfx_ctx_seq" or "sdma0_ctx_seq", etc. map
+        m_trace_events->m_gfxcontext_locations.add_location_str( gfxcontext.c_str(), event.id );
+
+        // Grab the event locations for this event context
+        const std::vector< uint32_t > *plocs = m_trace_events->get_gfxcontext_locs( gfxcontext.c_str() );
+        if ( plocs->size() == 1 )
+        {
+            // Only one event... the one we just added.
+
+            // If this is a fence_signaled event with no associated previous events,
+            //  ignore bumping the id since we're not going to render the thing.
+            if ( !event.is_fence_signaled() )
+            {
+                // Get the row we're currently on for this timeline
+                uint32_t &graph_row_id = get_timeline_row_id( event.timeline );
+
+                // This is the first event - set the id for the series.
+                event.graph_row_id = graph_row_id++;
+            }
+        }
+        else
+        {
+            // First event.
+            const trace_event_t &event0 = m_trace_events->m_events[ plocs->front() ];
+
+            // Event right before the event we just added.
+            auto it = plocs->rbegin() + 1;
+            const trace_event_t &event_prev = m_trace_events->m_events[ *it ];
+
+            // Assume the user comm is the first comm event in this set.
+            event.user_comm = event0.comm;
+
+            // Point the event we just added to the previous event in this series
+            event.id_start = event_prev.id;
+
+            // Set the graph_row_id to be the same as the previous event graph id
+            event.graph_row_id = event_prev.graph_row_id;
+
+            if ( event.is_fence_signaled() )
+            {
+                uint32_t &graph_row_id = get_timeline_row_id( event.timeline );
+
+                // If this event is done and nothing was started since we were started,
+                //  reset the graph_row_id back to zero for the next timeline event.
+                if ( graph_row_id == event.graph_row_id + 1 )
+                    graph_row_id = 0;
+            }
+        }
+    }
+
+    SDL_AtomicAdd( &m_trace_events->m_eventsloaded, 1 );
+
+    if ( get_state() == State_CancelLoading )
+        return 1;
+
+    return 0;
 }
 
 int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
@@ -285,92 +386,10 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
     TraceEvents *trace_events = loader->m_trace_events;
     size_t id = trace_events->m_events.size();
 
-    if ( trace_events->m_cpucount.empty() )
-    {
-        trace_events->m_trace_info = info;
-        trace_events->m_cpucount.resize( info.cpus, 0 );
-    }
-
-    if ( event.cpu < trace_events->m_cpucount.size() )
-        trace_events->m_cpucount[ event.cpu ]++;
-
-    loader->m_crtc_max = std::max( loader->m_crtc_max, event.crtc );
-
-    if ( id == 0 )
-    {
-        trace_events->m_ts_min = event.ts;
-        loader->m_timeline_info.clear();
-    }
-
     trace_events->m_events.push_back( event );
-    trace_events->m_events[ id ].id = id;
-    trace_events->m_events[ id ].ts -= trace_events->m_ts_min;
+    trace_events->m_events.back().id = id;
 
-    trace_events->m_event_locations.add_location_str( event.name, id );
-    trace_events->m_comm_locations.add_location_str( event.comm, id );
-
-    if ( event.timeline &&
-         event.seqno &&
-         event.context &&
-         is_timeline_event( event.name ) )
-    {
-        std::string gfxcontext = get_event_gfxcontext_str( event );
-
-        // Add this event under the "gfx_ctx_seq" or "sdma0_ctx_seq", etc. map
-        trace_events->m_gfxcontext_locations.add_location_str( gfxcontext.c_str(), id );
-
-        // Add this event under the "gfx", "sdma0", etc map
-        trace_events->m_timeline_locations.add_location_str( event.timeline, id );
-
-        // Grab the event locations for this event context
-        const std::vector< uint32_t > *plocs = trace_events->get_gfxcontext_locs( gfxcontext.c_str() );
-        if ( plocs->size() == 1 )
-        {
-            bool is_fence_signaled = !!strstr( event.name, "fence_signaled" );
-
-            // If this is a fence_signaled event with no associated previous events, just
-            //  ignore bumping the id since we're not going to render the thing.
-            if ( !is_fence_signaled )
-            {
-                uint32_t hashval = fnv_hashstr32( event.timeline );
-
-                auto i = loader->m_timeline_info.find( hashval );
-                if ( i == loader->m_timeline_info.end() )
-                    loader->m_timeline_info.emplace( hashval, 0 );
-
-                uint32_t &graph_row_id = loader->m_timeline_info.at( hashval );
-
-                // This is the first event - set the id for the series.
-                trace_events->m_events[ id ].graph_row_id = graph_row_id++;
-            }
-        }
-        else
-        {
-            // First event...
-            const trace_event_t &event0 = trace_events->m_events[ plocs->front() ];
-            // Event right before the event we just added...
-            auto it = plocs->rbegin() + 1;
-            const trace_event_t &event_prev = trace_events->m_events[ *it ];
-            // Event we just added...
-            trace_event_t &event1 = trace_events->m_events[ plocs->back() ];
-
-            // Assume the user comm is the first event in this set.
-            event1.user_comm = event0.comm;
-
-            // Point the event we just added to the previous event in this series
-            event1.id_start = event_prev.id;
-
-            // Set the graph_row_id to be the same as the previous one
-            event1.graph_row_id = event_prev.graph_row_id;
-        }
-    }
-
-    SDL_AtomicAdd( &trace_events->m_eventsloaded, 1 );
-
-    if ( loader->get_state() == State_CancelLoading )
-        return 1;
-
-    return 0;
+    return loader->init_new_event( trace_events->m_events.back(), info );
 }
 
 int SDLCALL TraceLoader::thread_func( void *data )
