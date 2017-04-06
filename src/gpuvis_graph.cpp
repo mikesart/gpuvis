@@ -95,6 +95,8 @@ public:
     void add_event( float x );
     void done();
 
+    void set_y( float y_in, float h_in );
+
 protected:
     void start( float x );
     void draw();
@@ -197,6 +199,17 @@ event_renderer_t::event_renderer_t( float y_in, float w_in, float h_in )
     h = h_in;
 
     start( -1.0f );
+}
+
+void event_renderer_t::set_y( float y_in, float h_in )
+{
+    if ( y != y_in || h != h_in )
+    {
+        done();
+
+        y = y_in;
+        h = h_in;
+    }
 }
 
 void event_renderer_t::add_event( float x )
@@ -363,6 +376,9 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
 
     uint32_t timeline_row_count = gi.h / text_h;
 
+    bool render_timeline_events = !!m_loader.get_opt( TraceLoader::OPT_TimelineEvents );
+    bool render_timeline_labels = !!m_loader.get_opt( TraceLoader::OPT_TimelineLabels );
+
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
           idx++ )
@@ -429,7 +445,7 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
 
                     last_fence_signaled_x = x2;
 
-                    if ( m_loader.get_opt( TraceLoader::OPT_TimelineLabels ) )
+                    if ( render_timeline_labels )
                     {
                         const ImVec2& size = ImGui::CalcTextSize( event0.user_comm );
 
@@ -441,6 +457,22 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
                                                                  col_get( col_BarText ), event0.user_comm );
                         }
                     }
+                }
+
+                if ( render_timeline_events )
+                {
+                    ImU32 color = col_get( col_1Event );
+
+                    if ( event0.id != event1.id )
+                    {
+                        imgui_drawrect( x0, 1.0, y, text_h, color );
+
+                        // Check if we're mouse hovering this event
+                        if ( gi.mouse_over && gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + text_h )
+                            add_mouse_hovered_event( x0, gi, event0 );
+                    }
+                    imgui_drawrect( x1, 1.0, y, text_h, color );
+                    imgui_drawrect( x2, 1.0, y, text_h, color );
                 }
             }
         }
@@ -467,40 +499,41 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
     bool draw_selected_event = false;
     bool draw_hovered_event = false;
 
-    event_renderer_t event_renderer( gi.y + 4, gi.w, gi.h - 8 );
-
-    for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
-          idx < locs.size();
-          idx++ )
+    if ( gi.is_timeline )
     {
-        uint32_t eventid = locs[ idx ];
+        render_graph_row_timeline( comm, locs, gi );
+    }
+    else
+    {
+        event_renderer_t event_renderer( gi.y + 4, gi.w, gi.h - 8 );
 
-        if ( eventid > gi.eventend )
-            break;
-
-        num_events++;
-
-        if ( !gi.is_timeline || m_loader.get_opt( TraceLoader::OPT_TimelineEvents ) )
+        for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
+              idx < locs.size();
+              idx++ )
         {
+            uint32_t eventid = locs[ idx ];
+            const trace_event_t &event = get_event( eventid );
+
+            if ( eventid > gi.eventend )
+                break;
+
+            float x = gi.ts_to_screenx( event.ts );
+
             if ( eventid == m_hovered_eventlist_eventid )
                 draw_hovered_event = true;
             else if ( eventid == m_selected_eventid )
                 draw_selected_event = true;
-
-            const trace_event_t &event = get_event( eventid );
-            float x = gi.ts_to_screenx( event.ts );
 
             // Check if we're mouse hovering this event
             if ( gi.mouse_over )
                 add_mouse_hovered_event( x, gi, event );
 
             event_renderer.add_event( x );
+            num_events++;
         }
-    }
-    event_renderer.done();
 
-    if ( gi.is_timeline )
-        render_graph_row_timeline( comm, locs, gi );
+        event_renderer.done();
+    }
 
     if ( draw_hovered_event )
     {
@@ -526,9 +559,12 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
     imgui_draw_text( gi.x, gi.y, label.c_str(),
                      col_get( col_RowLabel ) );
 
-    label = string_format( "%u events", num_events );
-    imgui_draw_text( gi.x, gi.y + ImGui::GetTextLineHeight(), label.c_str(),
-                     col_get( col_RowLabel ) );
+    if ( num_events )
+    {
+        label = string_format( "%u events", num_events );
+        imgui_draw_text( gi.x, gi.y + ImGui::GetTextLineHeight(), label.c_str(),
+                         col_get( col_RowLabel ) );
+    }
 }
 
 void TraceWin::render_graph_vblanks( graph_info_t &gi )
@@ -1180,6 +1216,8 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
 
                 if ( ( len1 > g_min_graph_length ) && ( len1 < g_max_graph_length ) )
                 {
+                    //$ TODO mikesart: we've gotten overflow error here:
+                    // runtime error: signed integer overflow: 2023691192 * 4676142294 cannot be represented in type 'long int'
                     m_graph_start_ts = mouse_ts - len1 * ( mouse_ts - gi.ts0 ) / len0 - m_tsoffset;
                     m_graph_length_ts = len1;
 

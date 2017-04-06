@@ -300,11 +300,12 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
 
     event.ts -= m_trace_events->m_ts_min;
 
+    // Make sure our events are cleared
+    event.flags &= ~( TRACE_FLAG_FENCE_SIGNALED | TRACE_FLAG_IS_TIMELINE );
+
     // fence_signaled was renamed to dma_fence_signaled post v4.9
     if ( strstr( event.name, "fence_signaled" ) )
         event.flags |= TRACE_FLAG_FENCE_SIGNALED;
-    else
-        event.flags &= ~TRACE_FLAG_FENCE_SIGNALED;
 
     // Add this event name to our event locations map
     m_trace_events->m_event_locations.add_location_str( event.name, event.id );
@@ -345,11 +346,14 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
         else
         {
             // First event.
-            const trace_event_t &event0 = m_trace_events->m_events[ plocs->front() ];
+            trace_event_t &event0 = m_trace_events->m_events[ plocs->front() ];
 
             // Event right before the event we just added.
             auto it = plocs->rbegin() + 1;
             const trace_event_t &event_prev = m_trace_events->m_events[ *it ];
+
+            event0.flags |= TRACE_FLAG_IS_TIMELINE;
+            event.flags |= TRACE_FLAG_IS_TIMELINE;
 
             // Assume the user comm is the first comm event in this set.
             event.user_comm = event0.comm;
@@ -425,7 +429,7 @@ void TraceLoader::init()
 
     m_options[ OPT_TimelineZoomGfx ] = { "Zoom gfx timeline (^Z)", "zoom_gfx_timeline", 0, 0, 1 };
     m_options[ OPT_TimelineLabels ] = { "Show timeline labels", "timeline_labels", true, 0, 1 };
-    m_options[ OPT_TimelineEvents ] = { "Show timeline events", "timeline_events", false, 0, 1 };
+    m_options[ OPT_TimelineEvents ] = { "Show timeline events", "timeline_events", true, 0, 1 };
 
     m_options[ OPT_ShowEventList ] = { "Show Event List", "show_event_list", true, 0, 1 };
     m_options[ OPT_SyncEventListToGraph ] = { "Sync Event List to graph mouse location", "sync_eventlist_to_graph", false, 0, 1 };

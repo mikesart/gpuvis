@@ -88,6 +88,7 @@ enum trace_flag_type_t {
     // TRACE_FLAG_HARDIRQ = 0x08, // inside an interrupt handler
     // TRACE_FLAG_SOFTIRQ = 0x10, // inside a softirq handler
     TRACE_FLAG_FENCE_SIGNALED = 0x100,
+    TRACE_FLAG_IS_TIMELINE = 0x200,
 };
 
 struct trace_event_t
