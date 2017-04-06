@@ -467,7 +467,7 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
     bool draw_selected_event = false;
     bool draw_hovered_event = false;
 
-    event_renderer_t event_renderer( gi.y, gi.w, gi.h );
+    event_renderer_t event_renderer( gi.y + 4, gi.w, gi.h - 8 );
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
