@@ -313,6 +313,8 @@ protected:
     void render_graph_vblanks( class graph_info_t &gi );
     bool render_graph_popup();
 
+    void handle_graph_hotkeys();
+
     void handle_mouse_graph( class graph_info_t &gi );
     void handle_mouse_graph_captured( class graph_info_t &gi );
     void set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts );
@@ -398,6 +400,8 @@ public:
 
     uint32_t m_eventlist_start_eventid = ( uint32_t )-1;
     uint32_t m_eventlist_end_eventid = ( uint32_t )-1;
+
+    std::vector< std::pair< int64_t, int64_t > > m_locations;
 
     // Mouse currently over our events graph?
     bool m_mouse_over_graph = false;

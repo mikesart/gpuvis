@@ -654,6 +654,40 @@ void TraceWin::range_check_graph_location()
     }
 }
 
+void TraceWin::handle_graph_hotkeys()
+{
+    if ( m_locations.size() < 9 )
+        m_locations.resize( 9 );
+
+    if ( ImGui::GetIO().KeyCtrl )
+    {
+        bool keyshift = ImGui::GetIO().KeyShift;
+
+        for ( int key = '1'; key <= '9'; key++ )
+        {
+            if ( ImGui::IsKeyPressed( key ) )
+            {
+                int index = key - '1';
+
+                if ( keyshift )
+                {
+                    // ctrl+shift+#: save location
+                    m_locations[ index ] = std::make_pair( m_graph_start_ts, m_graph_length_ts );
+                }
+                else if ( m_locations[ index ].second )
+                {
+                    // ctrl+#: goto location
+                    m_graph_start_ts = m_locations[ index ].first;
+                    m_graph_length_ts = m_locations[ index ].second;
+                    m_do_graph_start_timestr = true;
+                    m_do_graph_length_timestr = true;
+                }
+                break;
+            }
+        }
+    }
+}
+
 void TraceWin::render_process_graph()
 {
     struct row_info_t
@@ -685,6 +719,8 @@ void TraceWin::render_process_graph()
     }
     if ( row_info.empty() )
         return;
+
+    handle_graph_hotkeys();
 
     // Get current count of rows. 0 means show all rows.
     int row_count = ( m_loader.m_graph_row_count < 1 ) ? row_info.size() : m_loader.m_graph_row_count;
@@ -788,6 +824,58 @@ bool TraceWin::render_graph_popup()
 {
     if ( !ImGui::BeginPopup( "GraphPopup" ) )
         return false;
+
+    auto get_location_label_lambda = [this]( size_t i )
+    {
+        auto &pair = m_locations[ i ];
+        std::string start = ts_to_timestr( pair.first );
+        std::string len = ts_to_timestr( pair.second );
+        return string_format( "Start:%s Length:%s", start.c_str(), len.c_str() );
+    };
+
+    ImGui::Text( "Options" );
+    ImGui::Separator();
+
+    if ( ImGui::BeginMenu( "Save Location" ) )
+    {
+        for ( size_t i = 0; i < m_locations.size(); i++ )
+        {
+            std::string label = get_location_label_lambda( i );
+            std::string shortcut = string_format( "Ctrl+Shift+%c", ( int )( i + '1' ) );
+
+            if ( ImGui::MenuItem( label.c_str(), shortcut.c_str() ) )
+            {
+                m_locations[ i ] = std::make_pair( m_graph_start_ts, m_graph_length_ts );
+                break;
+            }
+        }
+
+        ImGui::EndMenu();
+    }
+
+    if ( ImGui::BeginMenu( "Restore Location" ) )
+    {
+        for ( size_t i = 0; i < m_locations.size(); i++ )
+        {
+            if ( m_locations[ i ].second )
+            {
+                std::string label = get_location_label_lambda( i );
+                std::string shortcut = string_format( "Ctrl+%c", ( int )( i + '1' ) );
+
+                if ( ImGui::MenuItem( label.c_str(), shortcut.c_str() ) )
+                {
+                    m_graph_start_ts = m_locations[ i ].first;
+                    m_graph_length_ts = m_locations[ i ].second;
+                    m_do_graph_start_timestr = true;
+                    m_do_graph_length_timestr = true;
+                }
+            }
+        }
+
+        ImGui::EndMenu();
+    }
+
+    ImGui::Separator();
 
     for ( int i = 0; i < TraceLoader::OPT_Max; i++ )
     {
