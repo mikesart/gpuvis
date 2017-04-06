@@ -893,6 +893,12 @@ bool TraceWin::render_graph_popup()
             if ( ImGui::MenuItem( opt.desc.c_str(), "", &val ) )
                 opt.val = val;
         }
+        else
+        {
+            ImGui::PushItemWidth( imgui_scale( 150.0f ) );
+            ImGui::SliderInt( opt.desc.c_str(), &opt.val, opt.val_min, opt.val_max );
+            ImGui::PopItemWidth();
+        }
     }
 
     ImGui::EndPopup();

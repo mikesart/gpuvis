@@ -424,6 +424,7 @@ void TraceLoader::init()
     m_options[ OPT_Fullscreen ] = { "Fullscreen Trace Window", "fullscreen", false, 0, 1 };
     m_options[ OPT_ShowEventList ] = { "Show Event List", "show_event_list", true, 0, 1 };
     m_options[ OPT_SyncEventListToGraph ] = { "Sync Event List to graph mouse location", "sync_eventlist_to_graph", false, 0, 1 };
+    m_options[ OPT_EventListRowCount ] = { "Event List Row Count", "eventlist_row_count", 0, 0, 100 };
     m_options[ OPT_ShowColorPicker ] = { "Show graph color picker", "show_color_picker", false, 0, 1 };
     m_options[ OPT_TimelineLabels ] = { "Show timeline labels", "timeline_labels", true, 0, 1 };
     m_options[ OPT_TimelineEvents ] = { "Show timeline events", "timeline_events", false, 0, 1 };
@@ -446,7 +447,6 @@ void TraceLoader::init()
     }
 
     m_graph_row_count = m_inifile.GetInt( "graph_row_count", 0 );
-    m_eventlist_row_count = m_inifile.GetInt( "eventlist_row_count", 0 );
 }
 
 void TraceLoader::shutdown()
@@ -480,7 +480,6 @@ void TraceLoader::shutdown()
     }
 
     m_inifile.PutInt( "graph_row_count", m_graph_row_count );
-    m_inifile.PutInt( "eventlist_row_count", m_eventlist_row_count );
 }
 
 void TraceLoader::render()
@@ -975,7 +974,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
     {
         // Set the child window size to hold count of items + header + separator
         float lineh = ImGui::GetTextLineHeightWithSpacing();
-        float y = m_loader.m_eventlist_row_count * lineh;
+        float y = m_loader.get_opt( TraceLoader::OPT_EventListRowCount ) * lineh;
 
         ImGui::SetNextWindowContentSize( { 0.0f, ( event_count + 1 ) * lineh + 1 } );
         ImGui::BeginChild( "eventlistbox", ImVec2( 0.0f, y ) );
@@ -1215,13 +1214,13 @@ void TraceConsole::render_options( TraceLoader &loader )
             if ( ImGui::Checkbox( opt.desc.c_str(), &val ) )
                 opt.val = val;
         }
+        else
+        {
+            ImGui::PushItemWidth( imgui_scale( 150.0f ) );
+            ImGui::SliderInt( opt.desc.c_str(), &opt.val, opt.val_min, opt.val_max );
+            ImGui::PopItemWidth();
+        }
     }
-
-    ImGui::Text( "Event List Row Count:" );
-    ImGui::SameLine();
-    ImGui::PushItemWidth( imgui_scale( 150.0f ) );
-    ImGui::SliderInt( "##EventListRowCount", &loader.m_eventlist_row_count, 0, 100 );
-    ImGui::PopItemWidth();
 }
 
 void TraceConsole::render_log( TraceLoader &loader )

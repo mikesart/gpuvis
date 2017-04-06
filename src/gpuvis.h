@@ -475,7 +475,6 @@ public:
     int m_crtc_max = 0;
     int m_graph_row_count = 0;
     int m_timeline_row_count = 4;
-    int m_eventlist_row_count = 0;
     std::vector< std::string > m_inputfiles;
 
     enum option_id_t
@@ -483,6 +482,7 @@ public:
         OPT_Fullscreen,
         OPT_ShowEventList,
         OPT_SyncEventListToGraph,
+        OPT_EventListRowCount,
         OPT_ShowColorPicker,
         OPT_TimelineLabels,
         OPT_TimelineEvents,
