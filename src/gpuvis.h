@@ -464,5 +464,5 @@ public:
     bool m_timeline_labels = true;
     bool m_timeline_events = false;
 
-    int m_graph_row_id = 0;
+    std::unordered_map< uint32_t, uint32_t > m_timeline_info;
 };

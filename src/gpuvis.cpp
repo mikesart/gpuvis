@@ -299,7 +299,7 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
     if ( id == 0 )
     {
         trace_events->m_ts_min = event.ts;
-        loader->m_graph_row_id = 0;
+        loader->m_timeline_info.clear();
     }
 
     trace_events->m_events.push_back( event );
@@ -326,8 +326,23 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
         const std::vector< uint32_t > *plocs = trace_events->get_gfxcontext_locs( gfxcontext.c_str() );
         if ( plocs->size() == 1 )
         {
-            // This is the first event - set the id for the series.
-            trace_events->m_events[ id ].graph_row_id = loader->m_graph_row_id++;
+            bool is_fence_signaled = !!strstr( event.name, "fence_signaled" );
+
+            // If this is a fence_signaled event with no associated previous events, just
+            //  ignore bumping the id since we're not going to render the thing.
+            if ( !is_fence_signaled )
+            {
+                uint32_t hashval = fnv_hashstr32( event.timeline );
+
+                auto i = loader->m_timeline_info.find( hashval );
+                if ( i == loader->m_timeline_info.end() )
+                    loader->m_timeline_info.emplace( hashval, 0 );
+
+                uint32_t &graph_row_id = loader->m_timeline_info.at( hashval );
+
+                // This is the first event - set the id for the series.
+                trace_events->m_events[ id ].graph_row_id = graph_row_id++;
+            }
         }
         else
         {
