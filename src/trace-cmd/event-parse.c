@@ -32,7 +32,7 @@
 #include <stdint.h>
 #include <limits.h>
 
-#ifdef _GNUC__
+#ifdef __GNUC__
 #pragma GCC diagnostic ignored "-Wpedantic"
 #pragma GCC diagnostic ignored "-Wshadow"
 #pragma GCC diagnostic ignored "-Wsign-compare"
@@ -40,7 +40,9 @@
 #pragma GCC diagnostic ignored "-Wint-conversion"
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
 #pragma GCC diagnostic ignored "-Wimplicit-function-declaration"
+#endif
 
+#ifndef WIN32
 #include <netinet/ip6.h>
 #endif
 
