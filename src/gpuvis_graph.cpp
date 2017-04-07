@@ -23,18 +23,16 @@
  */
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <algorithm>
 #include <future>
-#include <getopt.h>
 #include <set>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unordered_map>
 #include <vector>
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #include "GL/gl3w.h"
 #include "gpuvis.h"
@@ -367,6 +365,9 @@ bool TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, const t
 
     return inserted;
 }
+
+//$ TODO: Add timeline view which renders on single line and only displays the red parts
+// and color codes the app names...
 
 void TraceWin::render_graph_row_timeline( const std::string &comm, const std::vector< uint32_t > &locs,
                                           graph_info_t &gi )

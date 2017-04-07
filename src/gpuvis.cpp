@@ -23,19 +23,18 @@
  */
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <algorithm>
 #include <future>
-#include <getopt.h>
 #include <set>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unordered_map>
 #include <vector>
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
+#include "ya_getopt.h"
 #include "GL/gl3w.h"
 #include "gpuvis.h"
 
@@ -180,13 +179,13 @@ bool TraceLoader::load_file( const char *filename )
         return false;
     }
 
-    if ( access( filename, R_OK ) == -1 )
+    size_t filesize = get_file_size( filename );
+    if ( !filesize )
     {
         logf( "[Error] %s (%s) failed: %s", __func__, filename, strerror( errno ) );
         return false;
     }
 
-    size_t filesize = get_file_size( filename );
     std::string title = string_format( "%s (%.2f MB)", filename, filesize / ( 1024.0f * 1024.0f ) );
 
     // Check if we've already loaded this trace file.

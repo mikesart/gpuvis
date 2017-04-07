@@ -24,11 +24,11 @@
 #ifndef _GPUVIS_MACROS_H_
 #define _GPUVIS_MACROS_H_
 
-#define ATTRIBUTE_PRINTF( _x, _y ) __attribute__( ( __format__( __printf__, _x, _y ) ) )
-
 // Super handy macros from Jonathan Wakely / Patrick Horgan:
 //   http://dbp-consulting.com/tutorials/SuppressingGCCWarnings.html
 #if defined( __GNUC__ )
+
+#define ATTRIBUTE_PRINTF( _x, _y ) __attribute__( ( __format__( __printf__, _x, _y ) ) )
 
 #define GCC_DIAG_STR( s ) #s
 #define GCC_DIAG_JOINSTR( x, y ) GCC_DIAG_STR( x##y )
@@ -41,6 +41,9 @@
 #define GCC_DIAG_POP() GCC_DIAG_PRAGMA( pop )
 
 #else
+
+#define ATTRIBUTE_PRINTF( _x, _y )
+
 
 #define GCC_DIAG_PUSH_OFF( x )
 #define GCC_DIAG_POP()

@@ -24,10 +24,6 @@ if ( CMAKE_COMPILER_IS_GNUCC )
 endif()
 
 if ( WIN32 )
-    set( WINRESOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/resources )
-endif()
-
-if ( WIN32 )
     LINK_LIBRARIES( shlwapi winhttp rpcrt4 crypt32 ole32 )
 elseif (UNIX)
     LINK_LIBRARIES( dl )
@@ -40,6 +36,7 @@ set ( SRC_LIST
     src/gpuvis.cpp
     src/gpuvis_graph.cpp
     src/gpuvis_utils.cpp
+    src/ya_getopt.c
     src/hash_fnv.c
     src/stlini.cpp
     src/imgui/imgui_impl_sdl_gl3.cpp
@@ -52,10 +49,6 @@ set ( SRC_LIST
     src/trace-cmd/kbuffer-parse.c
     src/trace-cmd/trace-read.cpp
     )
-
-if ( WIN32 )
-    set( SRC_LIST ${SRC_LIST} ${WINRESOURCE_DIR}/gpuvis.rc )
-endif()
 
 include_directories(
     ${SDL2_INCLUDE_DIR}

@@ -47,3 +47,5 @@ Embeds [stb_textedit.h, stb_truetype.h, stb_rectpack.h](https://github.com/nothi
 trace-cmd is [GNU GPL v2](https://git.kernel.org/pub/scm/linux/kernel/git/rostedt/trace-cmd.git)
 
 stlini has e-mail author & credit license: [stlini](http://robertk.com/source)
+
+ya_getopt is 2-clause BSD-style licensed: [ya_getopt](https://github.com/kubo/ya_getopt/blob/master/README.md)
