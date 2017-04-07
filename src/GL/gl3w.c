@@ -1,4 +1,4 @@
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include "gl3w.h"
 
 #ifdef __GNUC__

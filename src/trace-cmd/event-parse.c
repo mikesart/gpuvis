@@ -32,6 +32,7 @@
 #include <stdint.h>
 #include <limits.h>
 
+#ifdef _GNUC__
 #pragma GCC diagnostic ignored "-Wpedantic"
 #pragma GCC diagnostic ignored "-Wshadow"
 #pragma GCC diagnostic ignored "-Wsign-compare"
@@ -41,6 +42,8 @@
 #pragma GCC diagnostic ignored "-Wimplicit-function-declaration"
 
 #include <netinet/ip6.h>
+#endif
+
 #include "event-parse.h"
 
 static const char *input_buf;

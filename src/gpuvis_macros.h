@@ -64,6 +64,12 @@ inline int strncasecmp( const char *s1, const char *s2, size_t n )
 {
     return 0;
 }
+
+inline int vasprintf( char **strp, const char *fmt, va_list ap )
+{
+    return 0;
+}
+
 #endif
 
 #if defined( __GNUC__ )

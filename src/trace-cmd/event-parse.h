@@ -23,7 +23,9 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stdio.h>
+#if 0
 #include <regex.h>
+#endif
 #include <string.h>
 
 #ifndef __maybe_unused
@@ -816,7 +818,9 @@ struct filter_arg_str {
 	struct format_field	*field;
 	char			*val;
 	char			*buffer;
+#if 0
 	regex_t			reg;
+#endif
 };
 
 struct filter_arg {
@@ -828,7 +832,9 @@ struct filter_arg {
 		struct filter_arg_op		op;
 		struct filter_arg_exp		exp;
 		struct filter_arg_num		num;
+#if 0
 		struct filter_arg_str		str;
+#endif
 	};
 };
 
