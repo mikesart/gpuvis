@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ya_getopt.h"
+#include "gpuvis_macros.h"
 
 char *ya_optarg = NULL;
 int ya_optind = 1;
@@ -50,6 +51,7 @@ static int ya_getopt_internal(int argc, char * const argv[], const char *optstri
 static int ya_getopt_shortopts(int argc, char * const argv[], const char *optstring, int long_only);
 static int ya_getopt_longopts(int argc, char * const argv[], char *arg, const char *optstring, const struct option *longopts, int *longindex, int *long_only_flag);
 
+static void ya_getopt_error(const char *optstring, const char *format, ...) ATTRIBUTE_PRINTF(2, 3);
 static void ya_getopt_error(const char *optstring, const char *format, ...)
 {
     if (ya_opterr && optstring[0] != ':') {
