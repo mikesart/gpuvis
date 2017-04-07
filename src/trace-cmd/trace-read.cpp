@@ -30,12 +30,67 @@
 #include <set>
 
 #ifndef WIN32
+#define USE_MMAP
+
 #include <sys/mman.h>
 #include <sys/param.h>
 #include <unistd.h>
 #endif
 
 #include <SDL.h>
+
+#ifdef WIN32
+typedef __int64 ssize_t;
+typedef __int64 off64_t;
+
+#define TEMP_FAILURE_RETRY( _x ) _x
+
+char *strtok_r( char *str, const char *delim, char **saveptr )
+{
+    return NULL;
+}
+
+ssize_t read(int __fd, void *__buf, size_t __nbytes)
+{
+    return 0;
+}
+
+off_t lseek(int fd, off_t offset, int whence)
+{
+    return 0;
+}
+
+off64_t lseek64(int fd, off64_t offset, int whence)
+{
+    return 0;
+}
+
+int close( int fd )
+{
+    return 0;
+}
+
+int dup( int oldfd )
+{
+    return 0;
+}
+
+int open(const char *pathname, int flags)
+{
+    return 0;
+}
+
+extern "C" int strerror_r(int errnum, char *buf, size_t buflen)
+{
+    return 0;
+}
+
+extern "C" int asprintf(char **strp, const char *fmt, ...)
+{
+    return 0;
+}
+
+#endif
 
 extern "C"
 {
@@ -117,7 +172,9 @@ typedef struct tracecmd_input
     int ref = 0;
     int nr_buffers = 0; /* buffer instances */
     bool use_trace_clock = false;
+#ifdef USE_MMAP
     bool read_page = false;
+#endif
     cpu_data_t *cpu_data = nullptr;
     unsigned long long ts_offset = 0;
     input_buffer_instance_t *buffers = nullptr;
@@ -649,7 +706,9 @@ static page_t *allocate_page( tracecmd_input_t *handle, int cpu, off64_t offset 
     page->offset = offset;
     page->handle = handle;
 
+#ifdef USE_MMAP
     if ( handle->read_page )
+#endif
     {
         page->map = trace_malloc( handle, handle->page_size );
 
@@ -660,6 +719,7 @@ static page_t *allocate_page( tracecmd_input_t *handle, int cpu, off64_t offset 
             page->map = NULL;
         }
     }
+#ifdef USE_MMAP
     else
     {
         page->map = mmap( NULL, handle->page_size, PROT_READ, MAP_PRIVATE,
@@ -667,6 +727,7 @@ static page_t *allocate_page( tracecmd_input_t *handle, int cpu, off64_t offset 
         if ( page->map == MAP_FAILED )
             page->map = NULL;
     }
+#endif
 
     if ( !page->map )
     {
@@ -689,10 +750,14 @@ static void __free_page( tracecmd_input_t *handle, int cpu, page_t *page )
     if ( page->ref_count )
         return;
 
+#ifdef USE_MMAP
     if ( handle->read_page )
+#endif
         free( page->map );
+#ifdef USE_MMAP
     else
         munmap( page->map, handle->page_size );
+#endif
 
     handle->cpu_data[ cpu ].pages.remove( page );
 
@@ -1045,6 +1110,7 @@ static int init_cpu( tracecmd_input_t *handle, int cpu )
     }
 
     cpu_data->page = allocate_page( handle, cpu, cpu_data->offset );
+#ifdef USE_MMAP
     if ( !cpu_data->page && !handle->read_page )
     {
         //$ TODO mikesart: This just should never happen, yes?
@@ -1070,6 +1136,7 @@ static int init_cpu( tracecmd_input_t *handle, int cpu )
             /* Still no luck, bail! */
             return -1;
     }
+#endif
 
     update_page_info( handle, cpu );
     return 0;
