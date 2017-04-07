@@ -99,7 +99,7 @@ static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniDat
         {
             data.Pos = inifile->GetVec2( "pos", ImVec2( 0, 0 ), section.c_str() );
             data.Size = inifile->GetVec2( "size", ImVec2( 0, 0 ), section.c_str() );
-            data.Collapsed = inifile->GetInt( "collapsed", 0, section.c_str() );
+            data.Collapsed = !!inifile->GetInt( "collapsed", 0, section.c_str() );
             data.Name = strdup( name.c_str() );
         }
         return 0;
@@ -1006,7 +1006,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
             else if ( imgui_key_pressed( ImGuiKey_UpArrow ) )
                 scroll_lines = -1;
             else if ( imgui_key_pressed( ImGuiKey_Home ) )
-                scroll_lines = -event_count;
+                scroll_lines = -(int)event_count;
             else if ( imgui_key_pressed( ImGuiKey_End ) )
                 scroll_lines = event_count;
 
@@ -1231,7 +1231,7 @@ void TraceConsole::render_options( TraceLoader &loader )
 
         if ( opt.val_min == 0 && opt.val_max == 1 )
         {
-            bool val = opt.val;
+            bool val = !!opt.val;
             if ( ImGui::Checkbox( opt.desc.c_str(), &val ) )
                 opt.val = val;
         }

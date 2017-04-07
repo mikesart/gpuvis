@@ -873,7 +873,7 @@ void TraceWin::render_process_graph()
     }
 
     bool gfx_timeline_zoom = ( timeline_gfx_index != ( uint32_t )-1 ) ?
-                m_loader.get_opt( TraceLoader::OPT_TimelineZoomGfx ) : false;
+                !!m_loader.get_opt( TraceLoader::OPT_TimelineZoomGfx ) : false;
 
     // Make sure our ts start and length values are sane
     range_check_graph_location();
@@ -912,7 +912,7 @@ void TraceWin::render_process_graph()
                 for ( const row_info_t &ri : row_info )
                 {
                     gi.is_timeline = ri.is_timeline;
-                    gi.timeline_render_user = m_loader.get_opt( TraceLoader::OPT_TimelineRenderUserSpace );
+                    gi.timeline_render_user = !!m_loader.get_opt( TraceLoader::OPT_TimelineRenderUserSpace );
 
                     gi.set_pos_y( windowpos.y + ri.row_y + m_graph_start_y, ri.row_h );
 
@@ -1011,7 +1011,7 @@ bool TraceWin::render_graph_popup()
 
         if ( opt.val_min == 0 && opt.val_max == 1 )
         {
-            bool val = opt.val;
+            bool val = !!opt.val;
             if ( ImGui::MenuItem( opt.desc.c_str(), "", &val ) )
                 opt.val = val;
         }
