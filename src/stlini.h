@@ -8,8 +8,6 @@
 #include <vector>
 #include <inttypes.h>
 
-#include "gpuvis_utils.h"
-
 // change this if you expect to have huge lines in your INI files...
 // note that this is the max size of a single line, NOT the max number of lines
 #define MAX_INI_LINE 500

@@ -56,6 +56,8 @@
 #include <unistd.h>
 #include <pwd.h>
 #endif
+
+#include "gpuvis_macros.h"
 #include "imgui/imgui.h"
 #include "stlini.h"
 

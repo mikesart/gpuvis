@@ -22,6 +22,9 @@
  * THE SOFTWARE.
  */
 
+#ifndef _GPUVIS_UTILS_H
+#define _GPUVIS_UTILS_H
+
 class CIniFile;
 
 void logf_init();
@@ -88,3 +91,5 @@ void col_shutdown( CIniFile &inifile );
 ImU32 col_get( colors_t col, ImU32 alpha = ( uint32_t )-1 );
 void col_set( colors_t col, ImU32 color );
 const char *col_get_name( colors_t col );
+
+#endif // _GPUVIS_UTILS_H
