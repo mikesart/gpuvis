@@ -49,7 +49,7 @@ size_t get_file_size( const char* filename );
 template < typename T >
 T Clamp( const T& val, const T& lower, const T& upper )
 {
-    return std::max( lower, std::min( val, upper ) );
+    return std::max< T >( lower, std::min< T >( val, upper ) );
 }
 
 class StrPool

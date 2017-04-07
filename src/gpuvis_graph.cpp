@@ -253,8 +253,8 @@ void event_renderer_t::draw()
 {
     int index = std::min< int >( col_1Event + num_events, col_6Event );
     ImU32 color = col_get( ( colors_t )index );
-    float min_width = std::min( num_events + 1.0f, 4.0f );
-    float width = std::max( x1 - x0, min_width );
+    float min_width = std::min< float >( num_events + 1.0f, 4.0f );
+    float width = std::max< float >( x1 - x0, min_width );
 
     imgui_drawrect( x0, width, y, h, color );
 }
@@ -459,7 +459,7 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
 
                         if ( dx >= size.x )
                         {
-                            float x = std::max( x1, gi.x ) + imgui_scale( 2.0f );
+                            float x = std::max< float >( x1, gi.x ) + imgui_scale( 2.0f );
 
                             ImGui::GetWindowDrawList()->AddText( ImVec2( x, y + imgui_scale( 1.0f ) ),
                                                                  col_get( col_BarText ), event0.user_comm );
@@ -831,7 +831,7 @@ void TraceWin::render_process_graph()
             else if ( comm == "sdma1" )
                 rows = m_loader.get_opt( TraceLoader::OPT_TimelineSdma1RowCount );
 
-            rows = Clamp( rows, 2, 50 );
+            rows = Clamp< int >( rows, 2, 50 );
 
             rinfo.is_timeline = true;
             rinfo.row_h = text_h * rows;
@@ -899,8 +899,8 @@ void TraceWin::render_process_graph()
                      m_graph_start_ts + m_tsoffset, m_graph_length_ts );
 
             // Initialize eventstart / end
-            gi.eventstart = std::max( ts_to_eventid( gi.ts0 ), m_start_eventid );
-            gi.eventend = std::min( ts_to_eventid( gi.ts1 ), m_end_eventid );
+            gi.eventstart = std::max< int64_t >( ts_to_eventid( gi.ts0 ), m_start_eventid );
+            gi.eventend = std::min< int64_t >( ts_to_eventid( gi.ts1 ), m_end_eventid );
 
             // Range check our mouse pan values
             m_graph_start_y = Clamp< float >( m_graph_start_y,
@@ -1102,7 +1102,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
         int64_t next_vblank_ts = INT64_MAX;
         int eventid = ts_to_eventid( mouse_ts );
         size_t idx = vec_find_eventid( *vblank_locs, eventid );
-        size_t idxmax = std::min( idx + 20, vblank_locs->size() );
+        size_t idxmax = std::min< size_t >( idx + 20, vblank_locs->size() );
 
         for ( idx = ( idx > 10 ) ? ( idx - 10 ) : 0; idx < idxmax; idx++ )
         {

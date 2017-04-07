@@ -44,10 +44,26 @@
 
 #define ATTRIBUTE_PRINTF( _x, _y )
 
-
 #define GCC_DIAG_PUSH_OFF( x )
 #define GCC_DIAG_POP()
 
+#endif
+
+#ifndef PATH_MAX
+#define PATH_MAX ( MAX_PATH + 1 )
+#endif
+
+#if defined( WIN32 )
+
+inline int strcasecmp( const char *s1, const char *s2 )
+{
+    return 0;
+}
+
+inline int strncasecmp( const char *s1, const char *s2, size_t n )
+{
+    return 0;
+}
 #endif
 
 #if defined( __GNUC__ )

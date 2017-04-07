@@ -45,15 +45,17 @@
 //
 
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <stdarg.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <pwd.h>
 #include <fstream>
 #include <fcntl.h>
 #include <vector>
+#ifndef WIN32
+#include <unistd.h>
+#include <pwd.h>
+#endif
 #include "imgui/imgui.h"
 #include "stlini.h"
 
@@ -379,6 +381,10 @@ std::vector< INIEntry > CIniFile::GetSectionEntries( const char *section )
 
 std::string util_get_config_dir( const char *dirname )
 {
+#ifdef WIN32
+    //$ TODO mikesart: implement
+    return "";
+#else
     std::string config_dir;
     static const char *xdg_config_home = getenv( "XDG_CONFIG_HOME" );
 
@@ -414,6 +420,7 @@ std::string util_get_config_dir( const char *dirname )
 
     mkdir( config_dir.c_str(), S_IRWXU | S_IRWXG | S_IRWXO );
     return config_dir;
+#endif
 }
 
 

@@ -28,8 +28,9 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <cctype>
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #include "imgui/imgui.h"
 #include "gpuvis_macros.h"
