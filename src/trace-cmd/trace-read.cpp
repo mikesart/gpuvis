@@ -20,10 +20,7 @@
 #define _LARGEFILE64_SOURCE
 #include <stdlib.h>
 #include <fcntl.h>
-#include <unistd.h>
 #include <errno.h>
-#include <sys/mman.h>
-#include <sys/param.h>
 #include <string>
 #include <vector>
 #include <forward_list>
@@ -32,7 +29,13 @@
 #include <future>
 #include <set>
 
-#include <SDL2/SDL.h>
+#ifndef WIN32
+#include <sys/mman.h>
+#include <sys/param.h>
+#include <unistd.h>
+#endif
+
+#include <SDL.h>
 
 extern "C"
 {

@@ -22,8 +22,10 @@
 #include <string.h>
 #include <stdarg.h>
 
+#ifdef __GNUC__
 #pragma GCC diagnostic ignored "-Wpedantic"
 #pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
 
 #include "event-parse.h"
 

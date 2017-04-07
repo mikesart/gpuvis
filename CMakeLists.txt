@@ -13,7 +13,6 @@ find_package( SDL2 REQUIRED )
 
 ucm_set_runtime( STATIC )
 
-ucm_add_flags( -D_CRT_SECURE_NO_WARNINGS )
 ucm_add_flags( -O0 -DDEBUG CONFIG Debug )
 ucm_add_flags( -O2 -DNDEBUG CONFIG Release )
 
@@ -22,6 +21,8 @@ if ( CMAKE_COMPILER_IS_GNUCC )
 endif()
 
 if ( WIN32 )
+    ucm_add_flags( -D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4244 /wd4090 /wd4018 )
+
     LINK_LIBRARIES( shlwapi winhttp rpcrt4 crypt32 ole32 )
 elseif (UNIX)
     LINK_LIBRARIES( dl )
