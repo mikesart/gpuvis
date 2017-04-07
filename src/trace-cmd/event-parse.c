@@ -806,10 +806,17 @@ static int add_event(struct pevent *pevent, struct event_format *event)
 static int event_item_type(enum event_type type)
 {
 	switch (type) {
-	case EVENT_ITEM ... EVENT_SQUOTE:
-		return 1;
-	case EVENT_ERROR ... EVENT_DELIM:
-	default:
+    case EVENT_ITEM:
+    case EVENT_DQUOTE:
+    case EVENT_SQUOTE:
+        return 1;
+    case EVENT_ERROR:
+    case EVENT_NONE:
+    case EVENT_SPACE:
+    case EVENT_NEWLINE:
+    case EVENT_OP:
+    case EVENT_DELIM:
+    default:
 		return 0;
 	}
 }
@@ -1077,8 +1084,10 @@ static enum event_type __read_token(char **tok)
 
 		goto out;
 
-	case EVENT_ERROR ... EVENT_SPACE:
-	case EVENT_ITEM:
+    case EVENT_ERROR:
+    case EVENT_NONE:
+    case EVENT_SPACE:
+    case EVENT_ITEM:
 	default:
 		break;
 	}
@@ -2434,8 +2443,10 @@ static int arg_num_eval(struct print_arg *arg, long long *val)
 		break;
 
 	case PRINT_NULL:
-	case PRINT_FIELD ... PRINT_SYMBOL:
-	case PRINT_STRING:
+    case PRINT_FIELD:
+    case PRINT_FLAGS:
+    case PRINT_SYMBOL:
+    case PRINT_STRING:
 	case PRINT_BSTRING:
 	case PRINT_BITMASK:
 	default:
@@ -2463,8 +2474,10 @@ static char *arg_eval (struct print_arg *arg)
 		return buf;
 
 	case PRINT_NULL:
-	case PRINT_FIELD ... PRINT_SYMBOL:
-	case PRINT_STRING:
+    case PRINT_FIELD:
+    case PRINT_FLAGS:
+    case PRINT_SYMBOL:
+    case PRINT_STRING:
 	case PRINT_BSTRING:
 	case PRINT_BITMASK:
 	default:
@@ -3140,8 +3153,11 @@ process_arg_token(struct event_format *event, struct print_arg *arg,
 		/* return error type if errored */
 		break;
 
-	case EVENT_ERROR ... EVENT_NEWLINE:
-	default:
+    case EVENT_ERROR:
+    case EVENT_NONE:
+    case EVENT_SPACE:
+    case EVENT_NEWLINE:
+    default:
 		do_warning_event(event, "unexpected type %d", type);
 		return EVENT_ERROR;
 	}
@@ -4282,8 +4298,17 @@ static struct print_arg *make_bprint_args(char *fmt, void *data, int size, struc
 			case 'L':
 				ls = 2;
 				goto process_again;
-			case '0' ... '9':
-				goto process_again;
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+                goto process_again;
 			case '.':
 				goto process_again;
 			case 'z':
@@ -4953,8 +4978,17 @@ void pretty_print(struct trace_seq *s, void *data, int size, struct event_format
 			case '.':
 			case 'z':
 			case 'Z':
-			case '0' ... '9':
-			case '-':
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+            case '-':
 				goto cont_process;
 			case 'p':
 				if (pevent->long_size == 4)
