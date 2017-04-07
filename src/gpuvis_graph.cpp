@@ -637,7 +637,7 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
                 colors_t col = ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0;
                 float x = gi.ts_to_screenx( event.ts );
 
-                imgui_drawrect( x, imgui_scale( 2.0f ),
+                imgui_drawrect( x, imgui_scale( 1.0f ),
                                 gi.y, gi.h,
                                 col_get( col ) );
             }
