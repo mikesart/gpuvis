@@ -561,18 +561,20 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
         trace_event_t &event = get_event( m_hovered_eventlist_eventid );
         float x = gi.ts_to_screenx( event.ts );
 
-        imgui_drawrect( x, imgui_scale( 3.0f ),
-                        gi.y, gi.h,
-                        col_get( col_HovEvent ) );
+        ImGui::GetWindowDrawList()->AddCircleFilled(
+                    ImVec2( x, gi.y + gi.h / 2.0f ),
+                    imgui_scale( 5.0f ),
+                    col_get( col_HovEvent ) );
     }
     if ( draw_selected_event )
     {
         trace_event_t &event = get_event( m_selected_eventid );
         float x = gi.ts_to_screenx( event.ts );
 
-        imgui_drawrect( x, imgui_scale( 3.0f ),
-                        gi.y, gi.h,
-                        col_get( col_SelEvent ) );
+        ImGui::GetWindowDrawList()->AddCircleFilled(
+                    ImVec2( x, gi.y + gi.h / 2.0f ),
+                    imgui_scale( 5.0f ),
+                    col_get( col_SelEvent ) );
     }
 
     // Draw row label
@@ -652,6 +654,33 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
         imgui_drawrect( gi.mouse_pos.x, imgui_scale( 2.0f ),
                         gi.y, gi.h,
                         col_get( col_MousePos ) );
+    }
+
+    if ( m_hovered_eventlist_eventid != ( uint32_t )-1 )
+    {
+        trace_event_t &event = get_event( m_hovered_eventlist_eventid );
+
+        if ( event.ts >= gi.ts0 && event.ts <= gi.ts1 )
+        {
+            float x = gi.ts_to_screenx( event.ts );
+
+            imgui_drawrect( x, imgui_scale( 1.0f ),
+                            gi.y, gi.h,
+                            col_get( col_HovEvent, 120 ) );
+        }
+    }
+    if ( m_selected_eventid != ( uint32_t )-1 )
+    {
+        trace_event_t &event = get_event( m_selected_eventid );
+
+        if ( event.ts >= gi.ts0 && event.ts <= gi.ts1 )
+        {
+            float x = gi.ts_to_screenx( event.ts );
+
+            imgui_drawrect( x, imgui_scale( 1.0f ),
+                            gi.y, gi.h,
+                            col_get( col_SelEvent, 120 ) );
+        }
     }
 
     // Draw mouse selection location

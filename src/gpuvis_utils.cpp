@@ -375,8 +375,11 @@ void col_shutdown( CIniFile &inifile )
     }
 }
 
-ImU32 col_get( colors_t col )
+ImU32 col_get( colors_t col, ImU32 alpha )
 {
+    if ( alpha <= 0xff )
+        return ( g_colordata[ col ].color & ~IM_COL32_A_MASK ) | ( alpha << IM_COL32_A_SHIFT );
+
     return g_colordata[ col ].color;
 }
 
