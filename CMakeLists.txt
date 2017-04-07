@@ -13,9 +13,7 @@ find_package( SDL2 REQUIRED )
 
 ucm_set_runtime( STATIC )
 
-# Same flags as the Linux Makefile
-# set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG" )
-# set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DNDEBUG" )
+ucm_add_flags( -D_CRT_SECURE_NO_WARNINGS )
 ucm_add_flags( -O0 -DDEBUG CONFIG Debug )
 ucm_add_flags( -O2 -DNDEBUG CONFIG Release )
 
