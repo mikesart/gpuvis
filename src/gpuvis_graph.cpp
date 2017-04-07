@@ -882,7 +882,7 @@ void TraceWin::render_process_graph()
                 for ( const row_info_t &ri : row_info )
                 {
                     gi.is_timeline = ri.is_timeline;
-                    gi.timeline_render_user = false;
+                    gi.timeline_render_user = m_loader.get_opt( TraceLoader::OPT_TimelineRenderUserSpace );
 
                     gi.set_pos_y( windowpos.y + ri.row_y + m_graph_start_y, ri.row_h );
 

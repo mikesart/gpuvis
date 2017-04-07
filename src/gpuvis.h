@@ -483,6 +483,7 @@ public:
         OPT_TimelineZoomGfx,
         OPT_TimelineLabels,
         OPT_TimelineEvents,
+        OPT_TimelineRenderUserSpace,
         OPT_Fullscreen,
         OPT_ShowEventList,
         OPT_SyncEventListToGraph,

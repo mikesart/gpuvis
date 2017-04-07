@@ -430,6 +430,7 @@ void TraceLoader::init()
     m_options[ OPT_TimelineZoomGfx ] = { "Zoom gfx timeline (^Z)", "zoom_gfx_timeline", 0, 0, 1 };
     m_options[ OPT_TimelineLabels ] = { "Show timeline labels", "timeline_labels", true, 0, 1 };
     m_options[ OPT_TimelineEvents ] = { "Show timeline events", "timeline_events", true, 0, 1 };
+    m_options[ OPT_TimelineRenderUserSpace ] = { "Show userspace time", "timeline_userspace", false, 0, 1 };
 
     m_options[ OPT_ShowEventList ] = { "Show Event List", "show_event_list", true, 0, 1 };
     m_options[ OPT_SyncEventListToGraph ] = { "Sync Event List to graph mouse location", "sync_eventlist_to_graph", false, 0, 1 };
