@@ -3,9 +3,11 @@ cmake_minimum_required( VERSION 2.8 FATAL_ERROR )
 
 project( "gpuvis" )
 
+set( CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake )
+
 # bring in useful cmake macros
 #   https://github.com/onqtam/ucm
-include( "ucm.cmake" )
+include( "cmake/ucm.cmake" )
 
 find_package( SDL2 REQUIRED )
 
@@ -56,7 +58,7 @@ if ( WIN32 )
 endif()
 
 include_directories(
-    ${SDL2_INCLUDE_DIRS}
+    ${SDL2_INCLUDE_DIR}
     ${SQLITE3_INCLUDE}
     ${WINRESOURCE_DIR}
     ${CMAKE_CURRENT_LIST_DIR}/src
@@ -67,6 +69,6 @@ ucm_add_target( NAME gpuvis TYPE EXECUTABLE SOURCES ${SRC_LIST} )
 target_link_libraries(
     ${PROJECT_NAME}
     ${LIBRARY_LIST}
-    ${SDL2_LIBRARIES}
+    ${SDL2_LIBRARY}
     )
 
