@@ -1340,7 +1340,7 @@ void TraceConsole::render_log( TraceLoader &loader )
 
 void TraceConsole::render( TraceLoader &loader )
 {
-    ImGui::SetNextWindowSize( ImVec2( 720, 600 ), ImGuiSetCond_FirstUseEver );
+    ImGui::SetNextWindowSize( ImVec2( 720, 800 ), ImGuiSetCond_FirstUseEver );
 
     if ( !ImGui::Begin( "gpuvis console" ) )
     {

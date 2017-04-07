@@ -486,11 +486,7 @@ public:
         OPT_Fullscreen,
         OPT_ShowEventList,
         OPT_SyncEventListToGraph,
-        OPT_EventListRowCount,
         OPT_ShowColorPicker,
-        OPT_TimelineGfxRowCount,
-        OPT_TimelineSdma0RowCount,
-        OPT_TimelineSdma1RowCount,
         OPT_RenderCrtc0,
         OPT_RenderCrtc1,
         OPT_RenderCrtc2,
@@ -501,6 +497,10 @@ public:
         OPT_RenderCrtc7,
         OPT_RenderCrtc8,
         OPT_RenderCrtc9,
+        OPT_EventListRowCount,
+        OPT_TimelineGfxRowCount,
+        OPT_TimelineSdma0RowCount,
+        OPT_TimelineSdma1RowCount,
         OPT_Max
     };
     struct option_t
