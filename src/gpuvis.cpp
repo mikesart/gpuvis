@@ -1094,6 +1094,10 @@ void TraceWin::render_events_list( CIniFile &inifile )
             if ( ImGui::Selectable( label, selected, ImGuiSelectableFlags_SpanAllColumns ) )
                 m_selected_eventid = event.id;
 
+            // Columns: selectable with SpanAllColumns & overlaid button does not work.
+            // https://github.com/ocornut/imgui/issues/684
+            ImGui::SetItemAllowOverlap();
+
             // Check if item is hovered and we don't have a popup menu going already.
             if ( ( m_events_list_popup_eventid == ( uint32_t )-1 ) &&
                  ImGui::IsItemHovered() &&
@@ -1188,12 +1192,16 @@ void TraceConsole::shutdown( CIniFile *inifile )
 
 void TraceConsole::render_options( TraceLoader &loader )
 {
+    // Align text to upcoming widgets
+    ImGui::AlignFirstTextHeightToWidgets();
     ImGui::Text( "Clear Color:" );
     ImGui::SameLine();
     ImGui::ColorEdit3( "", ( float * )&m_clear_color );
 
     ImGui::Separator();
 
+    // Align text to upcoming widgets
+    ImGui::AlignFirstTextHeightToWidgets();
     ImGui::Text( "Imgui debug: " );
 
     ImGui::SameLine();
@@ -1357,6 +1365,8 @@ void TraceConsole::render( TraceLoader &loader )
     {
         bool is_loading = loader.is_loading();
 
+        // Align text to upcoming widgets
+        ImGui::AlignFirstTextHeightToWidgets();
         ImGui::Text( "File:" );
         ImGui::SameLine();
 
