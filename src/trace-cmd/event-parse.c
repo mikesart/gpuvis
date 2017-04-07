@@ -4443,6 +4443,8 @@ static void print_mac_arg(struct trace_seq *s, int mac, void *data, int size,
 	trace_seq_printf(s, fmt, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
 }
 
+#ifndef WIN32
+
 static void print_ip4_addr(struct trace_seq *s, char i, unsigned char *buf)
 {
 	const char *fmt;
@@ -4760,6 +4762,18 @@ static int print_ip_arg(struct trace_seq *s, const char *ptr,
 
 	return rc;
 }
+
+#else
+
+static int print_ip_arg(struct trace_seq *s, const char *ptr,
+            void *data, int size, struct event_format *event,
+            struct print_arg *arg)
+{
+    trace_seq_printf("%s", "NYI: print_ip_arg");
+    return 0;
+}
+
+#endif
 
 static int is_printable_array(char *p, unsigned int len)
 {

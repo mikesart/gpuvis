@@ -23,14 +23,22 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stdio.h>
-#if 0
-#include <regex.h>
-#endif
 #include <string.h>
+
+#ifdef __GNUC__
+#define ATTRIBUTE_PRINTF( _x, _y ) __attribute__( ( __format__( __printf__, _x, _y ) ) )
 
 #ifndef __maybe_unused
 #define __maybe_unused __attribute__((unused))
 #endif
+#else
+#define ATTRIBUTE_PRINTF( _x, _y )
+
+#ifndef __maybe_unused
+#define __maybe_unused
+#endif
+#endif
+
 
 /* ----------------------- trace_seq ----------------------- */
 
@@ -68,10 +76,8 @@ void trace_seq_init(struct trace_seq *s);
 void trace_seq_reset(struct trace_seq *s);
 void trace_seq_destroy(struct trace_seq *s);
 
-extern int trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
-	__attribute__ ((format (printf, 2, 3)));
-extern int trace_seq_vprintf(struct trace_seq *s, const char *fmt, va_list args)
-	__attribute__ ((format (printf, 2, 0)));
+extern int trace_seq_printf(struct trace_seq *s, const char *fmt, ...) ATTRIBUTE_PRINTF( 2, 3 );
+extern int trace_seq_vprintf(struct trace_seq *s, const char *fmt, va_list args) ATTRIBUTE_PRINTF( 2, 0 );
 
 extern int trace_seq_puts(struct trace_seq *s, const char *str);
 extern int trace_seq_putc(struct trace_seq *s, unsigned char c);
@@ -717,189 +723,5 @@ unsigned long long pevent_get_input_buf_ptr(void);
 /* for debugging */
 void pevent_print_funcs(struct pevent *pevent);
 void pevent_print_printk(struct pevent *pevent);
-
-/* ----------------------- filtering ----------------------- */
-
-enum filter_boolean_type {
-	FILTER_FALSE,
-	FILTER_TRUE,
-};
-
-enum filter_op_type {
-	FILTER_OP_AND = 1,
-	FILTER_OP_OR,
-	FILTER_OP_NOT,
-};
-
-enum filter_cmp_type {
-	FILTER_CMP_NONE,
-	FILTER_CMP_EQ,
-	FILTER_CMP_NE,
-	FILTER_CMP_GT,
-	FILTER_CMP_LT,
-	FILTER_CMP_GE,
-	FILTER_CMP_LE,
-	FILTER_CMP_MATCH,
-	FILTER_CMP_NOT_MATCH,
-	FILTER_CMP_REGEX,
-	FILTER_CMP_NOT_REGEX,
-};
-
-enum filter_exp_type {
-	FILTER_EXP_NONE,
-	FILTER_EXP_ADD,
-	FILTER_EXP_SUB,
-	FILTER_EXP_MUL,
-	FILTER_EXP_DIV,
-	FILTER_EXP_MOD,
-	FILTER_EXP_RSHIFT,
-	FILTER_EXP_LSHIFT,
-	FILTER_EXP_AND,
-	FILTER_EXP_OR,
-	FILTER_EXP_XOR,
-	FILTER_EXP_NOT,
-};
-
-enum filter_arg_type {
-	FILTER_ARG_NONE,
-	FILTER_ARG_BOOLEAN,
-	FILTER_ARG_VALUE,
-	FILTER_ARG_FIELD,
-	FILTER_ARG_EXP,
-	FILTER_ARG_OP,
-	FILTER_ARG_NUM,
-	FILTER_ARG_STR,
-};
-
-enum filter_value_type {
-	FILTER_NUMBER,
-	FILTER_STRING,
-	FILTER_CHAR
-};
-
-struct fliter_arg;
-
-struct filter_arg_boolean {
-	enum filter_boolean_type	value;
-};
-
-struct filter_arg_field {
-	struct format_field	*field;
-};
-
-struct filter_arg_value {
-	enum filter_value_type	type;
-	union {
-		char			*str;
-		unsigned long long	val;
-	};
-};
-
-struct filter_arg_op {
-	enum filter_op_type	type;
-	struct filter_arg	*left;
-	struct filter_arg	*right;
-};
-
-struct filter_arg_exp {
-	enum filter_exp_type	type;
-	struct filter_arg	*left;
-	struct filter_arg	*right;
-};
-
-struct filter_arg_num {
-	enum filter_cmp_type	type;
-	struct filter_arg	*left;
-	struct filter_arg	*right;
-};
-
-struct filter_arg_str {
-	enum filter_cmp_type	type;
-	struct format_field	*field;
-	char			*val;
-	char			*buffer;
-#if 0
-	regex_t			reg;
-#endif
-};
-
-struct filter_arg {
-	enum filter_arg_type	type;
-	union {
-		struct filter_arg_boolean	boolean;
-		struct filter_arg_field		field;
-		struct filter_arg_value		value;
-		struct filter_arg_op		op;
-		struct filter_arg_exp		exp;
-		struct filter_arg_num		num;
-#if 0
-		struct filter_arg_str		str;
-#endif
-	};
-};
-
-struct filter_type {
-	int			event_id;
-	struct event_format	*event;
-	struct filter_arg	*filter;
-};
-
-#define PEVENT_FILTER_ERROR_BUFSZ  1024
-
-struct event_filter {
-	struct pevent		*pevent;
-	int			filters;
-	struct filter_type	*event_filters;
-	char			error_buffer[PEVENT_FILTER_ERROR_BUFSZ];
-};
-
-struct event_filter *pevent_filter_alloc(struct pevent *pevent);
-
-/* for backward compatibility */
-#define FILTER_NONE		PEVENT_ERRNO__NO_FILTER
-#define FILTER_NOEXIST		PEVENT_ERRNO__FILTER_NOT_FOUND
-#define FILTER_MISS		PEVENT_ERRNO__FILTER_MISS
-#define FILTER_MATCH		PEVENT_ERRNO__FILTER_MATCH
-
-enum filter_trivial_type {
-	FILTER_TRIVIAL_FALSE,
-	FILTER_TRIVIAL_TRUE,
-	FILTER_TRIVIAL_BOTH,
-};
-
-enum pevent_errno pevent_filter_add_filter_str(struct event_filter *filter,
-					       const char *filter_str);
-
-enum pevent_errno pevent_filter_match(struct event_filter *filter,
-				      struct pevent_record *record);
-
-int pevent_filter_strerror(struct event_filter *filter, enum pevent_errno err,
-			   char *buf, size_t buflen);
-
-int pevent_event_filtered(struct event_filter *filter,
-			  int event_id);
-
-void pevent_filter_reset(struct event_filter *filter);
-
-int pevent_filter_clear_trivial(struct event_filter *filter,
-				 enum filter_trivial_type type);
-
-void pevent_filter_free(struct event_filter *filter);
-
-char *pevent_filter_make_string(struct event_filter *filter, int event_id);
-
-int pevent_filter_remove_event(struct event_filter *filter,
-			       int event_id);
-
-int pevent_filter_event_has_trivial(struct event_filter *filter,
-				    int event_id,
-				    enum filter_trivial_type type);
-
-int pevent_filter_copy(struct event_filter *dest, struct event_filter *source);
-
-int pevent_update_trivial(struct event_filter *dest, struct event_filter *source,
-			  enum filter_trivial_type type);
-
-int pevent_filter_compare(struct event_filter *filter1, struct event_filter *filter2);
 
 #endif /* _PARSE_EVENTS_H */
