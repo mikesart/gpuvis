@@ -505,13 +505,14 @@ __data2host8(struct pevent *pevent, unsigned long long data)
 
 #define data2host2(pevent, ptr)		__data2host2(pevent, *(unsigned short *)(ptr))
 #define data2host4(pevent, ptr)		__data2host4(pevent, *(unsigned int *)(ptr))
-#define data2host8(pevent, ptr)					\
-({								\
-	unsigned long long __val;				\
-								\
-	memcpy(&__val, (ptr), sizeof(unsigned long long));	\
-	__data2host8(pevent, __val);				\
-})
+
+static inline unsigned long long data2host8(struct pevent *pevent, const void *ptr)
+{
+    unsigned long long __val;
+
+    memcpy(&__val, ptr, sizeof(unsigned long long));
+    return __data2host8(pevent, __val);
+}
 
 static inline int traceevent_host_bigendian(void)
 {
