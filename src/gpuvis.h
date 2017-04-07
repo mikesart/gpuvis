@@ -320,7 +320,7 @@ protected:
     void handle_mouse_graph_captured( class graph_info_t &gi );
     void set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts );
 
-    void add_mouse_hovered_event( float x, class graph_info_t &gi, const trace_event_t &event );
+    bool add_mouse_hovered_event( float x, class graph_info_t &gi, const trace_event_t &event );
 
     void render_time_offset_button_init( TraceEvents &trace_events );
 

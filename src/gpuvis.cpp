@@ -436,9 +436,9 @@ void TraceLoader::init()
     m_options[ OPT_EventListRowCount ] = { "Event List Row Count", "eventlist_row_count", 0, 0, 100 };
     m_options[ OPT_ShowColorPicker ] = { "Show graph color picker", "show_color_picker", false, 0, 1 };
 
-    m_options[ OPT_TimelineGfxRowCount ] = { "gfx Timeline Row Count", "gfx_timeline_row_count", 8, 4, 20 };
-    m_options[ OPT_TimelineSdma0RowCount ] = { "sdma0 Timeline Row Count", "sdma0_timeline_row_count", 4, 2, 20 };
-    m_options[ OPT_TimelineSdma1RowCount ] = { "sdma1 Timeline Row Count", "sdma1_timeline_row_count", 4, 2, 20 };
+    m_options[ OPT_TimelineGfxRowCount ] = { "gfx Timeline Row Count", "gfx_timeline_row_count", 8, 4, 40 };
+    m_options[ OPT_TimelineSdma0RowCount ] = { "sdma0 Timeline Row Count", "sdma0_timeline_row_count", 4, 2, 40 };
+    m_options[ OPT_TimelineSdma1RowCount ] = { "sdma1 Timeline Row Count", "sdma1_timeline_row_count", 4, 2, 40 };
 
     for ( int i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {

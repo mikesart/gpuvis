@@ -331,8 +331,9 @@ bool graph_info_t::mouse_pos_in_graph()
     return pt_in_graph( mouse_pos );
 }
 
-void TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, const trace_event_t &event )
+bool TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, const trace_event_t &event )
 {
+    bool inserted = false;
     float xdist_mouse = x - gi.mouse_pos.x;
     bool neg = xdist_mouse < 0.0f;
 
@@ -341,7 +342,6 @@ void TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, const t
 
     if ( xdist_mouse < imgui_scale( 8.0f ) )
     {
-        bool inserted = false;
         int64_t dist_ts = gi.dx_to_ts( xdist_mouse );
 
         for ( auto it = gi.hovered_items.begin(); it != gi.hovered_items.end(); it++ )
@@ -355,10 +355,17 @@ void TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, const t
         }
 
         if ( !inserted && ( gi.hovered_items.size() < gi.hovered_max ) )
+        {
             gi.hovered_items.push_back( { neg, dist_ts, event.id } );
+            inserted = true;
+        }
         else if ( gi.hovered_items.size() > gi.hovered_max )
+        {
             gi.hovered_items.pop_back();
+        }
     }
+
+    return inserted;
 }
 
 void TraceWin::render_graph_row_timeline( const std::string &comm, const std::vector< uint32_t > &locs,
@@ -467,9 +474,23 @@ void TraceWin::render_graph_row_timeline( const std::string &comm, const std::ve
                     {
                         imgui_drawrect( x0, 1.0, y, text_h, color );
 
-                        // Check if we're mouse hovering this event
+                        //$ TODO: If we're hovering over this event and it's not selected,
+                        // set hov_p0 and hov_p1 to draw the entire bar select?
+
+                        // Check if we're mouse hovering starting event
                         if ( gi.mouse_over && gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + text_h )
-                            add_mouse_hovered_event( x0, gi, event0 );
+                        {
+                            // If we are hovering, and no selection bar is set, do it.
+                            if ( add_mouse_hovered_event( x0, gi, event0 ) && ( hov_p0.x == FLT_MAX ) )
+                            {
+                                hov_p0.x = x0;
+                                hov_p0.y = y;
+                                hov_p1.x = x2;
+                                hov_p1.y = y + text_h;
+
+                                imgui_drawrect( x0, x1 - x0, y, text_h, col_userspace );
+                            }
+                        }
                     }
                     imgui_drawrect( x1, 1.0, y, text_h, color );
                     imgui_drawrect( x2, 1.0, y, text_h, color );
