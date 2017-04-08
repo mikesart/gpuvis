@@ -23,7 +23,7 @@ endif()
 if ( WIN32 )
     ucm_add_flags( -D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4244 /wd4090 /wd4018 )
 
-    LINK_LIBRARIES( shlwapi winhttp rpcrt4 crypt32 ole32 )
+    LINK_LIBRARIES( shlwapi opengl32 )
 elseif (UNIX)
     LINK_LIBRARIES( dl )
 endif()
