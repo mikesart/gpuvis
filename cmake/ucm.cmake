@@ -1,3 +1,15 @@
+#
+# ucm.cmake - useful cmake macros
+#
+# Copyright (c) 2016 Viktor Kirilov
+#
+# Distributed under the MIT Software License
+# See accompanying file LICENSE.txt or copy at
+# https://opensource.org/licenses/MIT
+#
+# The documentation can be found at the library's page:
+# https://github.com/onqtam/ucm
+
 cmake_minimum_required(VERSION 2.8.12)
 
 include(CMakeParseArguments)
@@ -7,7 +19,7 @@ if(NOT COMMAND cotire)
     include(${CMAKE_CURRENT_LIST_DIR}/../cotire/CMake/cotire.cmake OPTIONAL)
 endif()
 
-if(COMMAND cotire AND "1.7.5" VERSION_LESS "${COTIRE_CMAKE_MODULE_VERSION}")
+if(COMMAND cotire AND "1.7.7" VERSION_LESS "${COTIRE_CMAKE_MODULE_VERSION}")
     set(ucm_with_cotire 1)
 else()
     set(ucm_with_cotire 0)
@@ -19,36 +31,44 @@ option(UCM_NO_COTIRE_FOLDER     "Do not use a cotire folder in the solution expl
 # ucm_add_flags
 # Adds compiler flags to CMAKE_<LANG>_FLAGS or to a specific config
 macro(ucm_add_flags)
-    cmake_parse_arguments(ARG "C;CXX;CLEAR_OLD" "CONFIG" "" ${ARGN})
-    
-    # determine to which flags to add
-    set(CXX_FLAGS CMAKE_CXX_FLAGS)
-    set(C_FLAGS CMAKE_C_FLAGS)
-    if(NOT "${ARG_CONFIG}" STREQUAL "")
-        string(TOUPPER ${ARG_CONFIG} ARG_CONFIG)
-        set(CXX_FLAGS CMAKE_CXX_FLAGS_${ARG_CONFIG})
-        set(C_FLAGS CMAKE_C_FLAGS_${ARG_CONFIG})
+    cmake_parse_arguments(ARG "C;CXX;CLEAR_OLD" "" "CONFIG" ${ARGN})
+
+    if(NOT ARG_CONFIG)
+        set(ARG_CONFIG " ")
     endif()
-    
-    # clear the old flags
-    if(${ARG_CLEAR_OLD})
-        if("${ARG_CXX}" OR NOT "${ARG_C}")
-            set(${CXX_FLAGS} "")
+
+    foreach(CONFIG ${ARG_CONFIG})
+        # determine to which flags to add
+        if(NOT ${CONFIG} STREQUAL " ")
+            string(TOUPPER ${CONFIG} CONFIG)
+            set(CXX_FLAGS CMAKE_CXX_FLAGS_${CONFIG})
+            set(C_FLAGS CMAKE_C_FLAGS_${CONFIG})
+        else()
+            set(CXX_FLAGS CMAKE_CXX_FLAGS)
+            set(C_FLAGS CMAKE_C_FLAGS)
         endif()
-        if("${ARG_C}" OR NOT "${ARG_CXX}")
-            set(${C_FLAGS} "")
+
+        # clear the old flags
+        if(${ARG_CLEAR_OLD})
+            if("${ARG_CXX}" OR NOT "${ARG_C}")
+                set(${CXX_FLAGS} "")
+            endif()
+            if("${ARG_C}" OR NOT "${ARG_CXX}")
+                set(${C_FLAGS} "")
+            endif()
         endif()
-    endif()
-    
-    # add all the passed flags
-    foreach(flag ${ARG_UNPARSED_ARGUMENTS})
-        if("${ARG_CXX}" OR NOT "${ARG_C}")
-            set(${CXX_FLAGS} "${${CXX_FLAGS}} ${flag}")
-        endif()
-        if("${ARG_C}" OR NOT "${ARG_CXX}")
-            set(${C_FLAGS} "${${C_FLAGS}} ${flag}")
-        endif()
+
+        # add all the passed flags
+        foreach(flag ${ARG_UNPARSED_ARGUMENTS})
+            if("${ARG_CXX}" OR NOT "${ARG_C}")
+                set(${CXX_FLAGS} "${${CXX_FLAGS}} ${flag}")
+            endif()
+            if("${ARG_C}" OR NOT "${ARG_CXX}")
+                set(${C_FLAGS} "${${C_FLAGS}} ${flag}")
+            endif()
+        endforeach()
     endforeach()
+
 endmacro()
 
 # ucm_set_flags
@@ -57,37 +77,136 @@ macro(ucm_set_flags)
     ucm_add_flags(CLEAR_OLD ${ARGN})
 endmacro()
 
+# ucm_add_linker_flags
+# Adds linker flags to CMAKE_<TYPE>_LINKER_FLAGS or to a specific config
+macro(ucm_add_linker_flags)
+    cmake_parse_arguments(ARG "CLEAR_OLD;EXE;MODULE;SHARED;STATIC" "" "CONFIG" ${ARGN})
+
+    if(NOT ARG_CONFIG)
+        set(ARG_CONFIG " ")
+    endif()
+
+    foreach(CONFIG ${ARG_CONFIG})
+        string(TOUPPER "${ARG_CONFIG}" ARG_CONFIG)
+    
+        if(NOT ${ARG_EXE} AND NOT ${ARG_MODULE} AND NOT ${ARG_SHARED} AND NOT ${ARG_STATIC})
+            set(ARG_EXE 1)
+            set(ARG_MODULE 1)
+            set(ARG_SHARED 1)
+            set(ARG_STATIC 1)
+        endif()
+    
+        set(flags_configs "")
+        if(${ARG_EXE})
+            if(NOT "${CONFIG}" STREQUAL " ")
+                list(APPEND flags_configs CMAKE_EXE_LINKER_FLAGS_${CONFIG})
+            else()
+                list(APPEND flags_configs CMAKE_EXE_LINKER_FLAGS)
+            endif()
+        endif()
+        if(${ARG_MODULE})
+            if(NOT "${CONFIG}" STREQUAL " ")
+                list(APPEND flags_configs CMAKE_MODULE_LINKER_FLAGS_${CONFIG})
+            else()
+                list(APPEND flags_configs CMAKE_MODULE_LINKER_FLAGS)
+            endif()
+        endif()
+        if(${ARG_SHARED})
+            if(NOT "${CONFIG}" STREQUAL " ")
+                list(APPEND flags_configs CMAKE_SHARED_LINKER_FLAGS_${CONFIG})
+            else()
+                list(APPEND flags_configs CMAKE_SHARED_LINKER_FLAGS)
+            endif()
+        endif()
+        if(${ARG_STATIC})
+            if(NOT "${CONFIG}" STREQUAL " ")
+                list(APPEND flags_configs CMAKE_STATIC_LINKER_FLAGS_${CONFIG})
+            else()
+                list(APPEND flags_configs CMAKE_STATIC_LINKER_FLAGS)
+            endif()
+        endif()
+    
+        # clear the old flags
+        if(${ARG_CLEAR_OLD})
+            foreach(flags ${flags_configs})
+                set(${flags} "")
+            endforeach()
+        endif()
+
+        # add all the passed flags
+        foreach(flag ${ARG_UNPARSED_ARGUMENTS})
+            foreach(flags ${flags_configs})
+                set(${flags} "${${flags}} ${flag}")
+            endforeach()
+        endforeach()
+    endforeach()
+endmacro()
+
+# ucm_set_linker_flags
+# Sets the CMAKE_<TYPE>_LINKER_FLAGS linker flags or for a specific config
+macro(ucm_set_linker_flags)
+    ucm_add_linker_flags(CLEAR_OLD ${ARGN})
+endmacro()
+
+# ucm_gather_flags
+# Gathers all lists of flags for printing or manipulation
+macro(ucm_gather_flags with_linker result)
+    set(${result} "")
+    # add the main flags without a config
+    list(APPEND ${result} CMAKE_C_FLAGS)
+    list(APPEND ${result} CMAKE_CXX_FLAGS)
+    if(${with_linker})
+        list(APPEND ${result} CMAKE_EXE_LINKER_FLAGS)
+        list(APPEND ${result} CMAKE_MODULE_LINKER_FLAGS)
+        list(APPEND ${result} CMAKE_SHARED_LINKER_FLAGS)
+        list(APPEND ${result} CMAKE_STATIC_LINKER_FLAGS)
+    endif()
+    
+    if("${CMAKE_CONFIGURATION_TYPES}" STREQUAL "" AND NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
+        # handle single config generators - like makefiles/ninja - when CMAKE_BUILD_TYPE is set
+        string(TOUPPER ${CMAKE_BUILD_TYPE} config)
+        list(APPEND ${result} CMAKE_C_FLAGS_${config})
+        list(APPEND ${result} CMAKE_CXX_FLAGS_${config})
+        if(${with_linker})
+            list(APPEND ${result} CMAKE_EXE_LINKER_FLAGS_${config})
+            list(APPEND ${result} CMAKE_MODULE_LINKER_FLAGS_${config})
+            list(APPEND ${result} CMAKE_SHARED_LINKER_FLAGS_${config})
+            list(APPEND ${result} CMAKE_STATIC_LINKER_FLAGS_${config})
+        endif()
+    else()
+        # handle multi config generators (like msvc, xcode)
+        foreach(config ${CMAKE_CONFIGURATION_TYPES})
+            string(TOUPPER ${config} config)
+            list(APPEND ${result} CMAKE_C_FLAGS_${config})
+            list(APPEND ${result} CMAKE_CXX_FLAGS_${config})
+            if(${with_linker})
+                list(APPEND ${result} CMAKE_EXE_LINKER_FLAGS_${config})
+                list(APPEND ${result} CMAKE_MODULE_LINKER_FLAGS_${config})
+                list(APPEND ${result} CMAKE_SHARED_LINKER_FLAGS_${config})
+                list(APPEND ${result} CMAKE_STATIC_LINKER_FLAGS_${config})
+            endif()
+        endforeach()
+    endif()
+endmacro()
+
 # ucm_set_runtime
 # Sets the runtime (static/dynamic) for msvc/gcc
 macro(ucm_set_runtime)
-    cmake_parse_arguments(ARG "STATIC;DYNAMIC;PRINT_FLAGS" "" "" ${ARGN})
+    cmake_parse_arguments(ARG "STATIC;DYNAMIC" "" "" ${ARGN})
+
+    if(ARG_UNPARSED_ARGUMENTS)
+        message(FATAL_ERROR "unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
+    endif()
     
-    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND "${ARG_PRINT_FLAGS}" STREQUAL "")
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" STREQUAL "")
         message(AUTHOR_WARNING "ucm_set_runtime() does not support clang yet!")
     endif()
     
-    # gather list of flags to handle
-    set(flags_configs "")
-    if("${CMAKE_CONFIGURATION_TYPES}" STREQUAL "")
-        # handle single config generators - like makefiles/ninja
-        if("${CMAKE_BUILD_TYPE}" STREQUAL "")
-            list(APPEND flags_configs CMAKE_C_FLAGS)
-            list(APPEND flags_configs CMAKE_CXX_FLAGS)
-        else()
-            string(TOUPPER ${CMAKE_BUILD_TYPE} config)
-            list(APPEND flags_configs CMAKE_C_FLAGS_${config})
-            list(APPEND flags_configs CMAKE_CXX_FLAGS_${config})
-        endif()
-    else()
-        # handle multi config generators (like msvc, xcode
-        foreach(config ${CMAKE_CONFIGURATION_TYPES})
-            string(TOUPPER ${config} config)
-            list(APPEND flags_configs CMAKE_C_FLAGS_${config})
-            list(APPEND flags_configs CMAKE_CXX_FLAGS_${config})
-        endforeach()
-    endif()
+    ucm_gather_flags(0 flags_configs)
     
     # add/replace the flags
+    # note that if the user has messed with the flags directly this function might fail
+    # - for example if with MSVC and the user has removed the flags - here we just switch/replace them
     if("${ARG_STATIC}")
         foreach(flags ${flags_configs})
             if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
@@ -119,24 +238,17 @@ macro(ucm_set_runtime)
             endif()
         endforeach()
     endif()
-    
-    list(FIND flags_configs "CMAKE_C_FLAGS" has_them)
-    if(${has_them} STREQUAL "-1")
-        list(APPEND flags_configs CMAKE_C_FLAGS)
-        list(APPEND flags_configs CMAKE_CXX_FLAGS)
-    endif()
-    
-    if("${ARG_PRINT_FLAGS}")
-        foreach(flags ${flags_configs})
-            message("${flags}: ${${flags}}")
-        endforeach()
-    endif()
 endmacro()
 
 # ucm_print_flags
 # Prints all compiler flags for all configurations
 macro(ucm_print_flags)
-    ucm_set_runtime(PRINT_FLAGS)
+    ucm_gather_flags(1 flags_configs)
+    message("")
+    foreach(flags ${flags_configs})
+        message("${flags}: ${${flags}}")
+    endforeach()
+    message("")
 endmacro()
 
 # ucm_count_sources
@@ -295,7 +407,7 @@ macro(ucm_add_files)
 endmacro()
 
 # ucm_add_dir_impl
-macro(ucm_add_dir_impl result rec trim dirs_in)
+macro(ucm_add_dir_impl result rec trim dirs_in additional_ext)
     set(dirs "${dirs_in}")
     
     # handle the "" and "." cases
@@ -324,6 +436,10 @@ macro(ucm_add_dir_impl result rec trim dirs_in)
                 "${cur_dir}*.HPP"
                 )
         endif()
+        
+        foreach(ext ${additional_ext})
+            list(APPEND additional_file_extensions "${cur_dir}*.${ext}")
+        endforeach()
         
         # find all sources and set them as result
         FILE(GLOB found_sources RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -365,7 +481,7 @@ macro(ucm_add_dir_impl result rec trim dirs_in)
         foreach(cur_dir ${dirs})
             ucm_dir_list("${cur_dir}" subdirs)
             foreach(subdir ${subdirs})
-                ucm_add_dir_impl(${result} ${rec} ${trim} "${cur_dir}/${subdir}")
+                ucm_add_dir_impl(${result} ${rec} ${trim} "${cur_dir}/${subdir}" "${additional_ext}")
             endforeach()
         endforeach()
     endif()
@@ -376,7 +492,7 @@ endmacro()
 # and generates filters according to their location (accepts relative paths only).
 # Also this macro trims X times the front word from the filter string for visual studio filters.
 macro(ucm_add_dirs)
-    cmake_parse_arguments(ARG "RECURSIVE" "TO;FILTER_POP" "" ${ARGN})
+    cmake_parse_arguments(ARG "RECURSIVE" "TO;FILTER_POP" "ADDITIONAL_EXT" ${ARGN})
     
     if(${ARG_TO} STREQUAL "")
         message(FATAL_ERROR "Need to pass TO and a variable name to ucm_add_dirs()")
@@ -386,7 +502,7 @@ macro(ucm_add_dirs)
         set(ARG_FILTER_POP 0)
     endif()
     
-    ucm_add_dir_impl(${ARG_TO} ${ARG_RECURSIVE} ${ARG_FILTER_POP} "${ARG_UNPARSED_ARGUMENTS}")
+    ucm_add_dir_impl(${ARG_TO} ${ARG_RECURSIVE} ${ARG_FILTER_POP} "${ARG_UNPARSED_ARGUMENTS}" "${ARG_ADDITIONAL_EXT}")
 endmacro()
 
 # ucm_add_target
@@ -440,7 +556,7 @@ macro(ucm_add_target)
     
 	# inform the developer that the current target might benefit from a unity build
 	if(NOT ARG_UNITY AND ${UCM_UNITY_BUILD})
-		cgr_count_sources(ARG_SOURCES num_sources)
+		ucm_count_sources(${ARG_SOURCES} RESULT num_sources)
 		if(${num_sources} GREATER 1)
 			message(AUTHOR_WARNING "Target '${ARG_NAME}' may benefit from a unity build.\nIt has ${num_sources} sources - enable with UNITY flag")
 		endif()
@@ -483,6 +599,7 @@ macro(ucm_add_target)
         
         # this is the library call that does the magic
         cotire(${orig_target})
+        set_target_properties(clean_cotire PROPERTIES FOLDER "CMakePredefinedTargets")
         
         # disable the original target and enable the unity one
         get_target_property(unity_target_name ${orig_target} COTIRE_UNITY_TARGET_NAME)
@@ -494,15 +611,15 @@ macro(ucm_add_target)
         if(UCM_NO_COTIRE_FOLDER)
             # reset the folder property so all unity targets dont end up in a single folder in the solution explorer of VS
             set_target_properties(${unity_target_name} PROPERTIES FOLDER "")
-            set_target_properties(all_unity PROPERTIES FOLDER "")
-            set_target_properties(clean_cotire PROPERTIES FOLDER "")
         endif()
+        set_target_properties(all_unity PROPERTIES FOLDER "CMakePredefinedTargets")
     elseif(NOT "${ARG_PCH_FILE}" STREQUAL "")
         set(wanted_cotire TRUE)
         if(ucm_with_cotire)
             set_target_properties(${orig_target} PROPERTIES COTIRE_ADD_UNITY_BUILD FALSE)
             set_target_properties(${orig_target} PROPERTIES COTIRE_CXX_PREFIX_HEADER_INIT "${ARG_PCH_FILE}")
             cotire(${orig_target})
+            set_target_properties(clean_cotire PROPERTIES FOLDER "CMakePredefinedTargets")
         endif()
     endif()
     

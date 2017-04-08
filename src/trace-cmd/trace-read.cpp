@@ -29,7 +29,15 @@
 #include <future>
 #include <set>
 
-#ifndef WIN32
+#ifdef WIN32
+#include <io.h>
+
+#define open _open
+#define close _close
+#define read _read
+#define lseek64 _lseeki64
+#define dup _dup
+#else
 #define USE_MMAP
 
 #include <sys/mman.h>
@@ -38,59 +46,6 @@
 #endif
 
 #include <SDL.h>
-
-#ifdef WIN32
-typedef __int64 ssize_t;
-typedef __int64 off64_t;
-
-#define TEMP_FAILURE_RETRY( _x ) _x
-
-char *strtok_r( char *str, const char *delim, char **saveptr )
-{
-    return NULL;
-}
-
-ssize_t read(int __fd, void *__buf, size_t __nbytes)
-{
-    return 0;
-}
-
-off_t lseek(int fd, off_t offset, int whence)
-{
-    return 0;
-}
-
-off64_t lseek64(int fd, off64_t offset, int whence)
-{
-    return 0;
-}
-
-int close( int fd )
-{
-    return 0;
-}
-
-int dup( int oldfd )
-{
-    return 0;
-}
-
-int open(const char *pathname, int flags)
-{
-    return 0;
-}
-
-extern "C" int strerror_r(int errnum, char *buf, size_t buflen)
-{
-    return 0;
-}
-
-extern "C" int asprintf(char **strp, const char *fmt, ...)
-{
-    return 0;
-}
-
-#endif
 
 extern "C"
 {
@@ -288,8 +243,8 @@ static char *read_string( tracecmd_input_t *handle )
     }
 
     /* move the file descriptor to the end of the string */
-    off_t val;
-    val = lseek( handle->fd, -( int )( r - ( i + 1 ) ), SEEK_CUR );
+    off64_t val;
+    val = lseek64( handle->fd, -( int )( r - ( i + 1 ) ), SEEK_CUR );
     if ( val < 0 )
         goto fail;
 

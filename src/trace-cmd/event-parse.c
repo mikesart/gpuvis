@@ -45,6 +45,9 @@
 
 #ifndef WIN32
 #include <netinet/ip6.h>
+#else
+int asprintf(char **str, const char *fmt, ...);
+char *strerror_r(int errnum, char *buf, size_t buflen);
 #endif
 
 #include "event-parse.h"
@@ -4797,7 +4800,7 @@ static int print_ip_arg(struct trace_seq *s, const char *ptr,
             void *data, int size, struct event_format *event,
             struct print_arg *arg)
 {
-    trace_seq_printf("%s", "NYI: print_ip_arg");
+    trace_seq_printf(s, "%s", "NYI: print_ip_arg");
     return 0;
 }
 

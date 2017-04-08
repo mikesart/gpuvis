@@ -42,6 +42,11 @@
 
 #else
 
+typedef __int64 ssize_t;
+typedef __int64 off64_t;
+
+#define TEMP_FAILURE_RETRY( _x ) _x
+
 #define ATTRIBUTE_PRINTF( _x, _y )
 
 #define GCC_DIAG_PUSH_OFF( x )
@@ -58,20 +63,21 @@
 
 #if defined( WIN32 )
 
-inline int strcasecmp( const char *s1, const char *s2 )
-{
-    return 0;
-}
+#if defined( __cplusplus )
+extern "C" {
+#endif
 
-inline int strncasecmp( const char *s1, const char *s2, size_t n )
-{
-    return 0;
-}
+int strcasecmp( const char *s1, const char *s2 );
+int strncasecmp( const char *s1, const char *s2, size_t n );
 
-inline int vasprintf( char **strp, const char *fmt, va_list ap )
-{
-    return 0;
+int asprintf(char **strp, const char *fmt, ...);
+int vasprintf( char **strp, const char *fmt, va_list ap );
+
+char *strtok_r( char *str, const char *delim, char **saveptr );
+
+#if defined( __cplusplus )
 }
+#endif
 
 #endif
 
