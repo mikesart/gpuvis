@@ -55,6 +55,10 @@
 #ifndef WIN32
 #include <unistd.h>
 #include <pwd.h>
+#else
+#include <windows.h>
+#include <Shlobj.h>
+#include <Shlwapi.h>
 #endif
 
 #include "gpuvis_macros.h"
@@ -397,7 +401,7 @@ static void stb_fixpath_to_windows(char *path)
          *path = '\\';
 }
 
-static bool util_mkdir( const char *dirname, bool is_filename )
+static bool util_mkdir( const char *dirname, bool is_filename = false )
 {
     char rgchPath[ MAX_PATH + 1 ];
 
