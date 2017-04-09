@@ -88,7 +88,9 @@ enum trace_flag_type_t {
     // TRACE_FLAG_HARDIRQ = 0x08, // inside an interrupt handler
     // TRACE_FLAG_SOFTIRQ = 0x10, // inside a softirq handler
     TRACE_FLAG_FENCE_SIGNALED = 0x100,
-    TRACE_FLAG_IS_TIMELINE = 0x200,
+    TRACE_FLAG_FTRACE_PRINT = 0x200,
+    TRACE_FLAG_IS_VBLANK = 0x400,
+    TRACE_FLAG_IS_TIMELINE = 0x800,
 };
 
 struct trace_event_t
@@ -96,6 +98,14 @@ struct trace_event_t
     bool is_fence_signaled() const
     {
         return !!( flags & TRACE_FLAG_FENCE_SIGNALED );
+    }
+    bool is_ftrace_print() const
+    {
+        return !!( flags & TRACE_FLAG_FTRACE_PRINT );
+    }
+    bool is_vblank() const
+    {
+        return !!( flags & TRACE_FLAG_IS_VBLANK );
     }
 
     uint32_t id;
@@ -116,6 +126,9 @@ struct trace_event_t
     uint32_t graph_row_id;
     std::vector< event_field_t > fields;
 };
+
+const event_field_t *find_event_field( std::vector< event_field_t > &fields, const char *name );
+const char *get_event_field_str( std::vector< event_field_t > &fields, const char *name );
 
 typedef std::function< int ( const trace_info_t &info, const trace_event_t &event ) > EventCallback;
 int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb );

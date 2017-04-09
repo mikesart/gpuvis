@@ -306,6 +306,10 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
     // fence_signaled was renamed to dma_fence_signaled post v4.9
     if ( strstr( event.name, "fence_signaled" ) )
         event.flags |= TRACE_FLAG_FENCE_SIGNALED;
+    else if ( !strcmp( event.system, "ftrace-print" ) )
+        event.flags |= TRACE_FLAG_FTRACE_PRINT;
+    else if ( !strcmp( event.name, "drm_vblank_event" ) )
+        event.flags |= TRACE_FLAG_IS_VBLANK;
 
     // Add this event name to our event locations map
     m_trace_events->m_event_locations.add_location_str( event.name, event.id );
@@ -430,7 +434,7 @@ void TraceLoader::init()
     m_options[ OPT_TimelineZoomGfx ] = { "Zoom gfx timeline (^Z)", "zoom_gfx_timeline", 0, 0, 1 };
     m_options[ OPT_TimelineLabels ] = { "Show timeline labels", "timeline_labels", true, 0, 1 };
     m_options[ OPT_TimelineEvents ] = { "Show timeline events", "timeline_events", true, 0, 1 };
-    m_options[ OPT_TimelineRenderUserSpace ] = { "Show userspace time", "timeline_userspace", false, 0, 1 };
+    m_options[ OPT_TimelineRenderUserSpace ] = { "Show timeline userspace", "timeline_userspace", false, 0, 1 };
 
     m_options[ OPT_ShowEventList ] = { "Show Event List", "show_event_list", true, 0, 1 };
     m_options[ OPT_SyncEventListToGraph ] = { "Sync Event List to graph mouse location", "sync_eventlist_to_graph", false, 0, 1 };
@@ -1074,24 +1078,22 @@ void TraceWin::render_events_list( CIniFile &inifile )
         m_eventlist_end_eventid = m_start_eventid + end_idx;
         for ( uint32_t i = start_idx; i < end_idx; i++ )
         {
-            char label[ 32 ];
             int colors_pushed = 0;
             trace_event_t &event = events[ m_start_eventid + i ];
             bool selected = ( m_selected_eventid == event.id );
-            bool is_vblank = !strcmp( event.name, "drm_vblank_event" );
             std::string ts_str = ts_to_timestr( event.ts, m_tsoffset );
 
-            if ( is_vblank && !selected )
+            ImGui::PushID( i );
+
+            if ( event.is_vblank() )
             {
-                // If this is a vblank and it's not selected, draw a blue background by
-                //  pretending this row is selected.
-                ImGui::PushStyleColor( ImGuiCol_Header, ImVec4( 0.0f, 0.0f, 1.0f, 1.0f ) );
-                selected = true;
+                ImColor col = col_get( ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0 );
+
+                ImGui::PushStyleColor( ImGuiCol_Text, col );
                 colors_pushed++;
             }
 
-            snprintf( label, sizeof( label ), "%u", event.id );
-            if ( ImGui::Selectable( label, selected, ImGuiSelectableFlags_SpanAllColumns ) )
+            if ( ImGui::Selectable( std::to_string( event.id ).c_str(), selected, ImGuiSelectableFlags_SpanAllColumns ) )
                 m_selected_eventid = event.id;
 
             // Columns: selectable with SpanAllColumns & overlaid button does not work.
@@ -1139,16 +1141,23 @@ void TraceWin::render_events_list( CIniFile &inifile )
             ImGui::NextColumn();
             ImGui::Text( "%s", event.name );
             ImGui::NextColumn();
-
-            if ( event.timeline && event.context && event.seqno )
-                ImGui::Text( "%s", get_event_gfxcontext_str( event ).c_str() );
+            ImGui::Text( "%s", get_event_gfxcontext_str( event ).c_str() );
             ImGui::NextColumn();
 
-            std::string fieldstr = get_event_field_str( event, "=", ' ' );
-            ImGui::Text( "%s", fieldstr.c_str() );
+            if ( event.is_ftrace_print() )
+            {
+                ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", get_event_field_str( event.fields, "buf" ) );
+            }
+            else
+            {
+                std::string fieldstr = get_event_field_str( event, "=", ' ' );
+                ImGui::Text( "%s", fieldstr.c_str() );
+            }
             ImGui::NextColumn();
 
             ImGui::PopStyleColor( colors_pushed );
+
+            ImGui::PopID();
         }
 
         ImGui::Columns( 1 );
@@ -1296,7 +1305,7 @@ void TraceConsole::render_log( TraceLoader &loader )
             if ( !m_filter.PassFilter( item ) )
                 continue;
 
-            ImVec4 col = ImVec4( 1.0f, 1.0f, 1.0f, 1.0f );
+            ImVec4 col = ImVec4( 1, 1, 1, 1 );
 
             if ( !strncasecmp( item, "[error]", 7 ) )
                 col = ImColor( 1.0f, 0.4f, 0.4f, 1.0f );

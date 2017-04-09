@@ -176,7 +176,7 @@ static void imgui_draw_text( float x, float y, const char *text, ImU32 color )
     ImGui::GetWindowDrawList()->AddText( ImVec2( x, y ), color, text );
 }
 
-static const event_field_t *find_event_field( std::vector< event_field_t > &fields, const char *name )
+const event_field_t *find_event_field( std::vector< event_field_t > &fields, const char *name )
 {
     for ( const event_field_t &field : fields )
     {
@@ -185,6 +185,13 @@ static const event_field_t *find_event_field( std::vector< event_field_t > &fiel
     }
 
     return NULL;
+}
+
+const char *get_event_field_str( std::vector< event_field_t > &fields, const char *name )
+{
+    const event_field_t *field = find_event_field( fields, name );
+
+    return field ? field->value : "";
 }
 
 /*
@@ -706,9 +713,11 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
             float xstart = gi.ts_to_screenx( event0.ts );
             float xend = gi.ts_to_screenx( event1.ts );
 
-            imgui_drawrect( xstart, xend - xstart,
-                            gi.y, gi.h,
-                            col_get( col_EventListSel ) );
+            ImGui::GetWindowDrawList()->AddRect(
+                        ImVec2( xstart, gi.y + imgui_scale( 20 ) ),
+                        ImVec2( xend, gi.y + gi.h - imgui_scale( 30 ) ),
+                        col_get( col_EventListSel ),
+                        true, ~0, imgui_scale( 10.0f ) );
         }
     }
 }
@@ -1171,10 +1180,15 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
         trace_event_t &event = get_event( hov.eventid );
         std::string gfxcontext_str = get_event_gfxcontext_str( event );
 
-        time_buf += string_format( "\n%u %c%s %s",
+        time_buf += string_format( "\n%u %c%s",
                                    hov.eventid, hov.neg ? '-' : ' ',
-                                   ts_to_timestr( hov.dist_ts ).c_str(),
-                                   event.name );
+                                   ts_to_timestr( hov.dist_ts ).c_str() );
+
+        if ( !event.is_ftrace_print() )
+        {
+            time_buf += " ";
+            time_buf += event.name;
+        }
 
         if ( event.crtc >= 0 )
         {
@@ -1185,14 +1199,15 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
         if ( !gfxcontext_str.empty() )
             time_buf += string_format( " [%s] %s", gfxcontext_str.c_str(), event.user_comm );
 
-        if ( !strcmp( event.system, "ftrace-print" ) )
+        if ( event.is_ftrace_print() )
         {
             const event_field_t *field = find_event_field( event.fields, "buf" );
 
             if ( field )
             {
-                time_buf += " ";
+                time_buf += " \"";
                 time_buf += field->value;
+                time_buf += "\"";
             }
         }
     }
