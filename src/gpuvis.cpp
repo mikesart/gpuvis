@@ -975,6 +975,57 @@ std::string get_event_field_str( const trace_event_t &event, const char *eqstr, 
     return fieldstr;
 }
 
+static float get_keyboard_scroll_lines( float visible_rows )
+{
+    float scroll_lines = 0.0f;
+
+    if ( ImGui::IsWindowFocused() )
+    {
+        if ( imgui_key_pressed( ImGuiKey_PageDown ) )
+            scroll_lines = std::max< float>( visible_rows - 5, 1 );
+        else if ( imgui_key_pressed( ImGuiKey_PageUp ) )
+            scroll_lines = std::min< float >( -visible_rows, -1 );
+        else if ( imgui_key_pressed( ImGuiKey_DownArrow ) )
+            scroll_lines = 1;
+        else if ( imgui_key_pressed( ImGuiKey_UpArrow ) )
+            scroll_lines = -1;
+        else if ( imgui_key_pressed( ImGuiKey_Home ) )
+            scroll_lines = -ImGui::GetScrollMaxY();
+        else if ( imgui_key_pressed( ImGuiKey_End ) )
+            scroll_lines = ImGui::GetScrollMaxY();
+    }
+
+    return scroll_lines;
+}
+
+void TraceWin::save_restore_column_sizes( CIniFile &inifile,
+    const std::array< const char *, 6 > &columns )
+{
+    if ( !m_columns_inited )
+    {
+        // Try to restore the column sizes from our ini file.
+        for ( size_t i = 1; i < columns.size(); i++ )
+        {
+            float val = inifile.GetFloat( string_format( "column_offset%lu", i ).c_str(), -1.0f );
+            if ( val <= 0.0f )
+                break;
+
+            ImGui::SetColumnOffset( i, val );
+        }
+
+        m_columns_inited = true;
+    }
+    else if ( ImGui::IsWindowHovered() && ImGui::IsMouseReleased( 0 ) )
+    {
+        // Someone released the mouse - save column sizes in case they were changed.
+        for ( size_t i = 1; i < columns.size(); i++ )
+        {
+            inifile.PutFloat( string_format( "column_offset%lu", i ).c_str(),
+                              ImGui::GetColumnOffset( i ) );
+        }
+    }
+}
+
 void TraceWin::render_events_list( CIniFile &inifile )
 {
     size_t event_count = m_end_eventid - m_start_eventid + 1;
@@ -990,75 +1041,47 @@ void TraceWin::render_events_list( CIniFile &inifile )
     {
         // Set the child window size to hold count of items + header + separator
         float lineh = ImGui::GetTextLineHeightWithSpacing();
-        float y = m_loader.get_opt( TraceLoader::OPT_EventListRowCount ) * lineh;
+        float sizey = m_loader.get_opt( TraceLoader::OPT_EventListRowCount ) * lineh;
 
         ImGui::SetNextWindowContentSize( { 0.0f, ( event_count + 1 ) * lineh + 1 } );
-        ImGui::BeginChild( "eventlistbox", ImVec2( 0.0f, y ) );
+        ImGui::BeginChild( "eventlistbox", ImVec2( 0.0f, sizey ) );
 
         float winh = ImGui::GetWindowHeight();
+        uint32_t visible_rows = ( winh + 1 ) / lineh;
 
-        if ( ImGui::IsWindowFocused() )
-        {
-            int scroll_lines = 0;
-
-            if ( imgui_key_pressed( ImGuiKey_PageDown ) )
-                scroll_lines = ( winh / lineh - 5 );
-            else if ( imgui_key_pressed( ImGuiKey_PageUp ) )
-                scroll_lines = -( winh / lineh - 5 );
-            else if ( imgui_key_pressed( ImGuiKey_DownArrow ) )
-                scroll_lines = 1;
-            else if ( imgui_key_pressed( ImGuiKey_UpArrow ) )
-                scroll_lines = -1;
-            else if ( imgui_key_pressed( ImGuiKey_Home ) )
-                scroll_lines = -(int)event_count;
-            else if ( imgui_key_pressed( ImGuiKey_End ) )
-                scroll_lines = event_count;
-
-            if ( scroll_lines )
-                ImGui::SetScrollY( ImGui::GetScrollY() + scroll_lines * lineh );
-        }
+        float scroll_lines = get_keyboard_scroll_lines( visible_rows );
+        if ( scroll_lines )
+            ImGui::SetScrollY( ImGui::GetScrollY() + scroll_lines * lineh );
 
         if ( m_do_gotoevent )
         {
             m_goto_eventid = std::min< uint32_t >( m_goto_eventid, event_count - 1 );
-            ImGui::SetScrollY( std::max< int >( 0, m_goto_eventid - m_start_eventid ) * lineh );
+
+            // Only scroll if our goto event isn't visible.
+            if ( ( uint32_t )m_goto_eventid <= m_eventlist_start_eventid ||
+                 ( uint32_t )m_goto_eventid + 1 >= m_eventlist_end_eventid )
+            {
+                float scroll_y0 = std::max< int >( 0, m_goto_eventid - m_start_eventid ) * lineh;
+
+                ImGui::SetScrollY( scroll_y0 );
+            }
+
+            // Select the event also
+            m_selected_eventid = m_goto_eventid;
 
             m_do_gotoevent = false;
         }
 
         float scrolly = ImGui::GetScrollY();
-        uint32_t start_idx = ( scrolly >= lineh ) ? ( uint32_t )( scrolly / lineh - 1 ) : 0;
-        uint32_t rows = ( winh + 1 ) / lineh;
-        uint32_t end_idx = std::min< uint32_t >( start_idx + 2 + rows, event_count );
+        uint32_t start_idx = std::max< float >( scrolly / lineh, 1.0f ) - 1;
+        uint32_t end_idx = std::min< uint32_t >( start_idx + 2 + visible_rows, event_count );
 
         // Draw columns
         static const std::array< const char *, 6 > columns =
             { "Id", "Time Stamp", "Task", "Event", "context", "Info" };
         imgui_headers( "events", columns );
 
-        if ( !m_columns_inited )
-        {
-            // Try to restore the column sizes from our ini file.
-            for ( size_t i = 1; i < columns.size(); i++ )
-            {
-                float val = inifile.GetFloat( string_format( "column_offset%lu", i ).c_str(), -1.0f );
-                if ( val <= 0.0f )
-                    break;
-
-                ImGui::SetColumnOffset( i, val );
-            }
-
-            m_columns_inited = true;
-        }
-        else if ( ImGui::IsWindowHovered() && ImGui::IsMouseReleased( 0 ) )
-        {
-            // Someone release the mouse - save column sizes in case they were changed.
-            for ( size_t i = 1; i < columns.size(); i++ )
-            {
-                inifile.PutFloat( string_format( "column_offset%lu", i ).c_str(),
-                                  ImGui::GetColumnOffset( i ) );
-            }
-        }
+        save_restore_column_sizes( inifile, columns );
 
         if ( start_idx > 0 )
         {

@@ -327,6 +327,9 @@ protected:
     void render_graph_vblanks( class graph_info_t &gi );
     bool render_graph_popup();
 
+    void save_restore_column_sizes( CIniFile &inifile,
+        const std::array< const char *, 6 > &columns );
+
     void handle_graph_hotkeys();
 
     void handle_mouse_graph( class graph_info_t &gi );
@@ -367,7 +370,6 @@ public:
     std::string m_title;
     TraceEvents *m_trace_events = nullptr;
 
-    // Goto Event
     bool m_do_gotoevent = false;
     int m_goto_eventid = 0;
 
