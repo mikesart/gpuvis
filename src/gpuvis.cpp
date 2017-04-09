@@ -1058,12 +1058,17 @@ void TraceWin::render_events_list( CIniFile &inifile )
             m_goto_eventid = std::min< uint32_t >( m_goto_eventid, event_count - 1 );
 
             // Only scroll if our goto event isn't visible.
-            if ( ( uint32_t )m_goto_eventid <= m_eventlist_start_eventid ||
-                 ( uint32_t )m_goto_eventid + 1 >= m_eventlist_end_eventid )
+            if ( ( uint32_t )m_goto_eventid <= m_eventlist_start_eventid )
             {
-                float scroll_y0 = std::max< int >( 0, m_goto_eventid - m_start_eventid ) * lineh;
+                float scrolly = std::max< int >( 0, m_goto_eventid - m_start_eventid ) * lineh;
 
-                ImGui::SetScrollY( scroll_y0 );
+                ImGui::SetScrollY( scrolly );
+            }
+            else if ( ( uint32_t )m_goto_eventid + 1 >= m_eventlist_end_eventid )
+            {
+                float scrolly = std::max< int >( 0, m_goto_eventid - visible_rows + 1 ) * lineh;
+
+                ImGui::SetScrollY( scrolly );
             }
 
             // Select the event also
