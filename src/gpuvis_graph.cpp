@@ -805,8 +805,7 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
             ImGui::GetWindowDrawList()->AddRect(
                         ImVec2( xstart, gi.y + imgui_scale( 20 ) ),
                         ImVec2( xend, gi.y + gi.h - imgui_scale( 30 ) ),
-                        col_get( col_EventListSel ),
-                        true, ~0, imgui_scale( 10.0f ) );
+                        col_get( col_EventListSel ) );
         }
     }
 }
