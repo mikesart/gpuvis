@@ -1,27 +1,24 @@
 # CMakeLists.txt for gpuvis
+
+# To build on Windows:
+#
+# Download SDL2 development libraries and runtime binary:
+#   https://www.libsdl.org/download-2.0.php
+#
+# set SDL2DIR=c:\dev\SDL2-2.0.5
+#
+# git clone https://github.com/mikesart/gpuvis
+# mkdir gpuvis\build
+# cd gpuvis\build
+# ; copy SDL2.dll here...
+#
+# cmake -G "NMake Makefiles JOM" -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+# jom
+#
+
 cmake_minimum_required( VERSION 2.8 FATAL_ERROR )
 
 project( "gpuvis" )
-
-macro(fix_default_compiler_settings_)
-  if (MSVC)
-    # For MSVC, switch MD with MT so we link with the static library.
-    # From CMake FAQ: http://www.cmake.org/Wiki/CMake_FAQ#Dynamic_Replace
-    foreach (flag_var 
-             CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-             CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-        string(REPLACE "/MD" "-MT" ${flag_var} "${${flag_var}}")
-    endforeach()
-
-    foreach (flag_var
-             CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
-             CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO)
-        string(REPLACE "/MD" "-MT" ${flag_var} "${${flag_var}}")
-    endforeach()
-  endif()
-endmacro()
-
-fix_default_compiler_settings_()
 
 set( CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake )
 
@@ -83,4 +80,3 @@ target_link_libraries(
     ${LIBRARY_LIST}
     ${SDL2_LIBRARY}
     )
-
