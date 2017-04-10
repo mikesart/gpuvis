@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #ifdef __GNUC__
 #pragma GCC diagnostic ignored "-Wpedantic"
@@ -170,7 +171,7 @@ static unsigned long long read_long(struct kbuffer *kbuf, void *ptr)
 
 static int calc_index(struct kbuffer *kbuf, void *ptr)
 {
-	return (unsigned long)ptr - (unsigned long)kbuf->data;
+	return (uintptr_t)ptr - (uintptr_t)kbuf->data;
 }
 
 static int __next_event(struct kbuffer *kbuf);

@@ -2196,7 +2196,7 @@ eval_type_str(unsigned long long val, const char *type, int pointer)
 {
 	int sign = 0;
 	char *ref;
-	int len;
+	size_t len;
 
 	len = strlen(type);
 
@@ -3777,7 +3777,7 @@ eval_num_arg(void *data, int size, struct event_format *event, struct print_arg 
 		 * is in the bottom half of the 32 bit field.
 		 */
 		offset &= 0xffff;
-		val = (unsigned long long)((unsigned long)data + offset);
+		val = (unsigned long long)((uintptr_t)data + offset);
 		break;
 	default: /* not sure what to do there */
 		return 0;
@@ -4349,7 +4349,7 @@ static struct print_arg *make_bprint_args(char *fmt, void *data, int size, struc
 					vsize = 4;
 
 				/* the pointers are always 4 bytes aligned */
-				bptr = (void *)(((unsigned long)bptr + 3) &
+				bptr = (void *)(((uintptr_t)bptr + 3) &
 						~3);
 				val = pevent_read_number(pevent, bptr, vsize);
 				bptr = (char *)bptr + vsize;
@@ -5035,8 +5035,8 @@ void pretty_print(struct trace_seq *s, void *data, int size, struct event_format
 					goto out_failed;
 				}
 
-				len = ((unsigned long)ptr + 1) -
-					(unsigned long)saveptr;
+				len = ((uintptr_t)ptr + 1) -
+					(uintptr_t)saveptr;
 
 				/* should never happen */
 				if (len > 31) {
@@ -5117,8 +5117,8 @@ void pretty_print(struct trace_seq *s, void *data, int size, struct event_format
 					goto out_failed;
 				}
 
-				len = ((unsigned long)ptr + 1) -
-					(unsigned long)saveptr;
+				len = ((uintptr_t)ptr + 1) -
+					(uintptr_t)saveptr;
 
 				/* should never happen */
 				if (len > 31) {
@@ -5567,14 +5567,14 @@ void pevent_print_event_data(struct pevent *pevent, struct trace_seq *s,
 			     struct pevent_record *record)
 {
 	static const char *spaces = "                    "; /* 20 spaces */
-	int len;
+	size_t len;
 
 	trace_seq_printf(s, " %s: ", event->name);
 
 	/* Space out the event names evenly. */
 	len = strlen(event->name);
 	if (len < 20)
-		trace_seq_printf(s, "%.*s", 20 - len, spaces);
+        trace_seq_printf(s, "%.*s", ( int )( 20 - len ), spaces);
 
 	pevent_event_info(s, event, record);
 }

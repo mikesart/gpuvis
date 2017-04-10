@@ -157,7 +157,7 @@ trace_seq_vprintf(struct trace_seq *s, const char *fmt, va_list args)
  */
 int trace_seq_puts(struct trace_seq *s, const char *str)
 {
-	int len;
+	size_t len;
 
 	len = strlen(str);
 
@@ -165,9 +165,9 @@ int trace_seq_puts(struct trace_seq *s, const char *str)
 		expand_buffer(s);
 
 	memcpy(s->buffer + s->len, str, len);
-	s->len += len;
+	s->len += ( unsigned long )len;
 
-	return len;
+	return ( int )len;
 }
 
 int trace_seq_putc(struct trace_seq *s, unsigned char c)

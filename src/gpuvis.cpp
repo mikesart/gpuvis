@@ -231,7 +231,7 @@ void TraceLoader::new_event_window( TraceEvents *trace_events )
     size_t refcount = 0;
     std::string title = trace_events->m_title;
 
-    for ( int i = m_trace_windows_list.size() - 1; i >= 0; i-- )
+    for ( int i = ( int )m_trace_windows_list.size() - 1; i >= 0; i-- )
     {
         if ( m_trace_windows_list[ i ]->m_trace_events == trace_events )
             refcount++;
@@ -248,7 +248,7 @@ void TraceLoader::new_event_window( TraceEvents *trace_events )
 
 void TraceLoader::close_event_file( TraceEvents *trace_events, bool close_file )
 {
-    for ( int i = m_trace_windows_list.size() - 1; i >= 0; i-- )
+    for ( int i = ( int )m_trace_windows_list.size() - 1; i >= 0; i-- )
     {
         TraceWin *win = m_trace_windows_list[ i ];
 
