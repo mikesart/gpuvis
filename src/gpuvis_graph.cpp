@@ -373,11 +373,95 @@ bool TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, const t
     return inserted;
 }
 
-//$ TODO: Add timeline view which renders on single line and only displays the red parts
-// and color codes the app names...
+void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
+{
+    struct row_t
+    {
+        const char *name;
+        const std::vector< uint32_t > *plocs;
+    };
+    std::array< row_t, 1 > rows;
 
-void TraceWin::render_graph_row_timeline( const std::string &comm, const std::vector< uint32_t > &locs,
-                                          graph_info_t &gi )
+    rows[ 0 ].name = "gfx";
+    rows[ 0 ].plocs = m_trace_events->get_timeline_locs( rows[ 0 ].name );
+
+    imgui_push_smallfont();
+
+    ImU32 col_event = col_get( col_1Event );
+    float row_h = gi.h;
+
+    for ( size_t irow = 0; irow < rows.size(); irow++ )
+    {
+        ImU32 last_col = 0;
+        float y = gi.y + irow * row_h;
+        ImVec2 hov_p0 = { FLT_MAX, FLT_MAX };
+        ImVec2 hov_p1 = { FLT_MAX, FLT_MAX };
+        float last_fence_signaled_x = -1.0f;
+        const std::vector< uint32_t > *plocs = rows[ irow ].plocs;
+
+        if ( !plocs )
+            continue;
+
+        for ( size_t idx = vec_find_eventid( *plocs, gi.eventstart );
+              idx < plocs->size();
+              idx++ )
+        {
+            const trace_event_t &event2 = get_event( plocs->at( idx ) );
+
+            if ( event2.is_fence_signaled() && ( event2.id_start != ( uint32_t )-1 ) )
+            {
+                const trace_event_t &event1 = get_event( event2.id_start );
+
+                if ( event1.ts < gi.ts1 )
+                {
+                    float x1 = gi.ts_to_screenx( event1.ts );
+                    float x2 = gi.ts_to_screenx( event2.ts );
+                    float xleft = ( ( last_fence_signaled_x > x1 ) && ( last_fence_signaled_x < x2 ) ) ?
+                                last_fence_signaled_x : x1;
+
+                    uint32_t hashval = fnv_hashstr32( event1.user_comm );
+                    float h = ( hashval & 0xffffff ) / 16777215.0f;
+                    float v = ( hashval >> 24 ) / ( 2.0f * 255.0f ) + 0.5f;
+                    ImU32 col = imgui_hsv( h, .9f, v, 1.0f );
+
+                    imgui_drawrect( xleft, x2 - xleft, y, row_h, col );
+
+                    if ( last_col == col )
+                        imgui_drawrect( xleft, 1.0, y, row_h, col_event );
+                    else
+                        last_col = col;
+
+                    if ( gi.hovered_graph_event == ( uint32_t )-1 )
+                    {
+                        if ( gi.mouse_pos.x >= xleft &&
+                             gi.mouse_pos.x <= x2 &&
+                             gi.mouse_pos.y >= y &&
+                             gi.mouse_pos.y <= y + row_h )
+                        {
+                            gi.hovered_graph_event = event1.id;
+
+                            hov_p0.x = xleft;
+                            hov_p0.y = y;
+                            hov_p1.x = x2;
+                            hov_p1.y = y + row_h;
+                        }
+                    }
+
+                    last_fence_signaled_x = x2;
+                }
+            }
+        }
+
+        if ( hov_p0.x < gi.x + gi.w )
+        {
+            ImGui::GetWindowDrawList()->AddRect( hov_p0, hov_p1, col_get( col_BarSelRect ) );
+        }
+    }
+
+    imgui_pop_smallfont();
+}
+
+void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, graph_info_t &gi )
 {
     imgui_push_smallfont();
 
@@ -527,10 +611,15 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
     uint32_t num_events = 0;
     bool draw_selected_event = false;
     bool draw_hovered_event = false;
+    bool is_gfx_hw = ( comm == "gfx hw" );
 
-    if ( gi.is_timeline )
+    if ( is_gfx_hw )
     {
-        render_graph_row_timeline( comm, locs, gi );
+        render_graph_hw_row_timeline( gi );
+    }
+    else if ( gi.is_timeline )
+    {
+        render_graph_row_timeline( locs, gi );
     }
     else
     {
@@ -823,17 +912,23 @@ void TraceWin::render_process_graph()
         rinfo.comm = comm;
 
         const std::vector< uint32_t > *plocs;
+        const char *comm_str = comm.c_str();
 
-        plocs = m_trace_events->get_comm_locs( comm.c_str() );
+        plocs = m_trace_events->get_comm_locs( comm_str );
         if ( !plocs )
-            plocs = m_trace_events->get_event_locs( comm.c_str() );
+            plocs = m_trace_events->get_event_locs( comm_str );
         if ( !plocs )
-            plocs = m_trace_events->get_gfxcontext_locs( comm.c_str() );
+            plocs = m_trace_events->get_gfxcontext_locs( comm_str );
         if ( !plocs )
         {
             int rows = 4;
 
-            if ( comm == "gfx" )
+            if ( comm == "gfx hw" )
+            {
+                rows = 2;
+                comm_str = "gfx";
+            }
+            else if ( comm == "gfx" )
                 rows = m_loader.get_opt( TraceLoader::OPT_TimelineGfxRowCount );
             else if ( comm == "sdma0" )
                 rows = m_loader.get_opt( TraceLoader::OPT_TimelineSdma0RowCount );
@@ -845,7 +940,7 @@ void TraceWin::render_process_graph()
             rinfo.is_timeline = true;
             rinfo.row_h = text_h * rows;
 
-            plocs = m_trace_events->get_timeline_locs( comm.c_str() );
+            plocs = m_trace_events->get_timeline_locs( comm_str );
         }
 
         if ( plocs )

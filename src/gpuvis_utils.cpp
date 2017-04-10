@@ -178,6 +178,25 @@ std::string string_trimmed( std::string s )
     return s;
 }
 
+std::string gen_random_str( size_t len )
+{
+    std::string str;
+    static const char s_chars[] =
+        " :-0123456789"
+        "abcdefghijklmnopqrstuvwxyz"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    str.resize( len + 1 );
+
+    for ( size_t i = 0; i < len; ++i )
+    {
+        str[ i ] = s_chars[ rand() % ( sizeof( s_chars ) - 1 ) ];
+    }
+
+    str[ len ] = 0;
+    return str;
+}
+
 size_t get_file_size( const char *filename )
 {
     struct stat st;

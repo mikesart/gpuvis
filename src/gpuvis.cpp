@@ -571,7 +571,8 @@ void TraceWin::init_graph_rows_str()
     m_graph_rows_str += "# show all items in gfx timeline\n";
     m_graph_rows_str += "gfx\n";
     m_graph_rows_str += "sdma0\n";
-    m_graph_rows_str += "sdma1\n\n";
+    m_graph_rows_str += "sdma1\n";
+    m_graph_rows_str += "gfx hw\n";
 
     for ( auto item : m_trace_events->m_comm_locations.m_locations )
     {

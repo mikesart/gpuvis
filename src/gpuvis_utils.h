@@ -34,6 +34,14 @@ void logf_update();
 void logf_clear();
 const std::vector< char * > &logf_get();
 
+extern "C" uint32_t fnv_hashstr32( const char *str );
+
+template < typename T >
+T Clamp( const T& val, const T& lower, const T& upper )
+{
+    return std::max< T >( lower, std::min< T >( val, upper ) );
+}
+
 std::string string_format( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
 // trim from start (in place)
 void string_ltrim( std::string &s );
@@ -47,6 +55,8 @@ std::string string_ltrimmed( std::string s );
 std::string string_rtrimmed( std::string s );
 // trim from both ends (copying)
 std::string string_trimmed( std::string s );
+
+std::string gen_random_str( size_t len );
 
 size_t get_file_size( const char *filename );
 

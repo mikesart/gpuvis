@@ -38,20 +38,6 @@ using std::placeholders::_5;
 
 #define MSECS_PER_SEC		1000000LL
 
-extern "C" uint32_t fnv_hashstr32( const char *str );
-
-void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
-void logf_clear();
-
-std::string string_format( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
-size_t get_file_size( const char* filename );
-
-template < typename T >
-T Clamp( const T& val, const T& lower, const T& upper )
-{
-    return std::max< T >( lower, std::min< T >( val, upper ) );
-}
-
 class StrPool
 {
 public:
@@ -322,8 +308,8 @@ protected:
     void render_process_graph();
     void render_graph_row( const std::string &comm, const std::vector< uint32_t > &locs,
                            class graph_info_t &gi );
-    void render_graph_row_timeline( const std::string &comm,
-                                    const std::vector< uint32_t > &locs, graph_info_t &gi );
+    void render_graph_row_timeline( const std::vector< uint32_t > &locs, graph_info_t &gi );
+    void render_graph_hw_row_timeline( graph_info_t &gi );
     void render_graph_vblanks( class graph_info_t &gi );
     bool render_graph_popup();
 
