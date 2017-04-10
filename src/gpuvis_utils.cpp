@@ -412,7 +412,7 @@ extern "C" int strncasecmp( const char *s1, const char *s2, size_t n )
 
 extern "C" char *strtok_r( char *str, const char *delim, char **saveptr )
 {
-    return strtok( str, delim );
+    return strtok_s( str, delim, saveptr );
 }
 
 extern "C" char *strerror_r(int errnum, char *buf, size_t buflen)
