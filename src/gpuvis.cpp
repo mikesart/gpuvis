@@ -273,6 +273,9 @@ void TraceLoader::close_event_file( TraceEvents *trace_events, bool close_file )
 // See notes at top of gpuvis_graph.cpp for explanation of these events.
 static bool is_timeline_event( const trace_event_t &event )
 {
+    if ( !event.timeline || !event.seqno || !event.context )
+        return false;
+
     return ( event.is_fence_signaled() ||
              !strcmp( event.name, "amdgpu_cs_ioctl" ) ||
              !strcmp( event.name, "amdgpu_sched_run_job" ) );
@@ -301,7 +304,10 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
     event.ts -= m_trace_events->m_ts_min;
 
     // Make sure our events are cleared
-    event.flags &= ~( TRACE_FLAG_FENCE_SIGNALED | TRACE_FLAG_IS_TIMELINE );
+    event.flags &= ~( TRACE_FLAG_FENCE_SIGNALED |
+                      TRACE_FLAG_FTRACE_PRINT |
+                      TRACE_FLAG_IS_VBLANK |
+                      TRACE_FLAG_IS_TIMELINE );
 
     // fence_signaled was renamed to dma_fence_signaled post v4.9
     if ( strstr( event.name, "fence_signaled" ) )
@@ -317,10 +323,7 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
     // Add this event comm to our comm locations map
     m_trace_events->m_comm_locations.add_location_str( event.comm, event.id );
 
-    if ( event.timeline &&
-         event.seqno &&
-         event.context &&
-         is_timeline_event( event ) )
+    if ( is_timeline_event( event ) )
     {
         const std::string gfxcontext = get_event_gfxcontext_str( event );
 
@@ -437,10 +440,11 @@ void TraceLoader::init()
     m_options[ OPT_TimelineRenderUserSpace ] = { "Show timeline userspace", "timeline_userspace", false, 0, 1 };
 
     m_options[ OPT_ShowEventList ] = { "Show Event List", "show_event_list", true, 0, 1 };
-    m_options[ OPT_SyncEventListToGraph ] = { "Sync Event List to graph mouse location", "sync_eventlist_to_graph", false, 0, 1 };
+    m_options[ OPT_SyncEventListToGraph ] = { "Sync Event List to graph mouse location", "sync_eventlist_to_graph", true, 0, 1 };
     m_options[ OPT_EventListRowCount ] = { "Event List Row Count", "eventlist_row_count", 0, 0, 100 };
     m_options[ OPT_ShowColorPicker ] = { "Show graph color picker", "show_color_picker", false, 0, 1 };
 
+    m_options[ OPT_GraphRowCount ] = { "Graph row count", "graph_row_count", 12, 1, 40 };
     m_options[ OPT_TimelineGfxRowCount ] = { "gfx Timeline Row Count", "gfx_timeline_row_count", 8, 4, 40 };
     m_options[ OPT_TimelineSdma0RowCount ] = { "sdma0 Timeline Row Count", "sdma0_timeline_row_count", 4, 2, 40 };
     m_options[ OPT_TimelineSdma1RowCount ] = { "sdma1 Timeline Row Count", "sdma1_timeline_row_count", 4, 2, 40 };
@@ -461,8 +465,6 @@ void TraceLoader::init()
 
         opt.val = m_inifile.GetInt( opt.inikey.c_str(), opt.val );
     }
-
-    m_graph_row_count = m_inifile.GetInt( "graph_row_count", 0 );
 }
 
 void TraceLoader::shutdown()
@@ -494,8 +496,6 @@ void TraceLoader::shutdown()
 
         m_inifile.PutInt( opt.inikey.c_str(), opt.val );
     }
-
-    m_inifile.PutInt( "graph_row_count", m_graph_row_count );
 }
 
 void TraceLoader::render()

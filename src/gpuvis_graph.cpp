@@ -867,8 +867,12 @@ void TraceWin::render_process_graph()
 
     handle_graph_hotkeys();
 
+    // Max graph row count is the number of rows.
+    m_loader.m_options[ TraceLoader::OPT_GraphRowCount ].val_max = row_info.size();
+
     // Get current count of rows. 0 means show all rows.
-    int row_count = ( m_loader.m_graph_row_count < 1 ) ? row_info.size() : m_loader.m_graph_row_count;
+    int graph_row_count = m_loader.get_opt( TraceLoader::OPT_GraphRowCount );
+    int row_count = ( graph_row_count < 1 ) ? row_info.size() : graph_row_count;
     row_count = Clamp< int >( row_count, 1, row_info.size() );
 
     // Slider to set the number of graph rows
@@ -878,7 +882,8 @@ void TraceWin::render_process_graph()
     ImGui::PushItemWidth( imgui_scale( 200.0f ) );
     if ( ImGui::SliderInt( "##GraphRowsCount", &row_count, 1, row_info.size() ) )
     {
-        m_loader.m_graph_row_count = ( ( uint32_t )row_count >= row_info.size() ) ? 0 : row_count;
+        m_loader.m_options[ TraceLoader::OPT_GraphRowCount ].val =
+                ( ( uint32_t )row_count >= row_info.size() ) ? 0 : row_count;
     }
 
     bool gfx_timeline_zoom = ( timeline_gfx_index != ( uint32_t )-1 ) ?

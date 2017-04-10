@@ -489,8 +489,6 @@ public:
     std::vector< TraceWin * > m_trace_windows_list;
 
     uint32_t m_crtc_max = 0;
-    int m_graph_row_count = 0;
-    int m_timeline_row_count = 4;
     std::vector< std::string > m_inputfiles;
 
     enum option_id_t
@@ -513,6 +511,7 @@ public:
         OPT_RenderCrtc7,
         OPT_RenderCrtc8,
         OPT_RenderCrtc9,
+        OPT_GraphRowCount,
         OPT_EventListRowCount,
         OPT_TimelineGfxRowCount,
         OPT_TimelineSdma0RowCount,
