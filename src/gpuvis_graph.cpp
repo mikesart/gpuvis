@@ -518,7 +518,7 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
                              gi.mouse_pos.y <= y + text_h )
                         {
                             hovered = true;
-                            gi.hovered_graph_event = event0.id;
+                            gi.hovered_graph_event = event1.id;
 
                             hov_p0.x = x0;
                             hov_p0.y = y;
@@ -1240,10 +1240,11 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
     if ( m_loader.get_opt( TraceLoader::OPT_SyncEventListToGraph ) &&
          m_show_eventlist &&
-         !gi.hovered_items.empty() )
+         ( !gi.hovered_items.empty() || ( gi.hovered_graph_event != ( uint32_t )-1 ) ) )
     {
         m_do_gotoevent = true;
-        m_goto_eventid = gi.hovered_items[ 0 ].eventid;
+        m_goto_eventid = ( gi.hovered_graph_event != ( uint32_t )-1 ) ?
+                    gi.hovered_graph_event : gi.hovered_items[ 0 ].eventid;
     }
 
     if ( gi.hovered_graph_event != ( uint32_t )-1 )
