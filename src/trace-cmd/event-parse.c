@@ -46,6 +46,7 @@
 #ifndef WIN32
 #include <netinet/ip6.h>
 #else
+#define __func__ __FUNCTION__
 int asprintf(char **str, const char *fmt, ...);
 char *strerror_r(int errnum, char *buf, size_t buflen);
 #endif
