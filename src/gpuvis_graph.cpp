@@ -971,10 +971,8 @@ void TraceWin::render_process_graph()
 
     // Slider to set the number of graph rows
     ImGui::SameLine();
-    ImGui::Text( "Rows:" );
-    ImGui::SameLine();
     ImGui::PushItemWidth( imgui_scale( 200.0f ) );
-    if ( ImGui::SliderInt( "##GraphRowsCount", &row_count, 1, row_info.size() ) )
+    if ( ImGui::SliderInt( "##GraphRows", &row_count, 1, row_info.size(), "Graph Rows: %.0f" ) )
     {
         m_loader.m_options[ TraceLoader::OPT_GraphRowCount ].val =
                 ( ( uint32_t )row_count >= row_info.size() ) ? 0 : row_count;
@@ -982,6 +980,14 @@ void TraceWin::render_process_graph()
 
     bool gfx_timeline_zoom = ( timeline_gfx_index != ( uint32_t )-1 ) ?
                 !!m_loader.get_opt( TraceLoader::OPT_TimelineZoomGfx ) : false;
+
+    {
+        bool zoom = !!m_loader.m_options[ TraceLoader::OPT_TimelineZoomGfx ].val;
+
+        ImGui::SameLine();
+        if ( ImGui::Checkbox( "Zoom gfx timeline", &zoom ) )
+            m_loader.m_options[ TraceLoader::OPT_TimelineZoomGfx ].val = zoom;
+    }
 
     // Make sure our ts start and length values are sane
     range_check_graph_location();
@@ -1117,6 +1123,8 @@ bool TraceWin::render_graph_popup()
                 continue;
         }
 
+        ImGui::PushID( i );
+
         if ( opt.val_min == 0 && opt.val_max == 1 )
         {
             bool val = !!opt.val;
@@ -1125,10 +1133,12 @@ bool TraceWin::render_graph_popup()
         }
         else
         {
-            ImGui::PushItemWidth( imgui_scale( 150.0f ) );
-            ImGui::SliderInt( opt.desc.c_str(), &opt.val, opt.val_min, opt.val_max );
+            ImGui::PushItemWidth( imgui_scale( 200.0f ) );
+            ImGui::SliderInt( "##slider", &opt.val, opt.val_min, opt.val_max, opt.desc.c_str() );
             ImGui::PopItemWidth();
         }
+
+        ImGui::PopID();
     }
 
     ImGui::EndPopup();

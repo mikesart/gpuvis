@@ -441,13 +441,13 @@ void TraceLoader::init()
 
     m_options[ OPT_ShowEventList ] = { "Show Event List", "show_event_list", true, 0, 1 };
     m_options[ OPT_SyncEventListToGraph ] = { "Sync Event List to graph mouse location", "sync_eventlist_to_graph", true, 0, 1 };
-    m_options[ OPT_EventListRowCount ] = { "Event List Row Count", "eventlist_row_count", 0, 0, 100 };
     m_options[ OPT_ShowColorPicker ] = { "Show graph color picker", "show_color_picker", false, 0, 1 };
 
-    m_options[ OPT_GraphRowCount ] = { "Graph row count", "graph_row_count", 12, 1, 40 };
-    m_options[ OPT_TimelineGfxRowCount ] = { "gfx Timeline Row Count", "gfx_timeline_row_count", 8, 4, 40 };
-    m_options[ OPT_TimelineSdma0RowCount ] = { "sdma0 Timeline Row Count", "sdma0_timeline_row_count", 4, 2, 40 };
-    m_options[ OPT_TimelineSdma1RowCount ] = { "sdma1 Timeline Row Count", "sdma1_timeline_row_count", 4, 2, 40 };
+    m_options[ OPT_GraphRowCount ] = { "Graph rows: %.0f", "graph_row_count", 12, 1, 40 };
+    m_options[ OPT_EventListRowCount ] = { "Event List Rows: %.0f", "eventlist_row_count", 0, 0, 100 };
+    m_options[ OPT_TimelineGfxRowCount ] = { "gfx Timeline Rows: %.0f", "gfx_timeline_row_count", 8, 4, 40 };
+    m_options[ OPT_TimelineSdma0RowCount ] = { "sdma0 Timeline Row: %.0f", "sdma0_timeline_row_count", 4, 2, 40 };
+    m_options[ OPT_TimelineSdma1RowCount ] = { "sdma1 Timeline Row: %.0f", "sdma1_timeline_row_count", 4, 2, 40 };
 
     for ( int i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
@@ -1267,6 +1267,8 @@ void TraceConsole::render_options( TraceLoader &loader )
                 continue;
         }
 
+        ImGui::PushID( i );
+
         if ( opt.val_min == 0 && opt.val_max == 1 )
         {
             bool val = !!opt.val;
@@ -1275,10 +1277,12 @@ void TraceConsole::render_options( TraceLoader &loader )
         }
         else
         {
-            ImGui::PushItemWidth( imgui_scale( 150.0f ) );
-            ImGui::SliderInt( opt.desc.c_str(), &opt.val, opt.val_min, opt.val_max );
+            ImGui::PushItemWidth( imgui_scale( 200.0f ) );
+            ImGui::SliderInt( "##slider", &opt.val, opt.val_min, opt.val_max, opt.desc.c_str() );
             ImGui::PopItemWidth();
         }
+
+        ImGui::PopID();
     }
 }
 
