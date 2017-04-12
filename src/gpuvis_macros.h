@@ -70,6 +70,8 @@ extern "C" {
 int strcasecmp( const char *s1, const char *s2 );
 int strncasecmp( const char *s1, const char *s2, size_t n );
 
+char *strcasestr( const char *haystack, const char *needle );
+
 int asprintf(char **strp, const char *fmt, ...);
 int vasprintf( char **strp, const char *fmt, va_list ap );
 
@@ -108,6 +110,22 @@ template < typename T, int size >
 constexpr size_t GWARRAYSIZE( T ( & )[ size ] )
 {
     return size;
+}
+
+template < size_t T  >
+int snprintf_safe( char ( &buf )[ T ], const char *fmt, ... )
+{
+    va_list ap;
+    int retval;
+
+    va_start( ap, fmt );
+
+    retval = SDL_vsnprintf( buf, T, fmt, ap );
+    buf[ T - 1 ] = 0;
+
+    va_end(ap);
+
+    return retval;
 }
 
 #define STATIC_ASSERT( _x ) static_assert( _x, #_x )

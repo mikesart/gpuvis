@@ -1013,8 +1013,8 @@ void TraceWin::render_process_graph()
                      m_graph_start_ts + m_tsoffset, m_graph_length_ts );
 
             // Initialize eventstart / end
-            gi.eventstart = std::max< int64_t >( ts_to_eventid( gi.ts0 ), m_start_eventid );
-            gi.eventend = std::min< int64_t >( ts_to_eventid( gi.ts1 ), m_end_eventid );
+            gi.eventstart = ts_to_eventid( gi.ts0 );
+            gi.eventend = ts_to_eventid( gi.ts1 );
 
             // Range check our mouse pan values
             m_graph_start_y = Clamp< float >( m_graph_start_y,

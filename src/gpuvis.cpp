@@ -39,6 +39,8 @@
 #include "GL/gl3w.h"
 #include "gpuvis.h"
 
+#include "tdopexpr.h"
+
 //$ TODO: Add ability to show row for an event with a parameter?
 //$ TODO: Need to handle lots of graph rows, ie ~100
 //$ TODO: Figure out crash when you have too many graph rows and zoom out
@@ -56,15 +58,16 @@ static bool imgui_input_int( int *val, float w, const char *label, const char *l
 }
 
 static bool imgui_input_text( const char *button_label, const char *text_label,
-                              std::string &str, size_t capacity, float w )
+                              std::string &str, size_t capacity, float w,
+                              int flags = 0)
 {
     bool ret = ImGui::Button( button_label );
 
     ImGui::SameLine();
-    ImGui::PushItemWidth( w );
+    ImGui::PushItemWidth( imgui_scale( w ) );
 
     str.reserve( capacity );
-    ret |= ImGui::InputText( text_label, &str[ 0 ], str.capacity(), 0, 0 );
+    ret |= ImGui::InputText( text_label, &str[ 0 ], str.capacity(), flags, 0 );
 
     ImGui::PopItemWidth();
 
@@ -124,18 +127,22 @@ void imgui_headers( const char *title, const T &headers )
 /*
  * StrPool
  */
-const char *StrPool::getstr( const char *str )
+const char *StrPool::getstr( const char *str, size_t len )
 {
-    uint32_t hashval = fnv_hashstr32( str );
+    uint32_t hashval = fnv_hashstr32( str, len );
 
     auto i = m_pool.find( hashval );
     if ( i == m_pool.end() )
-        m_pool[ hashval ] = std::string( str );
+    {
+        if ( len == ( size_t )-1 )
+            len = strlen( str );
+        m_pool[ hashval ] = std::string( str, len );
+    }
 
     return m_pool[ hashval ].c_str();
 }
 
-const char *StrPool::getstr( uint32_t hashval )
+const char *StrPool::findstr( uint32_t hashval )
 {
     auto i = m_pool.find( hashval );
 
@@ -577,7 +584,7 @@ void TraceWin::init_graph_rows_str()
     for ( auto item : m_trace_events->m_comm_locations.m_locations )
     {
         uint32_t hashval = item.first;
-        const char *comm = m_trace_events->m_strpool.getstr( hashval );
+        const char *comm = m_trace_events->m_strpool.findstr( hashval );
 
         item.second.size();
         m_comm_info.push_back( { item.second.size(), comm } );
@@ -703,6 +710,53 @@ void TraceWin::render_color_picker()
     ImGui::Columns( 1 );
 }
 
+const char *filter_get_key_func( StrPool *strpool, const char *name, size_t len )
+{
+    return strpool->getstr( name, len );
+}
+
+const char *filter_get_keyval_func( const trace_event_t *event, const char *name, char ( &buf )[ 64 ] )
+{
+    if ( !strcasecmp( name, "name" ) )
+    {
+        return event->name;
+    }
+    else if ( !strcasecmp( name, "comm" ) )
+    {
+        return event->comm;
+    }
+    else if ( !strcasecmp( name, "user_comm" ) )
+    {
+        return event->user_comm;
+    }
+    else if ( !strcasecmp( name, "id" ) )
+    {
+        snprintf_safe( buf, "%u", event->id );
+        return buf;
+    }
+    else if ( !strcasecmp( name, "pid" ) )
+    {
+        snprintf_safe( buf, "%d", event->pid );
+        return buf;
+    }
+    else if ( !strcasecmp( name, "ts" ) )
+    {
+        snprintf_safe( buf, "%.6f", event->ts * ( 1.0 / MSECS_PER_SEC ) );
+        return buf;
+    }
+
+    for ( const event_field_t &field : event->fields )
+    {
+        // We can compare pointers since they're from same string pool
+        if ( name == field.key )
+            return field.value;
+    }
+
+    return "";
+}
+
+const char *te_compile2( const char *expression, tdop_get_key_func &get_key_func, tdop_get_keyval_func &get_keyval_func );
+
 bool TraceWin::render()
 {
     ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
@@ -764,11 +818,6 @@ bool TraceWin::render()
                     40 * MSECS_PER_SEC : last_ts;
         m_graph_start_ts = last_ts - m_tsoffset - m_graph_length_ts;
     }
-
-    // Sanity check these aren't out of range.
-    size_t event_count = m_trace_events->m_events.size();
-    m_start_eventid = Clamp< int >( m_start_eventid, 0, event_count - 1 );
-    m_end_eventid = Clamp< int >( m_end_eventid, m_start_eventid, event_count - 1 );
 
     if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
@@ -838,24 +887,6 @@ bool TraceWin::render()
     m_show_eventlist = ImGui::CollapsingHeader( "Events List", eventslist_flags );
     if ( m_show_eventlist )
     {
-        bool update_eventids = imgui_input_int( &m_start_eventid, 75.0f,
-                "Event Start:", "##EventStart", ImGuiInputTextFlags_EnterReturnsTrue );
-
-        ImGui::SameLine();
-        update_eventids |= imgui_input_int( &m_end_eventid, 75.0f,
-                "Event End:", "##EventEnd", ImGuiInputTextFlags_EnterReturnsTrue );
-
-        if ( update_eventids )
-        {
-            m_start_eventid = Clamp< int >( m_start_eventid, 0, event_count - 1 );
-            m_end_eventid = Clamp< int >( m_end_eventid, m_start_eventid, event_count - 1 );
-        }
-
-        ImGui::SameLine();
-        if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_timeoffset_buf, 32, 150 ) )
-            m_tsoffset = timestr_to_ts( m_timeoffset_buf.c_str() );
-
-        ImGui::SameLine();
         m_do_gotoevent |= imgui_input_int( &m_goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
 
         ImGui::SameLine();
@@ -863,6 +894,58 @@ bool TraceWin::render()
         {
             m_do_gotoevent = true;
             m_goto_eventid = timestr_to_eventid( m_timegoto_buf.c_str(), m_tsoffset );
+        }
+
+        ImGui::SameLine();
+        if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_timeoffset_buf, 32, 150 ) )
+            m_tsoffset = timestr_to_ts( m_timeoffset_buf.c_str() );
+
+        if ( imgui_input_text( "Event Filter:", "##Event Filter", m_event_filter_buf, 512, 500,
+                               ImGuiInputTextFlags_EnterReturnsTrue ) )
+        {
+            m_filtered_events.clear();
+            m_filtered_events_str.clear();
+
+            std::string filter_str = string_trimmed( m_event_filter_buf.c_str() );
+
+            if ( !filter_str.empty() )
+            {
+                tdop_get_key_func get_key_func = std::bind( filter_get_key_func, &m_trace_events->m_strpool, _1, _2 );
+                class TdopExpr *tdop_expr = tdopexpr_compile( m_event_filter_buf.c_str(), get_key_func, m_filtered_events_str );
+
+                if ( tdop_expr )
+                {
+                    for ( const trace_event_t &event : m_trace_events->m_events )
+                    {
+                        tdop_get_keyval_func get_keyval_func = std::bind( filter_get_keyval_func, &event, _1, _2 );
+
+                        const char *ret = tdopexpr_exec( tdop_expr, get_keyval_func );
+                        if ( ret[ 0 ] )
+                            m_filtered_events.push_back( event.id );
+                    }
+
+                    if ( m_filtered_events.empty() )
+                        m_filtered_events_str = "WARNING: No events found.";
+
+                    tdopexpr_delete( tdop_expr );
+                    tdop_expr = NULL;
+                }
+            }
+        }
+
+        ImGui::SameLine();
+        if ( ImGui::SmallButton( "Clear Filter" ) )
+            m_filtered_events.clear();
+
+        if ( !m_filtered_events_str.empty() )
+        {
+            ImGui::SameLine();
+            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_filtered_events_str.c_str() );
+        }
+        else if ( !m_filtered_events.empty() )
+        {
+            ImGui::SameLine();
+            ImGui::Text( "%lu events found", m_filtered_events.size() );
         }
 
         render_events_list( m_loader.m_inifile );
@@ -942,12 +1025,12 @@ void TraceWin::render_trace_info()
     }
 }
 
-bool TraceWin::render_events_list_popup()
+bool TraceWin::render_events_list_popup( uint32_t eventid )
 {
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
         return false;
 
-    trace_event_t &event = get_event( m_events_list_popup_eventid );
+    trace_event_t &event = get_event( eventid );
 
     std::string label = string_format( "center %u on graph...", event.id );
     if ( ImGui::MenuItem( label.c_str() ) )
@@ -1029,8 +1112,9 @@ void TraceWin::save_restore_column_sizes( CIniFile &inifile,
 
 void TraceWin::render_events_list( CIniFile &inifile )
 {
-    size_t event_count = m_end_eventid - m_start_eventid + 1;
     std::vector< trace_event_t > &events = m_trace_events->m_events;
+    size_t event_count = m_filtered_events.empty() ?
+                events.size() : m_filtered_events.size();
 
     // Set focus on event list first time we open.
     if ( !m_inited && ImGui::IsWindowFocused() )
@@ -1056,18 +1140,31 @@ void TraceWin::render_events_list( CIniFile &inifile )
 
         if ( m_do_gotoevent )
         {
-            m_goto_eventid = std::min< uint32_t >( m_goto_eventid, event_count - 1 );
+            uint32_t pos;
+
+            if ( !m_filtered_events.empty() )
+            {
+                auto i = std::lower_bound( m_filtered_events.begin(), m_filtered_events.end(), m_goto_eventid );
+
+                pos = i - m_filtered_events.begin();
+            }
+            else
+            {
+                pos = m_goto_eventid;
+            }
+
+            pos = std::min< uint32_t >( pos, event_count - 1 );
 
             // Only scroll if our goto event isn't visible.
             if ( ( uint32_t )m_goto_eventid <= m_eventlist_start_eventid )
             {
-                float scrolly = std::max< int >( 0, m_goto_eventid - m_start_eventid ) * lineh;
+                float scrolly = std::max< int >( 0, pos ) * lineh;
 
                 ImGui::SetScrollY( scrolly );
             }
             else if ( ( uint32_t )m_goto_eventid + 1 >= m_eventlist_end_eventid )
             {
-                float scrolly = std::max< int >( 0, m_goto_eventid - visible_rows + 1 ) * lineh;
+                float scrolly = std::max< int >( 0, pos - visible_rows + 1 ) * lineh;
 
                 ImGui::SetScrollY( scrolly );
             }
@@ -1103,12 +1200,23 @@ void TraceWin::render_events_list( CIniFile &inifile )
         m_hovered_eventlist_eventid = ( uint32_t )-1;
 
         // Draw events
-        m_eventlist_start_eventid = m_start_eventid + start_idx;
-        m_eventlist_end_eventid = m_start_eventid + end_idx;
+        if ( m_filtered_events.empty() )
+        {
+            m_eventlist_start_eventid = start_idx;
+            m_eventlist_end_eventid = end_idx;
+        }
+        else
+        {
+            m_eventlist_start_eventid = m_filtered_events[ start_idx ];
+            m_eventlist_end_eventid = m_filtered_events[ end_idx - 1 ];
+        }
+
         for ( uint32_t i = start_idx; i < end_idx; i++ )
         {
             int colors_pushed = 0;
-            trace_event_t &event = events[ m_start_eventid + i ];
+            trace_event_t &event = m_filtered_events.empty() ?
+                        m_trace_events->m_events[ i ] :
+                        m_trace_events->m_events[ m_filtered_events[ i ] ];
             bool selected = ( m_selected_eventid == event.id );
             std::string ts_str = ts_to_timestr( event.ts, m_tsoffset );
 
@@ -1158,7 +1266,10 @@ void TraceWin::render_events_list( CIniFile &inifile )
             // If we've got an active popup menu, render it.
             if ( m_events_list_popup_eventid == i )
             {
-                if ( !TraceWin::render_events_list_popup() )
+                uint32_t eventid = m_filtered_events.empty() ?
+                            m_events_list_popup_eventid : m_filtered_events[ m_events_list_popup_eventid ];
+
+                if ( !TraceWin::render_events_list_popup( eventid ) )
                     m_events_list_popup_eventid = ( uint32_t )-1;
             }
 

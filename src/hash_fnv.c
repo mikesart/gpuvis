@@ -132,14 +132,14 @@ fnv_32_buf(const void *buf, size_t len, uint32_t hval)
  *   argument on the first call to either fnv_32_buf() or fnv_32_str().
  */
 uint32_t
-fnv_32_str(const char *str, uint32_t hval)
+fnv_32_str(const char *str, uint32_t hval, size_t len)
 {
     unsigned char *s = (unsigned char *)str;    /* unsigned string */
 
     /*
      * FNV-1 hash each octet in the buffer
      */
-    while (*s) {
+    while (*s && len--) {
 
     /* multiply by the 32 bit FNV magic prime mod 2^32 */
 #if defined(NO_FNV_GCC_OPTIMIZATION)
@@ -157,7 +157,7 @@ fnv_32_str(const char *str, uint32_t hval)
 }
 
 uint32_t
-fnv_hashstr32( const char *str )
+fnv_hashstr32( const char *str, size_t len )
 {
-    return fnv_32_str( str, FNV1_32_INIT );
+    return fnv_32_str( str, FNV1_32_INIT, len );
 }

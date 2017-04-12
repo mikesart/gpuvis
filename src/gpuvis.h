@@ -44,8 +44,8 @@ public:
     StrPool() {}
     ~StrPool() {}
 
-    const char *getstr( const char *str );
-    const char *getstr( uint32_t hashval );
+    const char *getstr( const char *str, size_t len = ( size_t )-1 );
+    const char *findstr( uint32_t hashval );
 
 public:
     typedef std::unordered_map< uint32_t, std::string > pool_t;
@@ -302,7 +302,7 @@ protected:
     void render_trace_info();
 
     void render_events_list( CIniFile &inifile );
-    bool render_events_list_popup();
+    bool render_events_list_popup( uint32_t eventid );
     void render_color_picker();
 
     void render_process_graph();
@@ -364,14 +364,11 @@ public:
     // Goto Time buffer
     std::string m_timegoto_buf;
 
+    std::string m_event_filter_buf;
+
     // Time Offset
     std::string m_timeoffset_buf;
     int64_t m_tsoffset = 0;
-
-    // Event Start
-    int m_start_eventid = 0;
-    // Event End
-    int m_end_eventid = INT32_MAX;
 
     // Event id of event list popup menu
     uint32_t m_events_list_popup_eventid = ( uint32_t )-1;
@@ -416,6 +413,9 @@ public:
 
     int m_selected_color = 0;
     ColorPicker m_colorpicker;
+
+    std::vector< uint32_t > m_filtered_events;
+    std::string m_filtered_events_str;
 
     struct comm_t
     {

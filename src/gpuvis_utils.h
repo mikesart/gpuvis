@@ -34,7 +34,7 @@ void logf_update();
 void logf_clear();
 const std::vector< char * > &logf_get();
 
-extern "C" uint32_t fnv_hashstr32( const char *str );
+extern "C" uint32_t fnv_hashstr32( const char *str, size_t len = ( size_t )-1 );
 
 template < typename T >
 T Clamp( const T& val, const T& lower, const T& upper )

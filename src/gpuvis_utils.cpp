@@ -429,6 +429,11 @@ extern "C" int strncasecmp( const char *s1, const char *s2, size_t n )
     return _strnicmp( s1, s2, n );
 }
 
+extern "C" char *strcasestr( const char *haystack, const char *needle )
+{
+    return StrStrI( haystack, needle );
+}
+
 extern "C" char *strtok_r( char *str, const char *delim, char **saveptr )
 {
     return strtok_s( str, delim, saveptr );
