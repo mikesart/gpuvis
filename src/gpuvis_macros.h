@@ -42,9 +42,6 @@
 
 #else
 
-typedef __int64 ssize_t;
-typedef __int64 off64_t;
-
 #define TEMP_FAILURE_RETRY( _x ) _x
 
 #define ATTRIBUTE_PRINTF( _x, _y )
@@ -55,13 +52,17 @@ typedef __int64 off64_t;
 #endif
 
 #ifndef PATH_MAX
-#ifndef MAX_PATH
-#define MAX_PATH 260
-#endif
-#define PATH_MAX ( MAX_PATH + 1 )
+  #ifndef MAX_PATH
+    #define MAX_PATH 260
+  #endif
+
+  #define PATH_MAX ( MAX_PATH + 1 )
 #endif
 
 #if defined( WIN32 )
+
+typedef __int64 ssize_t;
+typedef __int64 off64_t;
 
 #if defined( __cplusplus )
 extern "C" {
@@ -99,9 +100,8 @@ T Clamp( const T& val, const T& lower, const T& upper )
     return std::max< T >( lower, std::min< T >( val, upper ) );
 }
 
-// Should be constexpr, but VS2013 barfs on that.
-template < typename T, int size >
-constexpr size_t GWARRAYSIZE( T ( & )[ size ] )
+template < typename T, size_t size >
+constexpr size_t ARRAY_SIZE( const T (&)[ size ] )
 {
     return size;
 }
