@@ -754,8 +754,6 @@ const char *filter_get_keyval_func( const trace_event_t *event, const char *name
     return "";
 }
 
-const char *te_compile2( const char *expression, tdop_get_key_func &get_key_func, tdop_get_keyval_func &get_keyval_func );
-
 bool TraceWin::render()
 {
     ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
@@ -928,6 +926,24 @@ bool TraceWin::render()
                     tdop_expr = NULL;
                 }
             }
+        }
+
+        if ( ImGui::IsItemHovered() )
+        {
+            std::string tooltip;
+
+            tooltip += "Event Filter\n\n";
+            tooltip += "Vars: Any field in Info column plus:\n";
+            tooltip += "      $name, $comm, $user_comm, $id, $pid, $ts\n";
+            tooltip += "Operators: &&, ||, !=, =, >, >=, <, <=, =~\n\n";
+            tooltip += "Examples:\n";
+            tooltip += "  $pid = 4615\n";
+            tooltip += "  $ts >= 11.1 && $ts < 12.5\n";
+            tooltip += "  $ring_name = 0xffff971e9aa6bdd0\n";
+            tooltip += "  $buf =~ \"[Compositor] Warp\"\n";
+            tooltip += "  ( $timeline = gfx ) && ( $id < 10 || $id > 100 )";
+
+            ImGui::SetTooltip( "%s", tooltip.c_str() );
         }
 
         ImGui::SameLine();
