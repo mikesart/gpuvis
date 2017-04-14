@@ -910,12 +910,14 @@ bool TraceWin::render()
 
                 if ( tdop_expr )
                 {
-                    for ( const trace_event_t &event : m_trace_events->m_events )
+                    for ( trace_event_t &event : m_trace_events->m_events )
                     {
                         tdop_get_keyval_func get_keyval_func = std::bind( filter_get_keyval_func, &event, _1, _2 );
 
                         const char *ret = tdopexpr_exec( tdop_expr, get_keyval_func );
-                        if ( ret[ 0 ] )
+
+                        event.is_filtered_out = !ret[ 0 ];
+                        if ( !event.is_filtered_out )
                             m_filtered_events.push_back( event.id );
                     }
 
@@ -957,8 +959,10 @@ bool TraceWin::render()
         }
         else if ( !m_filtered_events.empty() )
         {
+            std::string label = string_format( "Graph only filtered (%lu events)", m_filtered_events.size() );
+
             ImGui::SameLine();
-            ImGui::Text( "%lu events found", m_filtered_events.size() );
+            ImGui::Checkbox( label.c_str(), &m_graph_only_filtered );
         }
 
         render_events_list( m_loader.m_inifile );

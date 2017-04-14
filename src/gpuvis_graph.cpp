@@ -149,6 +149,7 @@ public:
 
     bool is_timeline;
     bool timeline_render_user;
+    bool graph_only_filtered;
 };
 
 static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
@@ -419,6 +420,11 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
                     float xleft = ( ( last_fence_signaled_x > x1 ) && ( last_fence_signaled_x < x2 ) ) ?
                                 last_fence_signaled_x : x1;
 
+                    last_fence_signaled_x = x2;
+
+                    if ( gi.graph_only_filtered && event1.is_filtered_out && event2.is_filtered_out )
+                        continue;
+
                     uint32_t hashval = fnv_hashstr32( event1.user_comm );
                     float h = ( hashval & 0xffffff ) / 16777215.0f;
                     float v = ( hashval >> 24 ) / ( 2.0f * 255.0f ) + 0.5f;
@@ -447,7 +453,6 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
                         }
                     }
 
-                    last_fence_signaled_x = x2;
                 }
             }
         }
@@ -495,66 +500,67 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
             //  our start times for all the graphs are > gi.ts1?
             if ( event0.ts < gi.ts1 )
             {
+                float x2 = gi.ts_to_screenx( event.ts );
+                bool is_filtered_out = ( gi.graph_only_filtered &&
+                                         event1.is_filtered_out &&
+                                         event.is_filtered_out );
+
+                if ( is_filtered_out )
+                {
+                    last_fence_signaled_x = x2;
+                    continue;
+                }
+
+                bool hovered = false;
                 float x0 = gi.ts_to_screenx( event0.ts );
                 float x1 = gi.ts_to_screenx( event1.ts );
-                float x2 = gi.ts_to_screenx( event.ts );
                 float xleft = gi.timeline_render_user ? x0 : x1;
                 float dx = x2 - xleft;
                 float y = gi.y + ( event1.graph_row_id % timeline_row_count ) * text_h;
 
-                if ( dx < imgui_scale( 2.0f ) )
+                if ( gi.hovered_graph_event == ( uint32_t )-1 )
                 {
-                    imgui_drawrect( x1, dx, y, text_h, col_hwrunning );
+                    if ( gi.mouse_pos.x >= xleft &&
+                         gi.mouse_pos.x <= x2 &&
+                         gi.mouse_pos.y >= y &&
+                         gi.mouse_pos.y <= y + text_h )
+                    {
+                        hovered = true;
+                        gi.hovered_graph_event = event1.id;
+
+                        hov_p0.x = x0;
+                        hov_p0.y = y;
+                        hov_p1.x = x2;
+                        hov_p1.y = y + text_h;
+                    }
+                }
+
+                if ( ( last_fence_signaled_x > x1 ) && ( last_fence_signaled_x < x2 ) )
+                {
+                    if ( hovered || gi.timeline_render_user )
+                        imgui_drawrect( x0, x1 - x0, y, text_h, col_userspace );
+                    imgui_drawrect( x1, last_fence_signaled_x - x1, y, text_h, col_hwqueue );
+                    imgui_drawrect( last_fence_signaled_x, x2 - last_fence_signaled_x, y, text_h, col_hwrunning );
                 }
                 else
                 {
-                    bool hovered = false;
+                    if ( hovered || gi.timeline_render_user )
+                        imgui_drawrect( x0, x1 - x0, y, text_h, col_userspace );
+                    imgui_drawrect( x1, x2 - x1, y, text_h, col_hwrunning );
+                }
 
-                    if ( gi.hovered_graph_event == ( uint32_t )-1 )
+                last_fence_signaled_x = x2;
+
+                if ( render_timeline_labels )
+                {
+                    const ImVec2& size = ImGui::CalcTextSize( event0.user_comm );
+
+                    if ( dx >= size.x )
                     {
-                        if ( gi.mouse_pos.x >= xleft &&
-                             gi.mouse_pos.x <= x2 &&
-                             gi.mouse_pos.y >= y &&
-                             gi.mouse_pos.y <= y + text_h )
-                        {
-                            hovered = true;
-                            gi.hovered_graph_event = event1.id;
+                        float x = std::max< float >( x1, gi.x ) + imgui_scale( 2.0f );
 
-                            hov_p0.x = x0;
-                            hov_p0.y = y;
-                            hov_p1.x = x2;
-                            hov_p1.y = y + text_h;
-                        }
-                    }
-
-                    // Current job doesn't start until the last one finishes.
-                    if ( ( last_fence_signaled_x > x1 ) && ( last_fence_signaled_x < x2 ) )
-                    {
-                        if ( hovered || gi.timeline_render_user )
-                            imgui_drawrect( x0, x1 - x0, y, text_h, col_userspace );
-                        imgui_drawrect( x1, last_fence_signaled_x - x1, y, text_h, col_hwqueue );
-                        imgui_drawrect( last_fence_signaled_x, x2 - last_fence_signaled_x, y, text_h, col_hwrunning );
-                    }
-                    else
-                    {
-                        if ( hovered || gi.timeline_render_user )
-                            imgui_drawrect( x0, x1 - x0, y, text_h, col_userspace );
-                        imgui_drawrect( x1, x2 - x1, y, text_h, col_hwrunning );
-                    }
-
-                    last_fence_signaled_x = x2;
-
-                    if ( render_timeline_labels )
-                    {
-                        const ImVec2& size = ImGui::CalcTextSize( event0.user_comm );
-
-                        if ( dx >= size.x )
-                        {
-                            float x = std::max< float >( x1, gi.x ) + imgui_scale( 2.0f );
-
-                            ImGui::GetWindowDrawList()->AddText( ImVec2( x, y + imgui_scale( 1.0f ) ),
-                                                                 col_get( col_BarText ), event0.user_comm );
-                        }
+                        ImGui::GetWindowDrawList()->AddText( ImVec2( x, y + imgui_scale( 1.0f ) ),
+                                                             col_get( col_BarText ), event0.user_comm );
                     }
                 }
 
@@ -565,9 +571,6 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
                     if ( event0.id != event1.id )
                     {
                         imgui_drawrect( x0, 1.0, y, text_h, color );
-
-                        //$ TODO: If we're hovering over this event and it's not selected,
-                        // set hov_p0 and hov_p1 to draw the entire bar select?
 
                         // Check if we're mouse hovering starting event
                         if ( gi.mouse_over && gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + text_h )
@@ -584,6 +587,7 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
                             }
                         }
                     }
+
                     imgui_drawrect( x1, 1.0, y, text_h, color );
                     imgui_drawrect( x2, 1.0, y, text_h, color );
                 }
@@ -634,6 +638,8 @@ void TraceWin::render_graph_row( const std::string &comm, const std::vector< uin
 
             if ( eventid > gi.eventend )
                 break;
+            else if ( gi.graph_only_filtered && event.is_filtered_out )
+                continue;
 
             float x = gi.ts_to_screenx( event.ts );
 
@@ -1011,6 +1017,9 @@ void TraceWin::render_process_graph()
             // Initialize x / width and ts values
             gi.init( windowpos.x, windowsize.x,
                      m_graph_start_ts + m_tsoffset, m_graph_length_ts );
+
+            // Check if we're supposed to render filtered events only
+            gi.graph_only_filtered = m_graph_only_filtered && !m_filtered_events.empty();
 
             // Initialize eventstart / end
             gi.eventstart = ts_to_eventid( gi.ts0 );

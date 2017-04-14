@@ -94,6 +94,7 @@ struct trace_event_t
         return !!( flags & TRACE_FLAG_IS_VBLANK );
     }
 
+    bool is_filtered_out;
     uint32_t id;
     int pid;
     int crtc;
@@ -416,6 +417,7 @@ public:
     int m_selected_color = 0;
     ColorPicker m_colorpicker;
 
+    bool m_graph_only_filtered = false;
     std::vector< uint32_t > m_filtered_events;
     std::string m_filtered_events_str;
 
