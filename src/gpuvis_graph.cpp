@@ -120,6 +120,7 @@ public:
 
     bool pt_in_graph( const ImVec2 &posin );
     bool mouse_pos_in_graph();
+    bool mouse_pos_in_rect( float x, float w, float y, float h );
 
 public:
     uint32_t row_num;
@@ -337,6 +338,14 @@ bool graph_info_t::mouse_pos_in_graph()
     return pt_in_graph( mouse_pos );
 }
 
+bool graph_info_t::mouse_pos_in_rect( float x0, float width, float y0, float height )
+{
+    return ( mouse_pos.x >= x0 &&
+             mouse_pos.x <= x0 + width &&
+             mouse_pos.y >= y0 &&
+             mouse_pos.y <= y0 + height );
+}
+
 bool TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, const trace_event_t &event )
 {
     bool inserted = false;
@@ -393,10 +402,9 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
 
     for ( size_t irow = 0; irow < rows.size(); irow++ )
     {
+        ImRect hov_rect;
         ImU32 last_col = 0;
         float y = gi.y + irow * row_h;
-        ImVec2 hov_p0 = { FLT_MAX, FLT_MAX };
-        ImVec2 hov_p1 = { FLT_MAX, FLT_MAX };
         float last_fence_signaled_x = -1.0f;
         const std::vector< uint32_t > *plocs = rows[ irow ].plocs;
 
@@ -437,30 +445,19 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
                     else
                         last_col = col;
 
-                    if ( gi.hovered_graph_event == ( uint32_t )-1 )
+                    if ( ( gi.hovered_graph_event == ( uint32_t )-1 ) &&
+                         gi.mouse_pos_in_rect( xleft, x2 - xleft, y, row_h ) )
                     {
-                        if ( gi.mouse_pos.x >= xleft &&
-                             gi.mouse_pos.x <= x2 &&
-                             gi.mouse_pos.y >= y &&
-                             gi.mouse_pos.y <= y + row_h )
-                        {
-                            gi.hovered_graph_event = event1.id;
+                        gi.hovered_graph_event = event1.id;
 
-                            hov_p0.x = xleft;
-                            hov_p0.y = y;
-                            hov_p1.x = x2;
-                            hov_p1.y = y + row_h;
-                        }
+                        hov_rect = { xleft, y, x2, y + row_h };
                     }
-
                 }
             }
         }
 
-        if ( hov_p0.x < gi.x + gi.w )
-        {
-            ImGui::GetWindowDrawList()->AddRect( hov_p0, hov_p1, col_get( col_BarSelRect ) );
-        }
+        if ( hov_rect.Min.x < gi.x + gi.w )
+            ImGui::GetWindowDrawList()->AddRect( hov_rect.Min, hov_rect.Max, col_get( col_BarSelRect ) );
     }
 
     imgui_pop_smallfont();
@@ -470,8 +467,7 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
 {
     imgui_push_smallfont();
 
-    ImVec2 hov_p0 = { FLT_MAX, FLT_MAX };
-    ImVec2 hov_p1 = { FLT_MAX, FLT_MAX };
+    ImRect hov_rect;
     float last_fence_signaled_x = -1.0f;
     ImU32 col_hwrunning = col_get( col_BarHwRunning );
     ImU32 col_userspace = col_get( col_BarUserspace );
@@ -518,21 +514,13 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
                 float dx = x2 - xleft;
                 float y = gi.y + ( event1.graph_row_id % timeline_row_count ) * text_h;
 
-                if ( gi.hovered_graph_event == ( uint32_t )-1 )
+                if ( ( gi.hovered_graph_event == ( uint32_t )-1 ) &&
+                     gi.mouse_pos_in_rect( xleft, x2 - xleft, y, text_h ) )
                 {
-                    if ( gi.mouse_pos.x >= xleft &&
-                         gi.mouse_pos.x <= x2 &&
-                         gi.mouse_pos.y >= y &&
-                         gi.mouse_pos.y <= y + text_h )
-                    {
-                        hovered = true;
-                        gi.hovered_graph_event = event1.id;
+                    hovered = true;
+                    gi.hovered_graph_event = event1.id;
 
-                        hov_p0.x = x0;
-                        hov_p0.y = y;
-                        hov_p1.x = x2;
-                        hov_p1.y = y + text_h;
-                    }
+                    hov_rect = { x0, y, x2, y + text_h };
                 }
 
                 if ( ( last_fence_signaled_x > x1 ) && ( last_fence_signaled_x < x2 ) )
@@ -576,12 +564,9 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
                         if ( gi.mouse_over && gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + text_h )
                         {
                             // If we are hovering, and no selection bar is set, do it.
-                            if ( add_mouse_hovered_event( x0, gi, event0 ) && ( hov_p0.x == FLT_MAX ) )
+                            if ( add_mouse_hovered_event( x0, gi, event0 ) && ( hov_rect.Min.x == FLT_MAX ) )
                             {
-                                hov_p0.x = x0;
-                                hov_p0.y = y;
-                                hov_p1.x = x2;
-                                hov_p1.y = y + text_h;
+                                hov_rect = { x0, y, x2, y + text_h };
 
                                 imgui_drawrect( x0, x1 - x0, y, text_h, col_userspace );
                             }
@@ -595,10 +580,8 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
         }
     }
 
-    if ( hov_p0.x < gi.x + gi.w )
-    {
-        ImGui::GetWindowDrawList()->AddRect( hov_p0, hov_p1, col_get( col_BarSelRect ) );
-    }
+    if ( hov_rect.Min.x < gi.x + gi.w )
+        ImGui::GetWindowDrawList()->AddRect( hov_rect.Min, hov_rect.Max, col_get( col_BarSelRect ) );
 
     imgui_pop_smallfont();
 }
