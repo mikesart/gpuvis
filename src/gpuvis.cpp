@@ -35,15 +35,10 @@
 
 #include <SDL.h>
 
-#include "ya_getopt.h"
 #include "GL/gl3w.h"
+#include "ya_getopt.h"
 #include "gpuvis.h"
-
 #include "tdopexpr.h"
-
-//$ TODO: Add ability to show row for an event with a parameter?
-//$ TODO: Need to handle lots of graph rows, ie ~100
-//$ TODO: Figure out crash when you have too many graph rows and zoom out
 
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
 {
@@ -1154,11 +1149,13 @@ void TraceWin::render_events_list( CIniFile &inifile )
         if ( scroll_lines )
             ImGui::SetScrollY( ImGui::GetScrollY() + scroll_lines * lineh );
 
+        bool filtered_events = !m_filtered_events.empty();
+
         if ( m_do_gotoevent )
         {
             uint32_t pos;
 
-            if ( !m_filtered_events.empty() )
+            if ( filtered_events )
             {
                 auto i = std::lower_bound( m_filtered_events.begin(), m_filtered_events.end(), m_goto_eventid );
 
@@ -1216,23 +1213,23 @@ void TraceWin::render_events_list( CIniFile &inifile )
         m_hovered_eventlist_eventid = ( uint32_t )-1;
 
         // Draw events
-        if ( m_filtered_events.empty() )
-        {
-            m_eventlist_start_eventid = start_idx;
-            m_eventlist_end_eventid = end_idx;
-        }
-        else
+        if ( filtered_events )
         {
             m_eventlist_start_eventid = m_filtered_events[ start_idx ];
             m_eventlist_end_eventid = m_filtered_events[ end_idx - 1 ];
+        }
+        else
+        {
+            m_eventlist_start_eventid = start_idx;
+            m_eventlist_end_eventid = end_idx;
         }
 
         for ( uint32_t i = start_idx; i < end_idx; i++ )
         {
             int colors_pushed = 0;
-            trace_event_t &event = m_filtered_events.empty() ?
-                        m_trace_events->m_events[ i ] :
-                        m_trace_events->m_events[ m_filtered_events[ i ] ];
+            trace_event_t &event = filtered_events ?
+                        m_trace_events->m_events[ m_filtered_events[ i ] ] :
+                        m_trace_events->m_events[ i ];
             bool selected = ( m_selected_eventid == event.id );
             std::string ts_str = ts_to_timestr( event.ts, m_tsoffset );
 
@@ -1282,8 +1279,9 @@ void TraceWin::render_events_list( CIniFile &inifile )
             // If we've got an active popup menu, render it.
             if ( m_events_list_popup_eventid == i )
             {
-                uint32_t eventid = m_filtered_events.empty() ?
-                            m_events_list_popup_eventid : m_filtered_events[ m_events_list_popup_eventid ];
+                uint32_t eventid = filtered_events ?
+                            m_filtered_events[ m_events_list_popup_eventid ] :
+                            m_events_list_popup_eventid;
 
                 if ( !TraceWin::render_events_list_popup( eventid ) )
                     m_events_list_popup_eventid = ( uint32_t )-1;
@@ -1345,7 +1343,7 @@ void TraceConsole::init( CIniFile *inifile )
     m_commands.insert( "quit" );
     m_commands.insert( "q" );
 
-    SDL_strlcpy( m_trace_file, "trace.dat", sizeof( m_trace_file ) );
+    strcpy_safe( m_trace_file, "trace.dat" );
 }
 
 void TraceConsole::shutdown( CIniFile *inifile )
@@ -1829,7 +1827,7 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
 
 static bool load_trace_file( TraceLoader &loader, TraceConsole &console, const char *filename )
 {
-    SDL_strlcpy( console.m_trace_file, filename, sizeof( console.m_trace_file ) );
+    strcpy_safe( console.m_trace_file, filename );
 
     return loader.load_file( filename );
 }
