@@ -464,7 +464,8 @@ static bool is_arg( tdop_tok_type_t type )
 static std::string validate_info_tokens( std::vector< tdop_state_token > &tokens )
 {
     int num_parens = 0;
-    tdop_tok_type_t last_type = TOK_NULL;
+    int num_ops = 0;
+    tdop_tok_type_t left_type = TOK_NULL;
 
     //    arg op arg
     //    arg op ( arg )
@@ -486,25 +487,24 @@ static std::string validate_info_tokens( std::vector< tdop_state_token > &tokens
         case TOK_NUMBER:
         case TOK_STRING:
         case TOK_VARIABLE:
-            if ( ( last_type != TOK_INFIX_OP ) &&
-                 ( last_type != TOK_LPAREN ) &&
-                 ( last_type != TOK_NULL ) )
+            if ( ( left_type != TOK_INFIX_OP ) &&
+                 ( left_type != TOK_LPAREN ) &&
+                 ( left_type != TOK_NULL ) )
             {
                 return "ERROR: Unexpected token left of arg";
             }
             break;
 
         case TOK_INFIX_OP:
-            if ( !is_arg( last_type ) && ( last_type != TOK_RPAREN ) )
-            {
+            num_ops++;
+            if ( !is_arg( left_type ) && ( left_type != TOK_RPAREN ) )
                 return "ERROR: Unexpected token left of op";
-            }
             break;
 
         case TOK_LPAREN:
-            if ( ( last_type != TOK_LPAREN ) &&
-                 ( last_type != TOK_INFIX_OP ) &&
-                 ( last_type != TOK_NULL ) )
+            if ( ( left_type != TOK_LPAREN ) &&
+                 ( left_type != TOK_INFIX_OP ) &&
+                 ( left_type != TOK_NULL ) )
             {
                 return "ERROR: Unexpected token left of left paren";
             }
@@ -515,22 +515,22 @@ static std::string validate_info_tokens( std::vector< tdop_state_token > &tokens
         case TOK_RPAREN:
             if ( --num_parens < 0 )
                 return "ERROR: Unexpected right paren";
-
-            if ( !is_arg( last_type ) && ( last_type != TOK_RPAREN ) )
+            if ( !is_arg( left_type ) && ( left_type != TOK_RPAREN ) )
                 return "ERROR: Unexpected token left of right paren";
             break;
 
         case TOK_END:
             if ( num_parens )
-                return "ERROR: mismatched parens";
-
-            if ( !is_arg( last_type ) && ( last_type != TOK_RPAREN ) )
+                return "ERROR: Mismatched parens";
+            if ( !num_ops )
+                return "ERROR: No ops found";
+            if ( !is_arg( left_type ) && ( left_type != TOK_RPAREN ) )
                 return "ERROR: Unexpected end token";
 
             return "";
         }
 
-        last_type = type;
+        left_type = type;
     }
 
     return "ERROR: Parsing filter string failed";
