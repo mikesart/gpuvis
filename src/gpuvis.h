@@ -290,7 +290,8 @@ public:
         m_trace_events = trace_events;
         m_title = title;
 
-        m_timegoto_buf = "0.0";
+        strcpy_safe( m_timegoto_buf, "0.0" );
+        strcpy_safe( m_timeoffset_buf, "0.0" );
     }
 
     ~TraceWin() {}
@@ -362,12 +363,12 @@ public:
     bool m_show_eventlist = false;
 
     // Goto Time buffer
-    std::string m_timegoto_buf;
+    char m_timegoto_buf[ 32 ] = { 0 };
 
-    std::string m_event_filter_buf;
+    char m_event_filter_buf[ 512 ] = { 0 };
 
     // Time Offset
-    std::string m_timeoffset_buf;
+    char m_timeoffset_buf[ 32 ] = { 0 };
     int64_t m_tsoffset = 0;
 
     // Event id of event list popup menu
@@ -378,11 +379,11 @@ public:
     // Graph Start
     bool m_do_graph_start_timestr = false;
     int64_t m_graph_start_ts = 0;
-    std::string m_graphtime_start_buf;
+    char m_graphtime_start_buf[ 32 ] = { 0 };
     // Graph Length
     bool m_do_graph_length_timestr = false;
     int64_t m_graph_length_ts = INT64_MAX;
-    std::string m_graphtime_length_buf;
+    char m_graphtime_length_buf[ 32 ] = { 0 };
 
     float m_graph_start_y = 0.0f;
 

@@ -36,12 +36,6 @@ const std::vector< char * > &logf_get();
 
 extern "C" uint32_t fnv_hashstr32( const char *str, size_t len = ( size_t )-1 );
 
-template < typename T >
-T Clamp( const T& val, const T& lower, const T& upper )
-{
-    return std::max< T >( lower, std::min< T >( val, upper ) );
-}
-
 std::string string_format( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
 // trim from start (in place)
 void string_ltrim( std::string &s );

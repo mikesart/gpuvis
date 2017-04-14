@@ -105,6 +105,12 @@ T Max( T const &a, T const &b )
     return a > b ? a : b;
 }
 
+template < typename T >
+T Clamp( const T& val, const T& lower, const T& upper )
+{
+    return std::max< T >( lower, std::min< T >( val, upper ) );
+}
+
 // Should be constexpr, but VS2013 barfs on that.
 template < typename T, int size >
 constexpr size_t GWARRAYSIZE( T ( & )[ size ] )
@@ -126,6 +132,28 @@ int snprintf_safe( char ( &buf )[ T ], const char *fmt, ... )
     va_end(ap);
 
     return retval;
+}
+
+template < size_t T >
+char *strcpy_safe( char ( &dest )[ T ], const char *src )
+{
+    size_t len = std::min< size_t >( T - 1, strlen( src ) );
+
+    memcpy( dest, src, len );
+    dest[ len ] = 0;
+
+    return dest;
+}
+
+template < size_t T >
+char *strcpy_safe( char ( &dest )[ T ], const std::string &src )
+{
+    size_t len = std::min< size_t >( T - 1, src.size() );
+
+    memcpy( dest, src.data(), len );
+    dest[ len ] = 0;
+
+    return dest;
 }
 
 #define STATIC_ASSERT( _x ) static_assert( _x, #_x )

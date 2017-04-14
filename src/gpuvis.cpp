@@ -57,17 +57,16 @@ static bool imgui_input_int( int *val, float w, const char *label, const char *l
     return ret;
 }
 
+template < size_t T >
 static bool imgui_input_text( const char *button_label, const char *text_label,
-                              std::string &str, size_t capacity, float w,
-                              int flags = 0)
+                              char ( &buf )[ T ], float w, int flags = 0)
 {
     bool ret = ImGui::Button( button_label );
 
     ImGui::SameLine();
     ImGui::PushItemWidth( imgui_scale( w ) );
 
-    str.reserve( capacity );
-    ret |= ImGui::InputText( text_label, &str[ 0 ], str.capacity(), flags, 0 );
+    ret |= ImGui::InputText( text_label, buf, T, flags, 0 );
 
     ImGui::PopItemWidth();
 
@@ -548,7 +547,7 @@ void TraceWin::render_time_offset_button_init( TraceEvents &trace_events )
         // Don't set offset time. If user cancels when loading it'll be at different locations
         //  so let the user explicitly control this.
         m_tsoffset = 0; // events[ id ].ts;
-        m_timeoffset_buf = ts_to_timestr( m_tsoffset );
+        strcpy_safe( m_timeoffset_buf, ts_to_timestr( m_tsoffset ) );
     }
 }
 
@@ -837,12 +836,12 @@ bool TraceWin::render()
         }
         ImGui::Unindent();
 
-        if ( imgui_input_text( "Start:", "##GraphStart", m_graphtime_start_buf, 32, 150 ) )
-            m_graph_start_ts = timestr_to_ts( m_graphtime_start_buf.c_str() );
+        if ( imgui_input_text( "Start:", "##GraphStart", m_graphtime_start_buf, 150 ) )
+            m_graph_start_ts = timestr_to_ts( m_graphtime_start_buf );
 
         ImGui::SameLine();
-        if ( imgui_input_text( "Length:", "##GraphLength", m_graphtime_length_buf, 32, 150 ) )
-            m_graph_length_ts = timestr_to_ts( m_graphtime_length_buf.c_str() );
+        if ( imgui_input_text( "Length:", "##GraphLength", m_graphtime_length_buf, 150 ) )
+            m_graph_length_ts = timestr_to_ts( m_graphtime_length_buf );
 
         ImGui::SameLine();
         m_do_graph_zoom_in |= ImGui::SmallButton( "Zoom In" );
@@ -871,9 +870,9 @@ bool TraceWin::render()
         }
 
         if ( m_do_graph_start_timestr )
-            m_graphtime_start_buf = ts_to_timestr( m_graph_start_ts, 0, 4 );
+            strcpy_safe( m_graphtime_start_buf, ts_to_timestr( m_graph_start_ts, 0, 4 ) );
         if ( m_do_graph_length_timestr )
-            m_graphtime_length_buf = ts_to_timestr( m_graph_length_ts, 0, 4 );
+            strcpy_safe( m_graphtime_length_buf, ts_to_timestr( m_graph_length_ts, 0, 4 ) );
 
         render_process_graph();
 
@@ -890,28 +889,26 @@ bool TraceWin::render()
         m_do_gotoevent |= imgui_input_int( &m_goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
 
         ImGui::SameLine();
-        if ( imgui_input_text( "Goto Time:", "##GotoTime", m_timegoto_buf, 32, 150 ) )
+        if ( imgui_input_text( "Goto Time:", "##GotoTime", m_timegoto_buf, 150 ) )
         {
             m_do_gotoevent = true;
-            m_goto_eventid = timestr_to_eventid( m_timegoto_buf.c_str(), m_tsoffset );
+            m_goto_eventid = timestr_to_eventid( m_timegoto_buf, m_tsoffset );
         }
 
         ImGui::SameLine();
-        if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_timeoffset_buf, 32, 150 ) )
-            m_tsoffset = timestr_to_ts( m_timeoffset_buf.c_str() );
+        if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_timeoffset_buf, 150 ) )
+            m_tsoffset = timestr_to_ts( m_timeoffset_buf );
 
-        if ( imgui_input_text( "Event Filter:", "##Event Filter", m_event_filter_buf, 512, 500,
+        if ( imgui_input_text( "Event Filter:", "##Event Filter", m_event_filter_buf, 500,
                                ImGuiInputTextFlags_EnterReturnsTrue ) )
         {
             m_filtered_events.clear();
             m_filtered_events_str.clear();
 
-            std::string filter_str = string_trimmed( m_event_filter_buf.c_str() );
-
-            if ( !filter_str.empty() )
+            if ( m_event_filter_buf[ 0 ] )
             {
                 tdop_get_key_func get_key_func = std::bind( filter_get_key_func, &m_trace_events->m_strpool, _1, _2 );
-                class TdopExpr *tdop_expr = tdopexpr_compile( m_event_filter_buf.c_str(), get_key_func, m_filtered_events_str );
+                class TdopExpr *tdop_expr = tdopexpr_compile( m_event_filter_buf, get_key_func, m_filtered_events_str );
 
                 if ( tdop_expr )
                 {
