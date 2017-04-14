@@ -24,12 +24,14 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <stdarg.h>
 
 #include <future>
 #include <algorithm>
 #include <vector>
 
 #include "tdopexpr.h"
+#include "gpuvis_macros.h"
 
 // TDOP: "Top down operator precedence parsing"
 //   http://eli.thegreenplace.net/2010/01/02/top-down-operator-precedence-parsing
@@ -187,23 +189,17 @@ static void next_token( tdop_state *s )
                 s->next++;
             }
 
-            const char *var_name = s->get_key_func( value, s->next - value );
-            if ( !var_name )
-            {
+            s->tok.type = TOK_VARIABLE;
+            s->tok.variable = s->get_key_func( value, s->next - value );
+            if ( !s->tok.variable )
                 s->tok.type = TOK_ERROR;
-            }
-            else
-            {
-                s->tok.type = TOK_VARIABLE;
-                s->tok.variable = var_name;
-            }
         }
         else if ( s->next[ 0 ] == '"' )
         {
             s->tok.type = TOK_STRING;
             const char *value = s->next + 1;
 
-            char *endquote = strchr( ( char * )value, '"' );
+            const char *endquote = strchr( value, '"' );
             if ( endquote )
             {
                 s->next = endquote + 1;
@@ -255,94 +251,67 @@ static void next_token( tdop_state *s )
         }
         else
         {
+            struct op_t
+            {
+                const char *opstr;
+                TDOP_INFIX_FUNC *function;
+                int lbp;
+            };
+            static const op_t s_ops[] =
+            {
+                { "&&", func_and, 10 },
+                { "||", func_or, 10 },
+                { "!=", func_notequal, 20 },
+                { "=~", func_contains, 20 },
+                { "==", func_equal, 20 },
+                { "=", func_equal, 20 },
+                { ">=", func_ge, 20 },
+                { ">", func_gt, 20 },
+                { "<=", func_le, 20 },
+                { "<", func_lt, 20 },
+            };
+
             const char *n = s->next++;
 
-            // Assume infix type
-            s->tok.type = TOK_INFIX_OP;
+            switch ( n[ 0 ] )
+            {
+            case '(':
+                s->tok.type = TOK_LPAREN;
+                s->tok.lbp = 0;
+                break;
 
-            if ( n[ 0 ] == '&' && n[ 1 ] == '&' )
-            {
-                s->next++;
-                s->tok.function = func_and;
-                s->tok.lbp = 10;
-            }
-            else if ( n[ 0 ] == '|' && n[ 1 ] == '|' )
-            {
-                s->next++;
-                s->tok.function = func_or;
-                s->tok.lbp = 10;
-            }
-            else if ( n[ 0 ] == '!' && n[ 1 ] == '=' )
-            {
-                s->next++;
-                s->tok.function = func_notequal;
-                s->tok.lbp = 20;
-            }
-            else if ( n[ 0 ] == '=' && n[ 1 ] == '~' )
-            {
-                s->next++;
-                s->tok.function = func_contains;
-                s->tok.lbp = 20;
-            }
-            else if ( n[ 0 ] == '=' )
-            {
-                // Support both = and ==
-                if ( n[ 1 ] == '=' )
-                    s->next++;
+            case ')':
+                s->tok.type = TOK_RPAREN;
+                s->tok.lbp = 0;
+                break;
 
-                s->tok.function = func_equal;
-                s->tok.lbp = 20;
-            }
-            else if ( n[ 0 ] == '>' )
-            {
-                if ( n[ 1 ] == '=' )
-                {
-                    s->next++;
-                    s->tok.function = func_ge;
-                }
-                else
-                {
-                    s->tok.function = func_gt;
-                }
-                s->tok.lbp = 20;
-            }
-            else if ( n[ 0 ] == '<' )
-            {
-                if ( n[ 1 ] == '=' )
-                {
-                    s->next++;
-                    s->tok.function = func_le;
-                }
-                else
-                {
-                    s->tok.function = func_lt;
-                }
-                s->tok.lbp = 20;
-            }
-            else
-            {
-                switch ( n[ 0 ] )
-                {
-                case '(':
-                    s->tok.type = TOK_LPAREN;
-                    s->tok.lbp = 0;
-                    break;
+            case ' ':
+            case '\t':
+            case '\n':
+            case '\r':
+                s->tok.type = TOK_NULL;
+                break;
 
-                case ')':
-                    s->tok.type = TOK_RPAREN;
-                    s->tok.lbp = 0;
-                    break;
+            default:
+                s->tok.type = TOK_ERROR;
 
-                case ' ':
-                case '\t':
-                case '\n':
-                case '\r':
-                    s->tok.type = TOK_NULL;
-                    break;
-                default:
-                    s->tok.type = TOK_ERROR;
-                    break;
+                for ( size_t i = 0; i < ARRAY_SIZE( s_ops ); i++ )
+                {
+                    const op_t &op = s_ops[ i ];
+
+                    if ( ( op.opstr[ 0 ] == n[ 0 ] ) &&
+                         ( !op.opstr[ 1 ] || op.opstr[ 1 ] == n[ 1 ] ) )
+                    {
+                        if ( op.opstr[ 1 ] )
+                            s->next++;
+
+                        s->tok.type = TOK_INFIX_OP;
+                        s->tok.lbp = op.lbp;
+                        s->tok.function = op.function;
+                        break;
+                    }
                 }
+                break;
             }
         }
     }
@@ -463,8 +432,8 @@ static bool is_arg( tdop_tok_type_t type )
 
 static std::string validate_info_tokens( std::vector< tdop_state_token > &tokens )
 {
-    int num_parens = 0;
     int num_ops = 0;
+    int num_parens = 0;
     tdop_tok_type_t left_type = TOK_NULL;
 
     //    arg op arg
