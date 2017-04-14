@@ -93,18 +93,6 @@ __inline__ void __debugbreak()
 
 #if defined( __cplusplus )
 
-template < class T >
-T Min( T const &a, T const &b )
-{
-    return a < b ? a : b;
-}
-
-template < class T >
-T Max( T const &a, T const &b )
-{
-    return a > b ? a : b;
-}
-
 template < typename T >
 T Clamp( const T& val, const T& lower, const T& upper )
 {

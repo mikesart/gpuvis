@@ -314,8 +314,9 @@ protected:
     void render_graph_vblanks( class graph_info_t &gi );
     bool render_graph_popup();
 
+    template< size_t T >
     void save_restore_column_sizes( CIniFile &inifile,
-        const std::array< const char *, 6 > &columns );
+        const std::array< const char *, T > &columns );
 
     void handle_graph_hotkeys();
 

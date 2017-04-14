@@ -317,21 +317,6 @@ std::string CIniFile::GetStr( const char *key, const char *defval, const char *s
     bool found = false;
     std::string ret = GetIniStr( m_inifile, section ? section : m_settings, key, defval, &found );
 
-#if 0
-    // Not found - check if there is a default value for this key.
-    if ( ret.empty() && !defval && !found )
-    {
-        for ( size_t i = 0; i < GWARRAYSIZE( g_defvals ); i++ )
-        {
-            if ( !strcmp( g_defvals[ i ].key, key ) )
-            {
-                PutStr( key, g_defvals[ i ].defval, section );
-                return g_defvals[ i ].defval;
-            }
-        }
-    }
-#endif
-
     return ret;
 }
 

@@ -110,8 +110,8 @@ static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniDat
     return -1;
 }
 
-template < typename T >
-void imgui_headers( const char *title, const T &headers )
+template < size_t T >
+void imgui_headers( const char *title, const std::array< const char *, T > &headers )
 {
     ImGui::Columns( headers.size(), "events" );
 
@@ -974,8 +974,7 @@ void TraceWin::render_trace_info()
         {
             if ( !m_comm_info.empty() )
             {
-                static const std::array< const char *, 2 > columns =
-                    { "Comm", "Events" };
+                static const std::array< const char *, 2 > columns = { "Comm", "Events" };
 
                 imgui_headers( "comm_info", columns );
 
@@ -995,8 +994,7 @@ void TraceWin::render_trace_info()
         {
             if ( !trace_info.cpustats.empty() )
             {
-                static const std::array< const char *, 2 > columns =
-                    { "CPU", "Stats" };
+                static const std::array< const char *, 2 > columns = { "CPU", "Stats" };
 
                 imgui_headers( "cpu_stats", columns );
 
@@ -1079,8 +1077,9 @@ static float get_keyboard_scroll_lines( float visible_rows )
     return scroll_lines;
 }
 
+template< size_t T>
 void TraceWin::save_restore_column_sizes( CIniFile &inifile,
-    const std::array< const char *, 6 > &columns )
+    const std::array< const char *, T > &columns )
 {
     if ( !m_columns_inited )
     {
