@@ -1042,9 +1042,10 @@ bool TraceWin::render_events_list_popup( uint32_t eventid )
 
     trace_event_t &event = get_event( eventid );
 
-    std::string label = string_format( "center %u on graph...", event.id );
+    std::string label = string_format( "Center %u on graph...", event.id );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
+        m_selected_eventid = event.id;
         m_graph_start_ts = event.ts - m_tsoffset - m_graph_length_ts / 2;
         m_do_graph_start_timestr = true;
     }
