@@ -367,6 +367,7 @@ public:
     // Goto Time buffer
     char m_timegoto_buf[ 32 ] = { 0 };
 
+    bool m_do_event_filter = false;
     char m_event_filter_buf[ 512 ] = { 0 };
 
     // Time Offset

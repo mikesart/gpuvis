@@ -892,11 +892,13 @@ bool TraceWin::render()
         if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_timeoffset_buf, 150 ) )
             m_tsoffset = timestr_to_ts( m_timeoffset_buf );
 
-        if ( imgui_input_text( "Event Filter:", "##Event Filter", m_event_filter_buf, 500,
+        if ( m_do_event_filter ||
+             imgui_input_text( "Event Filter:", "##Event Filter", m_event_filter_buf, 500,
                                ImGuiInputTextFlags_EnterReturnsTrue ) )
         {
             m_filtered_events.clear();
             m_filtered_events_str.clear();
+            m_do_event_filter = false;
 
             if ( m_event_filter_buf[ 0 ] )
             {
@@ -1037,21 +1039,43 @@ void TraceWin::render_trace_info()
 
 bool TraceWin::render_events_list_popup( uint32_t eventid )
 {
+    bool ret = true;
+
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
         return false;
 
+    ImGui::Text( "Options" );
+    ImGui::Separator();
+
     trace_event_t &event = get_event( eventid );
 
-    std::string label = string_format( "Center %u on graph...", event.id );
+    std::string label = string_format( "Center event %u on graph...", event.id );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
         m_selected_eventid = event.id;
         m_graph_start_ts = event.ts - m_tsoffset - m_graph_length_ts / 2;
         m_do_graph_start_timestr = true;
+        ret = false;
+    }
+
+    label = string_format( "Filter pid %d events...", event.pid );
+    if ( ImGui::MenuItem( label.c_str() ) )
+    {
+        snprintf_safe( m_event_filter_buf, "$pid == %d", event.pid );
+        m_do_event_filter = true;
+        ret = false;
+    }
+
+    label = string_format( "Filter '%s' events...", event.name );
+    if ( ImGui::MenuItem( label.c_str() ) )
+    {
+        snprintf_safe( m_event_filter_buf, "$name == %s", event.name );
+        m_do_event_filter = true;
+        ret = false;
     }
 
     ImGui::EndPopup();
-    return true;
+    return ret;
 }
 
 std::string get_event_field_str( const trace_event_t &event, const char *eqstr, char sep )
