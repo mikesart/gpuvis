@@ -39,13 +39,10 @@ CFG ?= release
 SDL2FLAGS=$(shell sdl2-config --cflags)
 SDL2LIBS=$(shell sdl2-config --static-libs)
 WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wsuggest-attribute=format $(WSHADOW) -Wno-unused-parameter -Wno-missing-field-initializers
-CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 -I./src/sqlite $(SDL2FLAGS)
+CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 $(SDL2FLAGS)
 CXXFLAGS = -fno-rtti -Woverloaded-virtual
 LDFLAGS = -march=native -gdwarf-4 -g2 -Wl,--build-id=sha1
 LIBS = -Wl,--no-as-needed -lm -ldl -lpthread  -lstdc++ $(SDL2LIBS) 
-
-# For debugging sqlite programs.
-# CFLAGS += -DSQLITE_DEBUG
 
 # https://gcc.gnu.org/onlinedocs/libstdc++/manual/profile_mode.html#manual.ext.profile_mode.intro
 # To resolve addresses from libstdcxx-profile.conf.out: addr2line -C -f -e _debug/gpuvis 0x42cc6a 0x43630a 0x46654d
@@ -68,8 +65,6 @@ CFILES = \
 	src/trace-cmd/trace-seq.c \
 	src/trace-cmd/kbuffer-parse.c \
 	src/trace-cmd/trace-read.cpp
-
-	# src/sqlite/sqlite3.c \
 
 ifeq ($(PROF), 1)
 	# To profile with google perftools:
