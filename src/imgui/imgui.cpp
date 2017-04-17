@@ -1237,6 +1237,11 @@ ImU32 ImGui::GetColorU32(ImGuiCol idx, float alpha_mul)
     return ColorConvertFloat4ToU32(c); 
 }
 
+const ImVec4 &ImGui::GetColorVec4(ImGuiCol idx)
+{
+    return GImGui->Style.Colors[idx];
+}
+
 ImU32 ImGui::GetColorU32(const ImVec4& col)
 { 
     ImVec4 c = col; 
