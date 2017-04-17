@@ -34,6 +34,22 @@ void logf_update();
 void logf_clear();
 const std::vector< char * > &logf_get();
 
+// Timer routines. Use like:
+//   util_time_t t0 = util_get_time();
+//   sleep_for_ms( 2000 );
+//   printf( "%.2fms\n", util_time_to_ms( t0, util_get_time() ) );
+typedef std::chrono::time_point< std::chrono::high_resolution_clock > util_time_t;
+
+inline util_time_t util_get_time()
+{
+    return std::chrono::high_resolution_clock::now();
+}
+inline float util_time_to_ms( util_time_t start, util_time_t end )
+{
+    auto diff = end - start;
+    return ( float )std::chrono::duration< double, std::milli >( diff ).count();
+}
+
 extern "C" uint32_t fnv_hashstr32( const char *str, size_t len = ( size_t )-1 );
 
 std::string string_format( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );

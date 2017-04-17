@@ -974,6 +974,8 @@ bool TraceWin::render()
                 tdop_get_key_func get_key_func = std::bind( filter_get_key_func, &m_trace_events->m_strpool, _1, _2 );
                 class TdopExpr *tdop_expr = tdopexpr_compile( m_event_filter_buf, get_key_func, m_filtered_events_str );
 
+                util_time_t t0 = util_get_time();
+
                 if ( tdop_expr )
                 {
                     for ( trace_event_t &event : m_trace_events->m_events )
@@ -993,6 +995,10 @@ bool TraceWin::render()
                     tdopexpr_delete( tdop_expr );
                     tdop_expr = NULL;
                 }
+
+                float time = util_time_to_ms( t0, util_get_time() );
+                if ( time > 1000.0f )
+                    logf( "tdopexpr_compile(\"%s\"): %.2fms\n", m_event_filter_buf, time );
             }
         }
 
