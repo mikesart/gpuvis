@@ -224,6 +224,13 @@ ImU32 imgui_vec4_to_u32( const ImVec4 &vec )
     return ImGui::ColorConvertFloat4ToU32( vec );
 }
 
+void imgui_text_bg( const char *str, const ImVec4 &bgcolor )
+{
+    ImGui::PushStyleColor( ImGuiCol_HeaderHovered, bgcolor );
+    ImGui::Selectable( str, true, ImGuiSelectableFlags_SpanAllColumns );
+    ImGui::PopStyleColor();
+}
+
 bool imgui_push_smallfont()
 {
     ImFontAtlas *atlas = ImGui::GetIO().Fonts;

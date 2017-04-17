@@ -1119,12 +1119,12 @@ bool TraceWin::render_events_list_popup( uint32_t eventid )
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
         return false;
 
-    ImGui::Text( "Options" );
+    imgui_text_bg( "Options", ImGui::GetColorVec4( ImGuiCol_Header ) );
     ImGui::Separator();
 
     trace_event_t &event = get_event( eventid );
 
-    std::string label = string_format( "Center event %u on graph...", event.id );
+    std::string label = string_format( "Center event %u on graph", event.id );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
         m_selected_eventid = event.id;
@@ -1142,7 +1142,7 @@ bool TraceWin::render_events_list_popup( uint32_t eventid )
 
     ImGui::Separator();
 
-    label = string_format( "Filter pid %d events...", event.pid );
+    label = string_format( "Filter pid %d events", event.pid );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
         snprintf_safe( m_event_filter_buf, "$pid == %d", event.pid );
@@ -1150,7 +1150,7 @@ bool TraceWin::render_events_list_popup( uint32_t eventid )
         ret = false;
     }
 
-    label = string_format( "Filter '%s' events...", event.name );
+    label = string_format( "Filter '%s' events", event.name );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
         snprintf_safe( m_event_filter_buf, "$name == %s", event.name );
@@ -1159,7 +1159,10 @@ bool TraceWin::render_events_list_popup( uint32_t eventid )
     }
 
     if ( !m_filtered_events.empty() && ImGui::MenuItem( "Clear Filter" ) )
-            m_filtered_events.clear();
+    {
+        m_event_filter_buf[ 0 ] = 0;
+        m_do_event_filter = true;
+    }
 
     ImGui::EndPopup();
     return ret;
@@ -1395,8 +1398,10 @@ void TraceWin::render_events_list( CIniFile &inifile )
                             m_filtered_events[ m_events_list_popup_eventid ] :
                             m_events_list_popup_eventid;
 
+                imgui_pop_smallfont();
                 if ( !TraceWin::render_events_list_popup( eventid ) )
                     m_events_list_popup_eventid = ( uint32_t )-1;
+                imgui_push_smallfont();
             }
 
             ImGui::NextColumn();

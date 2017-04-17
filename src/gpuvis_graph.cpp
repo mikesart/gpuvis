@@ -1058,7 +1058,7 @@ bool TraceWin::render_graph_popup()
         return string_format( "Start:%s Length:%s", start.c_str(), len.c_str() );
     };
 
-    ImGui::Text( "Options" );
+    imgui_text_bg( "Options", ImGui::GetColorVec4( ImGuiCol_Header ) );
     ImGui::Separator();
 
     if ( ImGui::BeginMenu( "Save Location" ) )
