@@ -95,22 +95,24 @@ struct trace_event_t
     }
 
     bool is_filtered_out;
-    uint32_t id;
-    int pid;
-    int crtc;
-    int missed_events;
-    uint32_t cpu;
-    int64_t ts;
-    const char *comm;
-    const char *system;
-    const char *name;
-    const char *timeline;
-    const char *user_comm; // User space comm (if we can figure this out)
-    uint32_t flags; // TRACE_FLAGS_IRQS_OFF, TRACE_FLAG_HARDIRQ, TRACE_FLAG_SOFTIRQ
-    uint32_t context;
-    uint32_t seqno;
-    uint32_t id_start; // start event if this is a graph sequence event (ie amdgpu_sched_run_job, fence_signaled)
+    int pid;                    // event process id
+    int crtc;                   // drm_vblank_event crtc (or -1)
+
+    uint32_t id;                // event id
+    uint32_t cpu;               // cpu this event was hit on
+    uint32_t flags;             // TRACE_FLAGS_IRQS_OFF, TRACE_FLAG_HARDIRQ, TRACE_FLAG_SOFTIRQ
+    uint32_t context;           // event context (from fields)
+    uint32_t seqno;             // event seqno (from fields)
+    uint32_t id_start;          // start event if this is a graph sequence event (ie amdgpu_sched_run_job, fence_signaled)
     uint32_t graph_row_id;
+
+    int64_t ts;                 // timestamp
+    const char *comm;           // command line
+    const char *system;         // event system (ftrace-print, etc.)
+    const char *name;           // event name
+    const char *timeline;       // event timeline (gfx, sdma0, ...)
+    const char *user_comm;      // User space comm (if we can figure this out)
+
     std::vector< event_field_t > fields;
 };
 

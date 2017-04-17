@@ -934,7 +934,6 @@ read_again:
     record->cpu = cpu;
     record->data = data;
     record->offset = handle->cpu_data[ cpu ].offset + index;
-    record->missed_events = kbuffer_missed_events( kbuf );
     record->ref_count = 1;
     record->locked = 1;
 
@@ -1548,8 +1547,6 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
         trace_seq_init( &seq );
 
         memset( &trace_event, 0, sizeof( trace_event ) );
-
-        trace_event.missed_events = record->missed_events;
 
         trace_event.id = 0;
         trace_event.pid = pid;
