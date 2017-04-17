@@ -1114,8 +1114,6 @@ void TraceWin::render_trace_info()
 
 bool TraceWin::render_events_list_popup( uint32_t eventid )
 {
-    bool ret = true;
-
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
         return false;
 
@@ -1130,7 +1128,6 @@ bool TraceWin::render_events_list_popup( uint32_t eventid )
         m_selected_eventid = event.id;
         m_graph_start_ts = event.ts - m_tsoffset - m_graph_length_ts / 2;
         m_do_graph_start_timestr = true;
-        ret = false;
     }
 
     label = string_format( "Set Time Offset to %s", ts_to_timestr( event.ts ).c_str() );
@@ -1147,7 +1144,6 @@ bool TraceWin::render_events_list_popup( uint32_t eventid )
     {
         snprintf_safe( m_event_filter_buf, "$pid == %d", event.pid );
         m_do_event_filter = true;
-        ret = false;
     }
 
     label = string_format( "Filter '%s' events", event.name );
@@ -1155,7 +1151,6 @@ bool TraceWin::render_events_list_popup( uint32_t eventid )
     {
         snprintf_safe( m_event_filter_buf, "$name == %s", event.name );
         m_do_event_filter = true;
-        ret = false;
     }
 
     if ( !m_filtered_events.empty() && ImGui::MenuItem( "Clear Filter" ) )
@@ -1165,7 +1160,7 @@ bool TraceWin::render_events_list_popup( uint32_t eventid )
     }
 
     ImGui::EndPopup();
-    return ret;
+    return true;
 }
 
 std::string get_event_field_str( const trace_event_t &event, const char *eqstr, char sep )
@@ -1339,6 +1334,8 @@ void TraceWin::render_events_list( CIniFile &inifile )
             m_eventlist_end_eventid = end_idx;
         }
 
+        bool popup_shown = false;
+
         for ( uint32_t i = start_idx; i < end_idx; i++ )
         {
             int colors_pushed = 0;
@@ -1402,6 +1399,8 @@ void TraceWin::render_events_list( CIniFile &inifile )
                 if ( !TraceWin::render_events_list_popup( eventid ) )
                     m_events_list_popup_eventid = ( uint32_t )-1;
                 imgui_push_smallfont();
+
+                popup_shown = true;
             }
 
             ImGui::NextColumn();
@@ -1429,6 +1428,14 @@ void TraceWin::render_events_list( CIniFile &inifile )
             ImGui::PopStyleColor( colors_pushed );
 
             ImGui::PopID();
+        }
+
+        if ( !popup_shown )
+        {
+            // When we modify a filter via the context menu, it can hide the item
+            //  we right clicked on which means render_events_list_popup() won't get
+            //  called. Check for that case here.
+            m_events_list_popup_eventid = ( uint32_t )-1;
         }
 
         ImGui::Columns( 1 );
