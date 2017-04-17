@@ -262,6 +262,62 @@ bool imgui_key_pressed( ImGuiKey key )
     return ImGui::IsKeyPressed( ImGui::GetKeyIndex( key ) );
 }
 
+void imgui_multicolored_text( const char *text, const ImVec4 &color0 )
+{
+    uint32_t count = 0;
+    const char *start = text;
+
+    ImGui::PushStyleColor( ImGuiCol_Text, color0 );
+
+    for ( ; start[ 0 ]; start++ )
+    {
+        bool is_lf = ( *start == '\n' );
+        bool is_esc = ( *start == '\033' );
+
+        if ( is_lf || is_esc )
+        {
+            if ( start > text )
+            {
+                if ( count++ )
+                    ImGui::SameLine( 0.0f, imgui_scale( 2.0f ) );
+                ImGui::TextUnformatted( text, start );
+            }
+
+            if ( is_lf )
+            {
+                // Skip doing the ImGui::SameLine() call next time.
+                count = 0;
+            }
+            else
+            {
+                ImVec4 color;
+                uint8_t *rgba = ( uint8_t * )( start + 1 );
+
+                color.x = rgba[ 0 ] * ( 1.0f / 255.0f );
+                color.y = rgba[ 1 ] * ( 1.0f / 255.0f );
+                color.z = rgba[ 2 ] * ( 1.0f / 255.0f );
+                color.w = rgba[ 3 ] * ( 1.0f / 255.0f );
+
+                ImGui::PopStyleColor( 1 );
+                ImGui::PushStyleColor( ImGuiCol_Text, color );
+
+                start += 4;
+            }
+
+            text = start + 1;
+        }
+    }
+
+    if ( start > text )
+    {
+        if ( count )
+            ImGui::SameLine( 0.0f, imgui_scale( 2.0f ) );
+        ImGui::TextUnformatted( text, start );
+    }
+
+    ImGui::PopStyleColor( 1 );
+}
+
 void imgui_load_fonts()
 {
 #include "proggy_tiny.cpp"

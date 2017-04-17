@@ -87,6 +87,60 @@ ImU32 imgui_vec4_to_u32( const ImVec4 &vec );
 
 void imgui_text_bg( const char *str, const ImVec4 &bgcolor );
 
+/*
+  Print color marked up text. Ie:
+
+    multi_text_color tcolor_blah;
+    multi_text_color tcolor_def( ImGui::GetColorVec4( ImGuiCol_Text ) );
+    multi_text_color tcolor_red( ImVec4( 1, 0, 0, 1 ) );
+    multi_text_color tcolor_yellow( ImVec4( 1, 1, 0, 1 ) );
+    multi_text_color tcolor_pink( ImVec4( 1, 0, 1, 1 ) );
+
+    std::string text = "This is some ";
+    text += tcolor_yellow.m_str( "yellow text colored text\ntext" );
+    text += tcolor_red.m_str( "more\n" );
+    text += tcolor_pink.m_str( "and some more here" );
+    text += tcolor_blah.m_str( ImVec4( 0, 1, 1, 1 ), "\nblah" );
+    text += tcolor_def.c_str();
+    text += "and done";
+
+    imgui_multicolored_text( text.c_str() );
+*/
+class multi_text_color
+{
+public:
+    multi_text_color() {}
+    multi_text_color( const ImVec4 &color ) { set( color ); }
+    ~multi_text_color() {}
+
+    const char *c_str() { return buf; }
+
+    const std::string m_str( const char *str )
+    {
+        return std::string( buf ) + str;
+    }
+
+    const std::string m_str( const ImVec4 &color, const char *str )
+    {
+        set( color );
+        return m_str( str );
+    }
+
+    void set( const ImVec4 &color )
+    {
+        buf[ 0 ] = '\033';
+        buf[ 1 ] = std::max< uint8_t >( 1, color.x * 255.0f );
+        buf[ 2 ] = std::max< uint8_t >( 1, color.y * 255.0f );
+        buf[ 3 ] = std::max< uint8_t >( 1, color.z * 255.0f );
+        buf[ 4 ] = std::max< uint8_t >( 1, color.w * 255.0f );
+        buf[ 5 ] = 0;
+    }
+
+public:
+    char buf[ 6 ];
+};
+void imgui_multicolored_text( const char *text, const ImVec4 &color0 = ImGui::GetColorVec4( ImGuiCol_Text ) );
+
 bool imgui_push_smallfont();
 void imgui_pop_smallfont();
 
