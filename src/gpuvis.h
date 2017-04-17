@@ -183,28 +183,14 @@ public:
     ~TraceEvents() {}
 
 public:
-    // Return vec of locations for an event name. Ie: "drm_handle_vblank"
-    const std::vector< uint32_t > *get_event_locs( const char *name )
-    {
-        return m_event_locations.get_locations_str( name );
-    }
-
+    // Return vec of locations for a tdop expression. Ie: "$name=drm_handle_vblank"
+    const std::vector< uint32_t > *get_tdopexpr_locs( const char *name );
     // Return vec of locations for a cmdline. Ie: "SkinningApp-1536"
-    const std::vector< uint32_t > *get_comm_locs( const char *name )
-    {
-        return m_comm_locations.get_locations_str( name );
-    }
-
-    const std::vector< uint32_t > *get_timeline_locs( const char *name )
-    {
-        return m_timeline_locations.get_locations_str( name );
-    }
-
+    const std::vector< uint32_t > *get_comm_locs( const char *name );
+    // "gfx", "sdma0", etc.
+    const std::vector< uint32_t > *get_timeline_locs( const char *name );
     // Pass a string like "gfx_249_91446"
-    const std::vector< uint32_t > *get_gfxcontext_locs( const char *name )
-    {
-        return m_gfxcontext_locations.get_locations_str( name );
-    }
+    const std::vector< uint32_t > *get_gfxcontext_locs( const char *name );
 
 public:
     int64_t m_ts_min = 0;
@@ -218,8 +204,9 @@ public:
     trace_info_t m_trace_info;
     std::vector< trace_event_t > m_events;
 
-    // Map of event name hashval to array of event locations.
-    TraceLocations m_event_locations;
+    // Map of vblanks hashval to array of event locations.
+    TraceLocations m_tdopexpr_locations;
+    std::set< uint32_t > m_failed_commands;
 
     // Map of comm hashval to array of event locations.
     TraceLocations m_comm_locations;

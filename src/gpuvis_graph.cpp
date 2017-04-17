@@ -704,7 +704,7 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
     }
 
     // Draw vblank events on every graph.
-    const std::vector< uint32_t > *vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
+    const std::vector< uint32_t > *vblank_locs = m_trace_events->get_tdopexpr_locs( "$name=drm_vblank_event" );
 
     if ( vblank_locs )
     {
@@ -904,9 +904,7 @@ void TraceWin::render_process_graph()
 
         plocs = m_trace_events->get_comm_locs( comm_str );
         if ( !plocs )
-            plocs = m_trace_events->get_event_locs( comm_str );
-        if ( !plocs )
-            plocs = m_trace_events->get_gfxcontext_locs( comm_str );
+            plocs = m_trace_events->get_tdopexpr_locs( comm_str );
         if ( !plocs )
         {
             int rows = 4;
@@ -1205,7 +1203,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
 {
     std::string time_buf = "Time: " + ts_to_timestr( mouse_ts, m_tsoffset );
 
-    const std::vector< uint32_t > *vblank_locs = m_trace_events->get_event_locs( "drm_vblank_event" );
+    const std::vector< uint32_t > *vblank_locs = m_trace_events->get_tdopexpr_locs( "$name=drm_vblank_event" );
     if ( vblank_locs )
     {
         int64_t prev_vblank_ts = INT64_MAX;

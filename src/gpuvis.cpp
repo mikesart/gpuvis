@@ -319,7 +319,8 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
         event.flags |= TRACE_FLAG_IS_VBLANK;
 
     // Add this event name to our event locations map
-    m_trace_events->m_event_locations.add_location_str( event.name, event.id );
+    if ( event.is_vblank() )
+        m_trace_events->m_tdopexpr_locations.add_location_str( "$name=drm_vblank_event", event.id );
 
     // Add this event comm to our comm locations map
     m_trace_events->m_comm_locations.add_location_str( event.comm, event.id );
@@ -530,7 +531,7 @@ void TraceLoader::render()
  */
 void TraceWin::render_time_offset_button_init( TraceEvents &trace_events )
 {
-    const std::vector< uint32_t > *vblank_locs = trace_events.get_event_locs( "drm_vblank_event" );
+    const std::vector< uint32_t > *vblank_locs = trace_events.get_tdopexpr_locs( "$name=drm_vblank_event" );
 
     if ( vblank_locs )
     {
@@ -565,15 +566,17 @@ std::string TraceWin::ts_to_timestr( int64_t event_ts, int64_t tsoffset, int pre
 
 void TraceWin::init_graph_rows_str()
 {
-    m_graph_rows_str = "# comm and event names to graph\n\n";
-    m_graph_rows_str += "# fence_signaled\n";
-    m_graph_rows_str += "# amd_sched_job\n\n";
-
-    m_graph_rows_str += "# show all items in gfx timeline\n";
+    m_graph_rows_str = "# comm and filter expressions to graph\n";
+    m_graph_rows_str += "# Show items in gfx/sdma timelines\n";
     m_graph_rows_str += "gfx\n";
     m_graph_rows_str += "sdma0\n";
     m_graph_rows_str += "sdma1\n";
-    m_graph_rows_str += "gfx hw\n";
+    m_graph_rows_str += "gfx hw\n\n";
+
+    m_graph_rows_str += "# $name=fence_signaled\n";
+    m_graph_rows_str += "# $id > 100 && $id < 200\n\n";
+
+    m_graph_rows_str += "# comms\n#\n";
 
     for ( auto item : m_trace_events->m_comm_locations.m_locations )
     {
@@ -594,7 +597,7 @@ void TraceWin::init_graph_rows_str()
 
     for ( const comm_t &item : m_comm_info )
     {
-        m_graph_rows_str += string_format( "# %lu events:\n%s\n",
+        m_graph_rows_str += string_format( "#   %lu events:\n%s\n",
                                            item.event_count, item.comm );
     }
 
@@ -749,6 +752,72 @@ const char *filter_get_keyval_func( const trace_event_t *event, const char *name
     return "";
 }
 
+const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name )
+{
+    std::vector< uint32_t > *plocs;
+    uint32_t hashval = fnv_hashstr32( name );
+
+    // Try to find whatever our name hashed to. Name should be something like:
+    //   $name=drm_vblank_event
+    plocs = m_tdopexpr_locations.get_locations_u32( hashval );
+    if ( plocs )
+        return plocs;
+
+    // Not found - check if we've tried and failed with this name before.
+    if ( m_failed_commands.find( hashval ) != m_failed_commands.end() )
+        return NULL;
+
+    // If the name has a tdop expression variable prefix, try compiling it
+    if ( strchr( name, '$' ) )
+    {
+        std::string errstr;
+        tdop_get_key_func get_key_func = std::bind( filter_get_key_func, &m_strpool, _1, _2 );
+        class TdopExpr *tdop_expr = tdopexpr_compile( name, get_key_func, errstr );
+
+        if ( !tdop_expr )
+        {
+            logf( "[Error] compiling '%s': %s", name, errstr.c_str() );
+        }
+        else
+        {
+            for ( trace_event_t &event : m_events )
+            {
+                const char *ret;
+                tdop_get_keyval_func get_keyval_func = std::bind( filter_get_keyval_func, &event, _1, _2 );
+
+                ret = tdopexpr_exec( tdop_expr, get_keyval_func );
+                if ( ret[ 0 ] )
+                    m_tdopexpr_locations.add_location_u32( hashval, event.id );
+            }
+
+            tdopexpr_delete( tdop_expr );
+        }
+    }
+
+    // Try to find this name/expression again and add to failed list if we miss again
+    plocs = m_tdopexpr_locations.get_locations_u32( hashval );
+    if ( !plocs )
+        m_failed_commands.insert( hashval );
+
+    return plocs;
+}
+
+const std::vector< uint32_t > *TraceEvents::get_comm_locs( const char *name )
+{
+    return m_comm_locations.get_locations_str( name );
+}
+
+const std::vector< uint32_t > *TraceEvents::get_timeline_locs( const char *name )
+{
+    return m_timeline_locations.get_locations_str( name );
+}
+
+// Pass a string like "gfx_249_91446"
+const std::vector< uint32_t > *TraceEvents::get_gfxcontext_locs( const char *name )
+{
+    return m_gfxcontext_locations.get_locations_str( name );
+}
+
 bool TraceWin::render()
 {
     ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
@@ -824,7 +893,7 @@ bool TraceWin::render()
                 init_graph_rows_str();
 
             m_graph_rows_str.reserve( 8192 );
-            ImGui::InputTextMultiline( "##GraphRows", &m_graph_rows_str[ 0 ], m_graph_rows_str.capacity(),
+            ImGui::InputTextMultiline( "##GraphRowsText", &m_graph_rows_str[ 0 ], m_graph_rows_str.capacity(),
                                        ImVec2( -1.0f, ImGui::GetTextLineHeight() * 16 ) );
         }
         ImGui::Unindent();
