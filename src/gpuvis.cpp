@@ -1133,6 +1133,15 @@ bool TraceWin::render_events_list_popup( uint32_t eventid )
         ret = false;
     }
 
+    label = string_format( "Set Time Offset to %s", ts_to_timestr( event.ts ).c_str() );
+    if ( ImGui::MenuItem( label.c_str() ) )
+    {
+        m_tsoffset = event.ts;
+        strcpy_safe( m_timeoffset_buf, ts_to_timestr( m_tsoffset ) );
+    }
+
+    ImGui::Separator();
+
     label = string_format( "Filter pid %d events...", event.pid );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
@@ -1148,6 +1157,9 @@ bool TraceWin::render_events_list_popup( uint32_t eventid )
         m_do_event_filter = true;
         ret = false;
     }
+
+    if ( !m_filtered_events.empty() && ImGui::MenuItem( "Clear Filter" ) )
+            m_filtered_events.clear();
 
     ImGui::EndPopup();
     return ret;

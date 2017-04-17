@@ -30,14 +30,6 @@
 #include "gpuvis_utils.h"
 #include "stlini.h"
 
-using std::placeholders::_1;
-using std::placeholders::_2;
-using std::placeholders::_3;
-using std::placeholders::_4;
-using std::placeholders::_5;
-
-#define MSECS_PER_SEC		1000000LL
-
 class StrPool
 {
 public:
