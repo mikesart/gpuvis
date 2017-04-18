@@ -436,6 +436,7 @@ namespace ImGui
     // Clipping
     IMGUI_API void          PushClipRect(const ImVec2& clip_rect_min, const ImVec2& clip_rect_max, bool intersect_with_current_clip_rect);
     IMGUI_API void          PopClipRect();
+    IMGUI_API void          PushColumnClipRect(int column_index = -1);
 
     // Utilities
     IMGUI_API bool          IsItemHovered();                                                    // was the last item hovered by mouse?

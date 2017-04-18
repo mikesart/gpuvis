@@ -690,7 +690,6 @@ static void             LoadIniSettingsFromDisk(const char* ini_filename);
 static void             SaveIniSettingsToDisk(const char* ini_filename);
 static void             MarkIniSettingsDirty();
 
-static void             PushColumnClipRect(int column_index = -1);
 static ImRect           GetVisibleRect();
 
 static bool             BeginPopupEx(const char* str_id, ImGuiWindowFlags extra_flags);
@@ -9475,7 +9474,7 @@ float ImGui::GetColumnWidth(int column_index)
     return w;
 }
 
-static void PushColumnClipRect(int column_index)
+void ImGui::PushColumnClipRect(int column_index)
 {
     ImGuiWindow* window = ImGui::GetCurrentWindow();
     if (column_index < 0)
