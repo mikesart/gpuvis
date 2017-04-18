@@ -457,7 +457,6 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
                                     get_event( event1.id_start ) : event1;
 
                         gi.hovered_graph_event = event0.id;
-
                         hov_rect = { xleft, y, x2, y + row_h };
                     }
                 }
@@ -526,12 +525,21 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
                 float dx = x2 - xleft;
                 float y = gi.y + ( event1.graph_row_id % timeline_row_count ) * text_h;
 
-                if ( !is_valid_id( gi.hovered_graph_event ) &&
-                     gi.mouse_pos_in_rect( xleft, x2 - xleft, y, text_h ) )
+                if ( is_valid_id( gi.hovered_graph_event ) )
                 {
+                    // If the hovered event from the 'gfx hw' timeline is this one
+                    //  highlight it.
+                    if ( gi.hovered_graph_event == event0.id )
+                    {
+                        hovered = true;
+                        hov_rect = { x0, y, x2, y + text_h };
+                    }
+                }
+                else if ( gi.mouse_pos_in_rect( xleft, x2 - xleft, y, text_h ) )
+                {
+                    // Mouse is hovering over this event.
                     hovered = true;
                     gi.hovered_graph_event = event0.id;
-
                     hov_rect = { x0, y, x2, y + text_h };
                 }
 
@@ -1029,14 +1037,33 @@ void TraceWin::render_process_graph()
             if ( !gfx_timeline_zoom )
             {
                 // Go through and render all the rows
-                for ( const row_info_t &ri : row_info )
+                for ( size_t i = 0; i < row_info.size(); i++ )
                 {
+                    const row_info_t &ri = row_info[ i ];
+
+                    // Draw the gfx row last so we can select things based on hovering other timelines
+                    if ( i == timeline_gfx_index )
+                        continue;
+
                     gi.is_timeline = ri.is_timeline;
                     gi.timeline_render_user = !!m_loader.get_opt( OPT_TimelineRenderUserSpace );
 
                     gi.set_pos_y( windowpos.y + ri.row_y + m_graph_start_y, ri.row_h );
 
                     //$ TODO mikesart: Check if entire row is clipped...
+                    render_graph_row( ri.comm, *ri.plocs, gi );
+                }
+
+                // Draw the gfx row now if we've got one
+                if ( is_valid_id( timeline_gfx_index ) )
+                {
+                    const row_info_t &ri = row_info[ timeline_gfx_index ];
+
+                    gi.is_timeline = ri.is_timeline;
+                    gi.timeline_render_user = !!m_loader.get_opt( OPT_TimelineRenderUserSpace );
+
+                    gi.set_pos_y( windowpos.y + ri.row_y + m_graph_start_y, ri.row_h );
+
                     render_graph_row( ri.comm, *ri.plocs, gi );
                 }
             }
