@@ -264,19 +264,8 @@ public:
 class TraceWin
 {
 public:
-    TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string &title ) : m_loader( loader )
-    {
-        // Note that m_trace_events is possibly being loaded in
-        //  a background thread at this moment, so be sure to check
-        //  m_eventsloaded before accessing it...
-        m_trace_events = trace_events;
-        m_title = title;
-
-        strcpy_safe( m_timegoto_buf, "0.0" );
-        strcpy_safe( m_timeoffset_buf, "0.0" );
-    }
-
-    ~TraceWin() {}
+    TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string &title );
+    ~TraceWin();
 
 public:
     bool render();
@@ -399,7 +388,6 @@ public:
     int m_selected_color = 0;
     ColorPicker m_colorpicker;
 
-    bool m_graph_only_filtered = false;
     std::vector< uint32_t > m_filtered_events;
     std::string m_filtered_events_str;
 
@@ -471,6 +459,7 @@ public:
         OPT_TimelineLabels,
         OPT_TimelineEvents,
         OPT_TimelineRenderUserSpace,
+        OPT_GraphOnlyFiltered,
         OPT_Fullscreen,
         OPT_ShowEventList,
         OPT_SyncEventListToGraph,
@@ -511,6 +500,8 @@ public:
 
         return ( val <= OPT_RenderCrtc9 ) ? m_options[ val ].val : 0;
     }
+
+    std::string m_event_filter_str;
 
     std::unordered_map< uint32_t, uint32_t > m_timeline_info;
     uint32_t &get_timeline_row_id( const char *timeline )

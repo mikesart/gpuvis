@@ -441,6 +441,8 @@ void TraceLoader::init()
     m_options[ OPT_TimelineEvents ] = { "Show timeline events", "timeline_events", true, 0, 1 };
     m_options[ OPT_TimelineRenderUserSpace ] = { "Show timeline userspace", "timeline_userspace", false, 0, 1 };
 
+    m_options[ OPT_GraphOnlyFiltered ] = { "Graph only filtered events", "graph_only_filtered", 0, 0, 1 };
+
     m_options[ OPT_ShowEventList ] = { "Show Event List", "show_event_list", true, 0, 1 };
     m_options[ OPT_SyncEventListToGraph ] = { "Sync Event List to graph mouse location", "sync_eventlist_to_graph", true, 0, 1 };
     m_options[ OPT_ShowColorPicker ] = { "Show graph color picker", "show_color_picker", false, 0, 1 };
@@ -818,6 +820,34 @@ const std::vector< uint32_t > *TraceEvents::get_gfxcontext_locs( const char *nam
     return m_gfxcontext_locations.get_locations_str( name );
 }
 
+TraceWin::TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string &title ) : m_loader( loader )
+{
+    // Note that m_trace_events is possibly being loaded in
+    //  a background thread at this moment, so be sure to check
+    //  m_eventsloaded before accessing it...
+    m_trace_events = trace_events;
+    m_title = title;
+
+    strcpy_safe( m_timegoto_buf, "0.0" );
+    strcpy_safe( m_timeoffset_buf, "0.0" );
+
+    std::string section = "imguiwin_" + title;
+    std::string event_filter = m_loader.m_inifile.GetStr( "event_filter_buf", "", section.c_str() );
+
+    if ( !event_filter.empty() )
+    {
+        strcpy_safe( m_event_filter_buf, event_filter.c_str() );
+        m_do_event_filter = true;
+    }
+}
+
+TraceWin::~TraceWin()
+{
+    std::string section = "imguiwin_" + m_title;
+
+    m_loader.m_inifile.PutStr( "event_filter_buf", m_event_filter_buf, section.c_str() );
+}
+
 bool TraceWin::render()
 {
     ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
@@ -1035,7 +1065,9 @@ bool TraceWin::render()
             std::string label = string_format( "Graph only filtered (%lu events)", m_filtered_events.size() );
 
             ImGui::SameLine();
-            ImGui::Checkbox( label.c_str(), &m_graph_only_filtered );
+            bool val = m_loader.m_options[ TraceLoader::OPT_GraphOnlyFiltered ].val;
+            if ( ImGui::Checkbox( label.c_str(), &val ) )
+                m_loader.m_options[ TraceLoader::OPT_GraphOnlyFiltered ].val = val;
         }
 
         render_events_list( m_loader.m_inifile );

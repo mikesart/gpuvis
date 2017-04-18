@@ -1008,7 +1008,9 @@ void TraceWin::render_process_graph()
                      m_graph_start_ts + m_tsoffset, m_graph_length_ts );
 
             // Check if we're supposed to render filtered events only
-            gi.graph_only_filtered = m_graph_only_filtered && !m_filtered_events.empty();
+            gi.graph_only_filtered =
+                    m_loader.m_options[ TraceLoader::OPT_GraphOnlyFiltered ].val &&
+                    !m_filtered_events.empty();
 
             // Initialize eventstart / end
             gi.eventstart = ts_to_eventid( gi.ts0 );
