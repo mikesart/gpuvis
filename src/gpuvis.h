@@ -412,6 +412,8 @@ public:
 
     const int64_t g_min_graph_length = 100;
     const int64_t g_max_graph_length = 5000 * MSECS_PER_SEC;
+
+    multi_text_color m_col_yellow{ ImVec4( 1, 1, 0, 1 ) };
 };
 
 class TraceLoader

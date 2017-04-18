@@ -42,6 +42,8 @@ static std::vector< char * > g_log;
 static std::vector< char * > g_thread_log;
 static SDL_mutex *g_mutex = nullptr;
 
+static std::string g_imgui_tooltip;
+
 /*
  * log routines
  */
@@ -231,6 +233,30 @@ void imgui_text_bg( const char *str, const ImVec4 &bgcolor )
     ImGui::PopStyleColor();
 }
 
+void imgui_set_tooltip( const std::string &str )
+{
+    g_imgui_tooltip = str;
+}
+
+void imgui_add_tooltip( const std::string &str )
+{
+    g_imgui_tooltip += str;
+}
+
+void imgui_render_tooltip()
+{
+    if ( !g_imgui_tooltip.empty() )
+    {
+        imgui_push_smallfont();
+        ImGui::BeginTooltip();
+        imgui_multicolored_text( g_imgui_tooltip.c_str() );
+        ImGui::EndTooltip();
+        imgui_pop_smallfont();
+
+        g_imgui_tooltip.clear();
+    }
+}
+
 bool imgui_push_smallfont()
 {
     ImFontAtlas *atlas = ImGui::GetIO().Fonts;
@@ -264,7 +290,6 @@ bool imgui_key_pressed( ImGuiKey key )
 
 void imgui_multicolored_text( const char *text, const ImVec4 &color0 )
 {
-    uint32_t count = 0;
     const char *start = text;
 
     ImGui::PushStyleColor( ImGuiCol_Text, color0 );
@@ -278,15 +303,13 @@ void imgui_multicolored_text( const char *text, const ImVec4 &color0 )
         {
             if ( start > text )
             {
-                if ( count++ )
-                    ImGui::SameLine( 0.0f, imgui_scale( 2.0f ) );
+                ImGui::SameLine( 0.0f, imgui_scale( 2.0f ) );
                 ImGui::TextUnformatted( text, start );
             }
 
             if ( is_lf )
             {
-                // Skip doing the ImGui::SameLine() call next time.
-                count = 0;
+                ImGui::NewLine();
             }
             else
             {
@@ -310,8 +333,7 @@ void imgui_multicolored_text( const char *text, const ImVec4 &color0 )
 
     if ( start > text )
     {
-        if ( count )
-            ImGui::SameLine( 0.0f, imgui_scale( 2.0f ) );
+        ImGui::SameLine( 0.0f, imgui_scale( 2.0f ) );
         ImGui::TextUnformatted( text, start );
     }
 

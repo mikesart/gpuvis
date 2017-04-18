@@ -1162,7 +1162,7 @@ void TraceWin::handle_mouse_graph_captured( graph_info_t &gi )
             std::string time_buf1 = ts_to_timestr( event_ts1 - event_ts0 );
 
             // Show tooltip with starting time and length of selected area.
-            ImGui::SetTooltip( "%s (%s ms)", time_buf0.c_str(), time_buf1.c_str() );
+            imgui_set_tooltip( string_format( "%s (%s ms)", time_buf0.c_str(), time_buf1.c_str() ) );
         }
         else
         {
@@ -1305,14 +1305,13 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
             if ( field )
             {
-                time_buf += " \"";
-                time_buf += field->value;
-                time_buf += "\"";
+                time_buf += " ";
+                time_buf += m_col_yellow.m_str( field->value );
             }
         }
     }
 
-    ImGui::SetTooltip( "%s", time_buf.c_str() );
+    imgui_set_tooltip( time_buf );
 }
 
 void TraceWin::handle_mouse_graph( graph_info_t &gi )

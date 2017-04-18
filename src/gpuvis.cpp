@@ -1006,10 +1006,11 @@ bool TraceWin::render()
         {
             std::string tooltip;
 
-            tooltip += "Event Filter\n\n";
+            tooltip += m_col_yellow.m_str( "Event Filter\n\n" );
             tooltip += "Vars: Any field in Info column plus:\n";
             tooltip += "      $name, $comm, $user_comm, $id, $pid, $ts\n";
             tooltip += "Operators: &&, ||, !=, =, >, >=, <, <=, =~\n\n";
+
             tooltip += "Examples:\n";
             tooltip += "  $pid = 4615\n";
             tooltip += "  $ts >= 11.1 && $ts < 12.5\n";
@@ -1017,7 +1018,7 @@ bool TraceWin::render()
             tooltip += "  $buf =~ \"[Compositor] Warp\"\n";
             tooltip += "  ( $timeline = gfx ) && ( $id < 10 || $id > 100 )";
 
-            ImGui::SetTooltip( "%s", tooltip.c_str() );
+            imgui_set_tooltip( tooltip );
         }
 
         ImGui::SameLine();
@@ -1383,8 +1384,8 @@ void TraceWin::render_events_list( CIniFile &inifile )
                     // Otherwise show a tooltip.
                     std::string fieldstr = get_event_field_str( event, ": ", '\n' );
 
-                    ImGui::SetTooltip( "Id: %u\nTime: %s\nComm: %s\n%s",
-                                       event.id, ts_str.c_str(), event.comm, fieldstr.c_str() );
+                    imgui_set_tooltip( string_format( "Id: %u\nTime: %s\nComm: %s\n%s",
+                                       event.id, ts_str.c_str(), event.comm, fieldstr.c_str() ) );
                 }
             }
 
@@ -2078,6 +2079,8 @@ int main( int argc, char **argv )
         glViewport( 0, 0, ( int )size.x, ( int )size.y );
         glClearColor( color.x, color.y, color.z, color.w );
         glClear( GL_COLOR_BUFFER_BIT );
+
+        imgui_render_tooltip();
 
         ImGui::Render();
 

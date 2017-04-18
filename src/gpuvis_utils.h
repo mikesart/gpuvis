@@ -87,25 +87,7 @@ ImU32 imgui_vec4_to_u32( const ImVec4 &vec );
 
 void imgui_text_bg( const char *str, const ImVec4 &bgcolor );
 
-/*
-  Print color marked up text. Ie:
-
-    multi_text_color tcolor_blah;
-    multi_text_color tcolor_def( ImGui::GetColorVec4( ImGuiCol_Text ) );
-    multi_text_color tcolor_red( ImVec4( 1, 0, 0, 1 ) );
-    multi_text_color tcolor_yellow( ImVec4( 1, 1, 0, 1 ) );
-    multi_text_color tcolor_pink( ImVec4( 1, 0, 1, 1 ) );
-
-    std::string text = "This is some ";
-    text += tcolor_yellow.m_str( "yellow text colored text\ntext" );
-    text += tcolor_red.m_str( "more\n" );
-    text += tcolor_pink.m_str( "and some more here" );
-    text += tcolor_blah.m_str( ImVec4( 0, 1, 1, 1 ), "\nblah" );
-    text += tcolor_def.c_str();
-    text += "and done";
-
-    imgui_multicolored_text( text.c_str() );
-*/
+// Print color marked up text.
 class multi_text_color
 {
 public:
@@ -117,7 +99,9 @@ public:
 
     const std::string m_str( const char *str )
     {
-        return std::string( buf ) + str;
+        multi_text_color col_def( ImGui::GetColorVec4( ImGuiCol_Text ) );
+
+        return std::string( buf ) + str + col_def.c_str();
     }
 
     const std::string m_str( const ImVec4 &color, const char *str )
@@ -140,6 +124,10 @@ public:
     char buf[ 6 ];
 };
 void imgui_multicolored_text( const char *text, const ImVec4 &color0 = ImGui::GetColorVec4( ImGuiCol_Text ) );
+
+void imgui_set_tooltip( const std::string &str );
+void imgui_add_tooltip( const std::string &str );
+void imgui_render_tooltip();
 
 bool imgui_push_smallfont();
 void imgui_pop_smallfont();
