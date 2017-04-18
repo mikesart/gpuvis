@@ -430,8 +430,9 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
 
                     last_fence_signaled_x = x2;
 
-                    if ( gi.graph_only_filtered && event1.is_filtered_out && event2.is_filtered_out )
-                        continue;
+                    // Pierre-Loup wants to alway show all events in 'gfx hw' timeline
+                    // if ( gi.graph_only_filtered && event1.is_filtered_out && event2.is_filtered_out )
+                    //    continue;
 
                     uint32_t hashval = fnv_hashstr32( event1.user_comm );
                     float h = ( hashval & 0xffffff ) / 16777215.0f;
@@ -497,6 +498,9 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
             if ( event0.ts < gi.ts1 )
             {
                 float x2 = gi.ts_to_screenx( event.ts );
+
+                // Pierre-Loup wants to alway show all events in 'gfx hw' timeline
+#if 0
                 bool is_filtered_out = ( gi.graph_only_filtered &&
                                          event1.is_filtered_out &&
                                          event.is_filtered_out );
@@ -506,6 +510,7 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
                     last_fence_signaled_x = x2;
                     continue;
                 }
+#endif
 
                 bool hovered = false;
                 float x0 = gi.ts_to_screenx( event0.ts );
