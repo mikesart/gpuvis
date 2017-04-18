@@ -449,7 +449,10 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
                     if ( ( gi.hovered_graph_event == ( uint32_t )-1 ) &&
                          gi.mouse_pos_in_rect( xleft, x2 - xleft, y, row_h ) )
                     {
-                        gi.hovered_graph_event = event1.id;
+                        const trace_event_t &event0 = ( event1.id_start != ( uint32_t )-1 ) ?
+                                    get_event( event1.id_start ) : event1;
+
+                        gi.hovered_graph_event = event0.id;
 
                         hov_rect = { xleft, y, x2, y + row_h };
                     }
@@ -523,7 +526,7 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
                      gi.mouse_pos_in_rect( xleft, x2 - xleft, y, text_h ) )
                 {
                     hovered = true;
-                    gi.hovered_graph_event = event1.id;
+                    gi.hovered_graph_event = event0.id;
 
                     hov_rect = { x0, y, x2, y + text_h };
                 }
