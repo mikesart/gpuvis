@@ -461,10 +461,10 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
     imgui_push_smallfont();
 
     ImRect hov_rect;
-    float last_fence_signaled_x = -1.0f;
     ImU32 col_hwrunning = col_get( col_BarHwRunning );
     ImU32 col_userspace = col_get( col_BarUserspace );
     ImU32 col_hwqueue = col_get( col_BarHwQueue );
+    ImU32 color_1event = col_get( col_1Event );
     float text_h = ImGui::GetTextLineHeightWithSpacing();
 
     uint32_t timeline_row_count = gi.h / text_h;
@@ -476,112 +476,90 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
           idx < locs.size();
           idx++ )
     {
-        uint32_t eventid = locs[ idx ];
-        const trace_event_t &event = get_event( eventid );
+        const trace_event_t &fence_signaled = get_event( locs[ idx ] );
 
-        if ( event.is_fence_signaled() && is_valid_id( event.id_start ) )
+        if ( fence_signaled.is_fence_signaled() &&
+             is_valid_id( fence_signaled.id_start ) )
         {
-            const trace_event_t &event1 = get_event( event.id_start );
-            const trace_event_t &event0 = is_valid_id( event1.id_start ) ?
-                        get_event( event1.id_start ) : event1;
+            const trace_event_t &sched_run_job = get_event( fence_signaled.id_start );
+            const trace_event_t &cs_ioctl = is_valid_id( sched_run_job.id_start ) ?
+                        get_event( sched_run_job.id_start ) : sched_run_job;
 
             //$ TODO mikesart: can we bail out of this loop at some point if
             //  our start times for all the graphs are > gi.ts1?
-            if ( event0.ts < gi.ts1 )
+            if ( cs_ioctl.ts < gi.ts1 )
             {
-                float x2 = gi.ts_to_screenx( event.ts );
-
-#if 0
-                // Pierre-Loup wants to alway show all events in 'gfx hw' timeline
-                bool is_filtered_out = ( gi.graph_only_filtered &&
-                                         event1.is_filtered_out &&
-                                         event.is_filtered_out );
-
-                if ( is_filtered_out )
-                {
-                    last_fence_signaled_x = x2;
-                    continue;
-                }
-#endif
-
                 bool hovered = false;
-                float x0 = gi.ts_to_screenx( event0.ts );
-                float x1 = gi.ts_to_screenx( event1.ts );
-                float xleft = gi.timeline_render_user ? x0 : x1;
-                float dx = x2 - xleft;
-                float y = gi.y + ( event1.graph_row_id % timeline_row_count ) * text_h;
+                float y = gi.y + ( sched_run_job.graph_row_id % timeline_row_count ) * text_h;
 
-                if ( is_valid_id( gi.hovered_graph_event ) )
+                // amdgpu_cs_ioctl  amdgpu_sched_run_job   |   fence_signaled
+                //       |-----------------|---------------|--------|
+                //       |user-->          |hwqueue-->     |hw->    |
+                float x_user_start = gi.ts_to_screenx( cs_ioctl.ts );
+                float x_hwqueue_start = gi.ts_to_screenx( sched_run_job.ts );
+                float x_hwqueue_end = gi.ts_to_screenx( fence_signaled.ts - fence_signaled.duration );
+                float x_hw_end = gi.ts_to_screenx( fence_signaled.ts );
+                float xleft = gi.timeline_render_user ? x_user_start : x_hwqueue_start;
+
+                if ( ( gi.hovered_graph_event == fence_signaled.id ) ||
+                    gi.mouse_pos_in_rect( xleft, x_hw_end - xleft, y, text_h ) )
                 {
-                    // If the hovered event from the 'gfx hw' timeline is this one
-                    //  highlight it.
-                    if ( gi.hovered_graph_event == event.id )
-                    {
-                        hovered = true;
-                        hov_rect = { x0, y, x2, y + text_h };
-                    }
-                }
-                else if ( gi.mouse_pos_in_rect( xleft, x2 - xleft, y, text_h ) )
-                {
-                    // Mouse is hovering over this event.
+                    // Mouse is hovering over this fence_signaled.
                     hovered = true;
-                    gi.hovered_graph_event = event0.id;
-                    hov_rect = { x0, y, x2, y + text_h };
+                    hov_rect = { x_user_start, y, x_hw_end, y + text_h };
+
+                    if ( !is_valid_id( gi.hovered_graph_event ) )
+                        gi.hovered_graph_event = fence_signaled.id;
                 }
 
-                //$ TODO mikesart: kill last_fence-signaled, can now use event.duration
-                if ( ( last_fence_signaled_x > x1 ) && ( last_fence_signaled_x < x2 ) )
-                {
-                    if ( hovered || gi.timeline_render_user )
-                        imgui_drawrect( x0, x1 - x0, y, text_h, col_userspace );
-                    imgui_drawrect( x1, last_fence_signaled_x - x1, y, text_h, col_hwqueue );
-                    imgui_drawrect( last_fence_signaled_x, x2 - last_fence_signaled_x, y, text_h, col_hwrunning );
-                }
-                else
-                {
-                    if ( hovered || gi.timeline_render_user )
-                        imgui_drawrect( x0, x1 - x0, y, text_h, col_userspace );
-                    imgui_drawrect( x1, x2 - x1, y, text_h, col_hwrunning );
-                }
+                // Draw user bar
+                if ( hovered || gi.timeline_render_user )
+                    imgui_drawrect( x_user_start, x_hwqueue_start - x_user_start, y, text_h, col_userspace );
 
-                last_fence_signaled_x = x2;
+                // Draw hw queue bar
+                if ( x_hwqueue_end != x_hwqueue_start )
+                    imgui_drawrect( x_hwqueue_start, x_hwqueue_end - x_hwqueue_start, y, text_h, col_hwqueue );
+
+                // Draw hw running bar
+                imgui_drawrect( x_hwqueue_end, x_hw_end - x_hwqueue_end, y, text_h, col_hwrunning );
 
                 if ( render_timeline_labels )
                 {
-                    const ImVec2& size = ImGui::CalcTextSize( event0.user_comm );
+                    const ImVec2& size = ImGui::CalcTextSize( cs_ioctl.user_comm );
+                    float x_text = std::max< float >( x_hwqueue_start, gi.x ) + imgui_scale( 2.0f );
 
-                    if ( dx >= size.x )
+                    if ( x_hw_end - x_text >= size.x )
                     {
-                        float x = std::max< float >( x1, gi.x ) + imgui_scale( 2.0f );
-
-                        ImGui::GetWindowDrawList()->AddText( ImVec2( x, y + imgui_scale( 1.0f ) ),
-                                                             col_get( col_BarText ), event0.user_comm );
+                        ImGui::GetWindowDrawList()->AddText( ImVec2( x_text, y + imgui_scale( 1.0f ) ),
+                                                             col_get( col_BarText ), cs_ioctl.user_comm );
                     }
                 }
 
                 if ( render_timeline_events )
                 {
-                    ImU32 color = col_get( col_1Event );
-
-                    if ( event0.id != event1.id )
+                    if ( cs_ioctl.id != sched_run_job.id )
                     {
-                        imgui_drawrect( x0, 1.0, y, text_h, color );
+                        // Draw event line for start of user
+                        imgui_drawrect( x_user_start, 1.0, y, text_h, color_1event );
 
                         // Check if we're mouse hovering starting event
                         if ( gi.mouse_over && gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + text_h )
                         {
                             // If we are hovering, and no selection bar is set, do it.
-                            if ( add_mouse_hovered_event( x0, gi, event0 ) && ( hov_rect.Min.x == FLT_MAX ) )
+                            if ( add_mouse_hovered_event( x_user_start, gi, cs_ioctl ) && ( hov_rect.Min.x == FLT_MAX ) )
                             {
-                                hov_rect = { x0, y, x2, y + text_h };
+                                hov_rect = { x_user_start, y, x_hw_end, y + text_h };
 
-                                imgui_drawrect( x0, x1 - x0, y, text_h, col_userspace );
+                                // Draw user bar for hovered events if they weren't already drawn
+                                if ( !hovered && !gi.timeline_render_user )
+                                    imgui_drawrect( x_user_start, x_hwqueue_start - x_user_start, y, text_h, col_userspace );
                             }
                         }
                     }
 
-                    imgui_drawrect( x1, 1.0, y, text_h, color );
-                    imgui_drawrect( x2, 1.0, y, text_h, color );
+                    // Draw event line for hwqueue start and hw end
+                    imgui_drawrect( x_hwqueue_start, 1.0, y, text_h, color_1event );
+                    imgui_drawrect( x_hw_end, 1.0, y, text_h, color_1event );
                 }
             }
         }
