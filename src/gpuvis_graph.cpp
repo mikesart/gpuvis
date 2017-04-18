@@ -37,8 +37,6 @@
 #include "GL/gl3w.h"
 #include "gpuvis.h"
 
-//$ TODO: Move mouse position in event list even when you're not touching an event
-
 /*
   From conversations with Andres and Pierre-Loup...
 
@@ -1332,6 +1330,8 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
         return;
     }
 
+    m_ts_marker = INT64_MIN;
+
     // Check if mouse if over our graph and we've got focus
     m_mouse_over_graph = gi.mouse_pos_in_graph() &&
                          ImGui::IsRootWindowOrAnyChildFocused();
@@ -1349,6 +1349,8 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
     // Mouse is over our active graph window
     {
         int64_t mouse_ts = gi.screenx_to_ts( gi.mouse_pos.x );
+
+        m_ts_marker = mouse_ts;
 
         // Set the tooltip
         set_mouse_graph_tooltip( gi, mouse_ts );

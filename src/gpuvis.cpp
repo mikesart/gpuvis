@@ -1425,6 +1425,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
 
         bool popup_shown = false;
 
+        int64_t ts_marker_diff = 0;
         for ( uint32_t i = start_idx; i < end_idx; i++ )
         {
             int colors_pushed = 0;
@@ -1433,6 +1434,10 @@ void TraceWin::render_events_list( CIniFile &inifile )
                         m_trace_events->m_events[ i ];
             bool selected = ( m_selected_eventid == event.id );
             std::string ts_str = ts_to_timestr( event.ts, m_tsoffset );
+
+            int64_t ts_diff = event.ts - m_ts_marker;
+            bool draw_ts_line = ( ts_marker_diff < 0 ) && ( ts_diff > 0 );
+            ts_marker_diff = ts_diff;
 
             ImGui::PushID( i );
 
@@ -1443,6 +1448,8 @@ void TraceWin::render_events_list( CIniFile &inifile )
                 ImGui::PushStyleColor( ImGuiCol_Text, col );
                 colors_pushed++;
             }
+
+            ImVec2 cursorpos = ImGui::GetCursorScreenPos();
 
             if ( ImGui::Selectable( std::to_string( event.id ).c_str(), selected, ImGuiSelectableFlags_SpanAllColumns ) )
                 m_selected_eventid = event.id;
@@ -1490,6 +1497,20 @@ void TraceWin::render_events_list( CIniFile &inifile )
                 imgui_push_smallfont();
 
                 popup_shown = true;
+            }
+
+            if ( draw_ts_line )
+            {
+                ImGui::PopClipRect();
+
+                ImU32 col = col_get( col_MousePos );
+                float max_x = ImGui::GetWindowClipRectMax().x;
+                float spacing_U = ( float )( int )( ImGui::GetStyle().ItemSpacing.y * 0.5f );
+                float pos_y = cursorpos.y - spacing_U;
+
+                ImGui::GetWindowDrawList()->AddLine( ImVec2( cursorpos.x, pos_y ), ImVec2( max_x, pos_y ), col, imgui_scale( 2.0f ) );
+
+                ImGui::PushColumnClipRect();
             }
 
             ImGui::NextColumn();
