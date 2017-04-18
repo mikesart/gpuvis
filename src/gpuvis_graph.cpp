@@ -1239,9 +1239,9 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
         }
 
         if ( prev_vblank_ts != INT64_MAX )
-            time_buf += "\nPrev vblank: " + ts_to_timestr( prev_vblank_ts, 0, 2 );
+            time_buf += "\nPrev vblank: -" + ts_to_timestr( prev_vblank_ts, 0, 2 ) + "ms";
         if ( next_vblank_ts != INT64_MAX )
-            time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 );
+            time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 ) + "ms";
     }
 
     bool sync_event_list_to_graph = m_loader.get_opt( OPT_SyncEventListToGraph ) && m_show_eventlist;
@@ -1270,52 +1270,53 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
         }
     }
 
-    if ( sync_event_list_to_graph &&
-         !m_do_gotoevent &&
-         !gi.hovered_items.empty() )
-    {
-        m_do_gotoevent = true;
-        m_goto_eventid = gi.hovered_items[ 0 ].eventid;
-    }
-
-    //$ TODO: sort hovered_items by id and display them.
     //$ TODO: faint glow over all events in the tooltip?
-    //$ TODO: add ms after times in tooltip
-
-    // Show tooltip with the closest events we could drum up
-    for ( graph_info_t::hovered_t &hov : gi.hovered_items )
+    if ( !gi.hovered_items.empty() )
     {
-        trace_event_t &event = get_event( hov.eventid );
-        std::string gfxcontext_str = get_event_gfxcontext_str( event );
-
-        time_buf += string_format( "\n%u %c%s",
-                                   hov.eventid, hov.neg ? '-' : ' ',
-                                   ts_to_timestr( hov.dist_ts ).c_str() );
-
-        if ( !event.is_ftrace_print() )
+        // Sort hovered items array by id
+        std::sort( gi.hovered_items.begin(), gi.hovered_items.end(),
+                   [=]( const graph_info_t::hovered_t& lx, const graph_info_t::hovered_t &rx )
         {
-            time_buf += " ";
-            time_buf += event.name;
-        }
+            return lx.eventid < rx.eventid;
+        } );
 
-        if ( event.crtc >= 0 )
+        // Show tooltip with the closest events we could drum up
+        for ( graph_info_t::hovered_t &hov : gi.hovered_items )
         {
-            time_buf += " ";
-            time_buf += std::to_string( event.crtc );
-        }
+            trace_event_t &event = get_event( hov.eventid );
+            std::string gfxcontext_str = get_event_gfxcontext_str( event );
 
-        if ( !gfxcontext_str.empty() )
-            time_buf += string_format( " [%s] %s", gfxcontext_str.c_str(), event.user_comm );
+            // Add event id and distance from cursor to this event
+            time_buf += string_format( "\n%u %c%sms",
+                                       hov.eventid, hov.neg ? '-' : ' ',
+                                       ts_to_timestr( hov.dist_ts, 0, 4 ).c_str() );
 
-        if ( event.is_ftrace_print() )
-        {
-            const event_field_t *field = find_event_field( event.fields, "buf" );
+            // If this isn't an ftrace print event, add the event name
+            if ( !event.is_ftrace_print() )
+                time_buf += std::string( " " ) + event.name;
 
-            if ( field )
+            // If this is a vblank event, add the crtc
+            if ( event.crtc >= 0 )
+                time_buf += std::to_string( event.crtc );
+
+            // If this is a timeline gfx context, add it plus the user comm
+            if ( !gfxcontext_str.empty() )
+                time_buf += string_format( " [%s] %s", gfxcontext_str.c_str(), event.user_comm );
+
+            // Add yellow string for ftrace print events
+            if ( event.is_ftrace_print() )
             {
-                time_buf += " ";
-                time_buf += m_col_yellow.m_str( field->value );
+                const event_field_t *field = find_event_field( event.fields, "buf" );
+
+                if ( field )
+                    time_buf += " " +  m_col_yellow.m_str( field->value );
             }
+        }
+
+        if ( sync_event_list_to_graph && !m_do_gotoevent )
+        {
+            m_do_gotoevent = true;
+            m_goto_eventid = gi.hovered_items[ 0 ].eventid;
         }
     }
 

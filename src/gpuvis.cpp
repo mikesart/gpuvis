@@ -654,8 +654,7 @@ void TraceWin::init_graph_rows_str( bool reset )
                    [=]( const comm_t &lx, const comm_t &rx )
         {
             return rx.event_count < lx.event_count;
-        }
-        );
+        } );
 
         for ( const comm_t &item : m_comm_info )
         {
