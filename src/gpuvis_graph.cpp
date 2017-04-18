@@ -848,14 +848,14 @@ void TraceWin::handle_graph_hotkeys()
 
     if ( ImGui::GetIO().KeyCtrl )
     {
-        if ( ImGui::GetIO().KeyShift && ImGui::IsKeyPressed( 'z' ) )
+        bool keyshift = ImGui::GetIO().KeyShift;
+
+        if ( keyshift && ImGui::IsKeyPressed( 'z' ) )
         {
             m_loader.m_options[ OPT_TimelineZoomGfx ].val ^= 1;
         }
         else
         {
-            bool keyshift = ImGui::GetIO().KeyShift;
-
             for ( int key = '1'; key <= '9'; key++ )
             {
                 if ( ImGui::IsKeyPressed( key ) )
