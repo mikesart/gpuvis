@@ -848,8 +848,7 @@ void TraceWin::handle_graph_hotkeys()
 
     if ( ImGui::GetIO().KeyCtrl )
     {
-        //$ TODO mikesart: make this ctrl+shift+z since ctrl+z is undo in text fields.
-        if ( ImGui::IsKeyPressed( 'z' ) )
+        if ( ImGui::GetIO().KeyShift && ImGui::IsKeyPressed( 'z' ) )
         {
             m_loader.m_options[ OPT_TimelineZoomGfx ].val ^= 1;
         }

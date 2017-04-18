@@ -489,7 +489,7 @@ void TraceLoader::init()
 
     m_options[ OPT_Fullscreen ] = { "Fullscreen Trace Window", "fullscreen", false, 0, 1 };
 
-    m_options[ OPT_TimelineZoomGfx ] = { "Zoom gfx timeline (^Z)", "zoom_gfx_timeline", 0, 0, 1 };
+    m_options[ OPT_TimelineZoomGfx ] = { "Zoom gfx timeline (Ctrl+Shift+Z)", "zoom_gfx_timeline", 0, 0, 1 };
     m_options[ OPT_TimelineLabels ] = { "Show timeline labels", "timeline_labels", true, 0, 1 };
     m_options[ OPT_TimelineEvents ] = { "Show timeline events", "timeline_events", true, 0, 1 };
     m_options[ OPT_TimelineRenderUserSpace ] = { "Show timeline userspace", "timeline_userspace", false, 0, 1 };
