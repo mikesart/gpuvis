@@ -405,6 +405,56 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
     return loader->init_new_event( trace_events->m_events.back(), info );
 }
 
+// Go through gfx, sdma0, sdma1, etc. timelines and calculate event durations
+static void calculate_event_durations( TraceEvents *trace_events )
+{
+    std::vector< trace_event_t > &events = trace_events->m_events;
+
+    for ( const auto &timeline_locs : trace_events->m_timeline_locations.m_locations )
+    {
+        int64_t last_fence_signaled_ts = 0;
+        const std::vector< uint32_t > &locs = timeline_locs.second;
+        // const char *name = trace_events->m_strpool.findstr( timeline_locs.first );
+
+        for ( uint32_t index : locs )
+        {
+            trace_event_t &fence_signaled = events[ index ];
+
+            if ( fence_signaled.is_fence_signaled() &&
+                 is_valid_id( fence_signaled.id_start ) )
+            {
+                trace_event_t &amdgpu_sched_run_job = events[ fence_signaled.id_start ];
+
+                // amdgpu_cs_ioctl   amdgpu_sched_run_job   fence_signaled
+                //       |-----------------|---------------------|
+                //       |user-->          |hw-->                |
+                //                                               |
+                //          amdgpu_cs_ioctl  amdgpu_sched_run_job|   fence_signaled
+                //                |-----------------|------------|--------|
+                //                |user-->          |hwqueue-->  |hw->    |
+                //                                                        |
+
+                // Our starting location will be the last fence signaled timestamp or
+                //  our amdgpu_sched_run_job timestamp, whichever is larger.
+                int64_t hw_start_ts = std::max< int64_t >( last_fence_signaled_ts, amdgpu_sched_run_job.ts );
+
+                // Set duration times
+                fence_signaled.duration = fence_signaled.ts - hw_start_ts;
+                amdgpu_sched_run_job.duration = hw_start_ts - amdgpu_sched_run_job.ts;
+
+                if ( is_valid_id( amdgpu_sched_run_job.id_start ) )
+                {
+                    trace_event_t &amdgpu_cs_ioctl = events[ amdgpu_sched_run_job.id_start ];
+
+                    amdgpu_cs_ioctl.duration = amdgpu_sched_run_job.ts - amdgpu_cs_ioctl.ts;
+                }
+
+                last_fence_signaled_ts = fence_signaled.ts;
+            }
+        }
+    }
+}
+
 int SDLCALL TraceLoader::thread_func( void *data )
 {
     TraceLoader *loader = ( TraceLoader * )data;
@@ -422,6 +472,9 @@ int SDLCALL TraceLoader::thread_func( void *data )
         loader->set_state( State_Idle );
         return -1;
     }
+
+    // Init event durations
+    calculate_event_durations( trace_events );
 
     logf( "Events read: %lu", trace_events->m_events.size() );
 
@@ -910,8 +963,7 @@ bool TraceWin::render()
 
         m_do_graph_start_timestr = true;
         m_do_graph_length_timestr = true;
-        m_graph_length_ts = ( last_ts > 40 * MSECS_PER_SEC ) ?
-                    40 * MSECS_PER_SEC : last_ts;
+        m_graph_length_ts = std::min< int64_t >( last_ts, 40 * MSECS_PER_SEC );
         m_graph_start_ts = last_ts - m_tsoffset - m_graph_length_ts;
     }
 
@@ -1358,7 +1410,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
         }
 
         // Reset our hovered event id
-        m_hovered_eventlist_eventid = ( uint32_t )-1;
+        m_hovered_eventlist_eventid = INVALID_ID;
 
         // Draw events
         if ( filtered_events )
@@ -1401,7 +1453,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
             ImGui::SetItemAllowOverlap();
 
             // Check if item is hovered and we don't have a popup menu going already.
-            if ( ( m_events_list_popup_eventid == ( uint32_t )-1 ) &&
+            if ( !is_valid_id( m_events_list_popup_eventid ) &&
                  ImGui::IsItemHovered() &&
                  ImGui::IsRootWindowOrAnyChildFocused() )
             {
@@ -1435,7 +1487,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
 
                 imgui_pop_smallfont();
                 if ( !TraceWin::render_events_list_popup( eventid ) )
-                    m_events_list_popup_eventid = ( uint32_t )-1;
+                    m_events_list_popup_eventid = INVALID_ID;
                 imgui_push_smallfont();
 
                 popup_shown = true;
@@ -1474,7 +1526,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
             // When we modify a filter via the context menu, it can hide the item
             //  we right clicked on which means render_events_list_popup() won't get
             //  called. Check for that case here.
-            m_events_list_popup_eventid = ( uint32_t )-1;
+            m_events_list_popup_eventid = INVALID_ID;
         }
 
         ImGui::Columns( 1 );

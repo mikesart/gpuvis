@@ -1567,6 +1567,7 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
         trace_event.user_comm = trace_event.comm;
         trace_event.id_start = ( uint32_t )-1;
         trace_event.graph_row_id = 0;
+        trace_event.duration = 0;
         trace_event.is_filtered_out = false;
 
         // Get count of fields for this event.

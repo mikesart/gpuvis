@@ -71,6 +71,13 @@ enum trace_flag_type_t {
     TRACE_FLAG_IS_TIMELINE = 0x800,
 };
 
+#define INVALID_ID ( ( uint32_t )-1 )
+
+inline bool is_valid_id( uint32_t id )
+{
+    return id != INVALID_ID;
+}
+
 struct trace_event_t
 {
     bool is_fence_signaled() const
@@ -97,6 +104,7 @@ struct trace_event_t
     uint32_t seqno;             // event seqno (from fields)
     uint32_t id_start;          // start event if this is a graph sequence event (ie amdgpu_sched_run_job, fence_signaled)
     uint32_t graph_row_id;
+    uint32_t duration;          // how long this timeline event took
 
     int64_t ts;                 // timestamp
     const char *comm;           // command line
@@ -345,7 +353,7 @@ public:
     int64_t m_tsoffset = 0;
 
     // Event id of event list popup menu
-    uint32_t m_events_list_popup_eventid = ( uint32_t )-1;
+    uint32_t m_events_list_popup_eventid = INVALID_ID;
 
     bool m_graph_popup = false;
 
@@ -368,11 +376,11 @@ public:
     std::vector< std::string > m_graph_rows;
 
     // Currently selected event.
-    uint32_t m_selected_eventid = ( uint32_t )-1;
-    uint32_t m_hovered_eventlist_eventid = ( uint32_t )-1;
+    uint32_t m_selected_eventid = INVALID_ID;
+    uint32_t m_hovered_eventlist_eventid = INVALID_ID;
 
-    uint32_t m_eventlist_start_eventid = ( uint32_t )-1;
-    uint32_t m_eventlist_end_eventid = ( uint32_t )-1;
+    uint32_t m_eventlist_start_eventid = INVALID_ID;
+    uint32_t m_eventlist_end_eventid = INVALID_ID;
 
     std::vector< std::pair< int64_t, int64_t > > m_locations;
 

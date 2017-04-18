@@ -289,7 +289,7 @@ void graph_info_t::init( float x_in, float w_in, int64_t start_ts, int64_t lengt
     mouse_pos = ImGui::GetMousePos();
 
     hovered_items.clear();
-    hovered_graph_event = ( uint32_t )-1;
+    hovered_graph_event = INVALID_ID;
 
     is_timeline = false;
 }
@@ -419,12 +419,14 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
         {
             const trace_event_t &event2 = get_event( plocs->at( idx ) );
 
-            if ( event2.is_fence_signaled() && ( event2.id_start != ( uint32_t )-1 ) )
+            if ( event2.is_fence_signaled() &&
+                 is_valid_id( event2.id_start ) )
             {
                 const trace_event_t &event1 = get_event( event2.id_start );
 
                 if ( event1.ts < gi.ts1 )
                 {
+                    //$ TODO mikesart: kill last_fence-signaled, can now use event.duration
                     float x1 = gi.ts_to_screenx( event1.ts );
                     float x2 = gi.ts_to_screenx( event2.ts );
                     float xleft = ( ( last_fence_signaled_x > x1 ) && ( last_fence_signaled_x < x2 ) ) ?
@@ -448,14 +450,12 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
                     else
                         last_col = col;
 
-                    if ( ( gi.hovered_graph_event == ( uint32_t )-1 ) &&
+                    if ( !is_valid_id( gi.hovered_graph_event ) &&
                          gi.mouse_pos_in_rect( xleft, x2 - xleft, y, row_h ) )
                     {
-                        const trace_event_t &event0 = ( event1.id_start != ( uint32_t )-1 ) ?
+                        const trace_event_t &event0 = is_valid_id( event1.id_start ) ?
                                     get_event( event1.id_start ) : event1;
 
-                        //$ TODO mikesart: hovered is showing time between events when it should show time
-                        //  in hardware queue.
                         gi.hovered_graph_event = event0.id;
 
                         hov_rect = { xleft, y, x2, y + row_h };
@@ -494,10 +494,10 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
         uint32_t eventid = locs[ idx ];
         const trace_event_t &event = get_event( eventid );
 
-        if ( event.is_fence_signaled() && ( event.id_start != ( uint32_t )-1 ) )
+        if ( event.is_fence_signaled() && is_valid_id( event.id_start ) )
         {
             const trace_event_t &event1 = get_event( event.id_start );
-            const trace_event_t &event0 = ( event1.id_start != ( uint32_t )-1 ) ?
+            const trace_event_t &event0 = is_valid_id( event1.id_start ) ?
                         get_event( event1.id_start ) : event1;
 
             //$ TODO mikesart: can we bail out of this loop at some point if
@@ -506,8 +506,8 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
             {
                 float x2 = gi.ts_to_screenx( event.ts );
 
-                // Pierre-Loup wants to alway show all events in 'gfx hw' timeline
 #if 0
+                // Pierre-Loup wants to alway show all events in 'gfx hw' timeline
                 bool is_filtered_out = ( gi.graph_only_filtered &&
                                          event1.is_filtered_out &&
                                          event.is_filtered_out );
@@ -526,7 +526,7 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
                 float dx = x2 - xleft;
                 float y = gi.y + ( event1.graph_row_id % timeline_row_count ) * text_h;
 
-                if ( ( gi.hovered_graph_event == ( uint32_t )-1 ) &&
+                if ( !is_valid_id( gi.hovered_graph_event ) &&
                      gi.mouse_pos_in_rect( xleft, x2 - xleft, y, text_h ) )
                 {
                     hovered = true;
@@ -535,6 +535,7 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
                     hov_rect = { x0, y, x2, y + text_h };
                 }
 
+                //$ TODO mikesart: kill last_fence-signaled, can now use event.duration
                 if ( ( last_fence_signaled_x > x1 ) && ( last_fence_signaled_x < x2 ) )
                 {
                     if ( hovered || gi.timeline_render_user )
@@ -754,7 +755,7 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
                         col_get( col_MousePos ) );
     }
 
-    if ( m_hovered_eventlist_eventid != ( uint32_t )-1 )
+    if ( is_valid_id( m_hovered_eventlist_eventid ) )
     {
         trace_event_t &event = get_event( m_hovered_eventlist_eventid );
 
@@ -767,7 +768,8 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
                             col_get( col_HovEvent, 120 ) );
         }
     }
-    if ( m_selected_eventid != ( uint32_t )-1 )
+
+    if ( is_valid_id( m_selected_eventid ) )
     {
         trace_event_t &event = get_event( m_selected_eventid );
 
@@ -795,8 +797,8 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
     if ( m_show_eventlist )
     {
         // Draw rectangle for visible event list contents
-        if ( m_eventlist_start_eventid != ( uint32_t )-1 &&
-             m_eventlist_end_eventid != ( uint32_t )-1 )
+        if ( is_valid_id( m_eventlist_start_eventid ) &&
+             is_valid_id( m_eventlist_end_eventid ) )
         {
             trace_event_t &event0 = get_event( m_eventlist_start_eventid );
             trace_event_t &event1 = get_event( m_eventlist_end_eventid - 1 );
@@ -846,6 +848,7 @@ void TraceWin::handle_graph_hotkeys()
 
     if ( ImGui::GetIO().KeyCtrl )
     {
+        //$ TODO mikesart: make this ctrl+shift+z since ctrl+z is undo in text fields.
         if ( ImGui::IsKeyPressed( 'z' ) )
         {
             m_loader.m_options[ OPT_TimelineZoomGfx ].val ^= 1;
@@ -892,7 +895,7 @@ void TraceWin::render_process_graph()
     };
     std::vector< row_info_t > row_info;
 
-    uint32_t timeline_gfx_index = ( uint32_t )-1;
+    uint32_t timeline_gfx_index = INVALID_ID;
 
     imgui_push_smallfont();
 
@@ -977,7 +980,7 @@ void TraceWin::render_process_graph()
                 ( ( uint32_t )row_count >= row_info.size() ) ? 0 : row_count;
     }
 
-    bool gfx_timeline_zoom = ( timeline_gfx_index != ( uint32_t )-1 ) ?
+    bool gfx_timeline_zoom = is_valid_id( timeline_gfx_index ) ?
                 !!m_loader.get_opt( OPT_TimelineZoomGfx ) : false;
 
     {
@@ -1253,14 +1256,14 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
     if ( m_loader.get_opt( OPT_SyncEventListToGraph ) &&
          m_show_eventlist &&
-         ( !gi.hovered_items.empty() || ( gi.hovered_graph_event != ( uint32_t )-1 ) ) )
+         ( !gi.hovered_items.empty() || is_valid_id( gi.hovered_graph_event ) ) )
     {
         m_do_gotoevent = true;
-        m_goto_eventid = ( gi.hovered_graph_event != ( uint32_t )-1 ) ?
+        m_goto_eventid = is_valid_id( gi.hovered_graph_event ) ?
                     gi.hovered_graph_event : gi.hovered_items[ 0 ].eventid;
     }
 
-    if ( gi.hovered_graph_event != ( uint32_t )-1 )
+    if ( is_valid_id( gi.hovered_graph_event ) )
     {
         const trace_event_t &event_hov = get_event( gi.hovered_graph_event );
         std::string context = get_event_gfxcontext_str( event_hov );
@@ -1268,23 +1271,12 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
         time_buf += string_format( "\n%s [%s]", event_hov.user_comm, context.c_str() );
 
-        int64_t total_ts = get_event( plocs->back() ).ts - get_event( plocs->front() ).ts;
-        time_buf += ": ";
-        time_buf += ts_to_timestr( total_ts );
-
-        int64_t ts0 = -1;
         for ( uint32_t id : *plocs )
         {
             const trace_event_t &event = get_event( id );
 
-            time_buf += string_format( "\n  %u %s", event.id, event.name );
-
-            if ( ts0 >= 0 )
-            {
-                time_buf += ": ";
-                time_buf += ts_to_timestr( event.ts - ts0 );
-            }
-            ts0 = event.ts;
+            time_buf += string_format( "\n  %u %s %sms", event.id, event.name,
+                                       ts_to_timestr( event.duration, 0, 4 ).c_str() );
         }
     }
 
