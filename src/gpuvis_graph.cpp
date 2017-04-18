@@ -1244,20 +1244,20 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
             time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 );
     }
 
-    if ( m_loader.get_opt( OPT_SyncEventListToGraph ) &&
-         m_show_eventlist &&
-         ( !gi.hovered_items.empty() || is_valid_id( gi.hovered_graph_event ) ) )
-    {
-        m_do_gotoevent = true;
-        m_goto_eventid = is_valid_id( gi.hovered_graph_event ) ?
-                    gi.hovered_graph_event : gi.hovered_items[ 0 ].eventid;
-    }
+    bool sync_event_list_to_graph = m_loader.get_opt( OPT_SyncEventListToGraph ) && m_show_eventlist;
 
     if ( is_valid_id( gi.hovered_graph_event ) )
     {
         const trace_event_t &event_hov = get_event( gi.hovered_graph_event );
         std::string context = get_event_gfxcontext_str( event_hov );
         const std::vector< uint32_t > *plocs = m_trace_events->get_gfxcontext_locs( context.c_str() );
+
+        if ( sync_event_list_to_graph )
+        {
+            // Sync event list to first event id in this context
+            m_do_gotoevent = true;
+            m_goto_eventid = plocs->at( 0 );
+        }
 
         time_buf += string_format( "\n%s [%s]", event_hov.user_comm, context.c_str() );
 
@@ -1268,6 +1268,14 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
             time_buf += string_format( "\n  %u %s %sms", event.id, event.name,
                                        ts_to_timestr( event.duration, 0, 4 ).c_str() );
         }
+    }
+
+    if ( sync_event_list_to_graph &&
+         !m_do_gotoevent &&
+         !gi.hovered_items.empty() )
+    {
+        m_do_gotoevent = true;
+        m_goto_eventid = gi.hovered_items[ 0 ].eventid;
     }
 
     //$ TODO: sort hovered_items by id and display them.
