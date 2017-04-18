@@ -111,19 +111,15 @@ void logf_clear()
     g_log.clear();
 }
 
-std::string string_format( const char *fmt, ... )
+std::string string_formatv( const char *fmt, va_list ap )
 {
     std::string str;
     int size = 512;
 
     for ( ;; )
     {
-        va_list ap;
-
-        va_start( ap, fmt );
         str.resize( size );
         int n = vsnprintf( ( char * )str.c_str(), size, fmt, ap );
-        va_end( ap );
 
         if ( ( n > -1 ) && ( n < size ) )
         {
@@ -133,6 +129,18 @@ std::string string_format( const char *fmt, ... )
 
         size = ( n > -1 ) ? ( n + 1 ) : ( size * 2 );
     }
+}
+
+std::string string_format( const char *fmt, ... )
+{
+    va_list ap;
+    std::string str;
+
+    va_start( ap, fmt );
+    str = string_formatv( fmt, ap );
+    va_end( ap );
+
+    return str;
 }
 
 /*

@@ -61,6 +61,8 @@ inline float util_time_to_ms( util_time_t start, util_time_t end )
 extern "C" uint32_t fnv_hashstr32( const char *str, size_t len = ( size_t )-1 );
 
 std::string string_format( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
+std::string string_formatv( const char *fmt, va_list ap ) ATTRIBUTE_PRINTF( 1, 0 );
+
 // trim from start (in place)
 void string_ltrim( std::string &s );
 // trim from end (in place)
