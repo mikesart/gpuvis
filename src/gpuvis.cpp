@@ -1515,7 +1515,15 @@ void TraceWin::render_events_list( CIniFile &inifile )
 
             ImGui::NextColumn();
 
-            // $TODO mikesart: Add string for time delta to the previous event.
+            ts_str += "ms";
+            if ( event.id > 0 )
+            {
+                const trace_event_t &event0 = get_event( event.id - 1 );
+
+                // Add time delta from previous event
+                ts_str += " (+" + ts_to_timestr( event.ts - event0.ts, 0, 4 ) + ")";
+            }
+
             ImGui::Text( "%s", ts_str.c_str() );
             ImGui::NextColumn();
             ImGui::Text( "%s (%u)", event.comm, event.cpu );
