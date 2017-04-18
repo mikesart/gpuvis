@@ -143,6 +143,27 @@ std::string string_format( const char *fmt, ... )
     return str;
 }
 
+void string_replace_char( std::string &s, const char search, const char replace )
+{
+    size_t pos = 0;
+
+    while ( ( pos = s.find( search, pos ) ) != std::string::npos )
+        s[ pos ] = replace;
+}
+
+void string_replace_str( std::string &s, const std::string &search, const std::string &replace )
+{
+    for ( size_t pos = 0;; pos += replace.length() )
+    {
+        pos = s.find( search, pos );
+        if ( pos == std::string::npos )
+            break;
+
+        s.erase( pos, search.length() );
+        s.insert( pos, replace );
+    }
+}
+
 /*
  * http://stackoverflow.com/questions/216823/whats-the-best-way-to-trim-stdstring
  */

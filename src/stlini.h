@@ -8,10 +8,6 @@
 #include <vector>
 #include <inttypes.h>
 
-// change this if you expect to have huge lines in your INI files...
-// note that this is the max size of a single line, NOT the max number of lines
-#define MAX_INI_LINE 500
-
 struct StlIniCompareStringNoCase
 {
     bool operator()( const std::string &x, const std::string &y ) const;

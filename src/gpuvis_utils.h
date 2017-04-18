@@ -33,14 +33,7 @@ using std::placeholders::_3;
 using std::placeholders::_4;
 using std::placeholders::_5;
 
-#define MSECS_PER_SEC		1000000LL
-
-void logf_init();
-void logf_shutdown();
-void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
-void logf_update();
-void logf_clear();
-const std::vector< char * > &logf_get();
+#define MSECS_PER_SEC 1000000LL
 
 // Timer routines. Use like:
 //   util_time_t t0 = util_get_time();
@@ -58,27 +51,12 @@ inline float util_time_to_ms( util_time_t start, util_time_t end )
     return ( float )std::chrono::duration< double, std::milli >( diff ).count();
 }
 
-extern "C" uint32_t fnv_hashstr32( const char *str, size_t len = ( size_t )-1 );
-
-std::string string_format( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
-std::string string_formatv( const char *fmt, va_list ap ) ATTRIBUTE_PRINTF( 1, 0 );
-
-// trim from start (in place)
-void string_ltrim( std::string &s );
-// trim from end (in place)
-void string_rtrim( std::string &s );
-// trim from both ends (in place)
-void string_trim( std::string &s );
-// trim from start (copying)
-std::string string_ltrimmed( std::string s );
-// trim from end (copying)
-std::string string_rtrimmed( std::string s );
-// trim from both ends (copying)
-std::string string_trimmed( std::string s );
-
-std::string gen_random_str( size_t len );
-
-size_t get_file_size( const char *filename );
+void logf_init();
+void logf_shutdown();
+void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
+void logf_update();
+void logf_clear();
+const std::vector< char * > &logf_get();
 
 float imgui_scale( float val );
 bool imgui_key_pressed( ImGuiKey key );

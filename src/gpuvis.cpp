@@ -566,41 +566,49 @@ std::string TraceWin::ts_to_timestr( int64_t event_ts, int64_t tsoffset, int pre
     return string_format( "%.*lf", precision, val );
 }
 
-void TraceWin::init_graph_rows_str()
+void TraceWin::init_graph_rows_str( bool reset )
 {
-    m_graph_rows_str = "# comm and filter expressions to graph\n";
-    m_graph_rows_str += "# Show items in gfx/sdma timelines\n";
-    m_graph_rows_str += "gfx\n";
-    m_graph_rows_str += "sdma0\n";
-    m_graph_rows_str += "sdma1\n";
-    m_graph_rows_str += "gfx hw\n\n";
+    if ( reset )
+        m_graph_rows_str.clear();
+    else
+        m_graph_rows_str = m_loader.m_inifile.GetStr( "graph_rows_str", "" );
 
-    m_graph_rows_str += "# $name=fence_signaled\n";
-    m_graph_rows_str += "# $id > 100 && $id < 200\n\n";
-
-    m_graph_rows_str += "# comms\n#\n";
-
-    for ( auto item : m_trace_events->m_comm_locations.m_locations )
+    if ( m_graph_rows_str.empty() )
     {
-        uint32_t hashval = item.first;
-        const char *comm = m_trace_events->m_strpool.findstr( hashval );
+        m_graph_rows_str = "# comm and filter expressions to graph\n";
+        m_graph_rows_str += "# Show items in gfx/sdma timelines\n";
+        m_graph_rows_str += "gfx\n";
+        m_graph_rows_str += "sdma0\n";
+        m_graph_rows_str += "sdma1\n";
+        m_graph_rows_str += "gfx hw\n\n";
 
-        item.second.size();
-        m_comm_info.push_back( { item.second.size(), comm } );
-    }
+        m_graph_rows_str += "# $name=fence_signaled\n";
+        m_graph_rows_str += "# $id > 100 && $id < 200\n\n";
 
-    // Sort by count of events
-    std::sort( m_comm_info.begin(), m_comm_info.end(),
-        [=]( const comm_t &lx, const comm_t &rx )
+        m_graph_rows_str += "# comms\n#\n";
+
+        for ( auto item : m_trace_events->m_comm_locations.m_locations )
+        {
+            uint32_t hashval = item.first;
+            const char *comm = m_trace_events->m_strpool.findstr( hashval );
+
+            item.second.size();
+            m_comm_info.push_back( { item.second.size(), comm } );
+        }
+
+        // Sort by count of events
+        std::sort( m_comm_info.begin(), m_comm_info.end(),
+                   [=]( const comm_t &lx, const comm_t &rx )
         {
             return rx.event_count < lx.event_count;
         }
-    );
+        );
 
-    for ( const comm_t &item : m_comm_info )
-    {
-        m_graph_rows_str += string_format( "#   %lu events:\n%s\n",
-                                           item.event_count, item.comm );
+        for ( const comm_t &item : m_comm_info )
+        {
+            m_graph_rows_str += string_format( "#   %lu events:\n%s\n",
+                                               item.event_count, item.comm );
+        }
     }
 
     update_graph_rows_list();
@@ -831,9 +839,7 @@ TraceWin::TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string 
     strcpy_safe( m_timegoto_buf, "0.0" );
     strcpy_safe( m_timeoffset_buf, "0.0" );
 
-    std::string section = "imguiwin_" + title;
-    std::string event_filter = m_loader.m_inifile.GetStr( "event_filter_buf", "", section.c_str() );
-
+    std::string event_filter = m_loader.m_inifile.GetStr( "event_filter_buf", "" );
     if ( !event_filter.empty() )
     {
         strcpy_safe( m_event_filter_buf, event_filter.c_str() );
@@ -843,9 +849,8 @@ TraceWin::TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string 
 
 TraceWin::~TraceWin()
 {
-    std::string section = "imguiwin_" + m_title;
-
-    m_loader.m_inifile.PutStr( "event_filter_buf", m_event_filter_buf, section.c_str() );
+    m_loader.m_inifile.PutStr( "event_filter_buf", m_event_filter_buf );
+    m_loader.m_inifile.PutStr( "graph_rows_str", m_graph_rows_str.c_str() );
 }
 
 bool TraceWin::render()
@@ -920,7 +925,7 @@ bool TraceWin::render()
 
             ImGui::SameLine();
             if ( ImGui::Button( "Reset Graph Rows" ) )
-                init_graph_rows_str();
+                init_graph_rows_str( true );
 
             m_graph_rows_str.reserve( 8192 );
             ImGui::InputTextMultiline( "##GraphRowsText", &m_graph_rows_str[ 0 ], m_graph_rows_str.capacity(),
@@ -1438,6 +1443,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
 
             ImGui::NextColumn();
 
+            // $TODO mikesart: Add string for time delta to the previous event.
             ImGui::Text( "%s", ts_str.c_str() );
             ImGui::NextColumn();
             ImGui::Text( "%s (%u)", event.comm, event.cpu );

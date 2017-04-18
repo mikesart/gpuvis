@@ -94,6 +94,32 @@ __inline__ void __debugbreak()
 
 #if defined( __cplusplus )
 
+extern "C" uint32_t fnv_hashstr32( const char *str, size_t len = ( size_t )-1 );
+
+size_t get_file_size( const char *filename );
+
+std::string string_format( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
+std::string string_formatv( const char *fmt, va_list ap ) ATTRIBUTE_PRINTF( 1, 0 );
+
+void string_replace_char( std::string &s, const char search, const char replace );
+void string_replace_str( std::string &s, const std::string &search, const std::string &replace );
+
+std::string gen_random_str( size_t len );
+
+// trim from start (in place)
+void string_ltrim( std::string &s );
+// trim from end (in place)
+void string_rtrim( std::string &s );
+// trim from both ends (in place)
+void string_trim( std::string &s );
+
+// trim from start (copying)
+std::string string_ltrimmed( std::string s );
+// trim from end (copying)
+std::string string_rtrimmed( std::string s );
+// trim from both ends (copying)
+std::string string_trimmed( std::string s );
+
 template < typename T >
 T Clamp( const T& val, const T& lower, const T& upper )
 {

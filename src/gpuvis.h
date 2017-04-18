@@ -308,7 +308,7 @@ protected:
     // Convert a time stamp to a time string
     std::string ts_to_timestr( int64_t event_ts, int64_t tsoffset = 0, int precision = 6 );
 
-    void init_graph_rows_str();
+    void init_graph_rows_str( bool reset = false );
     void update_graph_rows_list();
     void range_check_graph_location();
 

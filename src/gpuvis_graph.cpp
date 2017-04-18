@@ -37,6 +37,8 @@
 #include "GL/gl3w.h"
 #include "gpuvis.h"
 
+//$ TODO: Move mouse position in event list even when you're not touching an event
+
 /*
   From conversations with Andres and Pierre-Loup...
 
@@ -452,6 +454,8 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
                         const trace_event_t &event0 = ( event1.id_start != ( uint32_t )-1 ) ?
                                     get_event( event1.id_start ) : event1;
 
+                        //$ TODO mikesart: hovered is showing time between events when it should show time
+                        //  in hardware queue.
                         gi.hovered_graph_event = event0.id;
 
                         hov_rect = { xleft, y, x2, y + row_h };
@@ -1283,6 +1287,10 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
             ts0 = event.ts;
         }
     }
+
+    //$ TODO: sort hovered_items by id and display them.
+    //$ TODO: faint glow over all events in the tooltip?
+    //$ TODO: add ms after times in tooltip
 
     // Show tooltip with the closest events we could drum up
     for ( graph_info_t::hovered_t &hov : gi.hovered_items )

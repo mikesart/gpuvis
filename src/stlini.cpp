@@ -11,13 +11,9 @@
 //				     you're using it, and
 //				(b) give me a mention in the credits someplace
 //
-//
 //	Notes:
 //
 //	INI keys are not case sensitive in this implementation.
-//
-//  Lines in the INI that are > MAX_INI_LINE characters will not process correctly.
-//  (Default is MAX_INI_LINE of 500, but you can change it if you need more...)
 //
 //	define TEST_INI to build a little test program.  Typical linuxcommand line:
 //	g++ -DTEST_INI -O2 -Wall -o testini stlini.cpp -lstdc++
@@ -176,33 +172,64 @@ void PutIniSetting( INIFile &theINI, const char *section, const char *key, const
 INIFile LoadIni( const char *filename )
 {
     INIFile theINI;
-    char *value, *temp;
     std::string section;
-    char buffer[ MAX_INI_LINE ];
+    char buffer[ 16384 ];
     std::fstream file( filename, std::ios::in );
 
     while ( file.good() )
     {
-        memset( buffer, 0, sizeof( buffer ) );
+        char *temp;
+
+        // A null character ('\0') is automatically appended to the written sequence
+        // if n is greater than zero, even if an empty string is extracted.
         file.getline( buffer, sizeof( buffer ) );
-        if ( ( temp = strchr( buffer, '\n' ) ) )
+
+        // If we only read one byte (nil), then move along.
+        if ( file.gcount() <= 1 )
+            continue;
+
+        temp = strchr( buffer, '\n' );
+        if ( temp )
             *temp = '\0'; // cut off at newline
-        if ( ( temp = strchr( buffer, '\r' ) ) )
+
+        temp = strchr( buffer, '\r' );
+        if ( temp )
             *temp = '\0'; // cut off at linefeeds
+
         if ( ( buffer[ 0 ] == '[' ) && ( temp = strrchr( buffer, ']' ) ) )
-        {                 // if line is like -->   [section name]
-            *temp = '\0'; // chop off the trailing ']';
-            section = &buffer[ 1 ];
-            PutIniSetting( theINI, &buffer[ 1 ] ); // start new section
-        }
-        else if ( buffer[ 0 ] && ( value = strchr( buffer, '=' ) ) )
         {
-            *value++ = '\0';                                         // assign whatever follows = sign to value, chop at "="
-            PutIniSetting( theINI, section.c_str(), buffer, value ); // and add both sides to INISection
+            // if line is like -->   [section name]
+            // chop off the trailing ']';
+            *temp = '\0';
+            section = &buffer[ 1 ];
+
+            // start new section
+            PutIniSetting( theINI, section.c_str() );
         }
-        else if ( buffer[ 0 ] )
-            PutIniSetting( theINI, section.c_str(), buffer, "" ); // must be a comment or something
+        else
+        {
+            char *value = strchr( buffer, '=' );
+
+            if ( value )
+            {
+                // assign whatever follows = sign to value, chop at "="
+                *value++ = '\0';
+
+                // Unconvert LF string tokens back to LFs.
+                std::string val = value;
+                string_replace_str( val, "{\\\\n}", "\n" );
+
+                // and add both sides to INISection
+                PutIniSetting( theINI, section.c_str(), buffer, val.c_str() );
+            }
+            else if ( buffer[ 0 ] )
+            {
+                // must be a comment or something
+                PutIniSetting( theINI, section.c_str(), buffer, "" );
+            }
+        }
     }
+
     return theINI;
 }
 
@@ -214,23 +241,36 @@ void SaveIni( INIFile &theINI, const char *filename )
 
     // just iterate the hashes and values and dump them to a file.
     INIFile::iterator section = theINI.begin();
+
     while ( section != theINI.end() )
     {
         if ( section->first > "" )
-            file << std::endl
-                 << "[" << section->first << "]" << std::endl;
+            file << std::endl << "[" << section->first << "]" << std::endl;
+
         INISection::iterator pair = section->second.begin();
 
         while ( pair != section->second.end() )
         {
             if ( pair->second > "" )
-                file << pair->first << "=" << pair->second << std::endl;
+            {
+                std::string val = pair->second;
+
+                // Convert LFs to a string token.
+                string_replace_str( val, "\n", "{\\\\n}" );
+
+                file << pair->first << "=" << val << std::endl;
+            }
             else
+            {
                 file << pair->first << "=" << std::endl;
+            }
+
             pair++;
         }
+
         section++;
     }
+
     file.close();
 }
 
