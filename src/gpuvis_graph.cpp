@@ -480,8 +480,8 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
 
     uint32_t timeline_row_count = gi.h / text_h;
 
-    bool render_timeline_events = !!m_loader.get_opt( TraceLoader::OPT_TimelineEvents );
-    bool render_timeline_labels = !!m_loader.get_opt( TraceLoader::OPT_TimelineLabels );
+    bool render_timeline_events = !!m_loader.get_opt( OPT_TimelineEvents );
+    bool render_timeline_labels = !!m_loader.get_opt( OPT_TimelineLabels );
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -844,7 +844,7 @@ void TraceWin::handle_graph_hotkeys()
     {
         if ( ImGui::IsKeyPressed( 'z' ) )
         {
-            m_loader.m_options[ TraceLoader::OPT_TimelineZoomGfx ].val ^= 1;
+            m_loader.m_options[ OPT_TimelineZoomGfx ].val ^= 1;
         }
         else
         {
@@ -923,11 +923,11 @@ void TraceWin::render_process_graph()
                 comm_str = "gfx";
             }
             else if ( comm == "gfx" )
-                rows = m_loader.get_opt( TraceLoader::OPT_TimelineGfxRowCount );
+                rows = m_loader.get_opt( OPT_TimelineGfxRowCount );
             else if ( comm == "sdma0" )
-                rows = m_loader.get_opt( TraceLoader::OPT_TimelineSdma0RowCount );
+                rows = m_loader.get_opt( OPT_TimelineSdma0RowCount );
             else if ( comm == "sdma1" )
-                rows = m_loader.get_opt( TraceLoader::OPT_TimelineSdma1RowCount );
+                rows = m_loader.get_opt( OPT_TimelineSdma1RowCount );
 
             rows = Clamp< int >( rows, 2, 50 );
 
@@ -957,10 +957,10 @@ void TraceWin::render_process_graph()
     handle_graph_hotkeys();
 
     // Max graph row count is the number of rows.
-    m_loader.m_options[ TraceLoader::OPT_GraphRowCount ].val_max = row_info.size();
+    m_loader.m_options[ OPT_GraphRowCount ].val_max = row_info.size();
 
     // Get current count of rows. 0 means show all rows.
-    int graph_row_count = m_loader.get_opt( TraceLoader::OPT_GraphRowCount );
+    int graph_row_count = m_loader.get_opt( OPT_GraphRowCount );
     int row_count = ( graph_row_count < 1 ) ? row_info.size() : graph_row_count;
     row_count = Clamp< int >( row_count, 1, row_info.size() );
 
@@ -969,19 +969,19 @@ void TraceWin::render_process_graph()
     ImGui::PushItemWidth( imgui_scale( 200.0f ) );
     if ( ImGui::SliderInt( "##GraphRows", &row_count, 1, row_info.size(), "Graph Rows: %.0f" ) )
     {
-        m_loader.m_options[ TraceLoader::OPT_GraphRowCount ].val =
+        m_loader.m_options[ OPT_GraphRowCount ].val =
                 ( ( uint32_t )row_count >= row_info.size() ) ? 0 : row_count;
     }
 
     bool gfx_timeline_zoom = ( timeline_gfx_index != ( uint32_t )-1 ) ?
-                !!m_loader.get_opt( TraceLoader::OPT_TimelineZoomGfx ) : false;
+                !!m_loader.get_opt( OPT_TimelineZoomGfx ) : false;
 
     {
-        bool zoom = !!m_loader.m_options[ TraceLoader::OPT_TimelineZoomGfx ].val;
+        bool zoom = !!m_loader.get_opt( OPT_TimelineZoomGfx );
 
         ImGui::SameLine();
         if ( ImGui::Checkbox( "Zoom gfx timeline", &zoom ) )
-            m_loader.m_options[ TraceLoader::OPT_TimelineZoomGfx ].val = zoom;
+            m_loader.m_options[ OPT_TimelineZoomGfx ].val = zoom;
     }
 
     // Make sure our ts start and length values are sane
@@ -1009,7 +1009,7 @@ void TraceWin::render_process_graph()
 
             // Check if we're supposed to render filtered events only
             gi.graph_only_filtered =
-                    m_loader.m_options[ TraceLoader::OPT_GraphOnlyFiltered ].val &&
+                    m_loader.m_options[ OPT_GraphOnlyFiltered ].val &&
                     !m_filtered_events.empty();
 
             // Initialize eventstart / end
@@ -1026,7 +1026,7 @@ void TraceWin::render_process_graph()
                 for ( const row_info_t &ri : row_info )
                 {
                     gi.is_timeline = ri.is_timeline;
-                    gi.timeline_render_user = !!m_loader.get_opt( TraceLoader::OPT_TimelineRenderUserSpace );
+                    gi.timeline_render_user = !!m_loader.get_opt( OPT_TimelineRenderUserSpace );
 
                     gi.set_pos_y( windowpos.y + ri.row_y + m_graph_start_y, ri.row_h );
 
@@ -1116,10 +1116,10 @@ bool TraceWin::render_graph_popup()
     {
         TraceLoader::option_t &opt = m_loader.m_options[ i ];
 
-        if ( ( i >= TraceLoader::OPT_RenderCrtc0 ) &&
-             ( i <= TraceLoader::OPT_RenderCrtc9 ) )
+        if ( ( i >= OPT_RenderCrtc0 ) &&
+             ( i <= OPT_RenderCrtc9 ) )
         {
-            if ( i - TraceLoader::OPT_RenderCrtc0 > m_loader.m_crtc_max )
+            if ( i - OPT_RenderCrtc0 > m_loader.m_crtc_max )
                 continue;
         }
 
@@ -1247,7 +1247,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
             time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 );
     }
 
-    if ( m_loader.get_opt( TraceLoader::OPT_SyncEventListToGraph ) &&
+    if ( m_loader.get_opt( OPT_SyncEventListToGraph ) &&
          m_show_eventlist &&
          ( !gi.hovered_items.empty() || ( gi.hovered_graph_event != ( uint32_t )-1 ) ) )
     {

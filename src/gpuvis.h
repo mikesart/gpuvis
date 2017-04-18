@@ -404,6 +404,36 @@ public:
     multi_text_color m_col_yellow{ ImVec4( 1, 1, 0, 1 ) };
 };
 
+// TraceLoader ini options
+enum option_id_t
+{
+    OPT_TimelineZoomGfx,
+    OPT_TimelineLabels,
+    OPT_TimelineEvents,
+    OPT_TimelineRenderUserSpace,
+    OPT_GraphOnlyFiltered,
+    OPT_Fullscreen,
+    OPT_ShowEventList,
+    OPT_SyncEventListToGraph,
+    OPT_ShowColorPicker,
+    OPT_RenderCrtc0,
+    OPT_RenderCrtc1,
+    OPT_RenderCrtc2,
+    OPT_RenderCrtc3,
+    OPT_RenderCrtc4,
+    OPT_RenderCrtc5,
+    OPT_RenderCrtc6,
+    OPT_RenderCrtc7,
+    OPT_RenderCrtc8,
+    OPT_RenderCrtc9,
+    OPT_GraphRowCount,
+    OPT_EventListRowCount,
+    OPT_TimelineGfxRowCount,
+    OPT_TimelineSdma0RowCount,
+    OPT_TimelineSdma1RowCount,
+    OPT_Max
+};
+
 class TraceLoader
 {
 public:
@@ -453,34 +483,6 @@ public:
     uint32_t m_crtc_max = 0;
     std::vector< std::string > m_inputfiles;
 
-    enum option_id_t
-    {
-        OPT_TimelineZoomGfx,
-        OPT_TimelineLabels,
-        OPT_TimelineEvents,
-        OPT_TimelineRenderUserSpace,
-        OPT_GraphOnlyFiltered,
-        OPT_Fullscreen,
-        OPT_ShowEventList,
-        OPT_SyncEventListToGraph,
-        OPT_ShowColorPicker,
-        OPT_RenderCrtc0,
-        OPT_RenderCrtc1,
-        OPT_RenderCrtc2,
-        OPT_RenderCrtc3,
-        OPT_RenderCrtc4,
-        OPT_RenderCrtc5,
-        OPT_RenderCrtc6,
-        OPT_RenderCrtc7,
-        OPT_RenderCrtc8,
-        OPT_RenderCrtc9,
-        OPT_GraphRowCount,
-        OPT_EventListRowCount,
-        OPT_TimelineGfxRowCount,
-        OPT_TimelineSdma0RowCount,
-        OPT_TimelineSdma1RowCount,
-        OPT_Max
-    };
     struct option_t
     {
         std::string desc;

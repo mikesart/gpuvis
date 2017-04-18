@@ -665,7 +665,7 @@ int TraceWin::timestr_to_eventid( const char *buf, int64_t tsoffset )
 
 void TraceWin::render_color_picker()
 {
-    if ( !m_loader.get_opt( TraceLoader::OPT_ShowColorPicker ) )
+    if ( !m_loader.get_opt( OPT_ShowColorPicker ) )
         return;
 
     if ( !ImGui::CollapsingHeader( "Color Picker", ImGuiTreeNodeFlags_DefaultOpen ) )
@@ -973,7 +973,7 @@ bool TraceWin::render()
         ImGui::Unindent();
     }
 
-    ImGuiTreeNodeFlags eventslist_flags = m_loader.get_opt( TraceLoader::OPT_ShowEventList) ?
+    ImGuiTreeNodeFlags eventslist_flags = m_loader.get_opt( OPT_ShowEventList) ?
         ImGuiTreeNodeFlags_DefaultOpen : 0;
     m_show_eventlist = ImGui::CollapsingHeader( "Events List", eventslist_flags );
     if ( m_show_eventlist )
@@ -1065,9 +1065,9 @@ bool TraceWin::render()
             std::string label = string_format( "Graph only filtered (%lu events)", m_filtered_events.size() );
 
             ImGui::SameLine();
-            bool val = m_loader.m_options[ TraceLoader::OPT_GraphOnlyFiltered ].val;
+            bool val = !!m_loader.get_opt( OPT_GraphOnlyFiltered );
             if ( ImGui::Checkbox( label.c_str(), &val ) )
-                m_loader.m_options[ TraceLoader::OPT_GraphOnlyFiltered ].val = val;
+                m_loader.m_options[ OPT_GraphOnlyFiltered ].val = val;
         }
 
         render_events_list( m_loader.m_inifile );
@@ -1280,7 +1280,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
     {
         // Set the child window size to hold count of items + header + separator
         float lineh = ImGui::GetTextLineHeightWithSpacing();
-        float sizey = m_loader.get_opt( TraceLoader::OPT_EventListRowCount ) * lineh;
+        float sizey = m_loader.get_opt( OPT_EventListRowCount ) * lineh;
 
         ImGui::SetNextWindowContentSize( { 0.0f, ( event_count + 1 ) * lineh + 1 } );
         ImGui::BeginChild( "eventlistbox", ImVec2( 0.0f, sizey ) );
@@ -1542,10 +1542,10 @@ void TraceConsole::render_options( TraceLoader &loader )
     {
         TraceLoader::option_t &opt = loader.m_options[ i ];
 
-        if ( ( i >= TraceLoader::OPT_RenderCrtc0 ) &&
-             ( i <= TraceLoader::OPT_RenderCrtc9 ) )
+        if ( ( i >= OPT_RenderCrtc0 ) &&
+             ( i <= OPT_RenderCrtc9 ) )
         {
-            if ( i - TraceLoader::OPT_RenderCrtc0 > loader.m_crtc_max )
+            if ( i - OPT_RenderCrtc0 > loader.m_crtc_max )
                 continue;
         }
 
@@ -1965,7 +1965,7 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
         {
         case 0:
             if ( !strcasecmp( "fullscreen", long_opts[ opt_ind ].name ) )
-                loader.m_options[ TraceLoader::OPT_Fullscreen ].val = true;
+                loader.m_options[ OPT_Fullscreen ].val = true;
             break;
         case 'i':
             loader.m_inputfiles.push_back( optarg );
