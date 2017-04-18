@@ -405,9 +405,8 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
     for ( size_t irow = 0; irow < rows.size(); irow++ )
     {
         ImRect hov_rect;
-        ImU32 last_col = 0;
+        ImU32 last_color = 0;
         float y = gi.y + irow * row_h;
-        float last_fence_signaled_x = -1.0f;
         const std::vector< uint32_t > *plocs = rows[ irow ].plocs;
 
         if ( !plocs )
@@ -417,48 +416,35 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
               idx < plocs->size();
               idx++ )
         {
-            const trace_event_t &event2 = get_event( plocs->at( idx ) );
+            const trace_event_t &fence_signaled = get_event( plocs->at( idx ) );
 
-            if ( event2.is_fence_signaled() &&
-                 is_valid_id( event2.id_start ) )
+            if ( fence_signaled.is_fence_signaled() &&
+                 is_valid_id( fence_signaled.id_start ) &&
+                 ( fence_signaled.ts - fence_signaled.duration < gi.ts1 ) )
             {
-                const trace_event_t &event1 = get_event( event2.id_start );
+                float x0 = gi.ts_to_screenx( fence_signaled.ts - fence_signaled.duration );
+                float x1 = gi.ts_to_screenx( fence_signaled.ts );
 
-                if ( event1.ts < gi.ts1 )
+                // Get a color based on the user command line
+                uint32_t hashval = fnv_hashstr32( fence_signaled.user_comm );
+                float h = ( hashval & 0xffffff ) / 16777215.0f;
+                float v = ( hashval >> 24 ) / ( 2.0f * 255.0f ) + 0.5f;
+                ImU32 col = imgui_hsv( h, .9f, v, 1.0f );
+
+                imgui_drawrect( x0, x1 - x0, y, row_h, col );
+
+                // If we drew the same color last time, draw a separator.
+                if ( last_color == col )
+                    imgui_drawrect( x0, 1.0, y, row_h, col_event );
+                else
+                    last_color = col;
+
+                // Check if we're hovering this event.
+                if ( !is_valid_id( gi.hovered_graph_event ) &&
+                     gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
                 {
-                    //$ TODO mikesart: kill last_fence-signaled, can now use event.duration
-                    float x1 = gi.ts_to_screenx( event1.ts );
-                    float x2 = gi.ts_to_screenx( event2.ts );
-                    float xleft = ( ( last_fence_signaled_x > x1 ) && ( last_fence_signaled_x < x2 ) ) ?
-                                last_fence_signaled_x : x1;
-
-                    last_fence_signaled_x = x2;
-
-                    // Pierre-Loup wants to alway show all events in 'gfx hw' timeline
-                    // if ( gi.graph_only_filtered && event1.is_filtered_out && event2.is_filtered_out )
-                    //    continue;
-
-                    uint32_t hashval = fnv_hashstr32( event1.user_comm );
-                    float h = ( hashval & 0xffffff ) / 16777215.0f;
-                    float v = ( hashval >> 24 ) / ( 2.0f * 255.0f ) + 0.5f;
-                    ImU32 col = imgui_hsv( h, .9f, v, 1.0f );
-
-                    imgui_drawrect( xleft, x2 - xleft, y, row_h, col );
-
-                    if ( last_col == col )
-                        imgui_drawrect( xleft, 1.0, y, row_h, col_event );
-                    else
-                        last_col = col;
-
-                    if ( !is_valid_id( gi.hovered_graph_event ) &&
-                         gi.mouse_pos_in_rect( xleft, x2 - xleft, y, row_h ) )
-                    {
-                        const trace_event_t &event0 = is_valid_id( event1.id_start ) ?
-                                    get_event( event1.id_start ) : event1;
-
-                        gi.hovered_graph_event = event0.id;
-                        hov_rect = { xleft, y, x2, y + row_h };
-                    }
+                    gi.hovered_graph_event = fence_signaled.id;
+                    hov_rect = { x0, y, x1, y + row_h };
                 }
             }
         }
@@ -529,7 +515,7 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
                 {
                     // If the hovered event from the 'gfx hw' timeline is this one
                     //  highlight it.
-                    if ( gi.hovered_graph_event == event0.id )
+                    if ( gi.hovered_graph_event == event.id )
                     {
                         hovered = true;
                         hov_rect = { x0, y, x2, y + text_h };
