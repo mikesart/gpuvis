@@ -287,7 +287,6 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
     if ( event.id == 0 )
     {
         m_trace_events->m_ts_min = event.ts;
-        m_timeline_info.clear();
     }
 
     if ( m_trace_events->m_cpucount.empty() )
@@ -337,22 +336,7 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
 
         // Grab the event locations for this event context
         const std::vector< uint32_t > *plocs = m_trace_events->get_gfxcontext_locs( gfxcontext.c_str() );
-        if ( plocs->size() == 1 )
-        {
-            // Only one event... the one we just added.
-
-            // If this is a fence_signaled event with no associated previous events,
-            //  ignore bumping the id since we're not going to render the thing.
-            if ( !event.is_fence_signaled() )
-            {
-                // Get the row we're currently on for this timeline
-                uint32_t &graph_row_id = get_timeline_row_id( event.timeline );
-
-                // This is the first event - set the id for the series.
-                event.graph_row_id = graph_row_id++;
-            }
-        }
-        else
+        if ( plocs->size() > 1 )
         {
             // First event.
             trace_event_t &event0 = m_trace_events->m_events[ plocs->front() ];
@@ -369,19 +353,6 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
 
             // Point the event we just added to the previous event in this series
             event.id_start = event_prev.id;
-
-            // Set the graph_row_id to be the same as the previous event graph id
-            event.graph_row_id = event_prev.graph_row_id;
-
-            if ( event.is_fence_signaled() )
-            {
-                uint32_t &graph_row_id = get_timeline_row_id( event.timeline );
-
-                // If this event is done and nothing was started since we were started,
-                //  reset the graph_row_id back to zero for the next timeline event.
-                if ( graph_row_id == event.graph_row_id + 1 )
-                    graph_row_id = 0;
-            }
         }
     }
 
@@ -410,11 +381,9 @@ static void calculate_event_durations( TraceEvents *trace_events )
 {
     std::vector< trace_event_t > &events = trace_events->m_events;
 
-    //$ TODO mikesart: per bnieuwenhuizen:
-    //$ TODO mikesart: redo the sched_run_job.graph_row_id here so we don't have orphans
-
     for ( const auto &timeline_locs : trace_events->m_timeline_locations.m_locations )
     {
+        uint32_t graph_row_id = 0;
         int64_t last_fence_signaled_ts = 0;
         const std::vector< uint32_t > &locs = timeline_locs.second;
         // const char *name = trace_events->m_strpool.findstr( timeline_locs.first );
@@ -427,6 +396,7 @@ static void calculate_event_durations( TraceEvents *trace_events )
                  is_valid_id( fence_signaled.id_start ) )
             {
                 trace_event_t &amdgpu_sched_run_job = events[ fence_signaled.id_start ];
+                int64_t start_ts = amdgpu_sched_run_job.ts;
 
                 // amdgpu_cs_ioctl   amdgpu_sched_run_job   fence_signaled
                 //       |-----------------|---------------------|
@@ -450,7 +420,15 @@ static void calculate_event_durations( TraceEvents *trace_events )
                     trace_event_t &amdgpu_cs_ioctl = events[ amdgpu_sched_run_job.id_start ];
 
                     amdgpu_cs_ioctl.duration = amdgpu_sched_run_job.ts - amdgpu_cs_ioctl.ts;
+
+                    start_ts = amdgpu_cs_ioctl.ts;
                 }
+
+                // If our start time stamp is greater than the last fence time stamp then
+                //  reset our graph row back to the top.
+                if ( start_ts > last_fence_signaled_ts )
+                    graph_row_id = 0;
+                fence_signaled.graph_row_id = graph_row_id++;
 
                 last_fence_signaled_ts = fence_signaled.ts;
             }

@@ -39,8 +39,6 @@
 #include "gpuvis.h"
 
 /*
-  17:58:08 <Plagman> so what i was going to suggest was: show process names in gfx hw if there's enough room in the bar
-
   18:00:55 <Plagman> mikesart: i think using the same timeline logic for $name=print would be rad
   18:01:09 <Plagman> if it was multiline and staggered so it could print the event names on the actual timeline
   18:01:46 <Plagman> it should be quite a bit easier since the events are just points and not bars
@@ -63,8 +61,8 @@
 
   From DanG:
     * I like the "Update Graph Rows" text editor, but it would be nice to be
-      able to right click on a row and do hide/show.  I didn't see how to do
-      that.  It's a feature I use a lot in gpuview to focus on what I want,
+      able to right click on a row and do hide/show. I didn't see how to do
+      that. It's a feature I use a lot in gpuview to focus on what I want,
       doing it in the text editor is kind of cumbersome
     * Add Browse button to load a trace file
 */
@@ -538,7 +536,7 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
             if ( cs_ioctl.ts < gi.ts1 )
             {
                 bool hovered = false;
-                float y = gi.y + ( sched_run_job.graph_row_id % timeline_row_count ) * text_h;
+                float y = gi.y + ( fence_signaled.graph_row_id % timeline_row_count ) * text_h;
 
                 // amdgpu_cs_ioctl  amdgpu_sched_run_job   |   fence_signaled
                 //       |-----------------|---------------|--------|

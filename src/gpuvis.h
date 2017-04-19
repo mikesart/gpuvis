@@ -501,7 +501,6 @@ public:
         int val_min;
         int val_max;
     };
-    std::vector< option_t > m_options;
     int get_opt( option_id_t opt )
     {
         return m_options[ opt ].val;
@@ -513,17 +512,6 @@ public:
         return ( val <= OPT_RenderCrtc9 ) ? m_options[ val ].val : 0;
     }
 
+    std::vector< option_t > m_options;
     std::string m_event_filter_str;
-
-    std::unordered_map< uint32_t, uint32_t > m_timeline_info;
-    uint32_t &get_timeline_row_id( const char *timeline )
-    {
-        uint32_t hashval = fnv_hashstr32( timeline );
-
-        auto i = m_timeline_info.find( hashval );
-        if ( i == m_timeline_info.end() )
-            m_timeline_info.emplace( hashval, 0 );
-
-        return m_timeline_info.at( hashval );
-    }
 };
