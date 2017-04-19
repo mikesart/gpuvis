@@ -463,6 +463,24 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
 
                 imgui_drawrect( x0, x1 - x0, y, row_h, col );
 
+                // Draw a label if we have room.
+                const char *label = fence_signaled.user_comm;
+                ImVec2 size = ImGui::CalcTextSize( label );
+
+                if ( size.x + imgui_scale( 4 ) >= x1 - x0 )
+                {
+                    // No room for the comm, try just the pid.
+                    label = strrchr( label, '-' );
+                    if ( label )
+                        size = ImGui::CalcTextSize( ++label );
+                }
+                if ( size.x + imgui_scale( 4 ) < x1 - x0 )
+                {
+                    ImGui::GetWindowDrawList()->AddText(
+                                ImVec2( x0 + imgui_scale( 2.0f ), y + imgui_scale( 2.0f ) ),
+                                col_get( col_BarText ), label );
+                }
+
                 // If we drew the same color last time, draw a separator.
                 if ( last_color == col )
                     imgui_drawrect( x0, 1.0, y, row_h, col_event );
@@ -555,7 +573,7 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
 
                 if ( render_timeline_labels )
                 {
-                    const ImVec2& size = ImGui::CalcTextSize( cs_ioctl.user_comm );
+                    const ImVec2 size = ImGui::CalcTextSize( cs_ioctl.user_comm );
                     float x_text = std::max< float >( x_hwqueue_start, gi.x ) + imgui_scale( 2.0f );
 
                     if ( x_hw_end - x_text >= size.x )
