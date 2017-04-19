@@ -533,6 +533,8 @@ const char *col_get_name( colors_t col )
 
 #if defined( WIN32 )
 
+#include <shlwapi.h>
+
 extern "C" int strcasecmp( const char *s1, const char *s2 )
 {
     return _stricmp( s1, s2 );

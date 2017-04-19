@@ -52,6 +52,7 @@ set ( SRC_LIST
     src/gpuvis.cpp
     src/gpuvis_graph.cpp
     src/gpuvis_utils.cpp
+    src/tdopexpr.cpp
     src/ya_getopt.c
     src/hash_fnv.c
     src/stlini.cpp
