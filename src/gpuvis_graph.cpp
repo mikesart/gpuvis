@@ -1379,7 +1379,7 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
         return;
     }
 
-    m_ts_marker = INT64_MIN;
+    m_ts_marker = -1;
 
     // Check if mouse if over our graph and we've got focus
     m_mouse_over_graph = gi.mouse_pos_in_graph() &&

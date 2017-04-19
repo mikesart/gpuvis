@@ -340,7 +340,7 @@ public:
     bool m_do_gotoevent = false;
     int m_goto_eventid = 0;
 
-    int64_t m_ts_marker = INT64_MIN;
+    int64_t m_ts_marker = -1;
 
     bool m_show_eventlist = false;
 
