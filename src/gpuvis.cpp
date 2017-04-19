@@ -1341,6 +1341,10 @@ void TraceWin::render_events_list( CIniFile &inifile )
         float lineh = ImGui::GetTextLineHeightWithSpacing();
         float sizey = m_loader.get_opt( OPT_EventListRowCount ) * lineh;
 
+        //$ TODO mikesart: From DanG: if event list row count is 0,
+        //  and there is no room for the event list, have it show at least 10 so
+        //  it doesn't hide off the bottom?
+
         ImGui::SetNextWindowContentSize( { 0.0f, ( event_count + 1 ) * lineh + 1 } );
         ImGui::BeginChild( "eventlistbox", ImVec2( 0.0f, sizey ) );
 

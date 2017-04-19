@@ -53,6 +53,12 @@
   18:03:36 <Plagman> so if that took the remaining space and showed them in a timeline and printed what it could directly inline, that would be a good visualization
   18:04:20 <Plagman> oops, got to run for a bit
 
+  19:07:32 <Plagman> mikesart: you think you can do fuzzy prefix matching for the ones with variable data in them?
+  19:08:04 <Plagman> like matching all these together: "[Compositor] Re-Predicting( 20.02354345 )"
+  19:08:40 <Plagman> an algo that matches as much as possible would probably match them together pretty well
+  19:08:53 <Plagman> and then we could show offset since last identical event, highlight them together on hover, etc
+  19:09:00 <Plagman> put them on separate graph rows too
+
   TODO mikesart: Try coloring the ftrace print events per the hash of the string?
 
   From DanG:
