@@ -60,10 +60,6 @@
   TODO mikesart: Try coloring the ftrace print events per the hash of the string?
 
   From DanG:
-    * I like the "Update Graph Rows" text editor, but it would be nice to be
-      able to right click on a row and do hide/show. I didn't see how to do
-      that. It's a feature I use a lot in gpuview to focus on what I want,
-      doing it in the text editor is kind of cumbersome
     * Add Browse button to load a trace file
 */
 
@@ -314,7 +310,8 @@ void graph_info_t::init( float x_in, float w_in, int64_t start_ts, int64_t lengt
     tsdx = ts1 - ts0 + 1;
     tsdxrcp = 1.0 / tsdx;
 
-    mouse_pos = ImGui::GetMousePos();
+    mouse_pos = ImGui::IsRootWindowOrAnyChildFocused() ?
+            ImGui::GetMousePos() : ImVec2( -1024, -1024 );
 
     hovered_items.clear();
     hovered_graph_event = INVALID_ID;
@@ -327,11 +324,10 @@ void graph_info_t::set_pos_y( float y_in, float h_in )
     y = y_in;
     h = h_in;
 
-    mouse_over =
-        mouse_pos.x >= x &&
-        mouse_pos.x <= x + w &&
-        mouse_pos.y >= y &&
-        mouse_pos.y <= y + h;
+    mouse_over = mouse_pos.x >= x &&
+            mouse_pos.x <= x + w &&
+            mouse_pos.y >= y &&
+            mouse_pos.y <= y + h;
 
     row_num++;
 }
@@ -1100,6 +1096,8 @@ void TraceWin::render_process_graph()
                     gi.timeline_render_user = !!m_loader.get_opt( OPT_TimelineRenderUserSpace );
 
                     gi.set_pos_y( windowpos.y + ri.row_y + m_graph_start_y, ri.row_h );
+                    if ( gi.mouse_over )
+                        m_mouse_over_row_name = ri.comm;
 
                     //$ TODO mikesart: Check if entire row is clipped...
                     render_graph_row( ri.comm, *ri.plocs, gi );
@@ -1114,6 +1112,8 @@ void TraceWin::render_process_graph()
                     gi.timeline_render_user = !!m_loader.get_opt( OPT_TimelineRenderUserSpace );
 
                     gi.set_pos_y( windowpos.y + ri.row_y + m_graph_start_y, ri.row_h );
+                    if ( gi.mouse_over )
+                        m_mouse_over_row_name = ri.comm;
 
                     render_graph_row( ri.comm, *ri.plocs, gi );
                 }
@@ -1142,9 +1142,12 @@ void TraceWin::render_process_graph()
 
         ImGui::EndChild();
     }
+
+    if ( !m_graph_popup )
+        m_mouse_over_row_name = "";
 }
 
-bool TraceWin::render_graph_popup()
+bool TraceWin::render_graph_popup( graph_info_t &gi )
 {
     if ( !ImGui::BeginPopup( "GraphPopup" ) )
         return false;
@@ -1158,6 +1161,42 @@ bool TraceWin::render_graph_popup()
     };
 
     imgui_text_bg( "Options", ImGui::GetColorVec4( ImGuiCol_Header ) );
+    ImGui::Separator();
+
+    if ( !m_mouse_over_row_name.empty() )
+    {
+        std::string label = string_format( "Hide row '%s'", m_mouse_over_row_name.c_str() );
+
+        if ( ImGui::MenuItem( label.c_str() ) )
+            graph_rows_show( m_mouse_over_row_name, HIDE_ROW );
+
+        label = string_format( "Hide row '%s' and below", m_mouse_over_row_name.c_str() );
+        if ( ImGui::MenuItem( label.c_str() ) )
+            graph_rows_show( m_mouse_over_row_name, HIDE_ROW_AND_ALL_BELOW );
+    }
+
+    if ( !m_graph_rows_hidden_rows.empty() )
+    {
+        if ( ImGui::BeginMenu( "Show row" ) )
+        {
+            for ( const std::string &entry : m_graph_rows_hidden_rows )
+            {
+                std::string label = entry;
+                const std::vector< uint32_t > *plocs = m_trace_events->get_comm_locs( entry.c_str() );
+
+                if ( plocs )
+                    label += string_format( " (%lu events)", plocs->size() );
+
+                if ( ImGui::MenuItem( label.c_str() ) )
+                {
+                    graph_rows_show( entry.c_str(), SHOW_ROW );
+                }
+            }
+
+            ImGui::EndMenu();
+        }
+    }
+
     ImGui::Separator();
 
     if ( ImGui::BeginMenu( "Save Location" ) )
@@ -1421,7 +1460,7 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
     // If we've got an active popup menu, render it.
     if ( m_graph_popup )
     {
-        m_graph_popup = TraceWin::render_graph_popup();
+        m_graph_popup = TraceWin::render_graph_popup( gi );
         return;
     }
 
@@ -1472,6 +1511,8 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
         {
             // right click: popup menu
             m_graph_popup = true;
+            m_graph_rows_hidden_rows = graph_rows_get_hidden_rows();
+
             ImGui::OpenPopup( "GraphPopup" );
         }
         else

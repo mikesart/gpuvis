@@ -40,6 +40,9 @@
 #include "gpuvis.h"
 #include "tdopexpr.h"
 
+// String we prefix graph rows with to hide them
+static const char g_hide_row_str[] = "#hide# ";
+
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
 {
     bool ret = ImGui::Button( label );
@@ -600,7 +603,57 @@ std::string TraceWin::ts_to_timestr( int64_t event_ts, int64_t tsoffset, int pre
     return string_format( "%.*lf", precision, val );
 }
 
-void TraceWin::init_graph_rows_str( bool reset )
+std::vector< std::string > TraceWin::graph_rows_get_hidden_rows()
+{
+    std::vector< std::string > ret;
+    size_t len = strlen( g_hide_row_str );
+    std::vector< std::string > lines = string_explode( m_graph_rows_str, '\n' );
+
+    for ( std::string &entry : lines )
+    {
+        if ( !strncasecmp( entry.c_str(), g_hide_row_str, len ) )
+            ret.push_back( entry.c_str() + len );
+    }
+
+    return ret;
+}
+
+bool TraceWin::graph_rows_show( const std::string &name, graph_rows_show_t show )
+{
+    bool modified = false;
+    const std::string hide_name = g_hide_row_str + name;
+    const std::string searchstr = ( show == SHOW_ROW ) ? hide_name : name;
+    std::vector< std::string > lines = string_explode( m_graph_rows_str, '\n' );
+
+    for ( std::string &entry : lines )
+    {
+        std::string entry_trimmed = string_trimmed( entry );
+
+        if ( entry_trimmed.empty() )
+            continue;
+
+        if ( modified && ( show == HIDE_ROW_AND_ALL_BELOW ) )
+        {
+            if ( entry_trimmed[ 0 ] != '#' )
+                entry = g_hide_row_str + entry_trimmed;
+        }
+        else if ( entry_trimmed == searchstr )
+        {
+            entry = ( show == SHOW_ROW ) ? name : hide_name;
+            modified = true;
+        }
+    }
+
+    if ( modified )
+    {
+        m_graph_rows_str = string_implode( lines, "\n" );
+        graph_rows_updatelist();
+    }
+
+    return modified;
+}
+
+void TraceWin::graph_rows_initstr( bool reset )
 {
     if ( reset )
         m_graph_rows_str.clear();
@@ -644,10 +697,10 @@ void TraceWin::init_graph_rows_str( bool reset )
         }
     }
 
-    update_graph_rows_list();
+    graph_rows_updatelist();
 }
 
-void TraceWin::update_graph_rows_list()
+void TraceWin::graph_rows_updatelist()
 {
     const char *begin = m_graph_rows_str.c_str();
 
@@ -935,7 +988,7 @@ bool TraceWin::render()
     if ( !m_inited )
     {
         // Initialize our graph rows first time through.
-        init_graph_rows_str();
+        graph_rows_initstr();
 
         render_time_offset_button_init( *m_trace_events );
 
@@ -950,14 +1003,14 @@ bool TraceWin::render()
     if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
         ImGui::Indent();
-        if ( ImGui::CollapsingHeader( "Graph Rows" ) )
+        if ( ImGui::CollapsingHeader( "Edit Graph Rows" ) )
         {
             if ( ImGui::Button( "Update Graph Rows" ) )
-                update_graph_rows_list();
+                graph_rows_updatelist();
 
             ImGui::SameLine();
             if ( ImGui::Button( "Reset Graph Rows" ) )
-                init_graph_rows_str( true );
+                graph_rows_initstr( true );
 
             m_graph_rows_str.reserve( 8192 );
             ImGui::InputTextMultiline( "##GraphRowsText", &m_graph_rows_str[ 0 ], m_graph_rows_str.capacity(),

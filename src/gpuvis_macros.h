@@ -113,6 +113,11 @@ void string_rtrim( std::string &s );
 // trim from both ends (in place)
 void string_trim( std::string &s );
 
+// disassemble a string into parts
+std::vector< std::string > string_explode( std::string const &s, char delim );
+// assembles a vector of string elements with a delimiter
+std::string string_implode( std::vector< std::string > &elements, const std::string &delimiter );
+
 // trim from start (copying)
 std::string string_ltrimmed( std::string s );
 // trim from end (copying)

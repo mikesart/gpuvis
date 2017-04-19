@@ -29,6 +29,7 @@
 #include <vector>
 #include <algorithm>
 #include <cctype>
+#include <sstream>
 
 #include <SDL.h>
 
@@ -162,6 +163,35 @@ void string_replace_str( std::string &s, const std::string &search, const std::s
         s.erase( pos, search.length() );
         s.insert( pos, replace );
     }
+}
+
+// http://stackoverflow.com/questions/12966957/is-there-an-equivalent-in-c-of-phps-explode-function
+std::vector< std::string > string_explode( std::string const &s, char delim )
+{
+    std::vector< std::string > result;
+    std::istringstream iss( s );
+
+    for ( std::string token; std::getline( iss, token, delim ); )
+    {
+        result.push_back( std::move( token ) );
+    }
+
+    return result;
+}
+
+// http://kacperkolodziej.com/articles/programming/253-cpp-implementation-of-implode-and-explode-functions-from-php.html
+std::string string_implode( std::vector< std::string > &elements, const std::string &delimiter )
+{
+    std::string full;
+
+    for ( std::vector< std::string >::iterator it = elements.begin(); it != elements.end(); ++it )
+    {
+        full += ( *it );
+        if ( it != elements.end() - 1 )
+            full += delimiter;
+    }
+
+    return full;
 }
 
 /*

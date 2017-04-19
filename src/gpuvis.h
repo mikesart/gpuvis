@@ -291,7 +291,7 @@ protected:
     void render_graph_row_timeline( const std::vector< uint32_t > &locs, graph_info_t &gi );
     void render_graph_hw_row_timeline( graph_info_t &gi );
     void render_graph_vblanks( class graph_info_t &gi );
-    bool render_graph_popup();
+    bool render_graph_popup( class graph_info_t &gi );
 
     void handle_graph_hotkeys();
     void handle_graph_keyboard_scroll();
@@ -317,8 +317,17 @@ protected:
     // Convert a time stamp to a time string
     std::string ts_to_timestr( int64_t event_ts, int64_t tsoffset = 0, int precision = 6 );
 
-    void init_graph_rows_str( bool reset = false );
-    void update_graph_rows_list();
+    void graph_rows_initstr( bool reset = false );
+    void graph_rows_updatelist();
+    enum graph_rows_show_t
+    {
+        SHOW_ROW,
+        HIDE_ROW,
+        HIDE_ROW_AND_ALL_BELOW
+    };
+    bool graph_rows_show( const std::string &name, graph_rows_show_t show );
+    std::vector< std::string > graph_rows_get_hidden_rows();
+
     void range_check_graph_location();
 
     std::unordered_map< int64_t, int > m_ts_to_eventid_cache;
@@ -359,6 +368,8 @@ public:
     uint32_t m_events_list_popup_eventid = INVALID_ID;
 
     bool m_graph_popup = false;
+    std::string m_mouse_over_row_name;
+    std::vector< std::string > m_graph_rows_hidden_rows;
 
     // Graph Start
     bool m_do_graph_start_timestr = false;
