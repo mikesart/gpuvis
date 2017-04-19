@@ -900,6 +900,49 @@ void TraceWin::handle_graph_hotkeys()
     }
 }
 
+void TraceWin::handle_graph_keyboard_scroll()
+{
+    if ( !ImGui::IsWindowFocused() )
+        return;
+
+    int64_t start_ts = m_graph_start_ts + m_tsoffset;
+    std::vector< trace_event_t > &events = m_trace_events->m_events;
+
+    if ( imgui_key_pressed( ImGuiKey_UpArrow ) )
+    {
+        m_graph_start_y += ImGui::GetTextLineHeightWithSpacing() * 4;
+    }
+    else if ( imgui_key_pressed( ImGuiKey_DownArrow ) )
+    {
+        m_graph_start_y -= ImGui::GetTextLineHeightWithSpacing() * 4;
+    }
+    else if ( imgui_key_pressed( ImGuiKey_LeftArrow ) )
+    {
+        start_ts = std::max< int64_t >( start_ts - 9 * m_graph_length_ts / 10,
+                                        -MSECS_PER_SEC );
+    }
+    else if ( imgui_key_pressed( ImGuiKey_RightArrow ) )
+    {
+        start_ts = std::min< int64_t >( start_ts + 9 * m_graph_length_ts / 10,
+                                        events.back().ts - m_graph_length_ts + MSECS_PER_SEC );
+    }
+    else if ( imgui_key_pressed( ImGuiKey_Home ) )
+    {
+        start_ts = events.front().ts - MSECS_PER_SEC;
+    }
+    else if ( imgui_key_pressed( ImGuiKey_End ) )
+    {
+        start_ts = events.back().ts - m_graph_length_ts + MSECS_PER_SEC;
+    }
+
+    start_ts -= m_tsoffset;
+    if ( start_ts != m_graph_start_ts )
+    {
+        m_graph_start_ts = start_ts;
+        m_do_graph_start_timestr = true;
+    }
+}
+
 void TraceWin::render_process_graph()
 {
     struct row_info_t
@@ -977,8 +1020,6 @@ void TraceWin::render_process_graph()
 
     if ( row_info.empty() )
         return;
-
-    handle_graph_hotkeys();
 
     // Max graph row count is the number of rows.
     m_loader.m_options[ OPT_GraphRowCount ].val_max = row_info.size();
@@ -1091,10 +1132,15 @@ void TraceWin::render_process_graph()
 
             render_graph_vblanks( gi );
         }
-        ImGui::EndChild();
+
+        // Handle right, left, pgup, pgdown, etc in graph
+        handle_graph_keyboard_scroll();
+        handle_graph_hotkeys();
 
         // Render mouse tooltips, mouse selections, etc
         handle_mouse_graph( gi );
+
+        ImGui::EndChild();
     }
 }
 

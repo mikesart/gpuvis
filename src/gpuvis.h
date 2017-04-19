@@ -293,11 +293,12 @@ protected:
     void render_graph_vblanks( class graph_info_t &gi );
     bool render_graph_popup();
 
+    void handle_graph_hotkeys();
+    void handle_graph_keyboard_scroll();
+
     template< size_t T >
     void save_restore_column_sizes( CIniFile &inifile,
         const std::array< const char *, T > &columns );
-
-    void handle_graph_hotkeys();
 
     void handle_mouse_graph( class graph_info_t &gi );
     void handle_mouse_graph_captured( class graph_info_t &gi );
