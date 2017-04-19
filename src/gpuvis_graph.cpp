@@ -39,6 +39,31 @@
 #include "gpuvis.h"
 
 /*
+  17:58:08 <Plagman> so what i was going to suggest was: show process names in gfx hw if there's enough room in the bar
+
+  18:00:55 <Plagman> mikesart: i think using the same timeline logic for $name=print would be rad
+  18:01:09 <Plagman> if it was multiline and staggered so it could print the event names on the actual timeline
+  18:01:46 <Plagman> it should be quite a bit easier since the events are just points and not bars
+  18:02:05 <Plagman> might not be able to print most of them until zoomed in way in though
+  18:02:09 <Plagman> but that'd be fine
+  18:02:27 <Plagman> i guess ideally you'd want recurring print events to always be on the same line
+  18:02:36 <Plagman> that's where unique event IDs would be good, but need to change our code for that
+  18:02:48 <Plagman> or do some best-effort string matching in the tool i guess
+  18:03:19 <Plagman> but right now i have little use for all the lines under my $name=print row
+  18:03:36 <Plagman> so if that took the remaining space and showed them in a timeline and printed what it could directly inline, that would be a good visualization
+  18:04:20 <Plagman> oops, got to run for a bit
+
+  TODO mikesart: Try coloring the ftrace print events per the hash of the string?
+
+  From DanG:
+    * I like the "Update Graph Rows" text editor, but it would be nice to be
+      able to right click on a row and do hide/show.  I didn't see how to do
+      that.  It's a feature I use a lot in gpuview to focus on what I want,
+      doing it in the text editor is kind of cumbersome
+    * Add Browse button to load a trace file
+*/
+
+/*
   From conversations with Andres and Pierre-Loup...
 
   These are the important events:
@@ -1269,7 +1294,8 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
         }
     }
 
-    //$ TODO: faint glow over all events in the tooltip?
+    //$ TODO mikesart: faint glow over all events in the tooltip?
+
     if ( !gi.hovered_items.empty() )
     {
         // Sort hovered items array by id

@@ -410,6 +410,9 @@ static void calculate_event_durations( TraceEvents *trace_events )
 {
     std::vector< trace_event_t > &events = trace_events->m_events;
 
+    //$ TODO mikesart: per bnieuwenhuizen:
+    //$ TODO mikesart: redo the sched_run_job.graph_row_id here so we don't have orphans
+
     for ( const auto &timeline_locs : trace_events->m_timeline_locations.m_locations )
     {
         int64_t last_fence_signaled_ts = 0;
