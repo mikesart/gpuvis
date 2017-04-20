@@ -1401,7 +1401,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
         }
     }
 
-    //$ TODO mikesart: faint glow over all events in the tooltip?
+    m_highlight_ids.clear();
 
     if ( !gi.hovered_items.empty() )
     {
@@ -1417,6 +1417,8 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
         {
             trace_event_t &event = get_event( hov.eventid );
             std::string gfxcontext_str = get_event_gfxcontext_str( event );
+
+            m_highlight_ids.push_back( event.id );
 
             // Add event id and distance from cursor to this event
             time_buf += string_format( "\n%u %c%sms",

@@ -1544,6 +1544,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
             // Loop through and draw events
             for ( uint32_t i = start_idx; i < end_idx; i++ )
             {
+                bool highlight = false;
                 trace_event_t &event = filtered_events ?
                             m_trace_events->m_events[ m_filtered_events[ i ] ] :
                             m_trace_events->m_events[ i ];
@@ -1560,9 +1561,24 @@ void TraceWin::render_events_list( CIniFile &inifile )
                     ImGui::PushStyleColor( ImGuiCol_Text, col );
                 }
 
+                if ( !selected )
+                {
+                    // If this event is in the highlighted list, give it a bit of a colored background
+                    auto idx = std::lower_bound( m_highlight_ids.begin(), m_highlight_ids.end(), event.id );
+
+                    highlight = ( idx != m_highlight_ids.end() ) &&
+                                ( event.id == m_highlight_ids[ idx - m_highlight_ids.begin() ] );
+                    if ( highlight )
+                    {
+                        const ImVec4 &col = ImGui::GetColorVec4( ImGuiCol_PlotLinesHovered );
+
+                        ImGui::PushStyleColor( ImGuiCol_Header, ImVec4( col.x, col.y, col.z, 0.4f ) );
+                    }
+                }
+
                 // column 0: event id
                 {
-                    if ( ImGui::Selectable( std::to_string( event.id ).c_str(), selected, ImGuiSelectableFlags_SpanAllColumns ) )
+                    if ( ImGui::Selectable( std::to_string( event.id ).c_str(), highlight || selected, ImGuiSelectableFlags_SpanAllColumns ) )
                         m_selected_eventid = event.id;
 
                     // Columns bug workaround: selectable with SpanAllColumns & overlaid button does not work.
@@ -1634,8 +1650,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
                     ts_marker_diff = ts_diff;
                 }
 
-                if ( event.is_vblank() )
-                    ImGui::PopStyleColor( 1 );
+                ImGui::PopStyleColor( event.is_vblank() + highlight );
 
                 ImGui::PopID();
             }

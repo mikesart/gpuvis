@@ -395,6 +395,8 @@ public:
     uint32_t m_selected_eventid = INVALID_ID;
     uint32_t m_hovered_eventlist_eventid = INVALID_ID;
 
+    std::vector< uint32_t > m_highlight_ids;
+
     uint32_t m_eventlist_start_eventid = INVALID_ID;
     uint32_t m_eventlist_end_eventid = INVALID_ID;
 
