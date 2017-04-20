@@ -268,7 +268,7 @@ namespace ImGui
 
     // Columns
     // You can also use SameLine(pos_x) for simplified columning. The columns API is still work-in-progress and rather lacking.
-    IMGUI_API void          BeginColumns(const char* id, int count, ImGuiColumnsFlags flags = 0); // setup number of columns. use an identifier to distinguish multiple column sets. close with EndColumns().
+    IMGUI_API bool          BeginColumns(const char* id, int count, ImGuiColumnsFlags flags = 0); // setup number of columns. use an identifier to distinguish multiple column sets. close with EndColumns().
     IMGUI_API bool          EndColumns();                                                        // close columns
     IMGUI_API void          NextColumn();                                                        // next column, defaults to current row or next row if the current row is finished
     IMGUI_API int           GetColumnIndex();                                                    // get current column index

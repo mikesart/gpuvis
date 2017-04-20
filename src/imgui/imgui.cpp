@@ -9518,7 +9518,7 @@ void ImGui::PushColumnClipRect(int column_index)
     ImGui::PushClipRect(ImVec2(x1,-FLT_MAX), ImVec2(x2,+FLT_MAX), true);
 }
 
-void ImGui::BeginColumns(const char* id, int columns_count, ImGuiColumnsFlags flags)
+bool ImGui::BeginColumns(const char* id, int columns_count, ImGuiColumnsFlags flags)
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = GetCurrentWindow();
@@ -9544,6 +9544,9 @@ void ImGui::BeginColumns(const char* id, int columns_count, ImGuiColumnsFlags fl
     window->DC.ColumnsOffsetX = 0.0f;
     window->DC.CursorPos.x = (float)(int)(window->Pos.x + window->DC.IndentX + window->DC.ColumnsOffsetX);
 
+    // Assume this isn't the first time initialization call
+    bool inited = false;
+
     // Cache column offsets
     window->DC.ColumnsData.resize(columns_count + 1);
     for (int column_index = 0; column_index < columns_count + 1; column_index++)
@@ -9552,6 +9555,14 @@ void ImGui::BeginColumns(const char* id, int columns_count, ImGuiColumnsFlags fl
         KeepAliveID(column_id);
         const float default_t = column_index / (float)window->DC.ColumnsCount;
         float t = window->DC.StateStorage->GetFloat(column_id, default_t);      // Cheaply store our floating point value inside the integer (could store a union into the map?)
+
+        if ( ( column_index == 0 ) && ( t == default_t ) && !window->DC.StateStorage->GetVoidPtr(column_id) )
+        {
+            // Return true if we're initializing this column for the first time ever.
+            inited = true;
+            window->DC.StateStorage->SetFloat(column_id, t);
+        }
+
         if (!(window->DC.ColumnsFlags & ImGuiColumnsFlags_NoForceWithinWindow))
             t = ImMin(t, PixelsToOffsetNorm(window->DC.ColumnsMaxX - g.Style.ColumnsMinSpacing * (window->DC.ColumnsCount - column_index)));
         window->DC.ColumnsData[column_index].OffsetNorm = t;
@@ -9559,6 +9570,8 @@ void ImGui::BeginColumns(const char* id, int columns_count, ImGuiColumnsFlags fl
     window->DrawList->ChannelsSplit(window->DC.ColumnsCount);
     PushColumnClipRect();
     PushItemWidth(GetColumnWidth() * 0.65f);
+
+    return inited;
 }
 
 bool ImGui::EndColumns()
