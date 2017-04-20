@@ -351,12 +351,8 @@ public:
     // Is Event List Header visible?
     bool m_show_eventlist = false;
 
-    // Whether column widths have been initialized / resized.
-    bool m_columns_eventlist_inited = false;
+    // Whether column has been resized.
     bool m_columns_eventlist_resized = false;
-    bool m_columns_colorpicker_inited = false;
-    bool m_columns_comminfo_inited = false;
-    bool m_columns_cpustats_inited = false;
 
     // Goto Time buffer
     char m_timegoto_buf[ 32 ] = { 0 };

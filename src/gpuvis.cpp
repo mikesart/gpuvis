@@ -108,13 +108,11 @@ static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniDat
     return -1;
 }
 
-template < typename T >
-void imgui_column_headers( const char *title, const T &headers, CIniFile *inifile = NULL,
-                           bool *inited = NULL, bool *resized = NULL )
+static bool imgui_begin_columns( const char *title,
+                                 const std::initializer_list< const char * > &headers,
+                                 CIniFile *inifile = NULL, bool *resized = NULL )
 {
-    ImGuiColumnsFlags flags = 0;
-
-    ImGui::BeginColumns( title, headers.size(), flags );
+    bool inited = ImGui::BeginColumns( title, headers.size() );
 
     for ( const char *str : headers )
     {
@@ -123,32 +121,35 @@ void imgui_column_headers( const char *title, const T &headers, CIniFile *inifil
     }
     ImGui::Separator();
 
-    if ( inifile )
+    // If we were just initialized or resized...
+    if ( inifile && ( inited || ( *resized && ImGui::IsMouseReleased( 0 ) ) ) )
     {
-        if ( !*inited || ( *resized && ImGui::IsMouseReleased( 0 ) ) )
+        // Go through the columns...
+        for ( size_t i = 0; i < headers.size(); i++ )
         {
-            for ( size_t i = 0; i < headers.size(); i++ )
+            std::string key = string_format( "column_width_%s%lu", title, i );
+
+            if ( inited )
             {
-                std::string key = string_format( "column_width_%s%lu", title, i );
+                // Try to restore the column widths
+                float val = inifile->GetFloat( key.c_str(), -1.0f );
+                if ( val <= 0.0f )
+                    break;
 
-                if ( !*inited )
-                {
-                    float val = inifile->GetFloat( key.c_str(), -1.0f );
-                    if ( val <= 0.0f )
-                        break;
-
-                    ImGui::SetColumnWidth( i, val );
-                }
-                else
-                {
-                    inifile->PutFloat( key.c_str(), ImGui::GetColumnWidth( i ) );
-                }
+                ImGui::SetColumnWidth( i, val );
             }
-
-            *inited = true;
-            *resized = false;
+            else
+            {
+                // Save the column widths
+                inifile->PutFloat( key.c_str(), ImGui::GetColumnWidth( i ) );
+            }
         }
+
+        // Clear the resized flag
+        *resized = false;
     }
+
+    return inited;
 }
 
 /*
@@ -799,13 +800,8 @@ void TraceWin::render_color_picker()
     if ( !ImGui::CollapsingHeader( "Color Picker", ImGuiTreeNodeFlags_DefaultOpen ) )
         return;
 
-    ImGui::BeginColumns( "color_picker", 2, 0 );
-
-    if ( !m_columns_colorpicker_inited )
-    {
+    if ( ImGui::BeginColumns( "color_picker", 2, 0 ) )
         ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
-        m_columns_colorpicker_inited = true;
-    }
 
     /*
      * Column 1: draw our graph items and their colors
@@ -1228,15 +1224,8 @@ void TraceWin::render_trace_info()
         {
             if ( ImGui::CollapsingHeader( "Comm Info", ImGuiTreeNodeFlags_DefaultOpen ) )
             {
-                static const std::array< const char *, 2 > columns = { "Comm", "Events" };
-
-                imgui_column_headers( "comm_info", columns );
-
-                if ( !m_columns_comminfo_inited )
-                {
+                if ( imgui_begin_columns( "comm_info", { "Comm", "Events" } ) )
                     ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
-                    m_columns_comminfo_inited = true;
-                }
 
                 for ( const comm_t &info : m_comm_info )
                 {
@@ -1254,15 +1243,8 @@ void TraceWin::render_trace_info()
         {
             if ( ImGui::CollapsingHeader( "CPU Info" ) )
             {
-                static const std::array< const char *, 2 > columns = { "CPU", "Stats" };
-
-                imgui_column_headers( "cpu_stats", columns );
-
-                if ( !m_columns_cpustats_inited )
-                {
+                if ( imgui_begin_columns( "cpu_stats", { "CPU", "Stats" } ) )
                     ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
-                    m_columns_cpustats_inited = true;
-                }
 
                 for ( const std::string &str : trace_info.cpustats )
                 {
@@ -1457,20 +1439,13 @@ void TraceWin::render_events_list( CIniFile &inifile )
         uint32_t end_idx = std::min< uint32_t >( start_idx + 2 + visible_rows, event_count );
 
         // Draw columns
-        static const std::array< const char *, 6 > columns =
-            { "Id", "Time Stamp", "Task", "Event", "context", "Info" };
-
-        imgui_column_headers( "event_list", columns,
-                &inifile, &m_columns_eventlist_inited, &m_columns_eventlist_resized );
+        imgui_begin_columns( "event_list", { "Id", "Time Stamp", "Task", "Event", "context", "Info" },
+                             &inifile, &m_columns_eventlist_resized );
 
         if ( start_idx > 0 )
         {
             // Move cursor position down to where we've scrolled.
             ImGui::SetCursorPosY( ImGui::GetCursorPosY() + lineh * ( start_idx - 1 ) );
-
-            // Scoot to next row (fixes top row occasionally drawing half).
-            for ( size_t i = 0; i < columns.size(); i++ )
-                ImGui::NextColumn();
         }
 
         // Reset our hovered event id
@@ -1880,7 +1855,7 @@ void TraceConsole::render( TraceLoader &loader )
 
     if ( ImGui::CollapsingHeader( "Opened Event Files", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        ImGui::BeginColumns( "EventFiles", 2 );
+        ImGui::BeginColumns( "event_files", 2 );
 
         ImGui::Separator();
 

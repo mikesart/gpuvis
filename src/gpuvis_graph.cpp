@@ -416,10 +416,10 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
         const char *name;
         const std::vector< uint32_t > *plocs;
     };
-    std::array< row_t, 1 > rows;
-
-    rows[ 0 ].name = "gfx";
-    rows[ 0 ].plocs = m_trace_events->get_timeline_locs( rows[ 0 ].name );
+    const std::array< row_t, 1 > rows =
+    {
+        "gfx", m_trace_events->get_timeline_locs( rows[ 0 ].name )
+    };
 
     imgui_push_smallfont();
 
