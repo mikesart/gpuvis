@@ -285,6 +285,8 @@ protected:
     bool render_events_list_popup( uint32_t eventid );
     void render_color_picker();
 
+    bool handle_event_list_mouse( const trace_event_t &event, uint32_t i );
+
     void render_process_graph();
     void render_graph_row( const std::string &comm, const std::vector< uint32_t > &locs,
                            class graph_info_t &gi );

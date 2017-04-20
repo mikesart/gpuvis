@@ -1358,6 +1358,72 @@ static float get_keyboard_scroll_lines( float visible_rows )
     return scroll_lines;
 }
 
+
+bool TraceWin::handle_event_list_mouse( const trace_event_t &event, uint32_t i )
+{
+    bool popup_shown = false;
+
+    // Check if item is hovered and we don't have a popup menu going already.
+    if ( !is_valid_id( m_events_list_popup_eventid ) &&
+         ImGui::IsItemHovered() &&
+         ImGui::IsRootWindowOrAnyChildFocused() )
+    {
+        // Store the hovered event id.
+        m_hovered_eventlist_eventid = event.id;
+
+        if ( ImGui::IsMouseClicked( 1 ) )
+        {
+            // If they right clicked, show the context menu.
+            m_events_list_popup_eventid = i;
+
+            // Open the popup for render_events_list_popup().
+            ImGui::OpenPopup( "EventsListPopup" );
+        }
+        else
+        {
+            // Otherwise show a tooltip.
+            std::string fieldstr = get_event_field_str( event, ": ", '\n' );
+            std::string ts_str = ts_to_timestr( event.ts, m_tsoffset );
+
+            imgui_set_tooltip( string_format( "Id: %u\nTime: %s\nComm: %s\n%s",
+                               event.id, ts_str.c_str(), event.comm, fieldstr.c_str() ) );
+        }
+    }
+
+    // If we've got an active popup menu, render it.
+    if ( m_events_list_popup_eventid == i )
+    {
+        uint32_t eventid = !m_filtered_events.empty() ?
+                    m_filtered_events[ m_events_list_popup_eventid ] :
+                    m_events_list_popup_eventid;
+
+        imgui_pop_smallfont();
+
+        if ( !TraceWin::render_events_list_popup( eventid ) )
+            m_events_list_popup_eventid = INVALID_ID;
+
+        imgui_push_smallfont();
+        popup_shown = true;
+    }
+
+    return popup_shown;
+}
+
+static void draw_ts_line( const ImVec2 &pos )
+{
+    ImGui::PopClipRect();
+
+    float max_x = ImGui::GetWindowClipRectMax().x;
+    float spacing_U = ( float )( int )( ImGui::GetStyle().ItemSpacing.y * 0.5f );
+    float pos_y = pos.y - spacing_U;
+
+    ImGui::GetWindowDrawList()->AddLine(
+                ImVec2( pos.x, pos_y ), ImVec2( max_x, pos_y ),
+                col_get( col_MousePos ), imgui_scale( 2.0f ) );
+
+    ImGui::PushColumnClipRect();
+}
+
 void TraceWin::render_events_list( CIniFile &inifile )
 {
     std::vector< trace_event_t > &events = m_trace_events->m_events;
@@ -1441,162 +1507,135 @@ void TraceWin::render_events_list( CIniFile &inifile )
         // Draw columns
         imgui_begin_columns( "event_list", { "Id", "Time Stamp", "Task", "Event", "context", "Info" },
                              &inifile, &m_columns_eventlist_resized );
-
-        if ( start_idx > 0 )
         {
+            bool popup_shown = false;
+            int64_t ts_marker_diff = 0;
+
+            // Reset our hovered event id
+            m_hovered_eventlist_eventid = INVALID_ID;
+
             // Move cursor position down to where we've scrolled.
-            ImGui::SetCursorPosY( ImGui::GetCursorPosY() + lineh * ( start_idx - 1 ) );
-        }
+            if ( start_idx > 0 )
+                ImGui::SetCursorPosY( ImGui::GetCursorPosY() + lineh * ( start_idx - 1 ) );
 
-        // Reset our hovered event id
-        m_hovered_eventlist_eventid = INVALID_ID;
-
-        // Draw events
-        if ( filtered_events )
-        {
-            m_eventlist_start_eventid = m_filtered_events[ start_idx ];
-            m_eventlist_end_eventid = m_filtered_events[ end_idx - 1 ];
-        }
-        else
-        {
-            m_eventlist_start_eventid = start_idx;
-            m_eventlist_end_eventid = end_idx;
-        }
-
-        bool popup_shown = false;
-
-        int64_t ts_marker_diff = 0;
-        for ( uint32_t i = start_idx; i < end_idx; i++ )
-        {
-            int colors_pushed = 0;
-            trace_event_t &event = filtered_events ?
-                        m_trace_events->m_events[ m_filtered_events[ i ] ] :
-                        m_trace_events->m_events[ i ];
-            bool selected = ( m_selected_eventid == event.id );
-            std::string ts_str = ts_to_timestr( event.ts, m_tsoffset );
-
-            int64_t ts_diff = event.ts - m_ts_marker;
-            bool draw_ts_line = ( ts_marker_diff < 0 ) && ( ts_diff > 0 );
-            ts_marker_diff = ts_diff;
-
-            ImGui::PushID( i );
-
-            if ( event.is_vblank() )
+            if ( filtered_events )
             {
-                ImColor col = col_get( ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0 );
-
-                ImGui::PushStyleColor( ImGuiCol_Text, col );
-                colors_pushed++;
-            }
-
-            ImVec2 cursorpos = ImGui::GetCursorScreenPos();
-
-            if ( ImGui::Selectable( std::to_string( event.id ).c_str(), selected, ImGuiSelectableFlags_SpanAllColumns ) )
-                m_selected_eventid = event.id;
-
-            // Columns: selectable with SpanAllColumns & overlaid button does not work.
-            // https://github.com/ocornut/imgui/issues/684
-            ImGui::SetItemAllowOverlap();
-
-            // Check if item is hovered and we don't have a popup menu going already.
-            if ( !is_valid_id( m_events_list_popup_eventid ) &&
-                 ImGui::IsItemHovered() &&
-                 ImGui::IsRootWindowOrAnyChildFocused() )
-            {
-                // Store the hovered event id.
-                m_hovered_eventlist_eventid = event.id;
-
-                if ( ImGui::IsMouseClicked( 1 ) )
-                {
-                    // If they right clicked, show the context menu.
-                    m_events_list_popup_eventid = i;
-
-                    // Open the popup for render_events_list_popup().
-                    ImGui::OpenPopup( "EventsListPopup" );
-                }
-                else
-                {
-                    // Otherwise show a tooltip.
-                    std::string fieldstr = get_event_field_str( event, ": ", '\n' );
-
-                    imgui_set_tooltip( string_format( "Id: %u\nTime: %s\nComm: %s\n%s",
-                                       event.id, ts_str.c_str(), event.comm, fieldstr.c_str() ) );
-                }
-            }
-
-            // If we've got an active popup menu, render it.
-            if ( m_events_list_popup_eventid == i )
-            {
-                uint32_t eventid = filtered_events ?
-                            m_filtered_events[ m_events_list_popup_eventid ] :
-                            m_events_list_popup_eventid;
-
-                imgui_pop_smallfont();
-                if ( !TraceWin::render_events_list_popup( eventid ) )
-                    m_events_list_popup_eventid = INVALID_ID;
-                imgui_push_smallfont();
-
-                popup_shown = true;
-            }
-
-            if ( draw_ts_line )
-            {
-                ImGui::PopClipRect();
-
-                ImU32 col = col_get( col_MousePos );
-                float max_x = ImGui::GetWindowClipRectMax().x;
-                float spacing_U = ( float )( int )( ImGui::GetStyle().ItemSpacing.y * 0.5f );
-                float pos_y = cursorpos.y - spacing_U;
-
-                ImGui::GetWindowDrawList()->AddLine( ImVec2( cursorpos.x, pos_y ), ImVec2( max_x, pos_y ), col, imgui_scale( 2.0f ) );
-
-                ImGui::PushColumnClipRect();
-            }
-
-            ImGui::NextColumn();
-
-            ts_str += "ms";
-            if ( event.id > 0 )
-            {
-                const trace_event_t &event0 = get_event( event.id - 1 );
-
-                // Add time delta from previous event
-                ts_str += " (+" + ts_to_timestr( event.ts - event0.ts, 0, 4 ) + ")";
-            }
-
-            ImGui::Text( "%s", ts_str.c_str() );
-            ImGui::NextColumn();
-            ImGui::Text( "%s (%u)", event.comm, event.cpu );
-            ImGui::NextColumn();
-            ImGui::Text( "%s", event.name );
-            ImGui::NextColumn();
-            ImGui::Text( "%s", get_event_gfxcontext_str( event ).c_str() );
-            ImGui::NextColumn();
-
-            if ( event.is_ftrace_print() )
-            {
-                ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", get_event_field_str( event.fields, "buf" ) );
+                m_eventlist_start_eventid = m_filtered_events[ start_idx ];
+                m_eventlist_end_eventid = m_filtered_events[ end_idx - 1 ];
             }
             else
             {
-                std::string fieldstr = get_event_field_str( event, "=", ' ' );
-                ImGui::Text( "%s", fieldstr.c_str() );
+                m_eventlist_start_eventid = start_idx;
+                m_eventlist_end_eventid = end_idx;
             }
-            ImGui::NextColumn();
 
-            ImGui::PopStyleColor( colors_pushed );
+            // Loop through and draw events
+            for ( uint32_t i = start_idx; i < end_idx; i++ )
+            {
+                trace_event_t &event = filtered_events ?
+                            m_trace_events->m_events[ m_filtered_events[ i ] ] :
+                            m_trace_events->m_events[ i ];
+                bool selected = ( m_selected_eventid == event.id );
+                ImVec2 cursorpos = ImGui::GetCursorScreenPos();
 
-            ImGui::PopID();
+                ImGui::PushID( i );
+
+                if ( event.is_vblank() )
+                {
+                    // If this is a vblank event, draw the text in blue or red vblank colors
+                    ImColor col = col_get( ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0 );
+
+                    ImGui::PushStyleColor( ImGuiCol_Text, col );
+                }
+
+                // column 0: event id
+                {
+                    if ( ImGui::Selectable( std::to_string( event.id ).c_str(), selected, ImGuiSelectableFlags_SpanAllColumns ) )
+                        m_selected_eventid = event.id;
+
+                    // Columns bug workaround: selectable with SpanAllColumns & overlaid button does not work.
+                    // https://github.com/ocornut/imgui/issues/684
+                    ImGui::SetItemAllowOverlap();
+
+                    // Handle popup menu / tooltip
+                    popup_shown |= handle_event_list_mouse( event, i );
+
+                    ImGui::NextColumn();
+                }
+
+                // column 1: time stamp
+                {
+                    std::string ts_str = ts_to_timestr( event.ts, m_tsoffset ) + "ms";
+
+                    if ( event.id > 0 )
+                    {
+                        // Add time delta from previous event
+                        const trace_event_t &event0 = get_event( event.id - 1 );
+                        ts_str += " (+" + ts_to_timestr( event.ts - event0.ts, 0, 4 ) + ")";
+                    }
+
+                    ImGui::Text( "%s", ts_str.c_str() );
+                    ImGui::NextColumn();
+                }
+
+                // column 2: comm
+                {
+                    ImGui::Text( "%s (%u)", event.comm, event.cpu );
+                    ImGui::NextColumn();
+                }
+
+                // column 3: event name
+                {
+                    ImGui::Text( "%s", event.name );
+                    ImGui::NextColumn();
+                }
+
+                // column 4: gfx context
+                {
+                    ImGui::Text( "%s", get_event_gfxcontext_str( event ).c_str() );
+                    ImGui::NextColumn();
+                }
+
+                // column 5: event fields
+                {
+                    if ( event.is_ftrace_print() )
+                    {
+                        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", get_event_field_str( event.fields, "buf" ) );
+                    }
+                    else
+                    {
+                        std::string fieldstr = get_event_field_str( event, "=", ' ' );
+
+                        ImGui::Text( "%s", fieldstr.c_str() );
+                    }
+                    ImGui::NextColumn();
+                }
+
+                // Draw time stamp marker diff line if we're right below m_ts_marker
+                {
+                    int64_t ts_diff = event.ts - m_ts_marker;
+                    bool do_draw_ts_line = ( ts_marker_diff < 0 ) && ( ts_diff > 0 );
+
+                    if ( do_draw_ts_line )
+                        draw_ts_line( cursorpos );
+
+                    ts_marker_diff = ts_diff;
+                }
+
+                if ( event.is_vblank() )
+                    ImGui::PopStyleColor( 1 );
+
+                ImGui::PopID();
+            }
+
+            if ( !popup_shown )
+            {
+                // When we modify a filter via the context menu, it can hide the item
+                //  we right clicked on which means render_events_list_popup() won't get
+                //  called. Check for that case here.
+                m_events_list_popup_eventid = INVALID_ID;
+            }
         }
-
-        if ( !popup_shown )
-        {
-            // When we modify a filter via the context menu, it can hide the item
-            //  we right clicked on which means render_events_list_popup() won't get
-            //  called. Check for that case here.
-            m_events_list_popup_eventid = INVALID_ID;
-        }
-
         if ( ImGui::EndColumns() )
             m_columns_eventlist_resized = true;
 
