@@ -215,7 +215,7 @@ const event_field_t *find_event_field( std::vector< event_field_t > &fields, con
     return NULL;
 }
 
-const char *get_event_field_str( std::vector< event_field_t > &fields, const char *name )
+const char *get_event_field_val( std::vector< event_field_t > &fields, const char *name )
 {
     const event_field_t *field = find_event_field( fields, name );
 
@@ -1441,7 +1441,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
                 const event_field_t *field = find_event_field( event.fields, "buf" );
 
                 if ( field )
-                    time_buf += " " +  m_col_yellow.m_str( field->value );
+                    time_buf += " " +  multi_text_color::yellow.m_str( field->value );
             }
         }
 

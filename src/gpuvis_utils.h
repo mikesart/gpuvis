@@ -79,9 +79,7 @@ public:
 
     const std::string m_str( const char *str )
     {
-        multi_text_color col_def( ImGui::GetColorVec4( ImGuiCol_Text ) );
-
-        return std::string( buf ) + str + col_def.c_str();
+        return std::string( buf ) + str + def.c_str();
     }
 
     const std::string m_str( const ImVec4 &color, const char *str )
@@ -102,6 +100,9 @@ public:
 
 public:
     char buf[ 6 ];
+
+    static multi_text_color yellow;
+    static multi_text_color def;
 };
 void imgui_multicolored_text( const char *text, const ImVec4 &color0 = ImGui::GetColorVec4( ImGuiCol_Text ) );
 

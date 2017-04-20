@@ -43,6 +43,9 @@
 // String we prefix graph rows with to hide them
 static const char g_hide_row_str[] = "#hide# ";
 
+multi_text_color multi_text_color::yellow = { ImVec4( 1, 1, 0, 1 ) };
+multi_text_color multi_text_color::def = { ImVec4( 0.90f, 0.90f, 0.90f, 1.00f ) };
+
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
 {
     bool ret = ImGui::Button( label );
@@ -1161,7 +1164,7 @@ bool TraceWin::render()
         {
             std::string tooltip;
 
-            tooltip += m_col_yellow.m_str( "Event Filter\n\n" );
+            tooltip += multi_text_color::yellow.m_str( "Event Filter\n\n" );
             tooltip += "Vars: Any field in Info column plus:\n";
             tooltip += "      $name, $comm, $user_comm, $id, $pid, $ts\n";
             tooltip += "Operators: &&, ||, !=, =, >, >=, <, <=, =~\n\n";
@@ -1178,7 +1181,11 @@ bool TraceWin::render()
 
         ImGui::SameLine();
         if ( ImGui::SmallButton( "Clear Filter" ) )
+        {
             m_filtered_events.clear();
+            m_filtered_events_str.clear();
+            m_event_filter_buf[ 0 ] = 0;
+        }
 
         if ( !m_filtered_events_str.empty() )
         {
@@ -1319,7 +1326,7 @@ bool TraceWin::render_events_list_popup( uint32_t eventid )
     return true;
 }
 
-std::string get_event_field_str( const trace_event_t &event, const char *eqstr, char sep )
+std::string get_event_fields_str( const trace_event_t &event, const char *eqstr, char sep )
 {
     std::string fieldstr;
     const std::vector< event_field_t > &fields = event.fields;
@@ -1329,7 +1336,12 @@ std::string get_event_field_str( const trace_event_t &event, const char *eqstr, 
 
     for ( const event_field_t &field : fields )
     {
-        fieldstr += string_format( "%s%s%s%c", field.key, eqstr, field.value, sep );
+        std::string str = string_format( "%s%s%s%c", field.key, eqstr, field.value, sep );
+
+        if ( event.is_ftrace_print() && !strcmp( field.key, "buf" ) )
+            fieldstr += multi_text_color::yellow.m_str( str.c_str() );
+        else
+            fieldstr += str;
     }
 
     return fieldstr;
@@ -1382,8 +1394,8 @@ bool TraceWin::handle_event_list_mouse( const trace_event_t &event, uint32_t i )
         else
         {
             // Otherwise show a tooltip.
-            std::string fieldstr = get_event_field_str( event, ": ", '\n' );
             std::string ts_str = ts_to_timestr( event.ts, m_tsoffset );
+            std::string fieldstr = get_event_fields_str( event, ": ", '\n' );
 
             imgui_set_tooltip( string_format( "Id: %u\nTime: %s\nComm: %s\n%s",
                                event.id, ts_str.c_str(), event.comm, fieldstr.c_str() ) );
@@ -1600,11 +1612,11 @@ void TraceWin::render_events_list( CIniFile &inifile )
                 {
                     if ( event.is_ftrace_print() )
                     {
-                        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", get_event_field_str( event.fields, "buf" ) );
+                        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", get_event_field_val( event.fields, "buf" ) );
                     }
                     else
                     {
-                        std::string fieldstr = get_event_field_str( event, "=", ' ' );
+                        std::string fieldstr = get_event_fields_str( event, "=", ' ' );
 
                         ImGui::Text( "%s", fieldstr.c_str() );
                     }
@@ -2244,6 +2256,9 @@ int main( int argc, char **argv )
 
     // Setup ImGui binding
     ImGui_ImplSdlGL3_Init( window );
+
+    // Setup imgui default text color
+    multi_text_color::def.set( ImGui::GetColorVec4( ImGuiCol_Text ) );
 
     imgui_load_fonts();
 

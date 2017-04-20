@@ -117,7 +117,7 @@ struct trace_event_t
 };
 
 const event_field_t *find_event_field( std::vector< event_field_t > &fields, const char *name );
-const char *get_event_field_str( std::vector< event_field_t > &fields, const char *name );
+const char *get_event_field_val( std::vector< event_field_t > &fields, const char *name );
 
 typedef std::function< int ( const trace_info_t &info, const trace_event_t &event ) > EventCallback;
 int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb );
@@ -424,8 +424,6 @@ public:
 
     const int64_t g_min_graph_length = 100;
     const int64_t g_max_graph_length = 5000 * MSECS_PER_SEC;
-
-    multi_text_color m_col_yellow{ ImVec4( 1, 1, 0, 1 ) };
 };
 
 // TraceLoader ini options
