@@ -296,10 +296,6 @@ protected:
     void handle_graph_hotkeys();
     void handle_graph_keyboard_scroll();
 
-    template< size_t T >
-    void save_restore_column_sizes( CIniFile &inifile, const char *name,
-        const std::array< const char *, T > &columns );
-
     void handle_mouse_graph( class graph_info_t &gi );
     void handle_mouse_graph_captured( class graph_info_t &gi );
     void set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts );
@@ -341,7 +337,7 @@ public:
     TraceLoader &m_loader;
 
     bool m_inited = false;
-    bool m_columns_inited = false;
+
     bool m_open = true;
     int m_setfocus = 0;
     std::string m_title;
@@ -352,7 +348,11 @@ public:
 
     int64_t m_ts_marker = -1;
 
+    // Is Event List Header visible?
     bool m_show_eventlist = false;
+    // Whether event list column widths have been initialized / resized.
+    bool m_columns_eventlist_inited = false;
+    bool m_columns_eventlist_resized = false;
 
     // Goto Time buffer
     char m_timegoto_buf[ 32 ] = { 0 };

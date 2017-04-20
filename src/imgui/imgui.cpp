@@ -9561,8 +9561,9 @@ void ImGui::BeginColumns(const char* id, int columns_count, ImGuiColumnsFlags fl
     PushItemWidth(GetColumnWidth() * 0.65f);
 }
 
-void ImGui::EndColumns()
+bool ImGui::EndColumns()
 {
+    bool resized = false;
 	ImGuiContext& g = *GImGui;
 	ImGuiWindow* window = GetCurrentWindow();
 	IM_ASSERT(window->DC.ColumnsCount > 1);
@@ -9605,6 +9606,8 @@ void ImGui::EndColumns()
 					g.ActiveIdClickOffset.x -= 4;   // Store from center of column line (we used a 8 wide rect for columns clicking)
 				x = GetDraggedColumnOffset(i);
 				SetColumnOffset(i, x);
+
+                resized = true;
 			}
 		}
 	}
@@ -9614,6 +9617,8 @@ void ImGui::EndColumns()
 	window->DC.ColumnsCount = 1;
 	window->DC.ColumnsFlags = 0;
 	window->DC.ColumnsData.resize(0);
+
+    return resized;
 }
 
 void ImGui::Columns(int columns_count, const char* id, bool border)

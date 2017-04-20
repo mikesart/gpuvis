@@ -108,8 +108,9 @@ static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniDat
     return -1;
 }
 
-template < size_t T >
-void imgui_headers( const char *title, const std::array< const char *, T > &headers )
+template < typename T >
+void imgui_column_headers( const char *title, const T &headers, CIniFile *inifile = NULL,
+                           bool *inited = NULL, bool *resized = NULL )
 {
     ImGuiColumnsFlags flags = 0;
 
@@ -121,6 +122,33 @@ void imgui_headers( const char *title, const std::array< const char *, T > &head
         ImGui::NextColumn();
     }
     ImGui::Separator();
+
+    if ( inifile )
+    {
+        if ( !*inited || ( *resized && ImGui::IsMouseReleased( 0 ) ) )
+        {
+            for ( size_t i = 0; i < headers.size(); i++ )
+            {
+                std::string key = string_format( "column_width_%s%lu", title, i );
+
+                if ( !*inited )
+                {
+                    float val = inifile->GetFloat( key.c_str(), -1.0f );
+                    if ( val <= 0.0f )
+                        break;
+
+                    ImGui::SetColumnWidth( i, val );
+                }
+                else
+                {
+                    inifile->PutFloat( key.c_str(), ImGui::GetColumnWidth( i ) );
+                }
+            }
+
+            *inited = true;
+            *resized = false;
+        }
+    }
 }
 
 /*
@@ -1193,7 +1221,7 @@ void TraceWin::render_trace_info()
             {
                 static const std::array< const char *, 2 > columns = { "Comm", "Events" };
 
-                imgui_headers( "comm_info", columns );
+                imgui_column_headers( "comm_info", columns );
 
                 for ( const comm_t &info : m_comm_info )
                 {
@@ -1213,7 +1241,7 @@ void TraceWin::render_trace_info()
             {
                 static const std::array< const char *, 2 > columns = { "CPU", "Stats" };
 
-                imgui_headers( "cpu_stats", columns );
+                imgui_column_headers( "cpu_stats", columns );
 
                 for ( const std::string &str : trace_info.cpustats )
                 {
@@ -1327,35 +1355,6 @@ static float get_keyboard_scroll_lines( float visible_rows )
     return scroll_lines;
 }
 
-template< size_t T>
-void TraceWin::save_restore_column_sizes( CIniFile &inifile, const char *name,
-    const std::array< const char *, T > &columns )
-{
-    if ( !m_columns_inited )
-    {
-        // Try to restore the column sizes from our ini file.
-        for ( size_t i = 0; i < columns.size(); i++ )
-        {
-            float val = inifile.GetFloat( string_format( "%s_column_width_%lu", name, i ).c_str(), -1.0f );
-            if ( val <= 0.0f )
-                break;
-
-            ImGui::SetColumnWidth( i, val );
-        }
-
-        m_columns_inited = true;
-    }
-    else if ( ImGui::IsWindowHovered() && ImGui::IsMouseReleased( 0 ) )
-    {
-        // Someone released the mouse - save column sizes in case they were changed.
-        for ( size_t i = 0; i < columns.size(); i++ )
-        {
-            inifile.PutFloat( string_format( "%s_column_width_%lu", name, i ).c_str(),
-                              ImGui::GetColumnWidth( i ) );
-        }
-    }
-}
-
 void TraceWin::render_events_list( CIniFile &inifile )
 {
     std::vector< trace_event_t > &events = m_trace_events->m_events;
@@ -1439,9 +1438,9 @@ void TraceWin::render_events_list( CIniFile &inifile )
         // Draw columns
         static const std::array< const char *, 6 > columns =
             { "Id", "Time Stamp", "Task", "Event", "context", "Info" };
-        imgui_headers( "events", columns );
 
-        save_restore_column_sizes( inifile, "event_list", columns );
+        imgui_column_headers( "event_list", columns,
+                &inifile, &m_columns_eventlist_inited, &m_columns_eventlist_resized );
 
         if ( start_idx > 0 )
         {
@@ -1602,7 +1601,9 @@ void TraceWin::render_events_list( CIniFile &inifile )
             m_events_list_popup_eventid = INVALID_ID;
         }
 
-        ImGui::EndColumns();
+        if ( ImGui::EndColumns() )
+            m_columns_eventlist_resized = true;
+
         ImGui::EndChild();
     }
 
