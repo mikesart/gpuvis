@@ -685,6 +685,26 @@ bool TraceWin::graph_rows_show( const std::string &name, graph_rows_show_t show 
 
 void TraceWin::graph_rows_initstr( bool reset )
 {
+    if ( m_comm_info.empty() )
+    {
+        for ( auto item : m_trace_events->m_comm_locations.m_locations )
+        {
+            uint32_t hashval = item.first;
+            const char *comm = m_trace_events->m_strpool.findstr( hashval );
+
+            item.second.size();
+            m_comm_info.push_back( { item.second.size(), comm } );
+        }
+
+        // Sort by count of events
+        std::sort( m_comm_info.begin(), m_comm_info.end(),
+                   [=]( const comm_t &lx, const comm_t &rx )
+        {
+            return rx.event_count < lx.event_count;
+        } );
+
+    }
+
     if ( reset )
         m_graph_rows_str.clear();
     else
@@ -703,22 +723,6 @@ void TraceWin::graph_rows_initstr( bool reset )
         m_graph_rows_str += "# $id > 100 && $id < 200\n\n";
 
         m_graph_rows_str += "# comms\n#\n";
-
-        for ( auto item : m_trace_events->m_comm_locations.m_locations )
-        {
-            uint32_t hashval = item.first;
-            const char *comm = m_trace_events->m_strpool.findstr( hashval );
-
-            item.second.size();
-            m_comm_info.push_back( { item.second.size(), comm } );
-        }
-
-        // Sort by count of events
-        std::sort( m_comm_info.begin(), m_comm_info.end(),
-                   [=]( const comm_t &lx, const comm_t &rx )
-        {
-            return rx.event_count < lx.event_count;
-        } );
 
         for ( const comm_t &item : m_comm_info )
         {
@@ -795,8 +799,13 @@ void TraceWin::render_color_picker()
     if ( !ImGui::CollapsingHeader( "Color Picker", ImGuiTreeNodeFlags_DefaultOpen ) )
         return;
 
-    ImGui::BeginColumns( "ColorPicker", 2, 0 );
-    ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
+    ImGui::BeginColumns( "color_picker", 2, 0 );
+
+    if ( !m_columns_colorpicker_inited )
+    {
+        ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
+        m_columns_colorpicker_inited = true;
+    }
 
     /*
      * Column 1: draw our graph items and their colors
@@ -1215,13 +1224,19 @@ void TraceWin::render_trace_info()
 
         ImGui::Indent();
 
-        if ( ImGui::CollapsingHeader( "Comm Info", ImGuiTreeNodeFlags_DefaultOpen ) )
+        if ( !m_comm_info.empty() )
         {
-            if ( !m_comm_info.empty() )
+            if ( ImGui::CollapsingHeader( "Comm Info", ImGuiTreeNodeFlags_DefaultOpen ) )
             {
                 static const std::array< const char *, 2 > columns = { "Comm", "Events" };
 
                 imgui_column_headers( "comm_info", columns );
+
+                if ( !m_columns_comminfo_inited )
+                {
+                    ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
+                    m_columns_comminfo_inited = true;
+                }
 
                 for ( const comm_t &info : m_comm_info )
                 {
@@ -1235,13 +1250,19 @@ void TraceWin::render_trace_info()
             }
         }
 
-        if ( ImGui::CollapsingHeader( "CPU Info" ) )
+        if ( !trace_info.cpustats.empty() )
         {
-            if ( !trace_info.cpustats.empty() )
+            if ( ImGui::CollapsingHeader( "CPU Info" ) )
             {
                 static const std::array< const char *, 2 > columns = { "CPU", "Stats" };
 
                 imgui_column_headers( "cpu_stats", columns );
+
+                if ( !m_columns_cpustats_inited )
+                {
+                    ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
+                    m_columns_cpustats_inited = true;
+                }
 
                 for ( const std::string &str : trace_info.cpustats )
                 {
