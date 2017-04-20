@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <cctype>
 #include <sstream>
+#include <unordered_map>
 
 #include <SDL.h>
 

@@ -51,6 +51,41 @@ inline float util_time_to_ms( util_time_t start, util_time_t end )
     return ( float )std::chrono::duration< double, std::milli >( diff ).count();
 }
 
+template < typename K, typename V >
+class util_umap
+{
+public:
+    util_umap() {}
+    ~util_umap() {}
+
+    V *get_val( const K key, const V &defval )
+    {
+        /*
+           If the insertion takes place (because no other element existed with the
+           same key), the function returns a pair object, whose first component is an
+           iterator to the inserted element, and whose second component is true.
+
+           Otherwise, the pair object returned has as first component an iterator
+           pointing to the element in the container with the same key, and false as its
+           second component.
+        */
+        auto res = m_map.emplace( key, defval );
+        return &res.first->second;
+    }
+
+    V *get_val( const K key )
+    {
+        auto i = m_map.find( key );
+        if ( i != m_map.end() )
+            return &i->second;
+        return NULL;
+    }
+
+public:
+    typedef std::unordered_map< K, V > map_t;
+    map_t m_map;
+};
+
 void logf_init();
 void logf_shutdown();
 void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );

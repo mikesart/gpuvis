@@ -204,7 +204,7 @@ static void imgui_draw_text( float x, float y, const char *text, ImU32 color )
     ImGui::GetWindowDrawList()->AddText( ImVec2( x, y ), color, text );
 }
 
-const event_field_t *find_event_field( std::vector< event_field_t > &fields, const char *name )
+const event_field_t *find_event_field( const std::vector< event_field_t > &fields, const char *name )
 {
     for ( const event_field_t &field : fields )
     {
@@ -215,7 +215,7 @@ const event_field_t *find_event_field( std::vector< event_field_t > &fields, con
     return NULL;
 }
 
-const char *get_event_field_val( std::vector< event_field_t > &fields, const char *name )
+const char *get_event_field_val( const std::vector< event_field_t > &fields, const char *name )
 {
     const event_field_t *field = find_event_field( fields, name );
 

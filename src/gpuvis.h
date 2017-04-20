@@ -116,8 +116,8 @@ struct trace_event_t
     std::vector< event_field_t > fields;
 };
 
-const event_field_t *find_event_field( std::vector< event_field_t > &fields, const char *name );
-const char *get_event_field_val( std::vector< event_field_t > &fields, const char *name );
+const event_field_t *find_event_field( const std::vector< event_field_t > &fields, const char *name );
+const char *get_event_field_val( const std::vector< event_field_t > &fields, const char *name );
 
 typedef std::function< int ( const trace_info_t &info, const trace_event_t &event ) > EventCallback;
 int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb );
