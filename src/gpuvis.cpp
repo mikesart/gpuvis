@@ -796,7 +796,7 @@ void TraceWin::render_color_picker()
         return;
 
     ImGui::BeginColumns( "ColorPicker", 2, 0 );
-    ImGui::SetColumnOffset( 1, imgui_scale( 200.0f ) );
+    ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
 
     /*
      * Column 1: draw our graph items and their colors
@@ -818,7 +818,6 @@ void TraceWin::render_color_picker()
             m_selected_color = i;
         ImGui::Unindent( imgui_scale( 40.0f ) );
     }
-
     ImGui::NextColumn();
 
     /*
@@ -829,6 +828,7 @@ void TraceWin::render_color_picker()
     {
         col_set( ( colors_t )m_selected_color, color );
     }
+    ImGui::NextColumn();
 
     ImGui::EndColumns();
 }
