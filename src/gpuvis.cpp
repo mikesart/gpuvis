@@ -111,7 +111,9 @@ static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniDat
 template < size_t T >
 void imgui_headers( const char *title, const std::array< const char *, T > &headers )
 {
-    ImGui::Columns( headers.size(), "events" );
+    ImGuiColumnsFlags flags = 0;
+
+    ImGui::BeginColumns( title, headers.size(), flags );
 
     for ( const char *str : headers )
     {
@@ -765,7 +767,7 @@ void TraceWin::render_color_picker()
     if ( !ImGui::CollapsingHeader( "Color Picker", ImGuiTreeNodeFlags_DefaultOpen ) )
         return;
 
-    ImGui::Columns( 2 );
+    ImGui::BeginColumns( "ColorPicker", 2, 0 );
     ImGui::SetColumnOffset( 1, imgui_scale( 200.0f ) );
 
     /*
@@ -800,7 +802,7 @@ void TraceWin::render_color_picker()
         col_set( ( colors_t )m_selected_color, color );
     }
 
-    ImGui::Columns( 1 );
+    ImGui::EndColumns();
 }
 
 const char *filter_get_key_func( StrPool *strpool, const char *name, size_t len )
@@ -1201,7 +1203,7 @@ void TraceWin::render_trace_info()
                     ImGui::NextColumn();
                 }
 
-                ImGui::Columns( 1 );
+                ImGui::EndColumns();
             }
         }
 
@@ -1227,7 +1229,7 @@ void TraceWin::render_trace_info()
                     }
                 }
 
-                ImGui::Columns( 1 );
+                ImGui::EndColumns();
             }
         }
 
@@ -1326,19 +1328,19 @@ static float get_keyboard_scroll_lines( float visible_rows )
 }
 
 template< size_t T>
-void TraceWin::save_restore_column_sizes( CIniFile &inifile,
+void TraceWin::save_restore_column_sizes( CIniFile &inifile, const char *name,
     const std::array< const char *, T > &columns )
 {
     if ( !m_columns_inited )
     {
         // Try to restore the column sizes from our ini file.
-        for ( size_t i = 1; i < columns.size(); i++ )
+        for ( size_t i = 0; i < columns.size(); i++ )
         {
-            float val = inifile.GetFloat( string_format( "column_offset%lu", i ).c_str(), -1.0f );
+            float val = inifile.GetFloat( string_format( "%s_column_width_%lu", name, i ).c_str(), -1.0f );
             if ( val <= 0.0f )
                 break;
 
-            ImGui::SetColumnOffset( i, val );
+            ImGui::SetColumnWidth( i, val );
         }
 
         m_columns_inited = true;
@@ -1346,10 +1348,10 @@ void TraceWin::save_restore_column_sizes( CIniFile &inifile,
     else if ( ImGui::IsWindowHovered() && ImGui::IsMouseReleased( 0 ) )
     {
         // Someone released the mouse - save column sizes in case they were changed.
-        for ( size_t i = 1; i < columns.size(); i++ )
+        for ( size_t i = 0; i < columns.size(); i++ )
         {
-            inifile.PutFloat( string_format( "column_offset%lu", i ).c_str(),
-                              ImGui::GetColumnOffset( i ) );
+            inifile.PutFloat( string_format( "%s_column_width_%lu", name, i ).c_str(),
+                              ImGui::GetColumnWidth( i ) );
         }
     }
 }
@@ -1439,7 +1441,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
             { "Id", "Time Stamp", "Task", "Event", "context", "Info" };
         imgui_headers( "events", columns );
 
-        save_restore_column_sizes( inifile, columns );
+        save_restore_column_sizes( inifile, "event_list", columns );
 
         if ( start_idx > 0 )
         {
@@ -1600,7 +1602,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
             m_events_list_popup_eventid = INVALID_ID;
         }
 
-        ImGui::Columns( 1 );
+        ImGui::EndColumns();
         ImGui::EndChild();
     }
 
@@ -1856,7 +1858,7 @@ void TraceConsole::render( TraceLoader &loader )
 
     if ( ImGui::CollapsingHeader( "Opened Event Files", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        ImGui::Columns( 2, "files" );
+        ImGui::BeginColumns( "EventFiles", 2 );
 
         ImGui::Separator();
 
@@ -1885,7 +1887,7 @@ void TraceConsole::render( TraceLoader &loader )
             }
         }
 
-        ImGui::Columns( 1 );
+        ImGui::EndColumns();
         ImGui::Separator();
     }
 

@@ -297,7 +297,7 @@ protected:
     void handle_graph_keyboard_scroll();
 
     template< size_t T >
-    void save_restore_column_sizes( CIniFile &inifile,
+    void save_restore_column_sizes( CIniFile &inifile, const char *name,
         const std::array< const char *, T > &columns );
 
     void handle_mouse_graph( class graph_info_t &gi );

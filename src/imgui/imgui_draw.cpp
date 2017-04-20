@@ -1143,11 +1143,15 @@ ImFont* ImFontAtlas::AddFont(const ImFontConfig* font_cfg)
         IM_PLACEMENT_NEW(font) ImFont();
         Fonts.push_back(font);
     }
+    else
+    {
+        IM_ASSERT(!Fonts.empty()); // When using MergeMode make sure that a font has already been added before. You can use ImGui::AddFontDefault() to add the default imgui font.
+    }
 
     ConfigData.push_back(*font_cfg);
     ImFontConfig& new_font_cfg = ConfigData.back();
-	if (!new_font_cfg.DstFont)
-	    new_font_cfg.DstFont = Fonts.back();
+    if (!new_font_cfg.DstFont)
+        new_font_cfg.DstFont = Fonts.back();
     if (!new_font_cfg.FontDataOwnedByAtlas)
     {
         new_font_cfg.FontData = ImGui::MemAlloc(new_font_cfg.FontDataSize);
