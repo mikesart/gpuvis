@@ -198,6 +198,7 @@ public:
     std::vector< row_info_t > row_info;
     const row_info_t *prinfo_cur = nullptr;
     const row_info_t *prinfo_gfx = nullptr;
+    const row_info_t *prinfo_gfx_hw = nullptr;
 
     float total_graph_height;
 };
@@ -1111,6 +1112,14 @@ void TraceWin::render_process_graph()
         gi.row_info.erase( gi.row_info.begin() + index );
         gi.prinfo_gfx = &gi.row_info.back();
     }
+    for ( size_t i = 0; i < gi.row_info.size(); i++ )
+    {
+        if ( gi.row_info[ i ].comm == "gfx hw" )
+        {
+            gi.prinfo_gfx_hw = &gi.row_info[ i ];
+            break;
+        }
+    }
 
     ImGui::BeginChild( "EventGraph", ImVec2( 0, visible_graph_height ), true );
     {
@@ -1136,9 +1145,19 @@ void TraceWin::render_process_graph()
         // If we have a gfx graph and we're zoomed, render only that
         if ( gi.prinfo_gfx && m_loader.get_opt( OPT_TimelineZoomGfx ) )
         {
-            gi.timeline_render_user = true;
-            gi.set_pos_y( windowpos.y, windowsize.y, gi.prinfo_gfx );
+            float gfx_hw_row_h = 0;
 
+            if ( gi.prinfo_gfx_hw )
+            {
+                row_info_t &ri = *gi.prinfo_gfx_hw;
+                gfx_hw_row_h = ri.row_h + ImGui::GetStyle().FramePadding.y;
+
+                gi.set_pos_y( windowpos.y + windowsize.y - ri.row_h, ri.row_h, &ri );
+                render_graph_row( gi );
+            }
+
+            gi.timeline_render_user = true;
+            gi.set_pos_y( windowpos.y, windowsize.y - gfx_hw_row_h, gi.prinfo_gfx );
             render_graph_row( gi );
         }
         else
