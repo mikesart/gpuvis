@@ -1341,6 +1341,8 @@ std::string get_event_fields_str( const trace_event_t &event, const char *eqstr,
             fieldstr += str;
     }
 
+    fieldstr += string_format( "%s%s%s", "system", eqstr, event.system );
+
     return fieldstr;
 }
 
