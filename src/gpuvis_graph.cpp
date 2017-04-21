@@ -166,6 +166,8 @@ public:
     bool mouse_pos_in_graph();
     bool mouse_pos_in_rect( float x, float w, float y, float h );
 
+    row_info_t *find_row( const char *name );
+
 public:
     uint32_t row_num;
     float x, y, w, h;
@@ -335,7 +337,6 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< std::string 
     float text_h = ImGui::GetTextLineHeightWithSpacing();
     float graph_row_padding = ImGui::GetStyle().FramePadding.y;
 
-    uint32_t timeline_gfx_index = INVALID_ID;
     total_graph_height = graph_row_padding;
 
     imgui_pop_smallfont();
@@ -394,15 +395,9 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< std::string 
 
             row_info.push_back( rinfo );
 
-            if ( comm == "gfx" )
-                timeline_gfx_index = row_info.size() - 1;
-
             total_graph_height += rinfo.row_h + graph_row_padding;
         }
     }
-
-    if ( is_valid_id( timeline_gfx_index ) )
-        prinfo_gfx = &row_info[ timeline_gfx_index ];
 
     total_graph_height += imgui_scale( 2.0f );
 }
@@ -429,6 +424,20 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
                           !win->m_filtered_events.empty();
 
     timeline_render_user = !!win->m_loader.get_opt( OPT_TimelineRenderUserSpace );
+
+    row_info_t *pri = find_row( "gfx" );
+    if ( pri )
+    {
+        size_t index = pri - &row_info[ 0 ];
+
+        // Draw the gfx row last so we can highlight items in it based on other row hovering.
+        row_info.push_back( row_info[ index ] );
+        row_info.erase( row_info.begin() + index );
+
+        prinfo_gfx = &row_info.back();
+    }
+
+    prinfo_gfx_hw = find_row( "gfx hw" );
 }
 
 void graph_info_t::set_pos_y( float y_in, float h_in, const row_info_t *ri )
@@ -482,6 +491,16 @@ bool graph_info_t::mouse_pos_in_rect( float x0, float width, float y0, float hei
              mouse_pos.x <= x0 + width &&
              mouse_pos.y >= y0 &&
              mouse_pos.y <= y0 + height );
+}
+
+row_info_t *graph_info_t::find_row( const char *name )
+{
+    for ( row_info_t &ri : row_info )
+    {
+        if ( ri.comm == name )
+            return &ri;
+    }
+    return NULL;
 }
 
 bool TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, const trace_event_t &event )
@@ -1103,24 +1122,6 @@ void TraceWin::render_process_graph()
     float visible_graph_height = ( ( size_t )row_count >= gi.row_info.size() ) ?
         gi.total_graph_height : gi.row_info[ row_count ].row_y;
 
-    if ( gi.prinfo_gfx )
-    {
-        size_t index = gi.prinfo_gfx - &gi.row_info[ 0 ];
-
-        // Draw the gfx row last so we can highlight items in it based on other row hovering.
-        gi.row_info.push_back( gi.row_info[ index ] );
-        gi.row_info.erase( gi.row_info.begin() + index );
-        gi.prinfo_gfx = &gi.row_info.back();
-    }
-    for ( size_t i = 0; i < gi.row_info.size(); i++ )
-    {
-        if ( gi.row_info[ i ].comm == "gfx hw" )
-        {
-            gi.prinfo_gfx_hw = &gi.row_info[ i ];
-            break;
-        }
-    }
-
     ImGui::BeginChild( "EventGraph", ImVec2( 0, visible_graph_height ), true );
     {
         ImVec2 windowpos = ImGui::GetWindowClipRectMin();
@@ -1149,7 +1150,7 @@ void TraceWin::render_process_graph()
 
             if ( gi.prinfo_gfx_hw )
             {
-                row_info_t &ri = *gi.prinfo_gfx_hw;
+                const row_info_t &ri = *gi.prinfo_gfx_hw;
                 gfx_hw_row_h = ri.row_h + ImGui::GetStyle().FramePadding.y;
 
                 gi.set_pos_y( windowpos.y + windowsize.y - ri.row_h, ri.row_h, &ri );
