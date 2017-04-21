@@ -40,8 +40,7 @@ public:
     const char *findstr( uint32_t hashval );
 
 public:
-    typedef std::unordered_map< uint32_t, std::string > pool_t;
-    pool_t m_pool;
+    util_umap< uint32_t, std::string > m_pool;
 };
 
 struct trace_info_t

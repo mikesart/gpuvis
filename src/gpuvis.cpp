@@ -161,25 +161,22 @@ static bool imgui_begin_columns( const char *title,
 const char *StrPool::getstr( const char *str, size_t len )
 {
     uint32_t hashval = fnv_hashstr32( str, len );
+    const std::string *ret = m_pool.get_val( hashval );
 
-    auto i = m_pool.find( hashval );
-    if ( i == m_pool.end() )
+    if ( !ret )
     {
         if ( len == ( size_t )-1 )
             len = strlen( str );
-        m_pool[ hashval ] = std::string( str, len );
+        ret = m_pool.get_val( hashval, std::string( str, len ) );
     }
-
-    return m_pool[ hashval ].c_str();
+    return ret->c_str();
 }
 
 const char *StrPool::findstr( uint32_t hashval )
 {
-    auto i = m_pool.find( hashval );
+    std::string *str = m_pool.get_val( hashval );
 
-    if ( i == m_pool.end() )
-        return NULL;
-    return m_pool[ hashval ].c_str();
+    return str ? str->c_str() : NULL;
 }
 
 /*
