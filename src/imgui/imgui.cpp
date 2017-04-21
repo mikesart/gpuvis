@@ -7345,6 +7345,18 @@ void ImGui::ProgressBar(float fraction, const ImVec2& size_arg, const char* over
         RenderTextClipped(ImVec2(ImClamp(fill_br.x + style.ItemSpacing.x, bb.Min.x, bb.Max.x - overlay_size.x - style.ItemInnerSpacing.x), bb.Min.y), bb.Max, overlay, NULL, &overlay_size, ImVec2(0.0f,0.5f), &bb);
 }
 
+bool ImGui::CheckboxInt(const char* label, int* v)
+{
+    bool val = !!*v;
+
+    if ( ImGui::Checkbox( label, &val ) )
+    {
+        *v = val;
+        return true;
+    }
+    return false;
+}
+
 bool ImGui::Checkbox(const char* label, bool* v)
 {
     ImGuiWindow* window = GetCurrentWindow();

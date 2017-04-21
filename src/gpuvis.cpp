@@ -718,7 +718,10 @@ void TraceWin::graph_rows_initstr( bool reset )
         m_graph_rows_str += "gfx\n";
         m_graph_rows_str += "sdma0\n";
         m_graph_rows_str += "sdma1\n";
-        m_graph_rows_str += "gfx hw\n\n";
+        m_graph_rows_str += "gfx hw\n";
+#if 0
+        m_graph_rows_str += "print\n\n";
+#endif
 
         m_graph_rows_str += "# $name=fence_signaled\n";
         m_graph_rows_str += "# $id > 100 && $id < 200\n\n";

@@ -280,8 +280,7 @@ protected:
     bool handle_event_list_mouse( const trace_event_t &event, uint32_t i );
 
     void render_process_graph();
-    void render_graph_row( const std::string &comm, const std::vector< uint32_t > &locs,
-                           class graph_info_t &gi );
+    void render_graph_row(  class graph_info_t &gi );
     void render_graph_row_timeline( const std::vector< uint32_t > &locs, graph_info_t &gi );
     void render_graph_hw_row_timeline( graph_info_t &gi );
     void render_graph_vblanks( class graph_info_t &gi );
