@@ -762,9 +762,9 @@ int TraceWin::ts_to_eventid( int64_t ts )
 {
     // When running a debug build w/ ASAN on, the lower_bound function is
     //  horribly slow so we cache the timestamp to event ids.
-    auto i = m_ts_to_eventid_cache.find( ts );
-    if ( i != m_ts_to_eventid_cache.end() )
-        return m_ts_to_eventid_cache.at( ts );
+    int *pid = m_ts_to_eventid_cache.get_val( ts );
+    if ( pid )
+        return *pid;
 
     trace_event_t x;
     std::vector< trace_event_t > &events = m_trace_events->m_events;
@@ -781,7 +781,7 @@ int TraceWin::ts_to_eventid( int64_t ts )
     if ( ( size_t )id >= events.size() )
         id = events.size() - 1;
 
-    m_ts_to_eventid_cache[ ts ] = id;
+    m_ts_to_eventid_cache.set_val( ts, id );
     return id;
 }
 

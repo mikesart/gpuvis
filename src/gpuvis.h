@@ -327,8 +327,6 @@ protected:
 
     void range_check_graph_location();
 
-    std::unordered_map< int64_t, int > m_ts_to_eventid_cache;
-
     trace_event_t &get_event( uint32_t id )
     {
         return m_trace_events->m_events[ id ];
@@ -422,6 +420,8 @@ public:
         const char *comm;
     };
     std::vector< comm_t > m_comm_info;
+
+    util_umap< int64_t, int > m_ts_to_eventid_cache;
 
     const int64_t g_min_graph_length = 100;
     const int64_t g_max_graph_length = 5000 * MSECS_PER_SEC;

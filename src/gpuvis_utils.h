@@ -60,15 +60,6 @@ public:
 
     V *get_val( const K key, const V &defval )
     {
-        /*
-           If the insertion takes place (because no other element existed with the
-           same key), the function returns a pair object, whose first component is an
-           iterator to the inserted element, and whose second component is true.
-
-           Otherwise, the pair object returned has as first component an iterator
-           pointing to the element in the container with the same key, and false as its
-           second component.
-        */
         auto res = m_map.emplace( key, defval );
         return &res.first->second;
     }
@@ -79,6 +70,23 @@ public:
         if ( i != m_map.end() )
             return &i->second;
         return NULL;
+    }
+
+    void set_val( const K key, const V &val )
+    {
+        auto res = m_map.emplace( key, val );
+
+       /*
+        * If the insertion takes place (because no other element existed with the
+        * same key), the function returns a pair object, whose first component is an
+        * iterator to the inserted element, and whose second component is true.
+        *
+        * Otherwise, the pair object returned has as first component an iterator
+        * pointing to the element in the container with the same key, and false as its
+        * second component.
+        */
+        if ( !res.second )
+            res.first->second = val;
     }
 
 public:
