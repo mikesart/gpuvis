@@ -127,27 +127,21 @@ public:
     TraceLocations() {}
     ~TraceLocations() {}
 
-    void add_location_u32( uint32_t val, uint32_t location )
+    void add_location_u32( uint32_t hashval, uint32_t loc )
     {
-        auto i = m_locations.find( val );
-        if ( i == m_locations.end() )
-            m_locations.emplace( val, std::vector< uint32_t >() );
+        std::vector< uint32_t > *plocs = m_locs.get_val( hashval, std::vector< uint32_t >() );
 
-        m_locations.at( val ).push_back( location );
+        plocs->push_back( loc );
     }
 
-    std::vector< uint32_t > *get_locations_u32( uint32_t val )
+    std::vector< uint32_t > *get_locations_u32( uint32_t hashval )
     {
-        auto i = m_locations.find( val );
-        if ( i == m_locations.end() )
-            return NULL;
-
-        return &m_locations.at( val );
+        return m_locs.get_val( hashval );
     }
 
-    void add_location_str( const char *name, uint32_t location )
+    void add_location_str( const char *name, uint32_t loc )
     {
-        add_location_u32( fnv_hashstr32( name ), location );
+        add_location_u32( fnv_hashstr32( name ), loc );
     }
 
     std::vector< uint32_t > *get_locations_str( const char *name )
@@ -157,8 +151,7 @@ public:
 
 public:
     // Map of name hashval to array of event locations.
-    typedef std::unordered_map< uint32_t, std::vector< uint32_t > > m_loc_t;
-    m_loc_t m_locations;
+    util_umap< uint32_t, std::vector< uint32_t > > m_locs;
 };
 
 // Given a sorted array (like from TraceLocations), binary search for eventid
@@ -397,7 +390,7 @@ public:
     uint32_t m_eventlist_start_eventid = INVALID_ID;
     uint32_t m_eventlist_end_eventid = INVALID_ID;
 
-    std::vector< std::pair< int64_t, int64_t > > m_locations;
+    std::vector< std::pair< int64_t, int64_t > > m_saved_graph_locs;
 
     // Mouse currently over our events graph?
     bool m_mouse_over_graph = false;

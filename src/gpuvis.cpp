@@ -415,7 +415,7 @@ static void calculate_event_durations( TraceEvents *trace_events )
 {
     std::vector< trace_event_t > &events = trace_events->m_events;
 
-    for ( const auto &timeline_locs : trace_events->m_timeline_locations.m_locations )
+    for ( const auto &timeline_locs : trace_events->m_timeline_locations.m_locs.m_map )
     {
         uint32_t graph_row_id = 0;
         int64_t last_fence_signaled_ts = 0;
@@ -688,7 +688,7 @@ void TraceWin::graph_rows_initstr( bool reset )
 {
     if ( m_comm_info.empty() )
     {
-        for ( auto item : m_trace_events->m_comm_locations.m_locations )
+        for ( auto item : m_trace_events->m_comm_locations.m_locs.m_map )
         {
             uint32_t hashval = item.first;
             const char *comm = m_trace_events->m_strpool.findstr( hashval );

@@ -857,8 +857,8 @@ void TraceWin::range_check_graph_location()
 
 void TraceWin::handle_graph_hotkeys()
 {
-    if ( m_locations.size() < 9 )
-        m_locations.resize( 9 );
+    if ( m_saved_graph_locs.size() < 9 )
+        m_saved_graph_locs.resize( 9 );
 
     if ( ImGui::GetIO().KeyCtrl )
     {
@@ -879,13 +879,13 @@ void TraceWin::handle_graph_hotkeys()
                     if ( keyshift )
                     {
                         // ctrl+shift+#: save location
-                        m_locations[ index ] = std::make_pair( m_graph_start_ts, m_graph_length_ts );
+                        m_saved_graph_locs[ index ] = std::make_pair( m_graph_start_ts, m_graph_length_ts );
                     }
-                    else if ( m_locations[ index ].second )
+                    else if ( m_saved_graph_locs[ index ].second )
                     {
                         // ctrl+#: goto location
-                        m_graph_start_ts = m_locations[ index ].first;
-                        m_graph_length_ts = m_locations[ index ].second;
+                        m_graph_start_ts = m_saved_graph_locs[ index ].first;
+                        m_graph_length_ts = m_saved_graph_locs[ index ].second;
                         m_do_graph_start_timestr = true;
                         m_do_graph_length_timestr = true;
                     }
@@ -1154,7 +1154,7 @@ bool TraceWin::render_graph_popup( graph_info_t &gi )
 
     auto get_location_label_lambda = [this]( size_t i )
     {
-        auto &pair = m_locations[ i ];
+        auto &pair = m_saved_graph_locs[ i ];
         std::string start = ts_to_timestr( pair.first );
         std::string len = ts_to_timestr( pair.second );
         return string_format( "Start:%s Length:%s", start.c_str(), len.c_str() );
@@ -1201,14 +1201,14 @@ bool TraceWin::render_graph_popup( graph_info_t &gi )
 
     if ( ImGui::BeginMenu( "Save Location" ) )
     {
-        for ( size_t i = 0; i < m_locations.size(); i++ )
+        for ( size_t i = 0; i < m_saved_graph_locs.size(); i++ )
         {
             std::string label = get_location_label_lambda( i );
             std::string shortcut = string_format( "Ctrl+Shift+%c", ( int )( i + '1' ) );
 
             if ( ImGui::MenuItem( label.c_str(), shortcut.c_str() ) )
             {
-                m_locations[ i ] = std::make_pair( m_graph_start_ts, m_graph_length_ts );
+                m_saved_graph_locs[ i ] = std::make_pair( m_graph_start_ts, m_graph_length_ts );
                 break;
             }
         }
@@ -1218,17 +1218,17 @@ bool TraceWin::render_graph_popup( graph_info_t &gi )
 
     if ( ImGui::BeginMenu( "Restore Location" ) )
     {
-        for ( size_t i = 0; i < m_locations.size(); i++ )
+        for ( size_t i = 0; i < m_saved_graph_locs.size(); i++ )
         {
-            if ( m_locations[ i ].second )
+            if ( m_saved_graph_locs[ i ].second )
             {
                 std::string label = get_location_label_lambda( i );
                 std::string shortcut = string_format( "Ctrl+%c", ( int )( i + '1' ) );
 
                 if ( ImGui::MenuItem( label.c_str(), shortcut.c_str() ) )
                 {
-                    m_graph_start_ts = m_locations[ i ].first;
-                    m_graph_length_ts = m_locations[ i ].second;
+                    m_graph_start_ts = m_saved_graph_locs[ i ].first;
+                    m_graph_length_ts = m_saved_graph_locs[ i ].second;
                     m_do_graph_start_timestr = true;
                     m_do_graph_length_timestr = true;
                 }
