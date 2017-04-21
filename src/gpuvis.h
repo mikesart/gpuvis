@@ -270,7 +270,7 @@ public:
 public:
     bool render();
 
-protected:
+public:
     void render_trace_info();
 
     void render_events_list( CIniFile &inifile );
@@ -281,8 +281,8 @@ protected:
 
     void render_process_graph();
     void render_graph_row(  class graph_info_t &gi );
-    void render_graph_row_timeline( const std::vector< uint32_t > &locs, graph_info_t &gi );
-    void render_graph_hw_row_timeline( graph_info_t &gi );
+    uint32_t render_graph_row_timeline( const std::vector< uint32_t > &locs, graph_info_t &gi );
+    uint32_t render_graph_hw_row_timeline( graph_info_t &gi );
     void render_graph_vblanks( class graph_info_t &gi );
     bool render_graph_popup( class graph_info_t &gi );
 

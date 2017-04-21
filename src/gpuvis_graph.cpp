@@ -59,6 +59,8 @@
 
   TODO mikesart: Try coloring the ftrace print events per the hash of the string?
 
+  TODO mikesart: Check if entire rows are clipped when drawing...
+
   From DanG:
     * Add Browse button to load a trace file
 */
@@ -134,6 +136,8 @@ public:
 
 struct row_info_t
 {
+    uint32_t id;
+
     float row_y;
     float row_h;
 
@@ -147,10 +151,9 @@ struct row_info_t
 class graph_info_t
 {
 public:
-    void init_row_info( TraceLoader &loader, TraceEvents *trace_events,
-                        const std::vector< std::string > &graph_rows );
+    void init_row_info( TraceWin *win,  const std::vector< std::string > &graph_rows );
 
-    void init( float x, float w, int64_t start_ts, int64_t length_ts );
+    void init( TraceWin *win, float x, float w );
     void set_pos_y( float y, float h, const row_info_t *ri );
 
     float ts_to_x( int64_t ts );
@@ -193,7 +196,7 @@ public:
     bool graph_only_filtered;
 
     std::vector< row_info_t > row_info;
-    const row_info_t *prinfo = nullptr;
+    const row_info_t *prinfo_cur = nullptr;
     const row_info_t *prinfo_gfx = nullptr;
 
     float total_graph_height;
@@ -215,11 +218,14 @@ static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
 
 static void imgui_draw_text( float x, float y, const char *text, ImU32 color )
 {
+#if 0
+    //$ Don't draw background behind row label text - think it obscures the graph a bit.
     ImVec2 textsize = ImGui::CalcTextSize( text );
 
     ImGui::GetWindowDrawList()->AddRectFilled(
         ImVec2( x, y ), ImVec2( x + textsize.x, y + textsize.y ),
         col_get( col_RowLabelBk) );
+#endif
 
     ImGui::GetWindowDrawList()->AddText( ImVec2( x, y ), color, text );
 }
@@ -317,9 +323,11 @@ void event_renderer_t::draw()
 /*
  * graph_info_t
  */
-void graph_info_t::init_row_info( TraceLoader &loader, TraceEvents *trace_events,
-                    const std::vector< std::string > &graph_rows )
+void graph_info_t::init_row_info( TraceWin *win, const std::vector< std::string > &graph_rows )
 {
+    uint32_t id = 0;
+    TraceLoader &loader = win->m_loader;
+    TraceEvents *trace_events = win->m_trace_events;
 
     imgui_push_smallfont();
 
@@ -334,15 +342,14 @@ void graph_info_t::init_row_info( TraceLoader &loader, TraceEvents *trace_events
     for ( const std::string &comm : graph_rows )
     {
         row_info_t rinfo;
+        const std::vector< uint32_t > *plocs;
+        const char *comm_str = comm.c_str();
 
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
         rinfo.is_timeline = false;
         rinfo.is_gfx_hw = ( comm == "gfx hw" );
         rinfo.comm = comm;
-
-        const std::vector< uint32_t > *plocs;
-        const char *comm_str = comm.c_str();
 
         plocs = trace_events->get_comm_locs( comm_str );
         if ( !plocs )
@@ -381,9 +388,11 @@ void graph_info_t::init_row_info( TraceLoader &loader, TraceEvents *trace_events
 
         if ( plocs )
         {
+            rinfo.id = id++;
             rinfo.plocs = plocs;
 
             row_info.push_back( rinfo );
+
             if ( comm == "gfx" )
                 timeline_gfx_index = row_info.size() - 1;
 
@@ -397,19 +406,28 @@ void graph_info_t::init_row_info( TraceLoader &loader, TraceEvents *trace_events
     total_graph_height += imgui_scale( 2.0f );
 }
 
-void graph_info_t::init( float x_in, float w_in, int64_t start_ts, int64_t length_ts )
+void graph_info_t::init( TraceWin *win, float x_in, float w_in )
 {
     x = x_in;
     w = w_in;
 
-    ts0 = start_ts;
-    ts1 = start_ts + length_ts;
+    ts0 = win->m_graph_start_ts + win->m_tsoffset;
+    ts1 = ts0 + win->m_graph_length_ts;
+
+    eventstart = win->ts_to_eventid( ts0 );
+    eventend = win->ts_to_eventid( ts1 );
 
     tsdx = ts1 - ts0 + 1;
     tsdxrcp = 1.0 / tsdx;
 
     mouse_pos = ImGui::IsRootWindowOrAnyChildFocused() ?
-            ImGui::GetMousePos() : ImVec2( -1024, -1024 );
+                ImGui::GetMousePos() : ImVec2( -1024, -1024 );
+
+    // Check if we're supposed to render filtered events only
+    graph_only_filtered = win->m_loader.m_options[ OPT_GraphOnlyFiltered ].val &&
+                          !win->m_filtered_events.empty();
+
+    timeline_render_user = !!win->m_loader.get_opt( OPT_TimelineRenderUserSpace );
 }
 
 void graph_info_t::set_pos_y( float y_in, float h_in, const row_info_t *ri )
@@ -417,7 +435,7 @@ void graph_info_t::set_pos_y( float y_in, float h_in, const row_info_t *ri )
     y = y_in;
     h = h_in;
 
-    prinfo = ri;
+    prinfo_cur = ri;
 
     mouse_over = mouse_pos.x >= x &&
             mouse_pos.x <= x + w &&
@@ -502,7 +520,7 @@ bool TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, const t
     return inserted;
 }
 
-void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
+uint32_t TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
 {
     struct row_t
     {
@@ -516,8 +534,9 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
 
     imgui_push_smallfont();
 
-    ImU32 col_event = col_get( col_1Event );
     float row_h = gi.h;
+    uint32_t num_events = 0;
+    ImU32 col_event = col_get( col_1Event );
 
     for ( size_t irow = 0; irow < rows.size(); irow++ )
     {
@@ -581,6 +600,8 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
                     gi.hovered_graph_event = fence_signaled.id;
                     hov_rect = { x0, y, x1, y + row_h };
                 }
+
+                num_events++;
             }
         }
 
@@ -589,13 +610,16 @@ void TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
     }
 
     imgui_pop_smallfont();
+
+    return num_events;
 }
 
-void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, graph_info_t &gi )
+uint32_t TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, graph_info_t &gi )
 {
     imgui_push_smallfont();
 
     ImRect hov_rect;
+    uint32_t num_events = 0;
     ImU32 col_hwrunning = col_get( col_BarHwRunning );
     ImU32 col_userspace = col_get( col_BarUserspace );
     ImU32 col_hwqueue = col_get( col_BarHwQueue );
@@ -696,6 +720,8 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
                     imgui_drawrect( x_hwqueue_start, 1.0, y, text_h, color_1event );
                     imgui_drawrect( x_hw_end, 1.0, y, text_h, color_1event );
                 }
+
+                num_events++;
             }
         }
     }
@@ -704,12 +730,14 @@ void TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, g
         ImGui::GetWindowDrawList()->AddRect( hov_rect.Min, hov_rect.Max, col_get( col_BarSelRect ) );
 
     imgui_pop_smallfont();
+
+    return num_events;
 }
 
 void TraceWin::render_graph_row( graph_info_t &gi )
 {
-    const std::string comm = gi.prinfo->comm;
-    const std::vector< uint32_t > &locs = *gi.prinfo->plocs;
+    const std::string comm = gi.prinfo_cur->comm;
+    const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
 
     // Draw background
     ImGui::GetWindowDrawList()->AddRectFilled(
@@ -725,13 +753,13 @@ void TraceWin::render_graph_row( graph_info_t &gi )
     if ( gi.mouse_over )
         m_mouse_over_row_name = comm;
 
-    if ( gi.prinfo->is_gfx_hw )
+    if ( gi.prinfo_cur->is_gfx_hw )
     {
-        render_graph_hw_row_timeline( gi );
+        num_events = render_graph_hw_row_timeline( gi );
     }
-    else if ( gi.prinfo->is_timeline )
+    else if ( gi.prinfo_cur->is_timeline )
     {
-        render_graph_row_timeline( locs, gi );
+        num_events = render_graph_row_timeline( locs, gi );
     }
     else
     {
@@ -777,6 +805,7 @@ void TraceWin::render_graph_row( graph_info_t &gi )
                     imgui_scale( 5.0f ),
                     col_get( col_HovEvent ) );
     }
+
     if ( draw_selected_event )
     {
         trace_event_t &event = get_event( m_selected_eventid );
@@ -789,7 +818,7 @@ void TraceWin::render_graph_row( graph_info_t &gi )
     }
 
     // Draw row label
-    std::string label = string_format( "%lu) %s", gi.prinfo - gi.row_info.data(), comm.c_str() );
+    std::string label = string_format( "%u) %s", gi.prinfo_cur->id, comm.c_str() );
     imgui_draw_text( gi.x, gi.y, label.c_str(),
                      col_get( col_RowLabel ) );
 
@@ -1042,7 +1071,7 @@ void TraceWin::render_process_graph()
     graph_info_t gi;
 
     // Initialize our row size, location, etc information based on our graph rows
-    gi.init_row_info( m_loader, m_trace_events, m_graph_rows );
+    gi.init_row_info( this, m_graph_rows );
     if ( gi.row_info.empty() )
         return;
 
@@ -1070,85 +1099,75 @@ void TraceWin::render_process_graph()
     // Make sure ts start and length values are sane
     range_check_graph_location();
 
+    float visible_graph_height = ( ( size_t )row_count >= gi.row_info.size() ) ?
+        gi.total_graph_height : gi.row_info[ row_count ].row_y;
+
+    if ( gi.prinfo_gfx )
     {
-        float visible_graph_height = ( ( size_t )row_count >= gi.row_info.size() ) ?
-            gi.total_graph_height : gi.row_info[ row_count ].row_y;
+        size_t index = gi.prinfo_gfx - &gi.row_info[ 0 ];
 
-        if ( gi.prinfo_gfx )
+        // Draw the gfx row last so we can highlight items in it based on other row hovering.
+        gi.row_info.push_back( gi.row_info[ index ] );
+        gi.row_info.erase( gi.row_info.begin() + index );
+        gi.prinfo_gfx = &gi.row_info.back();
+    }
+
+    ImGui::BeginChild( "EventGraph", ImVec2( 0, visible_graph_height ), true );
+    {
+        ImVec2 windowpos = ImGui::GetWindowClipRectMin();
+        ImVec2 cliprectmax = ImGui::GetWindowClipRectMax();
+        ImVec2 windowsize = ImVec2( cliprectmax.x - windowpos.x, cliprectmax.y - windowpos.y );
+
+        // Clear graph background
+        imgui_drawrect( windowpos.x, windowsize.x,
+                        windowpos.y, windowsize.y, col_get( col_GraphBk ) );
+
+        // Initialize our graphics info struct
+        gi.init( this, windowpos.x, windowsize.x );
+
+        // Range check mouse pan values
+        m_graph_start_y = Clamp< float >( m_graph_start_y,
+                                          visible_graph_height - gi.total_graph_height, 0.0f );
+
+        // If we don't have a popup menu, clear the mouse over row name
+        if ( !m_graph_popup )
+            m_mouse_over_row_name = "";
+
+        // If we have a gfx graph and we're zoomed, render only that
+        if ( gi.prinfo_gfx && m_loader.get_opt( OPT_TimelineZoomGfx ) )
         {
-            // Draw the gfx row last so we can highlight items in it based on hovering
-            //  in other rows.
-            gi.row_info.push_back( *gi.prinfo_gfx );
-            gi.row_info.erase( gi.row_info.begin() + ( gi.prinfo_gfx - &gi.row_info[ 0 ] ) );
-            gi.prinfo_gfx = &gi.row_info.back();
+            gi.timeline_render_user = true;
+            gi.set_pos_y( windowpos.y, windowsize.y, gi.prinfo_gfx );
+
+            render_graph_row( gi );
         }
-
-        ImGui::BeginChild( "EventGraph", ImVec2( 0, visible_graph_height ), true );
+        else
         {
-            ImVec2 windowpos = ImGui::GetWindowClipRectMin();
-            ImVec2 cliprectmax = ImGui::GetWindowClipRectMax();
-            ImVec2 windowsize = ImVec2( cliprectmax.x - windowpos.x, cliprectmax.y - windowpos.y );
-
-            // Clear graph background
-            imgui_drawrect( windowpos.x, windowsize.x,
-                            windowpos.y, windowsize.y, col_get( col_GraphBk ) );
-
-            // Initialize x / width and ts values
-            gi.init( windowpos.x, windowsize.x,
-                     m_graph_start_ts + m_tsoffset, m_graph_length_ts );
-
-            // Check if we're supposed to render filtered events only
-            gi.graph_only_filtered =
-                    m_loader.m_options[ OPT_GraphOnlyFiltered ].val &&
-                    !m_filtered_events.empty();
-            gi.timeline_render_user = !!m_loader.get_opt( OPT_TimelineRenderUserSpace );
-
-            // Initialize eventstart / end
-            gi.eventstart = ts_to_eventid( gi.ts0 );
-            gi.eventend = ts_to_eventid( gi.ts1 );
-
-            // Range check mouse pan values
-            m_graph_start_y = Clamp< float >( m_graph_start_y,
-                                              visible_graph_height - gi.total_graph_height, 0.0f );
-
-            //$ TODO mikesart: Check if entire rows are clipped...
-
-            if ( gi.prinfo_gfx && m_loader.get_opt( OPT_TimelineZoomGfx ) )
+            // Go through and render all the rows
+            for ( size_t i = 0; i < gi.row_info.size(); i++ )
             {
-                gi.timeline_render_user = true;
-                gi.set_pos_y( windowpos.y, windowsize.y, gi.prinfo_gfx );
+                const row_info_t &ri = gi.row_info[ i ];
+
+                gi.set_pos_y( windowpos.y + ri.row_y + m_graph_start_y, ri.row_h, &ri );
 
                 render_graph_row( gi );
             }
-            else
-            {
-                // Go through and render all the rows
-                for ( size_t i = 0; i < gi.row_info.size(); i++ )
-                {
-                    const row_info_t &ri = gi.row_info[ i ];
-
-                    gi.set_pos_y( windowpos.y + ri.row_y + m_graph_start_y, ri.row_h, &ri );
-
-                    render_graph_row( gi );
-                }
-            }
-
-            // Render full graph lines: vblanks, mouse cursors, etc...
-            gi.set_pos_y( windowpos.y, windowsize.y, NULL );
-            render_graph_vblanks( gi );
-
-            // Handle right, left, pgup, pgdown, etc in graph
-            handle_graph_keyboard_scroll();
-            handle_graph_hotkeys();
-
-            // Render mouse tooltips, mouse selections, etc
-            handle_mouse_graph( gi );
         }
-        ImGui::EndChild();
-    }
 
-    if ( !m_graph_popup )
-        m_mouse_over_row_name = "";
+        // Render full graph lines: vblanks, mouse cursors, etc...
+        gi.set_pos_y( windowpos.y, windowsize.y, NULL );
+        render_graph_vblanks( gi );
+
+        // Handle right, left, pgup, pgdown, etc in graph
+        handle_graph_keyboard_scroll();
+
+        // Handle hotkeys. Ie: Ctrl+Shift+1, etc
+        handle_graph_hotkeys();
+
+        // Render mouse tooltips, mouse selections, etc
+        handle_mouse_graph( gi );
+    }
+    ImGui::EndChild();
 }
 
 bool TraceWin::render_graph_popup( graph_info_t &gi )
