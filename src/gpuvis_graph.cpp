@@ -1151,14 +1151,12 @@ void TraceWin::render_process_graph()
     // Make sure ts start and length values are mostly sane
     range_check_graph_location();
 
-    //$ TODO: when graph size is larger than available space bad things happen
     //$ TODO: Occasionally the hidden rows don't appear under the show menu?
 
     ImGui::BeginChild( "EventGraph", ImVec2( 0, gi.visible_graph_height ), true );
     {
-        ImVec2 windowpos = ImGui::GetWindowClipRectMin();
-        ImVec2 cliprectmax = ImGui::GetWindowClipRectMax();
-        ImVec2 windowsize = ImVec2( cliprectmax.x - windowpos.x, cliprectmax.y - windowpos.y );
+        ImVec2 windowpos = ImVec2( ImGui::GetWindowClipRectMin().x, ImGui::GetWindowPos().y );
+        ImVec2 windowsize = ImGui::GetWindowSize();
 
         // Clear graph background
         imgui_drawrect( windowpos.x, windowsize.x,
