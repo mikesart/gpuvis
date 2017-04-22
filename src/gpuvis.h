@@ -441,11 +441,13 @@ enum option_id_t
     OPT_RenderCrtc7,
     OPT_RenderCrtc8,
     OPT_RenderCrtc9,
-    OPT_GraphRowCount,
+    OPT_GraphHeight,
+#if 0
+    OPT_TimelineGfxSize,
+    OPT_TimelineSdma0Size,
+    OPT_TimelineSdma1Size,
+#endif
     OPT_EventListRowCount,
-    OPT_TimelineGfxRowCount,
-    OPT_TimelineSdma0RowCount,
-    OPT_TimelineSdma1RowCount,
     OPT_Max
 };
 

@@ -202,6 +202,8 @@ public:
     const row_info_t *prinfo_gfx = nullptr;
     const row_info_t *prinfo_gfx_hw = nullptr;
 
+    float text_h;
+    float row_h;
     float total_graph_height;
 };
 
@@ -329,13 +331,15 @@ void event_renderer_t::draw()
 void graph_info_t::init_row_info( TraceWin *win, const std::vector< std::string > &graph_rows )
 {
     uint32_t id = 0;
-    TraceLoader &loader = win->m_loader;
+    //$ TraceLoader &loader = win->m_loader;
     TraceEvents *trace_events = win->m_trace_events;
 
     imgui_push_smallfont();
 
-    float text_h = ImGui::GetTextLineHeightWithSpacing();
     float graph_row_padding = ImGui::GetStyle().FramePadding.y;
+
+    text_h = ImGui::GetTextLineHeightWithSpacing();
+    row_h = text_h * 2 + graph_row_padding;
 
     total_graph_height = graph_row_padding;
 
@@ -374,11 +378,11 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< std::string 
                 comm_str = "gfx";
             }
             else if ( comm == "gfx" )
-                rows = loader.get_opt( OPT_TimelineGfxRowCount );
+                rows = 8; //$ TODO mikesart: loader.get_opt( OPT_TimelineGfxSize );
             else if ( comm == "sdma0" )
-                rows = loader.get_opt( OPT_TimelineSdma0RowCount );
+                rows = 4; //$ TODO mikesart: loader.get_opt( OPT_TimelineSdma0Size );
             else if ( comm == "sdma1" )
-                rows = loader.get_opt( OPT_TimelineSdma1RowCount );
+                rows = 4; //$ TODO mikesart: loader.get_opt( OPT_TimelineSdma1Size );
 
             rows = Clamp< int >( rows, 2, 50 );
 
@@ -395,11 +399,17 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< std::string 
 
             row_info.push_back( rinfo );
 
+            if ( comm == "gfx" )
+                prinfo_gfx = &row_info.back();
+            else if ( comm == "gfx hw" )
+                prinfo_gfx_hw = &row_info.back();
+
             total_graph_height += rinfo.row_h + graph_row_padding;
         }
     }
 
     total_graph_height += imgui_scale( 2.0f );
+    total_graph_height = std::max< float >( total_graph_height, 4 * row_h );
 }
 
 void graph_info_t::init( TraceWin *win, float x_in, float w_in )
@@ -644,9 +654,8 @@ uint32_t TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &loc
     ImU32 col_userspace = col_get( col_BarUserspace );
     ImU32 col_hwqueue = col_get( col_BarHwQueue );
     ImU32 color_1event = col_get( col_1Event );
-    float text_h = ImGui::GetTextLineHeightWithSpacing();
 
-    uint32_t timeline_row_count = gi.h / text_h;
+    uint32_t timeline_row_count = gi.h / gi.text_h;
 
     bool render_timeline_events = !!m_loader.get_opt( OPT_TimelineEvents );
     bool render_timeline_labels = !!m_loader.get_opt( OPT_TimelineLabels );
@@ -669,7 +678,7 @@ uint32_t TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &loc
             if ( cs_ioctl.ts < gi.ts1 )
             {
                 bool hovered = false;
-                float y = gi.y + ( fence_signaled.graph_row_id % timeline_row_count ) * text_h;
+                float y = gi.y + ( fence_signaled.graph_row_id % timeline_row_count ) * gi.text_h;
 
                 // amdgpu_cs_ioctl  amdgpu_sched_run_job   |   fence_signaled
                 //       |-----------------|---------------|--------|
@@ -681,11 +690,11 @@ uint32_t TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &loc
                 float xleft = gi.timeline_render_user ? x_user_start : x_hwqueue_start;
 
                 if ( ( gi.hovered_graph_event == fence_signaled.id ) ||
-                    gi.mouse_pos_in_rect( xleft, x_hw_end - xleft, y, text_h ) )
+                    gi.mouse_pos_in_rect( xleft, x_hw_end - xleft, y, gi.text_h ) )
                 {
                     // Mouse is hovering over this fence_signaled.
                     hovered = true;
-                    hov_rect = { x_user_start, y, x_hw_end, y + text_h };
+                    hov_rect = { x_user_start, y, x_hw_end, y + gi.text_h };
 
                     if ( !is_valid_id( gi.hovered_graph_event ) )
                         gi.hovered_graph_event = fence_signaled.id;
@@ -693,14 +702,14 @@ uint32_t TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &loc
 
                 // Draw user bar
                 if ( hovered || gi.timeline_render_user )
-                    imgui_drawrect( x_user_start, x_hwqueue_start - x_user_start, y, text_h, col_userspace );
+                    imgui_drawrect( x_user_start, x_hwqueue_start - x_user_start, y, gi.text_h, col_userspace );
 
                 // Draw hw queue bar
                 if ( x_hwqueue_end != x_hwqueue_start )
-                    imgui_drawrect( x_hwqueue_start, x_hwqueue_end - x_hwqueue_start, y, text_h, col_hwqueue );
+                    imgui_drawrect( x_hwqueue_start, x_hwqueue_end - x_hwqueue_start, y, gi.text_h, col_hwqueue );
 
                 // Draw hw running bar
-                imgui_drawrect( x_hwqueue_end, x_hw_end - x_hwqueue_end, y, text_h, col_hwrunning );
+                imgui_drawrect( x_hwqueue_end, x_hw_end - x_hwqueue_end, y, gi.text_h, col_hwrunning );
 
                 if ( render_timeline_labels )
                 {
@@ -719,26 +728,26 @@ uint32_t TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &loc
                     if ( cs_ioctl.id != sched_run_job.id )
                     {
                         // Draw event line for start of user
-                        imgui_drawrect( x_user_start, 1.0, y, text_h, color_1event );
+                        imgui_drawrect( x_user_start, 1.0, y, gi.text_h, color_1event );
 
                         // Check if we're mouse hovering starting event
-                        if ( gi.mouse_over && gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + text_h )
+                        if ( gi.mouse_over && gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + gi.text_h )
                         {
                             // If we are hovering, and no selection bar is set, do it.
                             if ( add_mouse_hovered_event( x_user_start, gi, cs_ioctl ) && ( hov_rect.Min.x == FLT_MAX ) )
                             {
-                                hov_rect = { x_user_start, y, x_hw_end, y + text_h };
+                                hov_rect = { x_user_start, y, x_hw_end, y + gi.text_h };
 
                                 // Draw user bar for hovered events if they weren't already drawn
                                 if ( !hovered && !gi.timeline_render_user )
-                                    imgui_drawrect( x_user_start, x_hwqueue_start - x_user_start, y, text_h, col_userspace );
+                                    imgui_drawrect( x_user_start, x_hwqueue_start - x_user_start, y, gi.text_h, col_userspace );
                             }
                         }
                     }
 
                     // Draw event line for hwqueue start and hw end
-                    imgui_drawrect( x_hwqueue_start, 1.0, y, text_h, color_1event );
-                    imgui_drawrect( x_hw_end, 1.0, y, text_h, color_1event );
+                    imgui_drawrect( x_hwqueue_start, 1.0, y, gi.text_h, color_1event );
+                    imgui_drawrect( x_hw_end, 1.0, y, gi.text_h, color_1event );
                 }
 
                 num_events++;
@@ -1092,35 +1101,49 @@ void TraceWin::render_process_graph()
 
     // Initialize our row size, location, etc information based on our graph rows
     gi.init_row_info( this, m_graph_rows );
-    if ( gi.row_info.empty() )
-        return;
-
-    // Max graph row count is the number of rows.
-    m_loader.m_options[ OPT_GraphRowCount ].val_max = gi.row_info.size();
-
-    // Get current count of rows. 0 means show all rows.
-    int graph_row_count = m_loader.get_opt( OPT_GraphRowCount );
-    int row_count = Clamp< int >( ( graph_row_count < 1 ) ? gi.row_info.size() : graph_row_count,
-                                  1, gi.row_info.size() );
-
-    // Slider to set the number of graph rows
-    ImGui::SameLine();
-    ImGui::PushItemWidth( imgui_scale( 200.0f ) );
-    if ( ImGui::SliderInt( "##GraphRows", &row_count, 1, gi.row_info.size(), "Graph Rows: %.0f" ) )
-    {
-        m_loader.m_options[ OPT_GraphRowCount ].val =
-                ( ( uint32_t )row_count >= gi.row_info.size() ) ? 0 : row_count;
-    }
 
     // Checkbox to toggle zooming gfx timeline view
     ImGui::SameLine();
     ImGui::CheckboxInt( "Zoom gfx timeline", &m_loader.m_options[ OPT_TimelineZoomGfx ].val );
 
-    // Make sure ts start and length values are sane
+    // Zoom mode if we have a gfx row and zoom option is set
+    int max_graph_size;
+    bool do_zoom_gfx = gi.prinfo_gfx && m_loader.get_opt( OPT_TimelineZoomGfx );
+
+    if ( do_zoom_gfx )
+    {
+        max_graph_size = 60; //$ TODO mikesart: m_loader.m_options[ OPT_TimelineGfxSize ].val_max;
+    }
+    else
+    {
+        max_graph_size = gi.total_graph_height / gi.row_h;
+
+        m_loader.m_options[ OPT_GraphHeight ].val_max = max_graph_size;
+        m_loader.m_options[ OPT_GraphHeight ].val = Clamp( m_loader.m_options[ OPT_GraphHeight ].val, 4, max_graph_size );
+    }
+
+    // Slider to set the graph size
+    ImGui::SameLine();
+    ImGui::PushItemWidth( imgui_scale( 200.0f ) );
+    ImGui::SliderInt( "##GraphSize", &m_loader.m_options[ OPT_GraphHeight ].val, 4, max_graph_size, "Graph Size: %.0f" );
+
+    float visible_graph_height = m_loader.get_opt( OPT_GraphHeight ) * gi.row_h;
+
+    if ( !do_zoom_gfx )
+    {
+        // If we're not in zoom mode clamp the graph height at the max possible size
+        if ( m_loader.m_options[ OPT_GraphHeight ].val == m_loader.m_options[ OPT_GraphHeight ].val_max )
+            visible_graph_height = gi.total_graph_height;
+        else
+            visible_graph_height = std::min< float >( visible_graph_height, gi.total_graph_height );
+    }
+
+    // Make sure ts start and length values are mostly sane
     range_check_graph_location();
 
-    float visible_graph_height = ( ( size_t )row_count >= gi.row_info.size() ) ?
-        gi.total_graph_height : gi.row_info[ row_count ].row_y;
+    //$ TODO: when graph size is larger than available space bad things happen
+    //$ TODO: Occasionally the hidden rows don't appear under the show menu?
+    //$ TODO: Should have separate GraphSize and a ZoomedGraphSizes?
 
     ImGui::BeginChild( "EventGraph", ImVec2( 0, visible_graph_height ), true );
     {
@@ -1144,7 +1167,7 @@ void TraceWin::render_process_graph()
             m_mouse_over_row_name = "";
 
         // If we have a gfx graph and we're zoomed, render only that
-        if ( gi.prinfo_gfx && m_loader.get_opt( OPT_TimelineZoomGfx ) )
+        if ( do_zoom_gfx )
         {
             float gfx_hw_row_h = 0;
 

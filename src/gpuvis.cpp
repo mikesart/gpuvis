@@ -515,11 +515,13 @@ void TraceLoader::init()
     m_options[ OPT_SyncEventListToGraph ] = { "Sync Event List to graph mouse location", "sync_eventlist_to_graph", true, 0, 1 };
     m_options[ OPT_ShowColorPicker ] = { "Show graph color picker", "show_color_picker", false, 0, 1 };
 
-    m_options[ OPT_GraphRowCount ] = { "Graph rows: %.0f", "graph_row_count", 12, 1, 40 };
-    m_options[ OPT_EventListRowCount ] = { "Event List Rows: %.0f", "eventlist_row_count", 0, 0, 100 };
-    m_options[ OPT_TimelineGfxRowCount ] = { "gfx Timeline Rows: %.0f", "gfx_timeline_row_count", 8, 4, 40 };
-    m_options[ OPT_TimelineSdma0RowCount ] = { "sdma0 Timeline Row: %.0f", "sdma0_timeline_row_count", 4, 2, 40 };
-    m_options[ OPT_TimelineSdma1RowCount ] = { "sdma1 Timeline Row: %.0f", "sdma1_timeline_row_count", 4, 2, 40 };
+    m_options[ OPT_GraphHeight ] = { "Graph Size: %.0f", "graph_row_count", 12, 4, 60 };
+#if 0
+    m_options[ OPT_TimelineGfxSize ] = { "gfx Timeline Size: %.0f", "gfx_timeline_row_count", 8, 4, 60 };
+    m_options[ OPT_TimelineSdma0Size ] = { "sdma0 Timeline Size: %.0f", "sdma0_timeline_row_count", 4, 2, 40 };
+    m_options[ OPT_TimelineSdma1Size ] = { "sdma1 Timeline Size: %.0f", "sdma1_timeline_row_count", 4, 2, 40 };
+#endif
+    m_options[ OPT_EventListRowCount ] = { "Event List Size: %.0f", "eventlist_row_count", 0, 0, 100 };
 
     for ( int i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
