@@ -448,6 +448,7 @@ enum option_id_t
     OPT_TimelineGfxSize,
     OPT_TimelineSdma0Size,
     OPT_TimelineSdma1Size,
+    OPT_TimelinePrint,
     OPT_Max
 };
 

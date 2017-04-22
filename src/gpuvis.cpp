@@ -526,9 +526,11 @@ void TraceLoader::init()
     m_options[ OPT_TimelineGfxSize ].opt_int( "Gfx Size:", "row_gfx_size", 8, 8, 40 );
     m_options[ OPT_TimelineSdma0Size ].opt_int( "Sdma0 Size:", "row_sdma0_size", 4, 4, 40 );
     m_options[ OPT_TimelineSdma1Size ].opt_int( "Sdma1 Size:", "row_sdma1_size", 4, 4, 40 );
+    m_options[ OPT_TimelinePrint ].opt_int( "Print Size:", "row_print_size", 2, 2, 40 );
     m_options[ OPT_TimelineGfxSize ].hidden = true;
     m_options[ OPT_TimelineSdma0Size ].hidden = true;
     m_options[ OPT_TimelineSdma1Size ].hidden = true;
+    m_options[ OPT_TimelinePrint ].hidden = true;
 
     for ( int i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
@@ -733,9 +735,7 @@ void TraceWin::graph_rows_initstr( bool reset )
         m_graph_rows_str += "sdma0\n";
         m_graph_rows_str += "sdma1\n";
         m_graph_rows_str += "gfx hw\n";
-#if 0
         m_graph_rows_str += "print\n\n";
-#endif
 
         m_graph_rows_str += "# $name=fence_signaled\n";
         m_graph_rows_str += "# $id > 100 && $id < 200\n\n";

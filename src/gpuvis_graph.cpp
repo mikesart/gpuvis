@@ -336,6 +336,8 @@ static option_id_t get_comm_option_id( const std::string &comm )
         return OPT_TimelineSdma0Size;
     else if ( comm == "sdma1" )
         return OPT_TimelineSdma1Size;
+    else if ( comm == "print" )
+        return OPT_TimelinePrint;
 
     return OPT_Max;
 }
@@ -376,7 +378,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< std::string 
         {
             if ( comm == "print" )
             {
-                rinfo.row_h = text_h * 10;
+                rinfo.row_h = win->m_loader.get_opt( OPT_TimelinePrint ) * text_h;
                 comm_str = "$name=print";
             }
 
