@@ -169,7 +169,6 @@ public:
     row_info_t *find_row( const char *name );
 
 public:
-    uint32_t row_num;
     float x, y, w, h;
 
     int64_t ts0;
@@ -177,11 +176,11 @@ public:
     int64_t tsdx;
     double tsdxrcp;
 
-    bool mouse_over;
-    ImVec2 mouse_pos;
-
     uint32_t eventstart;
     uint32_t eventend;
+
+    bool mouse_over;
+    ImVec2 mouse_pos;
 
     struct hovered_t
     {
@@ -194,6 +193,7 @@ public:
 
     uint32_t hovered_graph_event = INVALID_ID;
 
+    bool do_zoom_gfx;
     bool timeline_render_user;
     bool graph_only_filtered;
 
@@ -204,6 +204,7 @@ public:
 
     float text_h;
     float row_h;
+    float visible_graph_height;
     float total_graph_height;
 };
 
@@ -1095,6 +1096,44 @@ void TraceWin::handle_graph_keyboard_scroll()
     }
 }
 
+static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
+{
+    // Zoom mode if we have a gfx row and zoom option is set
+    option_id_t optid;
+    float max_graph_size;
+
+    gi.do_zoom_gfx = gi.prinfo_gfx && win->m_loader.get_opt( OPT_TimelineZoomGfx );
+
+    if ( gi.do_zoom_gfx )
+    {
+        optid = OPT_GraphHeightZoomed;
+        max_graph_size = 60.0f * gi.row_h;
+    }
+    else
+    {
+        optid = OPT_GraphHeight;
+        max_graph_size = gi.total_graph_height;
+    }
+
+    TraceLoader::option_t &opt = win->m_loader.m_options[ optid ];
+
+    // First time initialization - start with about 15 rows
+    if ( !opt.valf )
+        opt.valf = 15.0f * gi.row_h;
+
+    // Set up min / max sizes and clamp value in that range
+    opt.valf_min = 4.0f * gi.row_h;
+    opt.valf_max = max_graph_size;
+    opt.valf = Clamp< float >( opt.valf, opt.valf_min, opt.valf_max );
+
+    // Slider to set graph size
+    ImGui::SameLine();
+    ImGui::PushItemWidth( imgui_scale( 200.0f ) );
+    ImGui::SliderFloat( "##graph_size", &opt.valf, opt.valf_min, opt.valf_max, opt.desc.c_str() );
+
+    gi.visible_graph_height = opt.valf;
+}
+
 void TraceWin::render_process_graph()
 {
     graph_info_t gi;
@@ -1106,46 +1145,16 @@ void TraceWin::render_process_graph()
     ImGui::SameLine();
     ImGui::CheckboxInt( "Zoom gfx timeline", &m_loader.m_options[ OPT_TimelineZoomGfx ].val );
 
-    // Zoom mode if we have a gfx row and zoom option is set
-    int max_graph_size;
-    bool do_zoom_gfx = gi.prinfo_gfx && m_loader.get_opt( OPT_TimelineZoomGfx );
-
-    if ( do_zoom_gfx )
-    {
-        max_graph_size = 60; //$ TODO mikesart: m_loader.m_options[ OPT_TimelineGfxSize ].val_max;
-    }
-    else
-    {
-        max_graph_size = gi.total_graph_height / gi.row_h;
-
-        m_loader.m_options[ OPT_GraphHeight ].val_max = max_graph_size;
-        m_loader.m_options[ OPT_GraphHeight ].val = Clamp( m_loader.m_options[ OPT_GraphHeight ].val, 4, max_graph_size );
-    }
-
-    // Slider to set the graph size
-    ImGui::SameLine();
-    ImGui::PushItemWidth( imgui_scale( 200.0f ) );
-    ImGui::SliderInt( "##GraphSize", &m_loader.m_options[ OPT_GraphHeight ].val, 4, max_graph_size, "Graph Size: %.0f" );
-
-    float visible_graph_height = m_loader.get_opt( OPT_GraphHeight ) * gi.row_h;
-
-    if ( !do_zoom_gfx )
-    {
-        // If we're not in zoom mode clamp the graph height at the max possible size
-        if ( m_loader.m_options[ OPT_GraphHeight ].val == m_loader.m_options[ OPT_GraphHeight ].val_max )
-            visible_graph_height = gi.total_graph_height;
-        else
-            visible_graph_height = std::min< float >( visible_graph_height, gi.total_graph_height );
-    }
+    // Figure out gi.visible_graph_height
+    calc_process_graph_height( this, gi );
 
     // Make sure ts start and length values are mostly sane
     range_check_graph_location();
 
     //$ TODO: when graph size is larger than available space bad things happen
     //$ TODO: Occasionally the hidden rows don't appear under the show menu?
-    //$ TODO: Should have separate GraphSize and a ZoomedGraphSizes?
 
-    ImGui::BeginChild( "EventGraph", ImVec2( 0, visible_graph_height ), true );
+    ImGui::BeginChild( "EventGraph", ImVec2( 0, gi.visible_graph_height ), true );
     {
         ImVec2 windowpos = ImGui::GetWindowClipRectMin();
         ImVec2 cliprectmax = ImGui::GetWindowClipRectMax();
@@ -1160,14 +1169,14 @@ void TraceWin::render_process_graph()
 
         // Range check mouse pan values
         m_graph_start_y = Clamp< float >( m_graph_start_y,
-                                          visible_graph_height - gi.total_graph_height, 0.0f );
+                                          gi.visible_graph_height - gi.total_graph_height, 0.0f );
 
         // If we don't have a popup menu, clear the mouse over row name
         if ( !m_graph_popup )
             m_mouse_over_row_name = "";
 
         // If we have a gfx graph and we're zoomed, render only that
-        if ( do_zoom_gfx )
+        if ( gi.do_zoom_gfx )
         {
             float gfx_hw_row_h = 0;
 
@@ -1319,16 +1328,22 @@ bool TraceWin::render_graph_popup( graph_info_t &gi )
 
         ImGui::PushID( i );
 
-        if ( opt.val_min == 0 && opt.val_max == 1 )
+        if ( opt.type == TraceLoader::OPT_Bool )
         {
             bool val = !!opt.val;
             if ( ImGui::MenuItem( opt.desc.c_str(), "", &val ) )
                 opt.val = val;
         }
+        else if ( opt.type == TraceLoader::OPT_Int )
+        {
+            ImGui::PushItemWidth( imgui_scale( 200.0f ) );
+            ImGui::SliderInt( "##slider_int", &opt.val, opt.val_min, opt.val_max, opt.desc.c_str() );
+            ImGui::PopItemWidth();
+        }
         else
         {
             ImGui::PushItemWidth( imgui_scale( 200.0f ) );
-            ImGui::SliderInt( "##slider", &opt.val, opt.val_min, opt.val_max, opt.desc.c_str() );
+            ImGui::SliderFloat( "##slider_float", &opt.valf, opt.valf_min, opt.valf_max, opt.desc.c_str() );
             ImGui::PopItemWidth();
         }
 

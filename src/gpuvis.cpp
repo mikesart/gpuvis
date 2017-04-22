@@ -502,34 +502,30 @@ void TraceLoader::init()
 {
     m_options.resize( OPT_Max );
 
-    m_options[ OPT_Fullscreen ] = { "Fullscreen Trace Window", "fullscreen", false, 0, 1 };
+    m_options[ OPT_Fullscreen ].opt_bool( "Fullscreen Trace Window", "fullscreen", false );
 
-    m_options[ OPT_TimelineZoomGfx ] = { "Zoom gfx timeline (Ctrl+Shift+Z)", "zoom_gfx_timeline", 0, 0, 1 };
-    m_options[ OPT_TimelineLabels ] = { "Show timeline labels", "timeline_labels", true, 0, 1 };
-    m_options[ OPT_TimelineEvents ] = { "Show timeline events", "timeline_events", true, 0, 1 };
-    m_options[ OPT_TimelineRenderUserSpace ] = { "Show timeline userspace", "timeline_userspace", false, 0, 1 };
+    m_options[ OPT_TimelineZoomGfx ].opt_bool( "Zoom gfx timeline (Ctrl+Shift+Z)", "zoom_gfx_timeline", false );
+    m_options[ OPT_TimelineLabels ].opt_bool( "Show timeline labels", "timeline_labels", true );
+    m_options[ OPT_TimelineEvents ].opt_bool( "Show timeline events", "timeline_events", true );
+    m_options[ OPT_TimelineRenderUserSpace ].opt_bool( "Show timeline userspace", "timeline_userspace", false );
 
-    m_options[ OPT_GraphOnlyFiltered ] = { "Graph only filtered events", "graph_only_filtered", 0, 0, 1 };
+    m_options[ OPT_GraphOnlyFiltered ].opt_bool( "Graph only filtered events", "graph_only_filtered", false );
 
-    m_options[ OPT_ShowEventList ] = { "Show Event List", "show_event_list", true, 0, 1 };
-    m_options[ OPT_SyncEventListToGraph ] = { "Sync Event List to graph mouse location", "sync_eventlist_to_graph", true, 0, 1 };
-    m_options[ OPT_ShowColorPicker ] = { "Show graph color picker", "show_color_picker", false, 0, 1 };
+    m_options[ OPT_ShowEventList ].opt_bool( "Show Event List", "show_event_list", true );
+    m_options[ OPT_SyncEventListToGraph ].opt_bool( "Sync Event List to graph mouse location", "sync_eventlist_to_graph", true );
+    m_options[ OPT_ShowColorPicker ].opt_bool( "Show graph color picker", "show_color_picker", false );
 
-    m_options[ OPT_GraphHeight ] = { "Graph Size: %.0f", "graph_row_count", 12, 4, 60 };
-#if 0
-    m_options[ OPT_TimelineGfxSize ] = { "gfx Timeline Size: %.0f", "gfx_timeline_row_count", 8, 4, 60 };
-    m_options[ OPT_TimelineSdma0Size ] = { "sdma0 Timeline Size: %.0f", "sdma0_timeline_row_count", 4, 2, 40 };
-    m_options[ OPT_TimelineSdma1Size ] = { "sdma1 Timeline Size: %.0f", "sdma1_timeline_row_count", 4, 2, 40 };
-#endif
-    m_options[ OPT_EventListRowCount ] = { "Event List Size: %.0f", "eventlist_row_count", 0, 0, 100 };
+    m_options[ OPT_GraphHeight ].opt_float( "Graph Size: %.1f", "graph_height", 0, 0, 1 );
+    m_options[ OPT_GraphHeightZoomed ].opt_float( "Zoomed Graph Size: %.1f", "graph_height_zoomed", 0, 0, 1 );
+
+    m_options[ OPT_EventListRowCount ].opt_int( "Event List Size: %.0f", "eventlist_row_count", 0, 0, 100 );
 
     for ( int i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
-        m_options[ i ].desc = string_format( "Show drm_vblank_event crtc%d markers", i - OPT_RenderCrtc0 );
-        m_options[ i ].inikey = string_format( "render_crtc%d", i - OPT_RenderCrtc0 );
-        m_options[ i ].val = 1;
-        m_options[ i ].val_min = 0;
-        m_options[ i ].val_max = 1;
+        const std::string desc = string_format( "Show drm_vblank_event crtc%d markers", i - OPT_RenderCrtc0 );
+        const std::string inikey = string_format( "render_crtc%d", i - OPT_RenderCrtc0 );
+
+        m_options[ i ].opt_bool( desc, inikey, true );
     }
 
     // Read option settings from ini file
@@ -537,7 +533,10 @@ void TraceLoader::init()
     {
         option_t &opt = m_options[ i ];
 
-        opt.val = m_inifile.GetInt( opt.inikey.c_str(), opt.val );
+        if ( opt.type == OPT_Float )
+            opt.valf = m_inifile.GetFloat( opt.inikey.c_str(), opt.valf );
+        else
+            opt.val = m_inifile.GetInt( opt.inikey.c_str(), opt.val );
     }
 }
 
@@ -568,7 +567,10 @@ void TraceLoader::shutdown()
     {
         const option_t &opt = m_options[ i ];
 
-        m_inifile.PutInt( opt.inikey.c_str(), opt.val );
+        if ( opt.type == OPT_Float )
+            m_inifile.PutFloat( opt.inikey.c_str(), opt.valf );
+        else
+            m_inifile.PutInt( opt.inikey.c_str(), opt.val );
     }
 }
 
@@ -1745,16 +1747,20 @@ void TraceConsole::render_options( TraceLoader &loader )
 
         ImGui::PushID( i );
 
-        if ( opt.val_min == 0 && opt.val_max == 1 )
+        if ( opt.type == TraceLoader::OPT_Bool )
         {
-            bool val = !!opt.val;
-            if ( ImGui::Checkbox( opt.desc.c_str(), &val ) )
-                opt.val = val;
+            ImGui::CheckboxInt( opt.desc.c_str(), &opt.val );
+        }
+        else if ( opt.type == TraceLoader::OPT_Int )
+        {
+            ImGui::PushItemWidth( imgui_scale( 200.0f ) );
+            ImGui::SliderInt( "##slider_int", &opt.val, opt.val_min, opt.val_max, opt.desc.c_str() );
+            ImGui::PopItemWidth();
         }
         else
         {
             ImGui::PushItemWidth( imgui_scale( 200.0f ) );
-            ImGui::SliderInt( "##slider", &opt.val, opt.val_min, opt.val_max, opt.desc.c_str() );
+            ImGui::SliderFloat( "##slider_float", &opt.valf, opt.valf_min, opt.valf_max, opt.desc.c_str() );
             ImGui::PopItemWidth();
         }
 

@@ -280,7 +280,7 @@ public:
     bool handle_event_list_mouse( const trace_event_t &event, uint32_t i );
 
     void render_process_graph();
-    void render_graph_row(  class graph_info_t &gi );
+    void render_graph_row( class graph_info_t &gi );
     uint32_t render_graph_row_timeline( const std::vector< uint32_t > &locs, graph_info_t &gi );
     uint32_t render_graph_hw_row_timeline( graph_info_t &gi );
     void render_graph_vblanks( class graph_info_t &gi );
@@ -442,6 +442,7 @@ enum option_id_t
     OPT_RenderCrtc8,
     OPT_RenderCrtc9,
     OPT_GraphHeight,
+    OPT_GraphHeightZoomed,
 #if 0
     OPT_TimelineGfxSize,
     OPT_TimelineSdma0Size,
@@ -500,17 +501,55 @@ public:
     uint32_t m_crtc_max = 0;
     std::vector< std::string > m_inputfiles;
 
+    enum opt_type { OPT_Bool, OPT_Int, OPT_Float };
     struct option_t
     {
+        void opt_bool( const std::string &description, const std::string &key, bool defval )
+        {
+            type = OPT_Bool;
+            desc = description;
+            inikey = key;
+            val = defval;
+        }
+
+        void opt_int( const std::string &description, const std::string &key, int defval, int minval, int maxval )
+        {
+            type = OPT_Int;
+            desc = description;
+            inikey = key;
+            val = defval;
+            val_min = minval;
+            val_max = maxval;
+        }
+
+        void opt_float( const std::string &description, const std::string &key, float defval, float minval, float maxval )
+        {
+            type = OPT_Float;
+            desc = description;
+            inikey = key;
+            valf = defval;
+            valf_min = minval;
+            valf_max = maxval;
+        }
+
         std::string desc;
         std::string inikey;
+
+        opt_type type;
         int val;
         int val_min;
         int val_max;
+        float valf;
+        float valf_min;
+        float valf_max;
     };
     int get_opt( option_id_t opt )
     {
         return m_options[ opt ].val;
+    }
+    int get_optf( option_id_t opt )
+    {
+        return m_options[ opt ].valf;
     }
     int get_opt_crtc( int crtc )
     {
