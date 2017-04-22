@@ -57,6 +57,8 @@
   19:08:53 <Plagman> and then we could show offset since last identical event, highlight them together on hover, etc
   19:09:00 <Plagman> put them on separate graph rows too
 
+  TODO mikesart: Occasionally the hidden rows don't appear under the show menu?
+
   TODO mikesart: Try coloring the ftrace print events per the hash of the string?
 
   TODO mikesart: Check if entire rows are clipped when drawing...
@@ -1151,8 +1153,6 @@ void TraceWin::render_process_graph()
     // Make sure ts start and length values are mostly sane
     range_check_graph_location();
 
-    //$ TODO: Occasionally the hidden rows don't appear under the show menu?
-
     ImGui::BeginChild( "EventGraph", ImVec2( 0, gi.visible_graph_height ), true );
     {
         ImVec2 windowpos = ImVec2( ImGui::GetWindowClipRectMin().x, ImGui::GetWindowPos().y );
@@ -1194,12 +1194,9 @@ void TraceWin::render_process_graph()
         else
         {
             // Go through and render all the rows
-            for ( size_t i = 0; i < gi.row_info.size(); i++ )
+            for ( const row_info_t &ri : gi.row_info )
             {
-                const row_info_t &ri = gi.row_info[ i ];
-
                 gi.set_pos_y( windowpos.y + ri.row_y + m_graph_start_y, ri.row_h, &ri );
-
                 render_graph_row( gi );
             }
         }
