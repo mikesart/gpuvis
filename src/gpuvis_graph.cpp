@@ -1123,7 +1123,7 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
 
     // Set up min / max sizes and clamp value in that range
     opt.valf_min = 4.0f * gi.row_h;
-    opt.valf_max = max_graph_size;
+    opt.valf_max = Clamp< float >( max_graph_size, opt.valf_min, ImGui::GetWindowHeight() );
     opt.valf = Clamp< float >( opt.valf, opt.valf_min, opt.valf_max );
 
     // Slider to set graph size
