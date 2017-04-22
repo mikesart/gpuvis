@@ -186,6 +186,42 @@ public:
     // Pass a string like "gfx_249_91446"
     const std::vector< uint32_t > *get_gfxcontext_locs( const char *name );
 
+    bool rename_comm( const char *comm_old, const char *comm_new )
+    {
+        if ( !comm_old[ 0 ] ||
+             !comm_new[ 0 ] ||
+             !strcasecmp( comm_old, comm_new ) )
+        {
+            return false;
+        }
+
+        const std::vector< uint32_t > *plocs = get_comm_locs( comm_old );
+
+        if ( plocs )
+        {
+            const char *commstr = m_strpool.getstr( comm_new );
+
+            for ( uint32_t id : *plocs )
+            {
+                trace_event_t &event = m_events[ id ];
+
+                if ( event.user_comm == event.comm )
+                    event.user_comm = commstr;
+
+                event.comm = commstr;
+            }
+
+            uint32_t hashval_new = fnv_hashstr32( comm_new );
+            uint32_t hashval_old = fnv_hashstr32( comm_old );
+
+            m_comm_locations.m_locs.set_val( hashval_new, *plocs );
+            m_comm_locations.m_locs.m_map.erase( hashval_old );
+            return true;
+        }
+
+        return false;
+    }
+
 public:
     int64_t m_ts_min = 0;
     std::vector< uint32_t > m_cpucount;
@@ -319,6 +355,8 @@ public:
 
     void range_check_graph_location();
 
+    bool rename_comm_event( const char *comm_old, const char *comm_new );
+
     trace_event_t &get_event( uint32_t id )
     {
         return m_trace_events->m_events[ id ];
@@ -361,6 +399,8 @@ public:
     bool m_graph_popup = false;
     std::string m_mouse_over_row_name;
     std::vector< std::string > m_graph_rows_hidden_rows;
+
+    char m_rename_comm_buf[ 512 ] = { 0 };
 
     // Graph Start
     bool m_do_graph_start_timestr = false;

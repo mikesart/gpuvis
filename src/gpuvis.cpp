@@ -747,9 +747,38 @@ void TraceWin::graph_rows_initstr( bool reset )
             m_graph_rows_str += string_format( "#   %lu events:\n%s\n",
                                                item.event_count, item.comm );
         }
+
+        m_loader.m_inifile.PutStr( "graph_rows_str", m_graph_rows_str.c_str() );
     }
 
     graph_rows_updatelist();
+}
+
+bool TraceWin::rename_comm_event( const char *comm_old, const char *comm_new )
+{
+    while( isspace( *comm_old ) )
+        comm_old++;
+    while ( isspace( *comm_new ) )
+        comm_new++;
+
+    if ( m_trace_events->rename_comm( comm_old, comm_new ) )
+    {
+        for ( comm_t &comm_info : m_comm_info )
+        {
+            if ( !strcmp( comm_info.comm, comm_old ) )
+            {
+                comm_info.comm = m_trace_events->m_strpool.getstr( comm_new );
+                break;
+            }
+        }
+
+        string_replace_str( m_graph_rows_str, comm_old, comm_new );
+        graph_rows_updatelist();
+
+        return true;
+    }
+
+    return false;
 }
 
 void TraceWin::graph_rows_updatelist()

@@ -1183,7 +1183,10 @@ void TraceWin::render_process_graph()
 
         // If we don't have a popup menu, clear the mouse over row name
         if ( !m_graph_popup )
+        {
             m_mouse_over_row_name = "";
+            m_rename_comm_buf[ 0 ] = 0;
+        }
 
         // If we have a gfx graph and we're zoomed, render only that
         if ( gi.do_zoom_gfx )
@@ -1280,6 +1283,29 @@ bool TraceWin::render_graph_popup( graph_info_t &gi )
             }
 
             ImGui::EndMenu();
+        }
+    }
+
+    if ( m_trace_events->get_comm_locs( m_mouse_over_row_name.c_str() ) )
+    {
+        if ( !m_rename_comm_buf[ 0 ] )
+        {
+            strcpy_safe( m_rename_comm_buf, m_mouse_over_row_name.c_str() );
+
+            char *slash = strrchr( m_rename_comm_buf, '-' );
+            if ( slash )
+                *slash = 0;
+        }
+
+        ImGui::AlignFirstTextHeightToWidgets();
+        ImGui::Text( "Rename '%s':", m_mouse_over_row_name.c_str() );
+
+        ImGui::SameLine();
+        if ( ImGui::InputText( "##rename_comm", m_rename_comm_buf, sizeof( m_rename_comm_buf ),
+                               ImGuiInputTextFlags_EnterReturnsTrue ) )
+        {
+            if ( rename_comm_event( m_mouse_over_row_name.c_str(), m_rename_comm_buf ) )
+                ImGui::CloseCurrentPopup();
         }
     }
 
