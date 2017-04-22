@@ -153,7 +153,7 @@ struct row_info_t
 class graph_info_t
 {
 public:
-    void init_row_info( TraceWin *win,  const std::vector< std::string > &graph_rows );
+    void init_row_info( TraceWin *win, const std::vector< std::string > &graph_rows );
 
     void init( TraceWin *win, float x, float w );
     void set_pos_y( float y, float h, const row_info_t *ri );
@@ -328,13 +328,24 @@ void event_renderer_t::draw()
     imgui_drawrect( x0, width, y, h, color );
 }
 
+static option_id_t get_comm_option_id( const std::string &comm )
+{
+    if ( comm == "gfx" )
+        return OPT_TimelineGfxSize;
+    else if ( comm == "sdma0" )
+        return OPT_TimelineSdma0Size;
+    else if ( comm == "sdma1" )
+        return OPT_TimelineSdma1Size;
+
+    return OPT_Max;
+}
+
 /*
  * graph_info_t
  */
 void graph_info_t::init_row_info( TraceWin *win, const std::vector< std::string > &graph_rows )
 {
     uint32_t id = 0;
-    //$ TraceLoader &loader = win->m_loader;
     TraceEvents *trace_events = win->m_trace_events;
 
     imgui_push_smallfont();
@@ -374,18 +385,17 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< std::string 
         if ( !plocs )
         {
             int rows = 4;
+            option_id_t optid = get_comm_option_id( comm );
 
-            if ( rinfo.is_gfx_hw )
+            if ( optid != OPT_Max )
+            {
+                rows = win->m_loader.get_opt( optid );
+            }
+            else if ( rinfo.is_gfx_hw )
             {
                 rows = 2;
                 comm_str = "gfx";
             }
-            else if ( comm == "gfx" )
-                rows = 8; //$ TODO mikesart: loader.get_opt( OPT_TimelineGfxSize );
-            else if ( comm == "sdma0" )
-                rows = 4; //$ TODO mikesart: loader.get_opt( OPT_TimelineSdma0Size );
-            else if ( comm == "sdma1" )
-                rows = 4; //$ TODO mikesart: loader.get_opt( OPT_TimelineSdma1Size );
 
             rows = Clamp< int >( rows, 2, 50 );
 
@@ -1219,6 +1229,8 @@ void TraceWin::render_process_graph()
 
 bool TraceWin::render_graph_popup( graph_info_t &gi )
 {
+    option_id_t optid = OPT_Max;
+
     if ( !ImGui::BeginPopup( "GraphPopup" ) )
         return false;
 
@@ -1235,6 +1247,8 @@ bool TraceWin::render_graph_popup( graph_info_t &gi )
 
     if ( !m_mouse_over_row_name.empty() )
     {
+        optid = get_comm_option_id( m_mouse_over_row_name.c_str() );
+
         std::string label = string_format( "Hide row '%s'", m_mouse_over_row_name.c_str() );
 
         if ( ImGui::MenuItem( label.c_str() ) )
@@ -1265,6 +1279,17 @@ bool TraceWin::render_graph_popup( graph_info_t &gi )
 
             ImGui::EndMenu();
         }
+    }
+
+    if ( optid != OPT_Max )
+    {
+        TraceLoader::option_t &opt = m_loader.m_options[ optid ];
+
+        ImGui::AlignFirstTextHeightToWidgets();
+        ImGui::Text( "%s", opt.desc.c_str() );
+        ImGui::SameLine();
+        ImGui::PushItemWidth( imgui_scale( 150.0f ) );
+        ImGui::SliderInt( "##row_size", &opt.val, opt.val_min, opt.val_max );
     }
 
     ImGui::Separator();
@@ -1313,6 +1338,9 @@ bool TraceWin::render_graph_popup( graph_info_t &gi )
     for ( size_t i = 0; i < m_loader.m_options.size(); i++ )
     {
         TraceLoader::option_t &opt = m_loader.m_options[ i ];
+
+        if ( opt.hidden )
+            continue;
 
         if ( ( i >= OPT_RenderCrtc0 ) &&
              ( i <= OPT_RenderCrtc9 ) )

@@ -505,9 +505,9 @@ void TraceLoader::init()
     m_options[ OPT_Fullscreen ].opt_bool( "Fullscreen Trace Window", "fullscreen", false );
 
     m_options[ OPT_TimelineZoomGfx ].opt_bool( "Zoom gfx timeline (Ctrl+Shift+Z)", "zoom_gfx_timeline", false );
-    m_options[ OPT_TimelineLabels ].opt_bool( "Show timeline labels", "timeline_labels", true );
-    m_options[ OPT_TimelineEvents ].opt_bool( "Show timeline events", "timeline_events", true );
-    m_options[ OPT_TimelineRenderUserSpace ].opt_bool( "Show timeline userspace", "timeline_userspace", false );
+    m_options[ OPT_TimelineLabels ].opt_bool( "Show gfx timeline labels", "timeline_gfx_labels", true );
+    m_options[ OPT_TimelineEvents ].opt_bool( "Show gfx timeline events", "timeline_gfx_events", true );
+    m_options[ OPT_TimelineRenderUserSpace ].opt_bool( "Show gfx timeline userspace", "timeline_gfx_userspace", false );
 
     m_options[ OPT_GraphOnlyFiltered ].opt_bool( "Graph only filtered events", "graph_only_filtered", false );
 
@@ -517,8 +517,18 @@ void TraceLoader::init()
 
     m_options[ OPT_GraphHeight ].opt_float( "Graph Size: %.1f", "graph_height", 0, 0, 1 );
     m_options[ OPT_GraphHeightZoomed ].opt_float( "Zoomed Graph Size: %.1f", "graph_height_zoomed", 0, 0, 1 );
+    m_options[ OPT_GraphHeight ].hidden = true;
+    m_options[ OPT_GraphHeightZoomed ].hidden = true;
 
-    m_options[ OPT_EventListRowCount ].opt_int( "Event List Size: %.0f", "eventlist_row_count", 0, 0, 100 );
+    m_options[ OPT_EventListRowCount ].opt_int( "Event List Size: %.0f", "eventlist_rows", 0, 0, 100 );
+    m_options[ OPT_EventListRowCount ].hidden = true;
+
+    m_options[ OPT_TimelineGfxSize ].opt_int( "Gfx Size:", "row_gfx_size", 8, 8, 40 );
+    m_options[ OPT_TimelineSdma0Size ].opt_int( "Sdma0 Size:", "row_sdma0_size", 4, 4, 40 );
+    m_options[ OPT_TimelineSdma1Size ].opt_int( "Sdma1 Size:", "row_sdma1_size", 4, 4, 40 );
+    m_options[ OPT_TimelineGfxSize ].hidden = true;
+    m_options[ OPT_TimelineSdma0Size ].hidden = true;
+    m_options[ OPT_TimelineSdma1Size ].hidden = true;
 
     for ( int i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
@@ -1737,6 +1747,9 @@ void TraceConsole::render_options( TraceLoader &loader )
     for ( size_t i = 0; i < loader.m_options.size(); i++ )
     {
         TraceLoader::option_t &opt = loader.m_options[ i ];
+
+        if ( opt.hidden )
+            continue;
 
         if ( ( i >= OPT_RenderCrtc0 ) &&
              ( i <= OPT_RenderCrtc9 ) )

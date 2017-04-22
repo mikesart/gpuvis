@@ -443,12 +443,11 @@ enum option_id_t
     OPT_RenderCrtc9,
     OPT_GraphHeight,
     OPT_GraphHeightZoomed,
-#if 0
+    OPT_EventListRowCount,
+
     OPT_TimelineGfxSize,
     OPT_TimelineSdma0Size,
     OPT_TimelineSdma1Size,
-#endif
-    OPT_EventListRowCount,
     OPT_Max
 };
 
@@ -534,6 +533,8 @@ public:
 
         std::string desc;
         std::string inikey;
+
+        bool hidden = false;
 
         opt_type type;
         int val;
