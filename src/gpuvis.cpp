@@ -775,6 +775,7 @@ bool TraceWin::rename_comm_event( const char *comm_old, const char *comm_new )
         string_replace_str( m_graph_rows_str, comm_old, comm_new );
         graph_rows_updatelist();
 
+        m_loader.m_inifile.PutStr( comm_old, comm_new, "$rename_comm$" );
         return true;
     }
 
@@ -1068,8 +1069,13 @@ bool TraceWin::render()
 
     if ( !m_inited )
     {
+        std::vector< INIEntry > entries = m_loader.m_inifile.GetSectionEntries( "$rename_comm$" );
+
         // Initialize our graph rows first time through.
         graph_rows_initstr();
+
+        for ( INIEntry &entry : entries )
+            rename_comm_event( entry.first.c_str(), entry.second.c_str() );
 
         render_time_offset_button_init( *m_trace_events );
 
