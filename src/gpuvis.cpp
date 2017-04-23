@@ -127,8 +127,9 @@ static bool imgui_begin_columns( const char *title,
     // If we were just initialized or resized...
     if ( inifile && ( inited || ( *resized && ImGui::IsMouseReleased( 0 ) ) ) )
     {
-        // Go through the columns...
-        for ( size_t i = 0; i < headers.size(); i++ )
+        // Go through the columns and save/restore the column width.
+        // Skip the last column - it should size to edge of window.
+        for ( size_t i = 0; i < headers.size() - 1; i++ )
         {
             std::string key = string_format( "column_width_%s%lu", title, i );
 
