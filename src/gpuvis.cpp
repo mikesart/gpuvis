@@ -618,7 +618,8 @@ void TraceLoader::render()
  */
 void TraceWin::render_time_offset_button_init( TraceEvents &trace_events )
 {
-    const std::vector< uint32_t > *vblank_locs = trace_events.get_tdopexpr_locs( "$name=drm_vblank_event" );
+    const std::vector< uint32_t > *vblank_locs =
+            trace_events.get_tdopexpr_locs( "$name=drm_vblank_event" );
 
     if ( vblank_locs )
     {
@@ -995,6 +996,42 @@ const std::vector< uint32_t > *TraceEvents::get_timeline_locs( const char *name 
 const std::vector< uint32_t > *TraceEvents::get_gfxcontext_locs( const char *name )
 {
     return m_gfxcontext_locations.get_locations_str( name );
+}
+
+bool TraceEvents::rename_comm( const char *comm_old, const char *comm_new )
+{
+    if ( !comm_old[ 0 ] ||
+         !comm_new[ 0 ] ||
+         !strcasecmp( comm_old, comm_new ) )
+    {
+        return false;
+    }
+
+    const std::vector< uint32_t > *plocs = get_comm_locs( comm_old );
+
+    if ( plocs )
+    {
+        const char *commstr = m_strpool.getstr( comm_new );
+
+        for ( uint32_t id : *plocs )
+        {
+            trace_event_t &event = m_events[ id ];
+
+            if ( event.user_comm == event.comm )
+                event.user_comm = commstr;
+
+            event.comm = commstr;
+        }
+
+        uint32_t hashval_new = fnv_hashstr32( comm_new );
+        uint32_t hashval_old = fnv_hashstr32( comm_old );
+
+        m_comm_locations.m_locs.set_val( hashval_new, *plocs );
+        m_comm_locations.m_locs.m_map.erase( hashval_old );
+        return true;
+    }
+
+    return false;
 }
 
 TraceWin::TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string &title ) : m_loader( loader )

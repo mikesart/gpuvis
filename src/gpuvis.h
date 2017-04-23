@@ -186,41 +186,8 @@ public:
     // Pass a string like "gfx_249_91446"
     const std::vector< uint32_t > *get_gfxcontext_locs( const char *name );
 
-    bool rename_comm( const char *comm_old, const char *comm_new )
-    {
-        if ( !comm_old[ 0 ] ||
-             !comm_new[ 0 ] ||
-             !strcasecmp( comm_old, comm_new ) )
-        {
-            return false;
-        }
-
-        const std::vector< uint32_t > *plocs = get_comm_locs( comm_old );
-
-        if ( plocs )
-        {
-            const char *commstr = m_strpool.getstr( comm_new );
-
-            for ( uint32_t id : *plocs )
-            {
-                trace_event_t &event = m_events[ id ];
-
-                if ( event.user_comm == event.comm )
-                    event.user_comm = commstr;
-
-                event.comm = commstr;
-            }
-
-            uint32_t hashval_new = fnv_hashstr32( comm_new );
-            uint32_t hashval_old = fnv_hashstr32( comm_old );
-
-            m_comm_locations.m_locs.set_val( hashval_new, *plocs );
-            m_comm_locations.m_locs.m_map.erase( hashval_old );
-            return true;
-        }
-
-        return false;
-    }
+    // Rename a comm event
+    bool rename_comm( const char *comm_old, const char *comm_new );
 
 public:
     int64_t m_ts_min = 0;
@@ -304,44 +271,56 @@ public:
     ~TraceWin();
 
 public:
+    // Main TraceWin render
     bool render();
 
-public:
+protected:
+    // Render trace information header
     void render_trace_info();
-
+    // Render the process graph
+    void render_process_graph();
+    // Render events list
     void render_events_list( CIniFile &inifile );
-    bool render_events_list_popup( uint32_t eventid );
+    // Render the graph color picker
     void render_color_picker();
 
+protected:
+    // Handle events list popup menu
+    bool render_events_list_popup( uint32_t eventid );
+
+    // Initialize m_graph_start_ts
+    void render_time_offset_button_init( TraceEvents &trace_events );
+
+    // Handle mouse clicking and tooltips for event list
     bool handle_event_list_mouse( const trace_event_t &event, uint32_t i );
 
-    void render_process_graph();
+    // Render a regular graph row
     void render_graph_row( class graph_info_t &gi );
+    // Render a timeline grah row
     uint32_t render_graph_row_timeline( const std::vector< uint32_t > &locs, graph_info_t &gi );
+    // Render a hw graph row
     uint32_t render_graph_hw_row_timeline( graph_info_t &gi );
+
+    // Render graph vblanks, tick markers, mouse location, etc.
     void render_graph_vblanks( class graph_info_t &gi );
+    // Right clicking on graph
     bool render_graph_popup( class graph_info_t &gi );
 
+    // Mouse wheel, clicking for graph
+    void handle_mouse_graph( class graph_info_t &gi );
+    // Graph mouse handler when captured
+    void handle_mouse_graph_captured( class graph_info_t &gi );
+    // Set mouse tooltip for graph
+    void set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts );
+
+    // Potentially dd a hovered mouse graph event
+    bool add_mouse_hovered_event( float x, class graph_info_t &gi, const trace_event_t &event );
+
+    // Handle graph keys
     void handle_graph_hotkeys();
     void handle_graph_keyboard_scroll();
 
-    void handle_mouse_graph( class graph_info_t &gi );
-    void handle_mouse_graph_captured( class graph_info_t &gi );
-    void set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts );
-
-    bool add_mouse_hovered_event( float x, class graph_info_t &gi, const trace_event_t &event );
-
-    void render_time_offset_button_init( TraceEvents &trace_events );
-
-    // Return an event id for a given time stamp
-    int ts_to_eventid( int64_t ts );
-    // Return an event id from a time string
-    int timestr_to_eventid( const char *buf, int64_t tsoffset );
-    // Convert a time string to a time stamp
-    int64_t timestr_to_ts( const char *buf, int64_t tsoffset = 0 );
-    // Convert a time stamp to a time string
-    std::string ts_to_timestr( int64_t event_ts, int64_t tsoffset = 0, int precision = 6 );
-
+    // graph rows string functions
     void graph_rows_initstr( bool reset = false );
     void graph_rows_updatelist();
     enum graph_rows_show_t
@@ -353,9 +332,21 @@ public:
     bool graph_rows_show( const std::string &name, graph_rows_show_t show );
     std::vector< std::string > graph_rows_get_hidden_rows();
 
+    // Make sure m_graph_start_ts and m_graph_length_ts are legit
     void range_check_graph_location();
 
+    // Rename a comm event
     bool rename_comm_event( const char *comm_old, const char *comm_new );
+
+public:
+    // Return an event id for a given time stamp
+    int ts_to_eventid( int64_t ts );
+    // Return an event id from a time string
+    int timestr_to_eventid( const char *buf, int64_t tsoffset );
+    // Convert a time string to a time stamp
+    int64_t timestr_to_ts( const char *buf, int64_t tsoffset = 0 );
+    // Convert a time stamp to a time string
+    std::string ts_to_timestr( int64_t event_ts, int64_t tsoffset = 0, int precision = 6 );
 
     trace_event_t &get_event( uint32_t id )
     {
@@ -365,16 +356,24 @@ public:
 public:
     TraceLoader &m_loader;
 
+    // Our events
+    TraceEvents *m_trace_events = nullptr;
+
+    // Window title
+    std::string m_title;
+
+    // false first time through render() call
     bool m_inited = false;
 
+    // Whether our window is open or not
     bool m_open = true;
+    // Counter for setting window focus
     int m_setfocus = 0;
-    std::string m_title;
-    TraceEvents *m_trace_events = nullptr;
 
     bool m_do_gotoevent = false;
     int m_goto_eventid = 0;
 
+    // Mouse timestamp location in graph
     int64_t m_ts_marker = -1;
 
     // Is Event List Header visible?
@@ -411,6 +410,7 @@ public:
     int64_t m_graph_length_ts = INT64_MAX;
     char m_graphtime_length_buf[ 32 ] = { 0 };
 
+    // Graph vertical panning
     float m_graph_start_y = 0.0f;
 
     bool m_do_graph_zoom_in = false;
