@@ -1121,7 +1121,7 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
     if ( gi.do_zoom_gfx )
     {
         optid = OPT_GraphHeightZoomed;
-        max_graph_size = 60.0f * gi.row_h;
+        max_graph_size = imgui_scale( 60.0f ) * gi.row_h;
     }
     else
     {
@@ -1139,11 +1139,6 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
     opt.valf_min = 4.0f * gi.row_h;
     opt.valf_max = Clamp< float >( max_graph_size, opt.valf_min, ImGui::GetWindowHeight() );
     opt.valf = Clamp< float >( opt.valf, opt.valf_min, opt.valf_max );
-
-    // Slider to set graph size
-    ImGui::SameLine();
-    ImGui::PushItemWidth( imgui_scale( 200.0f ) );
-    ImGui::SliderFloat( "##graph_size", &opt.valf, opt.valf_min, opt.valf_max, opt.desc.c_str() );
 
     gi.visible_graph_height = opt.valf;
 }
@@ -1230,6 +1225,17 @@ void TraceWin::render_process_graph()
         handle_mouse_graph( gi );
     }
     ImGui::EndChild();
+
+    ImGui::Button( "##resize_graph", ImVec2( ImGui::GetContentRegionAvailWidth(), imgui_scale( 4.0f ) ) );
+    if ( ImGui::IsItemActive() )
+    {
+        option_id_t opt = gi.do_zoom_gfx ? OPT_GraphHeightZoomed : OPT_GraphHeight;
+
+        if ( ImGui::IsMouseClicked( 0 ) )
+            m_resize_graph_click_pos = m_loader.m_options[ opt ].valf;
+
+        m_loader.m_options[ opt ].valf = m_resize_graph_click_pos + ImGui::GetMouseDragDelta( 0 ).y;
+    }
 }
 
 bool TraceWin::render_graph_popup( graph_info_t &gi )

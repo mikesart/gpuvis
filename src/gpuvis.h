@@ -395,6 +395,8 @@ public:
     // Event id of event list popup menu
     uint32_t m_events_list_popup_eventid = INVALID_ID;
 
+    float m_resize_graph_click_pos = 0.0f;
+
     bool m_graph_popup = false;
     std::string m_mouse_over_row_name;
     std::vector< std::string > m_graph_rows_hidden_rows;
