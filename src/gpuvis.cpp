@@ -1011,16 +1011,16 @@ bool TraceEvents::rename_comm( const char *comm_old, const char *comm_new )
 
     if ( plocs )
     {
-        const char *commstr = m_strpool.getstr( comm_new );
+        const char *commstr_old = m_strpool.getstr( comm_old );
+        const char *commstr_new = m_strpool.getstr( comm_new );
 
-        for ( uint32_t id : *plocs )
+        for ( trace_event_t &event : m_events )
         {
-            trace_event_t &event = m_events[ id ];
+            if ( event.comm == commstr_old )
+                event.comm = commstr_new;
+            if ( event.user_comm == commstr_old )
+                event.user_comm = commstr_new;
 
-            if ( event.user_comm == event.comm )
-                event.user_comm = commstr;
-
-            event.comm = commstr;
         }
 
         uint32_t hashval_new = fnv_hashstr32( comm_new );
