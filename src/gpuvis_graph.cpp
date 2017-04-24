@@ -606,13 +606,7 @@ uint32_t TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
                 float x0 = gi.ts_to_screenx( fence_signaled.ts - fence_signaled.duration );
                 float x1 = gi.ts_to_screenx( fence_signaled.ts );
 
-                // Get a color based on the user command line
-                uint32_t hashval = fnv_hashstr32( fence_signaled.user_comm );
-                float h = ( hashval & 0xffffff ) / 16777215.0f;
-                float v = ( hashval >> 24 ) / ( 2.0f * 255.0f ) + 0.5f;
-                ImU32 col = imgui_hsv( h, .9f, v, 1.0f );
-
-                imgui_drawrect( x0, x1 - x0, y, row_h, col );
+                imgui_drawrect( x0, x1 - x0, y, row_h, fence_signaled.color );
 
                 // Draw a label if we have room.
                 const char *label = fence_signaled.user_comm;
@@ -633,10 +627,10 @@ uint32_t TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
                 }
 
                 // If we drew the same color last time, draw a separator.
-                if ( last_color == col )
+                if ( last_color == fence_signaled.color )
                     imgui_drawrect( x0, 1.0, y, row_h, col_event );
                 else
-                    last_color = col;
+                    last_color = fence_signaled.color;
 
                 // Check if we're hovering this event.
                 if ( !is_valid_id( gi.hovered_graph_event ) &&

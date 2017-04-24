@@ -466,6 +466,11 @@ static void calculate_event_durations( TraceEvents *trace_events )
                 fence_signaled.graph_row_id = graph_row_id++;
 
                 last_fence_signaled_ts = fence_signaled.ts;
+
+                uint32_t hashval = fnv_hashstr32( fence_signaled.user_comm );
+                float h = ( hashval & 0xffffff ) / 16777215.0f;
+                float v = ( hashval >> 24 ) / ( 2.0f * 255.0f ) + 0.5f;
+                fence_signaled.color = imgui_hsv( h, .9f, v, 1.0f );
             }
         }
     }

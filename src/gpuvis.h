@@ -105,6 +105,8 @@ struct trace_event_t
     uint32_t graph_row_id;
     uint32_t duration;          // how long this timeline event took
 
+    uint32_t color;
+
     int64_t ts;                 // timestamp
     const char *comm;           // command line
     const char *system;         // event system (ftrace-print, etc.)
