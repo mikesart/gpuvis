@@ -104,6 +104,7 @@ const std::vector< char * > &logf_get();
 float imgui_scale( float val );
 bool imgui_key_pressed( ImGuiKey key );
 
+ImU32 imgui_col_from_hashval( uint32_t hashval );
 ImU32 imgui_hsv( float h, float s, float v, float a );
 ImVec4 imgui_u32_to_vec4( ImU32 col );
 ImU32 imgui_vec4_to_u32( const ImVec4 &vec );

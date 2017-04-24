@@ -191,6 +191,9 @@ public:
     // Rename a comm event
     bool rename_comm( const char *comm_old, const char *comm_new );
 
+    void calculate_event_durations();
+    void calculate_event_print_info();
+
 public:
     int64_t m_ts_min = 0;
     std::vector< uint32_t > m_cpucount;
@@ -215,6 +218,14 @@ public:
 
     // Map of timeline (gfx, sdma0, etc) event locations.
     TraceLocations m_timeline_locations;
+
+    struct event_print_info_t
+    {
+        const char *buf;
+        ImVec2 buf_size;
+    };
+    util_umap< uint32_t, event_print_info_t > m_print_buf_info;
+    float m_buf_size_max_x = -1.0f;
 
     // 0: events loaded, 1+: loading events, -1: error
     SDL_atomic_t m_eventsloaded = { 0 };
@@ -296,12 +307,14 @@ protected:
     // Handle mouse clicking and tooltips for event list
     bool handle_event_list_mouse( const trace_event_t &event, uint32_t i );
 
-    // Render a regular graph row
+    // Render regular graph row
     void render_graph_row( class graph_info_t &gi );
-    // Render a timeline grah row
-    uint32_t render_graph_row_timeline( const std::vector< uint32_t > &locs, graph_info_t &gi );
-    // Render a hw graph row
-    uint32_t render_graph_hw_row_timeline( graph_info_t &gi );
+    // Render timeline grah row
+    uint32_t render_graph_row_timeline( class graph_info_t &gi );
+    // Render hw graph row
+    uint32_t render_graph_hw_row_timeline( class graph_info_t &gi );
+    // Render ftrace print row
+    uint32_t render_graph_print_timeline( class graph_info_t &gi );
 
     // Render graph vblanks, tick markers, mouse location, etc.
     void render_graph_vblanks( class graph_info_t &gi );
@@ -470,6 +483,7 @@ enum option_id_t
     OPT_TimelineLabels,
     OPT_TimelineEvents,
     OPT_TimelineRenderUserSpace,
+    OPT_PrintTimelineLabels,
     OPT_GraphOnlyFiltered,
     OPT_Fullscreen,
     OPT_ShowEventList,

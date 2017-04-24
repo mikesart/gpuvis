@@ -411,71 +411,6 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
     return loader->init_new_event( trace_events->m_events.back(), info );
 }
 
-// Go through gfx, sdma0, sdma1, etc. timelines and calculate event durations
-static void calculate_event_durations( TraceEvents *trace_events )
-{
-    std::vector< trace_event_t > &events = trace_events->m_events;
-
-    for ( const auto &timeline_locs : trace_events->m_timeline_locations.m_locs.m_map )
-    {
-        uint32_t graph_row_id = 0;
-        int64_t last_fence_signaled_ts = 0;
-        const std::vector< uint32_t > &locs = timeline_locs.second;
-        // const char *name = trace_events->m_strpool.findstr( timeline_locs.first );
-
-        for ( uint32_t index : locs )
-        {
-            trace_event_t &fence_signaled = events[ index ];
-
-            if ( fence_signaled.is_fence_signaled() &&
-                 is_valid_id( fence_signaled.id_start ) )
-            {
-                trace_event_t &amdgpu_sched_run_job = events[ fence_signaled.id_start ];
-                int64_t start_ts = amdgpu_sched_run_job.ts;
-
-                // amdgpu_cs_ioctl   amdgpu_sched_run_job   fence_signaled
-                //       |-----------------|---------------------|
-                //       |user-->          |hw-->                |
-                //                                               |
-                //          amdgpu_cs_ioctl  amdgpu_sched_run_job|   fence_signaled
-                //                |-----------------|------------|--------|
-                //                |user-->          |hwqueue-->  |hw->    |
-                //                                                        |
-
-                // Our starting location will be the last fence signaled timestamp or
-                //  our amdgpu_sched_run_job timestamp, whichever is larger.
-                int64_t hw_start_ts = std::max< int64_t >( last_fence_signaled_ts, amdgpu_sched_run_job.ts );
-
-                // Set duration times
-                fence_signaled.duration = fence_signaled.ts - hw_start_ts;
-                amdgpu_sched_run_job.duration = hw_start_ts - amdgpu_sched_run_job.ts;
-
-                if ( is_valid_id( amdgpu_sched_run_job.id_start ) )
-                {
-                    trace_event_t &amdgpu_cs_ioctl = events[ amdgpu_sched_run_job.id_start ];
-
-                    amdgpu_cs_ioctl.duration = amdgpu_sched_run_job.ts - amdgpu_cs_ioctl.ts;
-
-                    start_ts = amdgpu_cs_ioctl.ts;
-                }
-
-                // If our start time stamp is greater than the last fence time stamp then
-                //  reset our graph row back to the top.
-                if ( start_ts > last_fence_signaled_ts )
-                    graph_row_id = 0;
-                fence_signaled.graph_row_id = graph_row_id++;
-
-                last_fence_signaled_ts = fence_signaled.ts;
-
-                uint32_t hashval = fnv_hashstr32( fence_signaled.user_comm );
-                float h = ( hashval & 0xffffff ) / 16777215.0f;
-                float v = ( hashval >> 24 ) / ( 2.0f * 255.0f ) + 0.5f;
-                fence_signaled.color = imgui_hsv( h, .9f, v, 1.0f );
-            }
-        }
-    }
-}
-
 int SDLCALL TraceLoader::thread_func( void *data )
 {
     TraceLoader *loader = ( TraceLoader * )data;
@@ -494,9 +429,6 @@ int SDLCALL TraceLoader::thread_func( void *data )
         return -1;
     }
 
-    // Init event durations
-    calculate_event_durations( trace_events );
-
     logf( "Events read: %lu", trace_events->m_events.size() );
 
     SDL_AtomicSet( &trace_events->m_eventsloaded, 0 );
@@ -514,6 +446,8 @@ void TraceLoader::init()
     m_options[ OPT_TimelineLabels ].opt_bool( "Show gfx timeline labels", "timeline_gfx_labels", true );
     m_options[ OPT_TimelineEvents ].opt_bool( "Show gfx timeline events", "timeline_gfx_events", true );
     m_options[ OPT_TimelineRenderUserSpace ].opt_bool( "Show gfx timeline userspace", "timeline_gfx_userspace", false );
+
+    m_options[ OPT_PrintTimelineLabels ].opt_bool( "Show print timeline labels", "print_timeline_gfx_labels", true );
 
     m_options[ OPT_GraphOnlyFiltered ].opt_bool( "Graph only filtered events", "graph_only_filtered", false );
 
@@ -1039,6 +973,166 @@ bool TraceEvents::rename_comm( const char *comm_old, const char *comm_new )
     return false;
 }
 
+/*
+[Compositor Client] Received Idx ###
+[Compositor Client] WaitGetPoses Begin ThreadId=####
+[Compositor Client] WaitGetPoses End ThreadId=####
+
+[Compositor] Detected dropped frames: ###
+[Compositor] frameTimeout( ### ms )
+[Compositor] NewFrame idx=####
+[Compositor] Predicting( ##.###### ms )
+[Compositor] Re-predicting( ##.###### ms )
+[Compositor] TimeSinceLastVSync: #.######(#####)
+
+[Compositor Client] PostPresentHandoff Begin
+[Compositor Client] PostPresentHandoff End
+
+[Compositor Client] Submit End
+[Compositor Client] Submit Left
+[Compositor Client] Submit Right
+*/
+static const char *s_buf_prefixes[] =
+{
+    "[Compositor Client] Received Idx ",
+    "[Compositor Client] WaitGetPoses ",
+    "[Compositor] frameTimeout( ",
+    "[Compositor] NewFrame idx= ",
+    "[Compositor] Predicting( ",
+    "[Compositor] Re-predicting( ",
+    "[Compositor Client] PostPresentHandoff ",
+    "[Compositor Client] Submit ",
+    "[Compositor] Present() ",
+};
+
+void TraceEvents::calculate_event_print_info()
+{
+    if ( !m_print_buf_info.m_map.empty() )
+        return;
+
+    const std::vector< uint32_t > *plocs = get_tdopexpr_locs( "$name=print" );
+    if ( !plocs )
+        return;
+
+    imgui_push_smallfont();
+
+    uint32_t row_id = 1;
+    util_umap< uint32_t, uint32_t > hash_row_map;
+
+    for ( uint32_t idx : *plocs )
+    {
+        trace_event_t &event = m_events[ idx ];
+        const char *buf = get_event_field_val( event.fields, "buf" );
+
+        // If we can find a colon, use everything before it
+        const char *buf_end = strrchr( buf, ':' );
+
+        if ( !buf_end )
+        {
+            // No colon - try to find one of our buf prefixes
+            for ( size_t i = 0; i < ARRAY_SIZE( s_buf_prefixes ); i++ )
+            {
+                size_t len = strlen( s_buf_prefixes[ i ] );
+                if ( !strncasecmp( buf, s_buf_prefixes[ i ], len ) )
+                {
+                    buf_end = buf + len;
+                    break;
+                }
+            }
+        }
+
+        if ( !buf_end )
+        {
+            // Throw all unrecognized events on line 0
+            event.graph_row_id = 0;
+            event.color = IM_COL32( 0xff, 0, 0, 0xff );
+        }
+        else
+        {
+            // hash our prefix and put em all on their own row with their own color
+            uint32_t hashval = fnv_hashstr32( buf, buf_end - buf );
+            uint32_t *prow_id = hash_row_map.get_val( hashval, 0 );
+
+            if ( *prow_id == 0 )
+                *prow_id = row_id++;
+
+            event.graph_row_id = *prow_id;
+            event.color = imgui_col_from_hashval( hashval );
+        }
+
+        // Add cached print info for this event
+        const ImVec2 text_size = ImGui::CalcTextSize( buf );
+        m_print_buf_info.get_val( event.id, { buf, text_size } );
+        m_buf_size_max_x = std::max< float >( text_size.x, m_buf_size_max_x );
+    }
+
+    imgui_pop_smallfont();
+}
+
+// Go through gfx, sdma0, sdma1, etc. timelines and calculate event durations
+void TraceEvents::calculate_event_durations()
+{
+    std::vector< trace_event_t > &events = m_events;
+
+    for ( const auto &timeline_locs : m_timeline_locations.m_locs.m_map )
+    {
+        uint32_t graph_row_id = 0;
+        int64_t last_fence_signaled_ts = 0;
+        const std::vector< uint32_t > &locs = timeline_locs.second;
+        // const char *name = m_strpool.findstr( timeline_locs.first );
+
+        for ( uint32_t index : locs )
+        {
+            trace_event_t &fence_signaled = events[ index ];
+
+            if ( fence_signaled.is_fence_signaled() &&
+                 is_valid_id( fence_signaled.id_start ) )
+            {
+                trace_event_t &amdgpu_sched_run_job = events[ fence_signaled.id_start ];
+                int64_t start_ts = amdgpu_sched_run_job.ts;
+
+                // amdgpu_cs_ioctl   amdgpu_sched_run_job   fence_signaled
+                //       |-----------------|---------------------|
+                //       |user-->          |hw-->                |
+                //                                               |
+                //          amdgpu_cs_ioctl  amdgpu_sched_run_job|   fence_signaled
+                //                |-----------------|------------|--------|
+                //                |user-->          |hwqueue-->  |hw->    |
+                //                                                        |
+
+                // Our starting location will be the last fence signaled timestamp or
+                //  our amdgpu_sched_run_job timestamp, whichever is larger.
+                int64_t hw_start_ts = std::max< int64_t >( last_fence_signaled_ts, amdgpu_sched_run_job.ts );
+
+                // Set duration times
+                fence_signaled.duration = fence_signaled.ts - hw_start_ts;
+                amdgpu_sched_run_job.duration = hw_start_ts - amdgpu_sched_run_job.ts;
+
+                if ( is_valid_id( amdgpu_sched_run_job.id_start ) )
+                {
+                    trace_event_t &amdgpu_cs_ioctl = events[ amdgpu_sched_run_job.id_start ];
+
+                    amdgpu_cs_ioctl.duration = amdgpu_sched_run_job.ts - amdgpu_cs_ioctl.ts;
+
+                    start_ts = amdgpu_cs_ioctl.ts;
+                }
+
+                // If our start time stamp is greater than the last fence time stamp then
+                //  reset our graph row back to the top.
+                if ( start_ts > last_fence_signaled_ts )
+                    graph_row_id = 0;
+                fence_signaled.graph_row_id = graph_row_id++;
+
+                last_fence_signaled_ts = fence_signaled.ts;
+
+                uint32_t hashval = fnv_hashstr32( fence_signaled.user_comm );
+                fence_signaled.color = imgui_col_from_hashval( hashval );
+            }
+        }
+    }
+}
+
+
 TraceWin::TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string &title ) : m_loader( loader )
 {
     // Note that m_trace_events is possibly being loaded in
@@ -1113,6 +1207,11 @@ bool TraceWin::render()
     if ( !m_inited )
     {
         std::vector< INIEntry > entries = m_loader.m_inifile.GetSectionEntries( "$rename_comm$" );
+
+        // Init event durations
+        m_trace_events->calculate_event_durations();
+        // Init print column information
+        m_trace_events->calculate_event_print_info();
 
         // Initialize our graph rows first time through.
         graph_rows_initstr();

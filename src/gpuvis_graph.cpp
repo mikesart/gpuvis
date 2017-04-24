@@ -143,8 +143,9 @@ struct row_info_t
     float row_y;
     float row_h;
 
-    bool is_gfx_hw;
-    bool is_timeline;
+    bool is_print = false;
+    bool is_gfx_hw = false;
+    bool is_timeline = false;
 
     std::string comm;
     const std::vector< uint32_t > *plocs;
@@ -364,47 +365,48 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< std::string 
     for ( const std::string &comm : graph_rows )
     {
         row_info_t rinfo;
-        const std::vector< uint32_t > *plocs;
         const char *comm_str = comm.c_str();
+        const std::vector< uint32_t > *plocs;
 
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
-        rinfo.is_timeline = false;
         rinfo.is_gfx_hw = ( comm == "gfx hw" );
+        rinfo.is_print = ( comm == "print" );
         rinfo.comm = comm;
 
-        plocs = trace_events->get_comm_locs( comm_str );
-        if ( !plocs )
+        if ( rinfo.is_print )
         {
-            if ( comm == "print" )
-            {
-                rinfo.row_h = win->m_loader.get_opt( OPT_TimelinePrint ) * text_h;
-                comm_str = "$name=print";
-            }
-
-            plocs = trace_events->get_tdopexpr_locs( comm_str );
+            rinfo.is_print = true;
+            rinfo.row_h = win->m_loader.get_opt( OPT_TimelinePrint ) * text_h;
+            plocs = trace_events->get_tdopexpr_locs( "$name=print" );
         }
-        if ( !plocs )
+        else
         {
-            int rows = 4;
-            option_id_t optid = get_comm_option_id( comm );
-
-            if ( optid != OPT_Max )
+            plocs = trace_events->get_comm_locs( comm_str );
+            if ( !plocs )
             {
-                rows = win->m_loader.get_opt( optid );
+                plocs = trace_events->get_tdopexpr_locs( comm_str );
+                if ( !plocs )
+                {
+                    if ( rinfo.is_gfx_hw )
+                        comm_str = "gfx";
+
+                    plocs = trace_events->get_timeline_locs( comm_str );
+                    if ( plocs )
+                    {
+                        int rows = 4;
+                        option_id_t optid = get_comm_option_id( comm );
+
+                        if ( optid != OPT_Max )
+                            rows = Clamp< int >( win->m_loader.get_opt( optid ), 2, 50 );
+                        else if ( rinfo.is_gfx_hw )
+                            rows = 2;
+
+                        rinfo.is_timeline = true;
+                        rinfo.row_h = text_h * rows;
+                    }
+                }
             }
-            else if ( rinfo.is_gfx_hw )
-            {
-                rows = 2;
-                comm_str = "gfx";
-            }
-
-            rows = Clamp< int >( rows, 2, 50 );
-
-            rinfo.is_timeline = true;
-            rinfo.row_h = text_h * rows;
-
-            plocs = trace_events->get_timeline_locs( comm_str );
         }
 
         if ( plocs )
@@ -565,6 +567,96 @@ bool TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, const t
     return inserted;
 }
 
+uint32_t TraceWin::render_graph_print_timeline( graph_info_t &gi )
+{
+    imgui_push_smallfont();
+
+    struct row_draw_info_t
+    {
+        float x = 0.0f;
+        const trace_event_t *event = nullptr;
+        const TraceEvents::event_print_info_t *print_info = nullptr;
+    };
+    std::vector< row_draw_info_t > row_draw_info;
+
+    uint32_t num_events = 0;
+    const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
+    bool timeline_labels = m_loader.get_opt( OPT_PrintTimelineLabels );
+    uint32_t row_count = std::max< uint32_t >( 1, gi.h / gi.text_h - 1 );
+
+    row_draw_info.resize( row_count + 1 );
+
+    // We need to start drawing to the left of 0 for timeline_labels
+    int64_t ts = timeline_labels ? gi.screenx_to_ts( gi.x - m_trace_events->m_buf_size_max_x ) : gi.ts0;
+    uint32_t eventstart = ts_to_eventid( ts );
+
+    for ( size_t idx = vec_find_eventid( locs, eventstart );
+          idx < locs.size();
+          idx++ )
+    {
+        uint32_t eventid = locs[ idx ];
+        const trace_event_t &event = get_event( eventid );
+        uint32_t row_id = event.graph_row_id ? ( event.graph_row_id % row_count + 1 ) : 0;
+        float x = gi.ts_to_screenx( event.ts );
+        float y = gi.y + row_id * gi.text_h;
+
+        if ( eventid > gi.eventend )
+            break;
+        else if ( gi.graph_only_filtered && event.is_filtered_out )
+            continue;
+
+        // Check if we drew something on this row already
+        if ( row_draw_info[ row_id ].print_info )
+        {
+            float x0 = row_draw_info[ row_id ].x;
+            const TraceEvents::event_print_info_t *print_info = row_draw_info[ row_id ].print_info;
+
+            // If we did and there is room, draw the ftrace print buf
+            if ( x - x0 > print_info->buf_size.x )
+            {
+                imgui_drawrect( x0, print_info->buf_size.x, y + imgui_scale( 2.0f ), print_info->buf_size.y, event.color );
+                imgui_draw_text( x0, y + imgui_scale( 2.0f ), print_info->buf, IM_COL32_WHITE );
+            }
+        }
+
+        // Otherwise draw a little tick for it
+        imgui_drawrect( x, imgui_scale( 2.0f ), y, gi.text_h, event.color );
+
+        // Check if we're mouse hovering this event
+        if ( gi.mouse_over && gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + gi.text_h )
+            add_mouse_hovered_event( x, gi, event );
+
+        num_events++;
+
+        if ( timeline_labels )
+        {
+            row_draw_info[ row_id ].x = x;
+            row_draw_info[ row_id ].print_info = m_trace_events->m_print_buf_info.get_val( event.id );
+            row_draw_info[ row_id ].event = &event;
+        }
+    }
+
+    for ( uint32_t row_id = 0; row_id < row_draw_info.size(); row_id++ )
+    {
+        const row_draw_info_t &draw_info = row_draw_info[ row_id ];
+        const TraceEvents::event_print_info_t *print_info = draw_info.print_info;
+
+        if ( print_info )
+        {
+            float x0 = draw_info.x;
+            float y = gi.y + row_id * gi.text_h;
+            const trace_event_t *event = draw_info.event;
+
+            imgui_drawrect( x0, print_info->buf_size.x, y + imgui_scale( 2.0f ), print_info->buf_size.y, event->color );
+            imgui_draw_text( x0, y + imgui_scale( 2.0f ), print_info->buf, IM_COL32_WHITE );
+        }
+    }
+
+    imgui_pop_smallfont();
+
+    return num_events;
+}
+
 uint32_t TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
 {
     struct row_t
@@ -653,7 +745,7 @@ uint32_t TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
     return num_events;
 }
 
-uint32_t TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &locs, graph_info_t &gi )
+uint32_t TraceWin::render_graph_row_timeline( graph_info_t &gi )
 {
     imgui_push_smallfont();
 
@@ -663,6 +755,7 @@ uint32_t TraceWin::render_graph_row_timeline( const std::vector< uint32_t > &loc
     ImU32 col_userspace = col_get( col_BarUserspace );
     ImU32 col_hwqueue = col_get( col_BarHwQueue );
     ImU32 color_1event = col_get( col_1Event );
+    const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
 
     uint32_t timeline_row_count = gi.h / gi.text_h;
 
@@ -791,13 +884,17 @@ void TraceWin::render_graph_row( graph_info_t &gi )
     if ( gi.mouse_over )
         m_mouse_over_row_name = comm;
 
-    if ( gi.prinfo_cur->is_gfx_hw )
+    if ( gi.prinfo_cur->is_print )
+    {
+        num_events = render_graph_print_timeline( gi );
+    }
+    else if ( gi.prinfo_cur->is_gfx_hw )
     {
         num_events = render_graph_hw_row_timeline( gi );
     }
     else if ( gi.prinfo_cur->is_timeline )
     {
-        num_events = render_graph_row_timeline( locs, gi );
+        num_events = render_graph_row_timeline( gi );
     }
     else
     {

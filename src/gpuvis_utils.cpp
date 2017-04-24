@@ -269,6 +269,14 @@ size_t get_file_size( const char *filename )
     return 0;
 }
 
+ImU32 imgui_col_from_hashval( uint32_t hashval )
+{
+    float h = ( hashval & 0xffffff ) / 16777215.0f;
+    float v = ( hashval >> 24 ) / ( 2.0f * 255.0f ) + 0.5f;
+
+    return imgui_hsv( h, .9f, v, 1.0f );
+}
+
 ImU32 imgui_hsv( float h, float s, float v, float a )
 {
     ImColor color = ImColor::HSV( h, s, v, a );
