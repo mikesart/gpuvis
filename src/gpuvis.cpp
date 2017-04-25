@@ -672,10 +672,27 @@ void TraceWin::graph_rows_initstr( bool reset )
     {
         m_graph_rows_str = "# comm and filter expressions to graph\n";
         m_graph_rows_str += "# Show items in gfx/sdma timelines\n";
-        m_graph_rows_str += "gfx\n";
-        m_graph_rows_str += "sdma0\n";
-        m_graph_rows_str += "sdma1\n";
-        m_graph_rows_str += "gfx hw\n";
+
+        //$ TODO: Add durations to regular event hovers?
+
+        //$ TODO: sort: gfx -> compute -> gfx hw -> compute hw -> sdma -> sdma hw
+        for ( const auto &timeline_locs : m_trace_events->m_timeline_locations.m_locs.m_map )
+        {
+            const char *name = m_trace_events->m_strpool.findstr( timeline_locs.first );
+
+            m_graph_rows_str += std::string( name ) + "\n";
+
+            if ( !strcasecmp( name, "gfx" ) )
+                m_graph_rows_str += "gfx hw\n";
+            else if ( !strcasecmp( name, "comp_1.1.1" ) )
+                m_graph_rows_str += "comp_1.1.1 hw\n";
+            else if ( !strcasecmp( name, "comp_1.2.1" ) )
+                m_graph_rows_str += "comp_1.2.1 hw\n";
+            else if ( !strcasecmp( name, "comp_1.3.1" ) )
+                m_graph_rows_str += "comp_1.3.1 hw\n";
+        }
+        m_graph_rows_str += "\n";
+
         m_graph_rows_str += "print\n\n";
 
         m_graph_rows_str += "# $name=fence_signaled\n";

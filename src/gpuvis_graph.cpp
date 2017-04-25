@@ -57,6 +57,16 @@
   19:08:53 <Plagman> and then we could show offset since last identical event, highlight them together on hover, etc
   19:09:00 <Plagman> put them on separate graph rows too
 
+  (09:03:30 PM) lostgoat: I think the gfx_1823_11105 info on the tooltip is not that useful
+  (09:04:29 PM) lostgoat: and having the event names on the tooltip would be useful, although giving them short names seems hard
+  (09:04:56 PM) lostgoat: Submission duration:
+  (09:05:00 PM) lostgoat: Queued duration:
+  (09:05:04 PM) lostgoat: Execution duration:
+  (09:05:31 PM) Plagman: at the end of the day the name of the amd-specific events are implementation details and probably shoujld be hidden
+  (09:05:54 PM) lostgoat: Although Submission is not really accurate
+  (09:05:54 PM) Plagman: so i would agree with having the durations be expressed textually instead
+  (09:06:08 PM) lostgoat: maybe 'SW queue duration' and 'HW queue duration'
+
   TODO mikesart: Occasionally the hidden rows don't appear under the show menu?
 
   TODO mikesart: Try coloring the ftrace print events per the hash of the string?
@@ -386,6 +396,27 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< std::string 
 
             plocs = trace_events->get_timeline_locs( "gfx" );
         }
+        else if ( comm == "comp_1.1.1 hw" )
+        {
+            rinfo.row_h = 2 * text_h;
+            rinfo.render_cb = std::bind( &TraceWin::render_graph_hw_row_timeline, win, _1 );
+
+            plocs = trace_events->get_timeline_locs( "comp_1.1.1" );
+        }
+        else if ( comm == "comp_1.2.1 hw" )
+        {
+            rinfo.row_h = 2 * text_h;
+            rinfo.render_cb = std::bind( &TraceWin::render_graph_hw_row_timeline, win, _1 );
+
+            plocs = trace_events->get_timeline_locs( "comp_1.2.1" );
+        }
+        else if ( comm == "comp_1.3.1 hw" )
+        {
+            rinfo.row_h = 2 * text_h;
+            rinfo.render_cb = std::bind( &TraceWin::render_graph_hw_row_timeline, win, _1 );
+
+            plocs = trace_events->get_timeline_locs( "comp_1.3.1" );
+        }
         else
         {
             // Assume it's a regular graph row and try to find comm and then tdopexpr locations.
@@ -663,86 +694,70 @@ uint32_t TraceWin::render_graph_print_timeline( graph_info_t &gi )
 
 uint32_t TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
 {
-    struct row_t
-    {
-        const char *name;
-        const std::vector< uint32_t > *plocs;
-    };
-    const std::array< row_t, 1 > rows =
-    {
-        "gfx", m_trace_events->get_timeline_locs( rows[ 0 ].name )
-    };
-
     imgui_push_smallfont();
 
     float row_h = gi.h;
     uint32_t num_events = 0;
     ImU32 col_event = col_get( col_1Event );
 
-    for ( size_t irow = 0; irow < rows.size(); irow++ )
+    ImRect hov_rect;
+    ImU32 last_color = 0;
+    float y = gi.y;
+    const std::vector< uint32_t >& locs = *gi.prinfo_cur->plocs;
+
+    for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
+          idx < locs.size();
+          idx++ )
     {
-        ImRect hov_rect;
-        ImU32 last_color = 0;
-        float y = gi.y + irow * row_h;
-        const std::vector< uint32_t > *plocs = rows[ irow ].plocs;
+        const trace_event_t &fence_signaled = get_event( locs.at( idx ) );
 
-        if ( !plocs )
-            continue;
-
-        for ( size_t idx = vec_find_eventid( *plocs, gi.eventstart );
-              idx < plocs->size();
-              idx++ )
+        if ( fence_signaled.is_fence_signaled() &&
+             is_valid_id( fence_signaled.id_start ) &&
+             ( fence_signaled.ts - fence_signaled.duration < gi.ts1 ) )
         {
-            const trace_event_t &fence_signaled = get_event( plocs->at( idx ) );
+            float x0 = gi.ts_to_screenx( fence_signaled.ts - fence_signaled.duration );
+            float x1 = gi.ts_to_screenx( fence_signaled.ts );
 
-            if ( fence_signaled.is_fence_signaled() &&
-                 is_valid_id( fence_signaled.id_start ) &&
-                 ( fence_signaled.ts - fence_signaled.duration < gi.ts1 ) )
+            imgui_drawrect( x0, x1 - x0, y, row_h, fence_signaled.color );
+
+            // Draw a label if we have room.
+            const char *label = fence_signaled.user_comm;
+            ImVec2 size = ImGui::CalcTextSize( label );
+
+            if ( size.x + imgui_scale( 4 ) >= x1 - x0 )
             {
-                float x0 = gi.ts_to_screenx( fence_signaled.ts - fence_signaled.duration );
-                float x1 = gi.ts_to_screenx( fence_signaled.ts );
-
-                imgui_drawrect( x0, x1 - x0, y, row_h, fence_signaled.color );
-
-                // Draw a label if we have room.
-                const char *label = fence_signaled.user_comm;
-                ImVec2 size = ImGui::CalcTextSize( label );
-
-                if ( size.x + imgui_scale( 4 ) >= x1 - x0 )
-                {
-                    // No room for the comm, try just the pid.
-                    label = strrchr( label, '-' );
-                    if ( label )
-                        size = ImGui::CalcTextSize( ++label );
-                }
-                if ( size.x + imgui_scale( 4 ) < x1 - x0 )
-                {
-                    ImGui::GetWindowDrawList()->AddText(
-                                ImVec2( x0 + imgui_scale( 2.0f ), y + imgui_scale( 2.0f ) ),
-                                col_get( col_BarText ), label );
-                }
-
-                // If we drew the same color last time, draw a separator.
-                if ( last_color == fence_signaled.color )
-                    imgui_drawrect( x0, 1.0, y, row_h, col_event );
-                else
-                    last_color = fence_signaled.color;
-
-                // Check if we're hovering this event.
-                if ( !is_valid_id( gi.hovered_graph_event ) &&
-                     gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
-                {
-                    gi.hovered_graph_event = fence_signaled.id;
-                    hov_rect = { x0, y, x1, y + row_h };
-                }
-
-                num_events++;
+                // No room for the comm, try just the pid.
+                label = strrchr( label, '-' );
+                if ( label )
+                    size = ImGui::CalcTextSize( ++label );
             }
-        }
+            if ( size.x + imgui_scale( 4 ) < x1 - x0 )
+            {
+                ImGui::GetWindowDrawList()->AddText(
+                            ImVec2( x0 + imgui_scale( 2.0f ), y + imgui_scale( 2.0f ) ),
+                            col_get( col_BarText ), label );
+            }
 
-        if ( hov_rect.Min.x < gi.x + gi.w )
-            ImGui::GetWindowDrawList()->AddRect( hov_rect.Min, hov_rect.Max, col_get( col_BarSelRect ) );
+            // If we drew the same color last time, draw a separator.
+            if ( last_color == fence_signaled.color )
+                imgui_drawrect( x0, 1.0, y, row_h, col_event );
+            else
+                last_color = fence_signaled.color;
+
+            // Check if we're hovering this event.
+            if ( !is_valid_id( gi.hovered_graph_event ) &&
+                 gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
+            {
+                gi.hovered_graph_event = fence_signaled.id;
+                hov_rect = { x0, y, x1, y + row_h };
+            }
+
+            num_events++;
+        }
     }
+
+    if ( hov_rect.Min.x < gi.x + gi.w )
+        ImGui::GetWindowDrawList()->AddRect( hov_rect.Min, hov_rect.Max, col_get( col_BarSelRect ) );
 
     imgui_pop_smallfont();
 
