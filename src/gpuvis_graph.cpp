@@ -136,6 +136,8 @@ public:
     float y, w, h;
 };
 
+typedef std::function< uint32_t ( class graph_info_t &gi ) > RenderGraphRowCallback;
+
 struct row_info_t
 {
     uint32_t id;
@@ -143,9 +145,7 @@ struct row_info_t
     float row_y;
     float row_h;
 
-    bool is_print = false;
-    bool is_gfx_hw = false;
-    bool is_timeline = false;
+    RenderGraphRowCallback render_cb;
 
     std::string comm;
     const std::vector< uint32_t > *plocs;
@@ -365,44 +365,48 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< std::string 
     for ( const std::string &comm : graph_rows )
     {
         row_info_t rinfo;
-        const char *comm_str = comm.c_str();
         const std::vector< uint32_t > *plocs;
 
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
-        rinfo.is_gfx_hw = ( comm == "gfx hw" );
-        rinfo.is_print = ( comm == "print" );
         rinfo.comm = comm;
 
-        if ( rinfo.is_print )
+        if ( comm == "print" )
         {
-            rinfo.is_print = true;
+            // ftrace print row
             rinfo.row_h = win->m_loader.get_opt( OPT_TimelinePrint ) * text_h;
+            rinfo.render_cb = std::bind( &TraceWin::render_graph_print_timeline, win, _1 );
+
             plocs = trace_events->get_tdopexpr_locs( "$name=print" );
+        }
+        else if ( comm == "gfx hw" )
+        {
+            rinfo.row_h = 2 * text_h;
+            rinfo.render_cb = std::bind( &TraceWin::render_graph_hw_row_timeline, win, _1 );
+
+            plocs = trace_events->get_timeline_locs( "gfx" );
         }
         else
         {
-            plocs = trace_events->get_comm_locs( comm_str );
+            // Assume it's a regular graph row and try to find comm and then tdopexpr locations.
+            rinfo.render_cb = std::bind( &TraceWin::render_graph_row_events, win, _1 );
+
+            plocs = trace_events->get_comm_locs( comm.c_str() );
             if ( !plocs )
             {
-                plocs = trace_events->get_tdopexpr_locs( comm_str );
+                plocs = trace_events->get_tdopexpr_locs( comm.c_str() );
                 if ( !plocs )
                 {
-                    if ( rinfo.is_gfx_hw )
-                        comm_str = "gfx";
+                    // Ok, maybe it's a timeline row...
+                    rinfo.render_cb = std::bind( &TraceWin::render_graph_row_timeline, win, _1 );
 
-                    plocs = trace_events->get_timeline_locs( comm_str );
+                    plocs = trace_events->get_timeline_locs( comm.c_str() );
                     if ( plocs )
                     {
-                        int rows = 4;
                         option_id_t optid = get_comm_option_id( comm );
+                        int rows = ( optid != OPT_Max ) ?
+                                    Clamp< int >( win->m_loader.get_opt( optid ), 2, 50 ) : 4;
 
-                        if ( optid != OPT_Max )
-                            rows = Clamp< int >( win->m_loader.get_opt( optid ), 2, 50 );
-                        else if ( rinfo.is_gfx_hw )
-                            rows = 2;
-
-                        rinfo.is_timeline = true;
                         rinfo.row_h = text_h * rows;
                     }
                 }
@@ -865,70 +869,42 @@ uint32_t TraceWin::render_graph_row_timeline( graph_info_t &gi )
     return num_events;
 }
 
-void TraceWin::render_graph_row( graph_info_t &gi )
+uint32_t TraceWin::render_graph_row_events( graph_info_t &gi )
 {
-    const std::string comm = gi.prinfo_cur->comm;
-    const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
-
-    // Draw background
-    ImGui::GetWindowDrawList()->AddRectFilled(
-        ImVec2( gi.x, gi.y ),
-        ImVec2( gi.x + gi.w, gi.y + gi.h ),
-        col_get( col_GraphRowBk ) );
-
-    // Go through all event IDs for this process
     uint32_t num_events = 0;
-    bool draw_selected_event = false;
     bool draw_hovered_event = false;
+    bool draw_selected_event = false;
+    const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
+    event_renderer_t event_renderer( gi.y + 4, gi.w, gi.h - 8 );
 
-    if ( gi.mouse_over )
-        m_mouse_over_row_name = comm;
-
-    if ( gi.prinfo_cur->is_print )
+    for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
+          idx < locs.size();
+          idx++ )
     {
-        num_events = render_graph_print_timeline( gi );
+        uint32_t eventid = locs[ idx ];
+        const trace_event_t &event = get_event( eventid );
+
+        if ( eventid > gi.eventend )
+            break;
+        else if ( gi.graph_only_filtered && event.is_filtered_out )
+            continue;
+
+        float x = gi.ts_to_screenx( event.ts );
+
+        if ( eventid == m_hovered_eventlist_eventid )
+            draw_hovered_event = true;
+        else if ( eventid == m_selected_eventid )
+            draw_selected_event = true;
+
+        // Check if we're mouse hovering this event
+        if ( gi.mouse_over )
+            add_mouse_hovered_event( x, gi, event );
+
+        event_renderer.add_event( x );
+        num_events++;
     }
-    else if ( gi.prinfo_cur->is_gfx_hw )
-    {
-        num_events = render_graph_hw_row_timeline( gi );
-    }
-    else if ( gi.prinfo_cur->is_timeline )
-    {
-        num_events = render_graph_row_timeline( gi );
-    }
-    else
-    {
-        event_renderer_t event_renderer( gi.y + 4, gi.w, gi.h - 8 );
 
-        for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
-              idx < locs.size();
-              idx++ )
-        {
-            uint32_t eventid = locs[ idx ];
-            const trace_event_t &event = get_event( eventid );
-
-            if ( eventid > gi.eventend )
-                break;
-            else if ( gi.graph_only_filtered && event.is_filtered_out )
-                continue;
-
-            float x = gi.ts_to_screenx( event.ts );
-
-            if ( eventid == m_hovered_eventlist_eventid )
-                draw_hovered_event = true;
-            else if ( eventid == m_selected_eventid )
-                draw_selected_event = true;
-
-            // Check if we're mouse hovering this event
-            if ( gi.mouse_over )
-                add_mouse_hovered_event( x, gi, event );
-
-            event_renderer.add_event( x );
-            num_events++;
-        }
-
-        event_renderer.done();
-    }
+    event_renderer.done();
 
     if ( draw_hovered_event )
     {
@@ -951,6 +927,25 @@ void TraceWin::render_graph_row( graph_info_t &gi )
                     imgui_scale( 5.0f ),
                     col_get( col_SelEvent ) );
     }
+
+    return num_events;
+}
+
+void TraceWin::render_graph_row( graph_info_t &gi )
+{
+    const std::string comm = gi.prinfo_cur->comm;
+
+    if ( gi.mouse_over )
+        m_mouse_over_row_name = comm;
+
+    // Draw background
+    ImGui::GetWindowDrawList()->AddRectFilled(
+        ImVec2( gi.x, gi.y ),
+        ImVec2( gi.x + gi.w, gi.y + gi.h ),
+        col_get( col_GraphRowBk ) );
+
+    // Call the render callback function
+    uint32_t num_events = gi.prinfo_cur->render_cb( gi );
 
     // Draw row label
     std::string label = string_format( "%u) %s", gi.prinfo_cur->id, comm.c_str() );

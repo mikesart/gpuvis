@@ -466,7 +466,7 @@ void TraceLoader::init()
     m_options[ OPT_TimelineGfxSize ].opt_int( "Gfx Size:", "row_gfx_size", 8, 8, 40 );
     m_options[ OPT_TimelineSdma0Size ].opt_int( "Sdma0 Size:", "row_sdma0_size", 4, 4, 40 );
     m_options[ OPT_TimelineSdma1Size ].opt_int( "Sdma1 Size:", "row_sdma1_size", 4, 4, 40 );
-    m_options[ OPT_TimelinePrint ].opt_int( "Print Size:", "row_print_size", 2, 2, 40 );
+    m_options[ OPT_TimelinePrint ].opt_int( "Print Size:", "row_print_size", 10, 4, 40 );
     m_options[ OPT_TimelineGfxSize ].hidden = true;
     m_options[ OPT_TimelineSdma0Size ].hidden = true;
     m_options[ OPT_TimelineSdma1Size ].hidden = true;

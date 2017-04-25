@@ -315,6 +315,8 @@ protected:
     uint32_t render_graph_hw_row_timeline( class graph_info_t &gi );
     // Render ftrace print row
     uint32_t render_graph_print_timeline( class graph_info_t &gi );
+    // Render regular trace events
+    uint32_t render_graph_row_events( class graph_info_t &gi );
 
     // Render graph vblanks, tick markers, mouse location, etc.
     void render_graph_vblanks( class graph_info_t &gi );
@@ -474,6 +476,8 @@ public:
 
     const int64_t g_min_graph_length = 100;
     const int64_t g_max_graph_length = 5000 * MSECS_PER_SEC;
+
+    friend class graph_info_t;
 };
 
 // TraceLoader ini options
