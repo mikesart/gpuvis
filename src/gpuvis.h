@@ -453,10 +453,14 @@ public:
     // Mouse currently over our events graph?
     bool m_mouse_over_graph = false;
 
-    // 0:mouse not captured
-    // 1:shift+click+drag: zoom graph
-    // 2:ctrl+click+drag: pan graph
-    int m_mouse_captured = 0;
+    enum mouse_captured_t
+    {
+        MOUSE_NOT_CAPTURED = 0,
+        MOUSE_CAPTURED_SELECT_AREA,
+        MOUSE_CAPTURED_ZOOM,
+        MOUSE_CAPTURED_PAN,
+    };
+    mouse_captured_t m_mouse_captured = MOUSE_NOT_CAPTURED;
     ImVec2 m_mouse_capture_pos;
 
     int m_selected_color = 0;
