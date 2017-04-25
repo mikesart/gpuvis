@@ -1055,7 +1055,7 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
     }
 
     // Draw mouse selection location
-    if ( m_mouse_captured == 1 )
+    if ( m_mouse_captured == 1 || m_mouse_captured == 3 )
     {
         float mousex0 = m_mouse_capture_pos.x;
         float mousex1 = gi.mouse_pos.x;
@@ -1509,7 +1509,9 @@ void TraceWin::handle_mouse_graph_captured( graph_info_t &gi )
         return;
     }
 
-    if ( m_mouse_captured == 1 )
+    bool is_mouse_down = ImGui::IsMouseDown( 0 );
+
+    if ( m_mouse_captured == 1 || m_mouse_captured == 3 )
     {
         // shift + click: zoom area
         int64_t event_ts0 = gi.screenx_to_ts( m_mouse_capture_pos.x );
@@ -1518,7 +1520,7 @@ void TraceWin::handle_mouse_graph_captured( graph_info_t &gi )
         if ( event_ts0 > event_ts1 )
             std::swap( event_ts0, event_ts1 );
 
-        if ( ImGui::IsMouseDown( 0 ) )
+        if ( is_mouse_down )
         {
             std::string time_buf0 = ts_to_timestr( event_ts0, m_tsoffset );
             std::string time_buf1 = ts_to_timestr( event_ts1 - event_ts0 );
@@ -1526,12 +1528,8 @@ void TraceWin::handle_mouse_graph_captured( graph_info_t &gi )
             // Show tooltip with starting time and length of selected area.
             imgui_set_tooltip( string_format( "%s (%s ms)", time_buf0.c_str(), time_buf1.c_str() ) );
         }
-        else
+        else if ( m_mouse_captured == 1 )
         {
-            // Mouse is no longer down, uncapture mouse...
-            m_mouse_captured = 0;
-            ImGui::CaptureMouseFromApp( false );
-
             m_graph_start_ts = event_ts0 - m_tsoffset;
             m_graph_length_ts = event_ts1 - event_ts0;
             m_do_graph_start_timestr = true;
@@ -1541,7 +1539,7 @@ void TraceWin::handle_mouse_graph_captured( graph_info_t &gi )
     else if ( m_mouse_captured == 2 )
     {
         // click: pan
-        if ( ImGui::IsMouseDown( 0 ) )
+        if ( is_mouse_down )
         {
             float dx = gi.mouse_pos.x - m_mouse_capture_pos.x;
             int64_t tsdiff = gi.dx_to_ts( dx );
@@ -1553,12 +1551,15 @@ void TraceWin::handle_mouse_graph_captured( graph_info_t &gi )
 
             m_mouse_capture_pos = gi.mouse_pos;
         }
-        else
-        {
-            m_mouse_captured = 0;
-            ImGui::CaptureMouseFromApp( false );
-        }
     }
+
+    if ( !is_mouse_down )
+    {
+        // Mouse is no longer down, uncapture mouse...
+        m_mouse_captured = 0;
+        ImGui::CaptureMouseFromApp( false );
+    }
+
 }
 
 void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts )
@@ -1718,7 +1719,14 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
         // Check for clicking, wheeling, etc.
         if ( ImGui::IsMouseClicked( 0 ) )
         {
-            if ( ImGui::GetIO().KeyShift )
+            if ( ImGui::GetIO().KeyCtrl )
+            {
+                // ctrl + click: select area
+                m_mouse_captured = 3;
+                ImGui::CaptureMouseFromApp( true );
+                m_mouse_capture_pos = gi.mouse_pos;
+            }
+            else if ( ImGui::GetIO().KeyShift )
             {
                 // shift + click: zoom
                 m_mouse_captured = 1;
