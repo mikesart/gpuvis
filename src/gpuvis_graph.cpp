@@ -67,6 +67,10 @@
   (09:05:54 PM) Plagman: so i would agree with having the durations be expressed textually instead
   (09:06:08 PM) lostgoat: maybe 'SW queue duration' and 'HW queue duration'
 
+  Add durations to regular event hovers?
+
+  TODO mikesart: Hovering over "comp_1.1.1 hw" should highlight "comp_1.1.1" stuff, etc.
+
   TODO mikesart: Occasionally the hidden rows don't appear under the show menu?
 
   TODO mikesart: Try coloring the ftrace print events per the hash of the string?
@@ -164,7 +168,7 @@ struct row_info_t
 class graph_info_t
 {
 public:
-    void init_row_info( TraceWin *win, const std::vector< std::string > &graph_rows );
+    void init_row_info( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows );
 
     void init( TraceWin *win, float x, float w );
     void set_pos_y( float y, float h, const row_info_t *ri );
@@ -356,7 +360,7 @@ static option_id_t get_comm_option_id( const std::string &comm )
 /*
  * graph_info_t
  */
-void graph_info_t::init_row_info( TraceWin *win, const std::vector< std::string > &graph_rows )
+void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows )
 {
     uint32_t id = 0;
     TraceEvents *trace_events = win->m_trace_events;
@@ -372,92 +376,60 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< std::string 
 
     imgui_pop_smallfont();
 
-    for ( const std::string &comm : graph_rows )
+    for ( const GraphRows::graph_rows_info_t &grow : graph_rows )
     {
         row_info_t rinfo;
+        TraceEvents::loc_type_t loc_type;
         const std::vector< uint32_t > *plocs;
+        const std::string &comm = grow.name;
+
+        if ( grow.hidden )
+            continue;
+
+        plocs = trace_events->get_locs( comm.c_str(), &loc_type );
+        if ( !plocs )
+            continue;
 
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
         rinfo.comm = comm;
 
-        if ( comm == "print" )
+        if ( loc_type == TraceEvents::LOC_TYPE_Print )
         {
             // ftrace print row
             rinfo.row_h = win->m_loader.get_opt( OPT_TimelinePrint ) * text_h;
             rinfo.render_cb = std::bind( &TraceWin::render_graph_print_timeline, win, _1 );
-
-            plocs = trace_events->get_tdopexpr_locs( "$name=print" );
         }
-        else if ( comm == "gfx hw" )
+        else if ( loc_type == TraceEvents::LOC_TYPE_Timeline )
+        {
+            option_id_t optid = get_comm_option_id( comm );
+            int rows = ( optid != OPT_Max ) ?
+                        Clamp< int >( win->m_loader.get_opt( optid ), 2, 50 ) : 4;
+
+            rinfo.row_h = text_h * rows;
+            rinfo.render_cb = std::bind( &TraceWin::render_graph_row_timeline, win, _1 );
+        }
+        else if ( loc_type == TraceEvents::LOC_TYPE_Timeline_hw )
         {
             rinfo.row_h = 2 * text_h;
             rinfo.render_cb = std::bind( &TraceWin::render_graph_hw_row_timeline, win, _1 );
-
-            plocs = trace_events->get_timeline_locs( "gfx" );
-        }
-        else if ( comm == "comp_1.1.1 hw" )
-        {
-            rinfo.row_h = 2 * text_h;
-            rinfo.render_cb = std::bind( &TraceWin::render_graph_hw_row_timeline, win, _1 );
-
-            plocs = trace_events->get_timeline_locs( "comp_1.1.1" );
-        }
-        else if ( comm == "comp_1.2.1 hw" )
-        {
-            rinfo.row_h = 2 * text_h;
-            rinfo.render_cb = std::bind( &TraceWin::render_graph_hw_row_timeline, win, _1 );
-
-            plocs = trace_events->get_timeline_locs( "comp_1.2.1" );
-        }
-        else if ( comm == "comp_1.3.1 hw" )
-        {
-            rinfo.row_h = 2 * text_h;
-            rinfo.render_cb = std::bind( &TraceWin::render_graph_hw_row_timeline, win, _1 );
-
-            plocs = trace_events->get_timeline_locs( "comp_1.3.1" );
         }
         else
         {
-            // Assume it's a regular graph row and try to find comm and then tdopexpr locations.
+            // LOC_Type_Comm or LOC_TYPE_Tdopexpr
             rinfo.render_cb = std::bind( &TraceWin::render_graph_row_events, win, _1 );
-
-            plocs = trace_events->get_comm_locs( comm.c_str() );
-            if ( !plocs )
-            {
-                plocs = trace_events->get_tdopexpr_locs( comm.c_str() );
-                if ( !plocs )
-                {
-                    // Ok, maybe it's a timeline row...
-                    rinfo.render_cb = std::bind( &TraceWin::render_graph_row_timeline, win, _1 );
-
-                    plocs = trace_events->get_timeline_locs( comm.c_str() );
-                    if ( plocs )
-                    {
-                        option_id_t optid = get_comm_option_id( comm );
-                        int rows = ( optid != OPT_Max ) ?
-                                    Clamp< int >( win->m_loader.get_opt( optid ), 2, 50 ) : 4;
-
-                        rinfo.row_h = text_h * rows;
-                    }
-                }
-            }
         }
 
-        if ( plocs )
-        {
-            rinfo.id = id++;
-            rinfo.plocs = plocs;
+        rinfo.id = id++;
+        rinfo.plocs = plocs;
+        row_info.push_back( rinfo );
 
-            row_info.push_back( rinfo );
+        if ( comm == "gfx" )
+            prinfo_gfx = &row_info.back();
+        else if ( comm == "gfx hw" )
+            prinfo_gfx_hw = &row_info.back();
 
-            if ( comm == "gfx" )
-                prinfo_gfx = &row_info.back();
-            else if ( comm == "gfx hw" )
-                prinfo_gfx_hw = &row_info.back();
-
-            total_graph_height += rinfo.row_h + graph_row_padding;
-        }
+        total_graph_height += rinfo.row_h + graph_row_padding;
     }
 
     total_graph_height += imgui_scale( 2.0f );
@@ -1250,7 +1222,7 @@ void TraceWin::render_process_graph()
     graph_info_t gi;
 
     // Initialize our row size, location, etc information based on our graph rows
-    gi.init_row_info( this, m_graph_rows );
+    gi.init_row_info( this, m_graphrows.m_graph_rows_list );
 
     // Checkbox to toggle zooming gfx timeline view
     ImGui::SameLine();
@@ -1365,28 +1337,30 @@ bool TraceWin::render_graph_popup( graph_info_t &gi )
         std::string label = string_format( "Hide row '%s'", m_mouse_over_row_name.c_str() );
 
         if ( ImGui::MenuItem( label.c_str() ) )
-            graph_rows_show( m_mouse_over_row_name, HIDE_ROW );
+            m_graphrows.show_row( m_mouse_over_row_name, GraphRows::HIDE_ROW );
 
         label = string_format( "Hide row '%s' and below", m_mouse_over_row_name.c_str() );
         if ( ImGui::MenuItem( label.c_str() ) )
-            graph_rows_show( m_mouse_over_row_name, HIDE_ROW_AND_ALL_BELOW );
+            m_graphrows.show_row( m_mouse_over_row_name, GraphRows::HIDE_ROW_AND_ALL_BELOW );
     }
 
     if ( !m_graph_rows_hidden_rows.empty() )
     {
         if ( ImGui::BeginMenu( "Show row" ) )
         {
-            for ( const std::string &entry : m_graph_rows_hidden_rows )
-            {
-                std::string label = entry;
-                const std::vector< uint32_t > *plocs = m_trace_events->get_comm_locs( entry.c_str() );
+            if ( ImGui::MenuItem( "All Rows" ) )
+                m_graphrows.show_row( "", GraphRows::SHOW_ALL_ROWS );
 
-                if ( plocs )
-                    label += string_format( " (%lu events)", plocs->size() );
+            ImGui::Separator();
+
+            for ( const GraphRows::hidden_row_t &entry : m_graph_rows_hidden_rows )
+            {
+                const std::string label = string_format( "%s (%lu events)",
+                                                         entry.name.c_str(), entry.num_events );
 
                 if ( ImGui::MenuItem( label.c_str() ) )
                 {
-                    graph_rows_show( entry.c_str(), SHOW_ROW );
+                    m_graphrows.show_row( entry.name.c_str(), GraphRows::SHOW_ROW );
                 }
             }
 
@@ -1761,7 +1735,7 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
         {
             // right click: popup menu
             m_graph_popup = true;
-            m_graph_rows_hidden_rows = graph_rows_get_hidden_rows();
+            m_graph_rows_hidden_rows = m_graphrows.get_hidden_rows_list( m_trace_events );
 
             ImGui::OpenPopup( "GraphPopup" );
         }

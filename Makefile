@@ -15,6 +15,8 @@
 
 NAME = gpuvis
 
+# TODO: default ASAN to 0 when building release builds?
+
 # Use gcc-6 / gcc-5 if it exists and CC is the default cc
 ifeq ($(CC),cc)
     ifneq ("$(wildcard /usr/bin/gcc-6)","")

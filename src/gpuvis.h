@@ -194,6 +194,65 @@ public:
     void calculate_event_durations();
     void calculate_event_print_info();
 
+    enum loc_type_t
+    {
+        LOC_TYPE_Comm,
+        LOC_TYPE_Tdopexpr,
+        LOC_TYPE_Print,
+        LOC_TYPE_Timeline,
+        LOC_TYPE_Timeline_hw,
+        LOC_TYPE_Max
+    };
+
+    const std::vector< uint32_t > *get_locs( const char *name, loc_type_t *type )
+    {
+        const std::vector< uint32_t > *plocs = NULL;
+
+        if ( !strcmp( name, "print" ) )
+        {
+            // Check for explicit "print" row
+            *type = LOC_TYPE_Print;
+            plocs = get_tdopexpr_locs( "$name=print" );
+        }
+        else
+        {
+            size_t len = strlen( name );
+
+            if ( ( len > 3 ) && !strcmp( name + len - 3, " hw" ) )
+            {
+                // Check for "gfx hw", "comp_1.1.1 hw", etc.
+                uint32_t hashval = fnv_hashstr32( name, len - 3 );
+
+                *type = LOC_TYPE_Timeline_hw;
+                plocs = m_timeline_locations.get_locations_u32( hashval );
+            }
+            else
+            {
+                // Check for regular comm type rows
+                *type = LOC_TYPE_Comm;
+                plocs = get_comm_locs( name );
+
+                if ( !plocs )
+                {
+                    // TDOP Expressions. Ie, $name = print, etc.
+                    *type = LOC_TYPE_Tdopexpr;
+                    plocs = get_tdopexpr_locs( name );
+
+                    if ( !plocs )
+                    {
+                        // Timelines: sdma0, gfx, comp_1.2.1, etc.
+                        *type = LOC_TYPE_Timeline;
+                        plocs = get_timeline_locs( name );
+                    }
+                }
+            }
+        }
+
+        if ( !plocs )
+            *type = LOC_TYPE_Max;
+        return plocs;
+    }
+
 public:
     int64_t m_ts_min = 0;
     std::vector< uint32_t > m_cpucount;
@@ -277,6 +336,68 @@ public:
     bool m_show_imgui_metrics_editor = false;
 };
 
+class GraphRows
+{
+public:
+    GraphRows() {}
+    ~GraphRows() {}
+
+public:
+    // Initialize graph rows
+    void init( CIniFile &inifile, TraceEvents *trace_events, bool reset = false );
+
+    // Get the default graph rows string
+    std::string get_default_str();
+
+    struct graph_rows_info_t
+    {
+        std::string name;
+        bool hidden;
+    };
+    // Convert graph row string to graph row list (with hidden entries marked)
+    static std::vector< graph_rows_info_t > get_row_list(
+        const std::string &graph_rows_str, const std::vector< std::string > &rows_hide );
+
+    enum graph_rows_show_t
+    {
+        SHOW_ROW,
+        SHOW_ALL_ROWS,
+        HIDE_ROW,
+        HIDE_ROW_AND_ALL_BELOW
+    };
+    void show_row( const std::string &name, graph_rows_show_t show );
+
+    struct hidden_row_t
+    {
+        std::string name;
+        size_t num_events;
+    };
+    const std::vector< hidden_row_t > get_hidden_rows_list( TraceEvents *trace_events );
+
+    void rename_comm( TraceEvents *trace_events, const char *comm_old, const char *comm_new );
+
+    void update_graph_row_list()
+    {
+        m_graph_rows_list = get_row_list( m_graph_rows_str, m_graph_rows_list_hide );
+    }
+
+public:
+    struct comm_t
+    {
+        size_t event_count;
+        const char *comm;
+    };
+    // Comm info sorted by event count
+    std::vector< comm_t > m_comm_info;
+
+    // Editable graph rows string
+    std::string m_graph_rows_str;
+    // Graph rows list (generated from m_graph_rows_str)
+    std::vector< graph_rows_info_t > m_graph_rows_list;
+    // List of graph rows to hide
+    std::vector< std::string > m_graph_rows_list_hide;
+};
+
 class TraceWin
 {
 public:
@@ -309,6 +430,7 @@ protected:
 
     // Render regular graph row
     void render_graph_row( class graph_info_t &gi );
+
     // Render timeline grah row
     uint32_t render_graph_row_timeline( class graph_info_t &gi );
     // Render hw graph row
@@ -337,17 +459,6 @@ protected:
     void handle_graph_hotkeys();
     void handle_graph_keyboard_scroll();
 
-    // graph rows string functions
-    void graph_rows_initstr( bool reset = false );
-    void graph_rows_updatelist();
-    enum graph_rows_show_t
-    {
-        SHOW_ROW,
-        HIDE_ROW,
-        HIDE_ROW_AND_ALL_BELOW
-    };
-    bool graph_rows_show( const std::string &name, graph_rows_show_t show );
-    std::vector< std::string > graph_rows_get_hidden_rows();
 
     // Make sure m_graph_start_ts and m_graph_length_ts are legit
     void range_check_graph_location();
@@ -387,6 +498,8 @@ public:
     // Counter for setting window focus
     int m_setfocus = 0;
 
+    GraphRows m_graphrows;
+
     bool m_do_gotoevent = false;
     int m_goto_eventid = 0;
 
@@ -416,7 +529,7 @@ public:
 
     bool m_graph_popup = false;
     std::string m_mouse_over_row_name;
-    std::vector< std::string > m_graph_rows_hidden_rows;
+    std::vector< GraphRows::hidden_row_t > m_graph_rows_hidden_rows;
 
     char m_rename_comm_buf[ 512 ] = { 0 };
 
@@ -434,10 +547,6 @@ public:
 
     bool m_do_graph_zoom_in = false;
     bool m_do_graph_zoom_out = false;
-
-    // Graph rows
-    std::string m_graph_rows_str;
-    std::vector< std::string > m_graph_rows;
 
     // Currently selected event.
     uint32_t m_selected_eventid = INVALID_ID;
@@ -468,13 +577,6 @@ public:
 
     std::vector< uint32_t > m_filtered_events;
     std::string m_filtered_events_str;
-
-    struct comm_t
-    {
-        size_t event_count;
-        const char *comm;
-    };
-    std::vector< comm_t > m_comm_info;
 
     util_umap< int64_t, int > m_ts_to_eventid_cache;
 
