@@ -39,24 +39,6 @@
 #include "gpuvis.h"
 
 /*
-  18:00:55 <Plagman> mikesart: i think using the same timeline logic for $name=print would be rad
-  18:01:09 <Plagman> if it was multiline and staggered so it could print the event names on the actual timeline
-  18:01:46 <Plagman> it should be quite a bit easier since the events are just points and not bars
-  18:02:05 <Plagman> might not be able to print most of them until zoomed in way in though
-  18:02:09 <Plagman> but that'd be fine
-  18:02:27 <Plagman> i guess ideally you'd want recurring print events to always be on the same line
-  18:02:36 <Plagman> that's where unique event IDs would be good, but need to change our code for that
-  18:02:48 <Plagman> or do some best-effort string matching in the tool i guess
-  18:03:19 <Plagman> but right now i have little use for all the lines under my $name=print row
-  18:03:36 <Plagman> so if that took the remaining space and showed them in a timeline and printed what it could directly inline, that would be a good visualization
-  18:04:20 <Plagman> oops, got to run for a bit
-
-  19:07:32 <Plagman> mikesart: you think you can do fuzzy prefix matching for the ones with variable data in them?
-  19:08:04 <Plagman> like matching all these together: "[Compositor] Re-Predicting( 20.02354345 )"
-  19:08:40 <Plagman> an algo that matches as much as possible would probably match them together pretty well
-  19:08:53 <Plagman> and then we could show offset since last identical event, highlight them together on hover, etc
-  19:09:00 <Plagman> put them on separate graph rows too
-
   (09:03:30 PM) lostgoat: I think the gfx_1823_11105 info on the tooltip is not that useful
   (09:04:29 PM) lostgoat: and having the event names on the tooltip would be useful, although giving them short names seems hard
   (09:04:56 PM) lostgoat: Submission duration:
@@ -66,14 +48,6 @@
   (09:05:54 PM) lostgoat: Although Submission is not really accurate
   (09:05:54 PM) Plagman: so i would agree with having the durations be expressed textually instead
   (09:06:08 PM) lostgoat: maybe 'SW queue duration' and 'HW queue duration'
-
-  Add durations to regular event hovers?
-
-  TODO mikesart: Hovering over "comp_1.1.1 hw" should highlight "comp_1.1.1" stuff, etc.
-
-  TODO mikesart: Occasionally the hidden rows don't appear under the show menu?
-
-  TODO mikesart: Try coloring the ftrace print events per the hash of the string?
 
   TODO mikesart: Check if entire rows are clipped when drawing...
 
