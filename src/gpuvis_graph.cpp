@@ -162,6 +162,8 @@ struct row_info_t
     RenderGraphRowCallback render_cb;
 
     std::string comm;
+
+    TraceEvents::loc_type_t loc_type;
     const std::vector< uint32_t > *plocs;
 };
 
@@ -379,14 +381,13 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
     for ( const GraphRows::graph_rows_info_t &grow : graph_rows )
     {
         row_info_t rinfo;
-        TraceEvents::loc_type_t loc_type;
         const std::vector< uint32_t > *plocs;
         const std::string &comm = grow.name;
 
         if ( grow.hidden )
             continue;
 
-        plocs = trace_events->get_locs( comm.c_str(), &loc_type );
+        plocs = trace_events->get_locs( comm.c_str(), &rinfo.loc_type );
         if ( !plocs )
             continue;
 
@@ -394,13 +395,13 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         rinfo.row_h = text_h * 2;
         rinfo.comm = comm;
 
-        if ( loc_type == TraceEvents::LOC_TYPE_Print )
+        if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Print )
         {
             // ftrace print row
             rinfo.row_h = win->m_loader.get_opt( OPT_TimelinePrint ) * text_h;
             rinfo.render_cb = std::bind( &TraceWin::render_graph_print_timeline, win, _1 );
         }
-        else if ( loc_type == TraceEvents::LOC_TYPE_Timeline )
+        else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Timeline )
         {
             option_id_t optid = get_comm_option_id( comm );
             int rows = ( optid != OPT_Max ) ?
@@ -409,7 +410,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
             rinfo.row_h = text_h * rows;
             rinfo.render_cb = std::bind( &TraceWin::render_graph_row_timeline, win, _1 );
         }
-        else if ( loc_type == TraceEvents::LOC_TYPE_Timeline_hw )
+        else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Timeline_hw )
         {
             rinfo.row_h = 2 * text_h;
             rinfo.render_cb = std::bind( &TraceWin::render_graph_hw_row_timeline, win, _1 );
@@ -424,16 +425,14 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         rinfo.plocs = plocs;
         row_info.push_back( rinfo );
 
-        if ( comm == "gfx" )
-            prinfo_gfx = &row_info.back();
-        else if ( comm == "gfx hw" )
-            prinfo_gfx_hw = &row_info.back();
-
         total_graph_height += rinfo.row_h + graph_row_padding;
     }
 
     total_graph_height += imgui_scale( 2.0f );
     total_graph_height = std::max< float >( total_graph_height, 4 * row_h );
+
+    prinfo_gfx = find_row( "gfx" );
+    prinfo_gfx_hw = find_row( "gfx hw" );
 }
 
 void graph_info_t::init( TraceWin *win, float x_in, float w_in )
@@ -458,20 +457,6 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
                           !win->m_filtered_events.empty();
 
     timeline_render_user = !!win->m_loader.get_opt( OPT_TimelineRenderUserSpace );
-
-    row_info_t *pri = find_row( "gfx" );
-    if ( pri )
-    {
-        size_t index = pri - &row_info[ 0 ];
-
-        // Draw the gfx row last so we can highlight items in it based on other row hovering.
-        row_info.push_back( row_info[ index ] );
-        row_info.erase( row_info.begin() + index );
-
-        prinfo_gfx = &row_info.back();
-    }
-
-    prinfo_gfx_hw = find_row( "gfx hw" );
 }
 
 void graph_info_t::set_pos_y( float y_in, float h_in, const row_info_t *ri )
@@ -675,7 +660,7 @@ uint32_t TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
     ImRect hov_rect;
     ImU32 last_color = 0;
     float y = gi.y;
-    const std::vector< uint32_t >& locs = *gi.prinfo_cur->plocs;
+    const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -1277,11 +1262,22 @@ void TraceWin::render_process_graph()
         }
         else
         {
-            // Go through and render all the rows
-            for ( const row_info_t &ri : gi.row_info )
+            // Pass 0: Render all !timeline rows
+            // Pass 1: Render all timeline rows
+            for ( int pass = 0; pass < 2; pass++ )
             {
-                gi.set_pos_y( windowpos.y + ri.row_y + m_graph_start_y, ri.row_h, &ri );
-                render_graph_row( gi );
+                bool render_timelines = !!pass;
+
+                for ( const row_info_t &ri : gi.row_info )
+                {
+                    bool is_timeline = ( ri.loc_type == TraceEvents::LOC_TYPE_Timeline );
+
+                    if ( is_timeline == render_timelines )
+                    {
+                        gi.set_pos_y( windowpos.y + ri.row_y + m_graph_start_y, ri.row_h, &ri );
+                        render_graph_row( gi );
+                    }
+                }
             }
         }
 
