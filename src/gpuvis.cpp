@@ -76,35 +76,24 @@ static bool imgui_input_text( const char *button_label, const char *text_label,
 
 static int imgui_ini_save_settings_cb( CIniFile *inifile, int index, const ImGuiIniData &data )
 {
-    std::string section = "imguiwin_";
+    std::string value = string_format( "%.2f,%.2f,%.2f,%.2f",
+                                       data.Pos.x, data.Pos.y, data.Size.x, data.Size.y );
 
-    section += data.Name;
-
-    inifile->PutStr( "name", data.Name, section.c_str() );
-    inifile->PutVec2( "pos", data.Pos, section.c_str() );
-    inifile->PutVec2( "size", data.Size, section.c_str() );
-    inifile->PutInt( "collapsed", data.Collapsed, section.c_str() );
-
-    inifile->PutStr( std::to_string( index ).c_str(), section.c_str(), "$imguiwindows$" );
-    inifile->PutStr( std::to_string( index + 1 ).c_str(), "", "$imguiwindows$" );
+    inifile->PutStr( data.Name, value.c_str(), "$imguiwindows$" );
     return 0;
 }
 
-static int imgui_ini_load_settings_cb( CIniFile *inifile, int index, ImGuiIniData &data )
+static int imgui_ini_load_settings_cb( std::vector< INIEntry > *entries, int index, ImGuiIniData &data )
 {
-    std::string section = inifile->GetStr( std::to_string( index ).c_str(), "", "$imguiwindows$" );
-
-    if ( !section.empty() )
+    if ( ( size_t )index < entries->size() )
     {
-        std::string name = inifile->GetStr( "name", "", section.c_str() );
+        const std::string &key = entries->at( index ).first;
+        const std::string &val = entries->at( index ).second;
 
-        if ( !name.empty() )
-        {
-            data.Pos = inifile->GetVec2( "pos", ImVec2( 0, 0 ), section.c_str() );
-            data.Size = inifile->GetVec2( "size", ImVec2( 0, 0 ), section.c_str() );
-            data.Collapsed = !!inifile->GetInt( "collapsed", 0, section.c_str() );
-            data.Name = strdup( name.c_str() );
-        }
+        sscanf( val.c_str(), "%f,%f,%f,%f", &data.Pos.x, &data.Pos.y, &data.Size.x, &data.Size.y );
+
+        data.Collapsed = false;
+        data.Name = strdup( key.c_str() );
         return 0;
     }
 
@@ -575,7 +564,11 @@ void TraceLoader::render()
         TraceWin *win = m_trace_windows_list[ i ];
 
         if ( win->m_open )
+        {
+            ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
+
             win->render();
+        }
         if ( !win->m_open )
         {
             delete win;
@@ -2121,6 +2114,8 @@ void TraceConsole::render_log( TraceLoader &loader )
 
 void TraceConsole::render_console( TraceLoader &loader )
 {
+    ImGui::SetNextWindowSize( ImVec2( 600, 800 ), ImGuiSetCond_FirstUseEver );
+
     if ( !ImGui::Begin( "gpuvis console" ) )
     {
         ImGui::End();
@@ -2220,11 +2215,15 @@ void TraceConsole::render( TraceLoader &loader )
 
     if ( m_show_imgui_test_window )
     {
+        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
+
         ImGui::ShowTestWindow( &m_show_imgui_test_window );
     }
 
     if ( m_show_imgui_style_editor )
     {
+        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
+
         ImGui::Begin( "Style Editor", &m_show_imgui_style_editor );
         ImGui::ShowStyleEditor();
         ImGui::End();
@@ -2497,7 +2496,8 @@ int main( int argc, char **argv )
     parse_cmdline( loader, argc, argv );
 
     ImGuiIO &io = ImGui::GetIO();
-    io.IniLoadSettingCB = std::bind( imgui_ini_load_settings_cb, &inifile, _1, _2 );
+    std::vector< INIEntry > entries = inifile.GetSectionEntries( "$imguiwindows$" );
+    io.IniLoadSettingCB = std::bind( imgui_ini_load_settings_cb, &entries, _1, _2 );
     io.IniSaveSettingCB = std::bind( imgui_ini_save_settings_cb, &inifile, _1, _2 );
 
     int x = inifile.GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
