@@ -913,6 +913,11 @@ const char *filter_get_keyval_func( const trace_event_t *event, const char *name
         snprintf_safe( buf, "%.6f", event->ts * ( 1.0 / MSECS_PER_SEC ) );
         return buf;
     }
+    else if ( !strcasecmp( name, "duration" ) )
+    {
+        snprintf_safe( buf, "%.6f", event->duration * ( 1.0 / MSECS_PER_SEC ) );
+        return buf;
+    }
 
     for ( const event_field_t &field : event->fields )
     {
