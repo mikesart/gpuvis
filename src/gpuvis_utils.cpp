@@ -269,6 +269,57 @@ size_t get_file_size( const char *filename )
     return 0;
 }
 
+// Parse a "comp_[1-2].[0-3].[0-8]" string. Returns true on success.
+bool comp_str_parse( const char *comp, uint32_t &a, uint32_t &b, uint32_t &c )
+{
+    // comp_[1-2].[0-3].[0-8]
+    if ( !strncmp( comp, "comp_", 5 ) &&
+         ( comp[ 5 ] == '1' || comp[ 5 ] == '2' ) &&
+         ( comp[ 6 ] == '.' ) &&
+         isdigit( comp[ 7 ] ) &&
+         ( comp[ 8 ] == '.' ) &&
+         isdigit( comp[ 9 ] ) )
+    {
+        a = comp[ 5 ] - '0';
+        b = comp[ 7 ] - '0';
+        c = comp[ 9 ] - '0';
+
+        return ( b <= 3 ) && ( c <= 8 );
+    }
+
+    return false;
+}
+
+// Create "comp_[1-2].[0-3].[0-8]" string
+std::string comp_str_create_abc( uint32_t a, uint32_t b, uint32_t c )
+{
+    return string_format( "comp_%u.%u.%u", a, b, c );
+}
+
+// Return a/b/c values from an index
+bool comp_val_to_abc( uint32_t val, uint32_t &a, uint32_t &b, uint32_t &c )
+{
+    c = val % 9;                // [0-8]
+    b = ( val / 9 ) % 4;        // [0-3]
+    a = ( val / 36 ) + 1;       // [1-2]
+
+    return ( a <= 2 );
+}
+
+uint32_t comp_abc_to_val( uint32_t a, uint32_t b, uint32_t c )
+{
+    return ( a - 1 ) * 36 + ( b * 9 ) + c;
+}
+
+// Return comp_ string from an index
+std::string comp_str_create_val( uint32_t val )
+{
+    uint32_t a, b, c;
+
+    return comp_val_to_abc( val, a, b, c ) ?
+                comp_str_create_abc( a, b, c ) : "";
+}
+
 ImU32 imgui_col_from_hashval( uint32_t hashval )
 {
     float h = ( hashval & 0xffffff ) / 16777215.0f;

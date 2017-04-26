@@ -572,6 +572,7 @@ public:
 // TraceLoader ini options
 enum option_id_t
 {
+    OPT_Invalid = -1,
     OPT_TimelineZoomGfx,
     OPT_TimelineLabels,
     OPT_TimelineEvents,
@@ -597,10 +598,12 @@ enum option_id_t
     OPT_EventListRowCount,
 
     OPT_TimelineGfxSize,
+    OPT_TimelinePrint,
+
     OPT_TimelineSdma0Size,
     OPT_TimelineSdma1Size,
-    OPT_TimelinePrint,
-    OPT_Max
+
+    OPT_PresetMax
 };
 
 class TraceLoader
@@ -710,6 +713,9 @@ public:
 
         return ( val <= OPT_RenderCrtc9 ) ? m_options[ val ].val : 0;
     }
+
+    size_t m_comp_option_index = 0;
+    size_t m_comp_option_count = 0;
 
     std::vector< option_t > m_options;
     std::string m_event_filter_str;

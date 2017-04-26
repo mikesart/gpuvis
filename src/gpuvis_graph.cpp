@@ -319,7 +319,7 @@ void event_renderer_t::draw()
     imgui_drawrect( x0, width, y, h, color );
 }
 
-static option_id_t get_comm_option_id( const std::string &comm )
+static option_id_t get_comm_option_id( TraceLoader &loader, const std::string &comm )
 {
     if ( comm == "gfx" )
         return OPT_TimelineGfxSize;
@@ -330,7 +330,18 @@ static option_id_t get_comm_option_id( const std::string &comm )
     else if ( comm == "print" )
         return OPT_TimelinePrint;
 
-    return OPT_Max;
+    // Try to parse "comp_[1-2].[0-3].[0-8]" string
+    uint32_t a, b, c;
+    if ( ( comm.size() == 10 ) && comp_str_parse( comm.c_str(), a, b, c ) )
+    {
+        // convert a, b, c to an index value
+        uint32_t val = comp_abc_to_val( a, b, c );
+
+        if ( val < loader.m_comp_option_count )
+            return ( option_id_t )( loader.m_comp_option_index + val );
+    }
+
+    return OPT_Invalid;
 }
 
 /*
@@ -377,8 +388,8 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         }
         else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Timeline )
         {
-            option_id_t optid = get_comm_option_id( comm );
-            int rows = ( optid != OPT_Max ) ?
+            option_id_t optid = get_comm_option_id( win->m_loader, comm );
+            int rows = ( optid != OPT_Invalid ) ?
                         Clamp< int >( win->m_loader.get_opt( optid ), 2, 50 ) : 4;
 
             rinfo.row_h = text_h * rows;
@@ -1284,7 +1295,7 @@ void TraceWin::render_process_graph()
 
 bool TraceWin::render_graph_popup( graph_info_t &gi )
 {
-    option_id_t optid = OPT_Max;
+    option_id_t optid = OPT_Invalid;
 
     if ( !ImGui::BeginPopup( "GraphPopup" ) )
         return false;
@@ -1302,7 +1313,7 @@ bool TraceWin::render_graph_popup( graph_info_t &gi )
 
     if ( !m_mouse_over_row_name.empty() )
     {
-        optid = get_comm_option_id( m_mouse_over_row_name.c_str() );
+        optid = get_comm_option_id( m_loader, m_mouse_over_row_name.c_str() );
 
         std::string label = string_format( "Hide row '%s'", m_mouse_over_row_name.c_str() );
 
@@ -1361,7 +1372,7 @@ bool TraceWin::render_graph_popup( graph_info_t &gi )
         }
     }
 
-    if ( optid != OPT_Max )
+    if ( optid != OPT_Invalid )
     {
         TraceLoader::option_t &opt = m_loader.m_options[ optid ];
 

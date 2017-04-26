@@ -101,6 +101,15 @@ void logf_update();
 void logf_clear();
 const std::vector< char * > &logf_get();
 
+// Helper routines to parse / create compute strings. Ie:
+//   comp_[1-2].[0-3].[0-8]
+// val is an index value from 0..(2*4*9)-1
+std::string comp_str_create_val( uint32_t val );
+std::string comp_str_create_abc( uint32_t a, uint32_t b, uint32_t c );
+bool comp_str_parse( const char *comp, uint32_t &a, uint32_t &b, uint32_t &c );
+bool comp_val_to_abc( uint32_t val, uint32_t &a, uint32_t &b, uint32_t &c );
+uint32_t comp_abc_to_val( uint32_t a, uint32_t b, uint32_t c );
+
 float imgui_scale( float val );
 bool imgui_key_pressed( ImGuiKey key );
 

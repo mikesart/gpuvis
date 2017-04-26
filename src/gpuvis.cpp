@@ -444,7 +444,7 @@ int SDLCALL TraceLoader::thread_func( void *data )
 
 void TraceLoader::init()
 {
-    m_options.resize( OPT_Max );
+    m_options.resize( OPT_PresetMax );
 
     m_options[ OPT_Fullscreen ].opt_bool( "Fullscreen Trace Window", "fullscreen", false );
 
@@ -470,13 +470,18 @@ void TraceLoader::init()
     m_options[ OPT_EventListRowCount ].hidden = true;
 
     m_options[ OPT_TimelineGfxSize ].opt_int( "Gfx Size:", "row_gfx_size", 8, 8, 40 );
-    m_options[ OPT_TimelineSdma0Size ].opt_int( "Sdma0 Size:", "row_sdma0_size", 4, 4, 40 );
-    m_options[ OPT_TimelineSdma1Size ].opt_int( "Sdma1 Size:", "row_sdma1_size", 4, 4, 40 );
     m_options[ OPT_TimelinePrint ].opt_int( "Print Size:", "row_print_size", 10, 4, 40 );
     m_options[ OPT_TimelineGfxSize ].hidden = true;
-    m_options[ OPT_TimelineSdma0Size ].hidden = true;
-    m_options[ OPT_TimelineSdma1Size ].hidden = true;
     m_options[ OPT_TimelinePrint ].hidden = true;
+
+    for ( int i = 0; i <= OPT_TimelineSdma1Size - OPT_TimelineSdma0Size; i++ )
+    {
+        const std::string descr = string_format( "Sdma%d Size:", i );
+        const std::string key = string_format( "row_sdma%d_size", i );
+
+        m_options[ OPT_TimelineSdma0Size + i ].opt_int( descr, key, 4, 4, 40 );
+        m_options[ OPT_TimelineSdma0Size + i ].hidden = true;
+    }
 
     for ( int i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
@@ -484,6 +489,28 @@ void TraceLoader::init()
         const std::string inikey = string_format( "render_crtc%d", i - OPT_RenderCrtc0 );
 
         m_options[ i ].opt_bool( desc, inikey, true );
+    }
+
+    // Create all the entries for the compute shader rows
+    m_comp_option_index = m_options.size();
+    for ( uint32_t val = 0; ; val++ )
+    {
+        const std::string str = comp_str_create_val( val );
+        if ( str.empty() )
+            break;
+
+        option_t opt;
+        std::string descr = string_format( "%s Size:", str.c_str() );
+        const std::string key = string_format( "row_%s_size", str.c_str() );
+
+        // Capitalize the first 'c' in comp...
+        descr[ 0 ] = 'C';
+
+        opt.opt_int( descr, key, 4, 4, 40 );
+        opt.hidden = true;
+        m_options.push_back( opt );
+
+        m_comp_option_count++;
     }
 
     // Read option settings from ini file
