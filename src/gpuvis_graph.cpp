@@ -446,16 +446,13 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
     const std::vector< trace_event_t > &events = win->m_trace_events->m_events;
 
     uint32_t event_hov = win->m_hovered_eventlist_eventid;
+
+    if ( !is_valid_id( event_hov ) || !events[ event_hov ].is_timeline() )
+        event_hov = win->m_hovered_graph_eventid;
+
     if ( is_valid_id( event_hov ) && events[ event_hov ].is_timeline() )
     {
         std::string context = get_event_gfxcontext_str( events[ event_hov ] );
-        const std::vector< uint32_t > *plocs = win->m_trace_events->get_gfxcontext_locs( context.c_str() );
-
-        hovered_timeline_event = plocs->back();
-    }
-    else if ( is_valid_id( win->m_hovered_graph_eventid ) && events[ win->m_hovered_graph_eventid ].is_timeline() )
-    {
-        std::string context = get_event_gfxcontext_str( events[ win->m_hovered_graph_eventid ] );
         const std::vector< uint32_t > *plocs = win->m_trace_events->get_gfxcontext_locs( context.c_str() );
 
         hovered_timeline_event = plocs->back();
