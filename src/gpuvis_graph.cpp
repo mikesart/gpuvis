@@ -39,16 +39,6 @@
 #include "gpuvis.h"
 
 /*
-  (09:03:30 PM) lostgoat: I think the gfx_1823_11105 info on the tooltip is not that useful
-  (09:04:29 PM) lostgoat: and having the event names on the tooltip would be useful, although giving them short names seems hard
-  (09:04:56 PM) lostgoat: Submission duration:
-  (09:05:00 PM) lostgoat: Queued duration:
-  (09:05:04 PM) lostgoat: Execution duration:
-  (09:05:31 PM) Plagman: at the end of the day the name of the amd-specific events are implementation details and probably shoujld be hidden
-  (09:05:54 PM) lostgoat: Although Submission is not really accurate
-  (09:05:54 PM) Plagman: so i would agree with having the durations be expressed textually instead
-  (09:06:08 PM) lostgoat: maybe 'SW queue duration' and 'HW queue duration'
-
   TODO mikesart: Check if entire rows are clipped when drawing...
 
   From DanG:
@@ -184,7 +174,8 @@ public:
     const size_t hovered_max = 6;
     std::vector< hovered_t > hovered_items;
 
-    uint32_t hovered_timeline_event = INVALID_ID;
+    // Id of hovered / selected fence signaled event
+    uint32_t hovered_fence_signaled = INVALID_ID;
 
     bool do_zoom_gfx;
     bool timeline_render_user;
@@ -445,17 +436,21 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
 
     const std::vector< trace_event_t > &events = win->m_trace_events->m_events;
 
+    // First check if they're hovering a timeline event in the event list
     uint32_t event_hov = win->m_hovered_eventlist_eventid;
 
+    // If not, check if they're hovering a timeline event in the graph
     if ( !is_valid_id( event_hov ) || !events[ event_hov ].is_timeline() )
         event_hov = win->m_hovered_graph_eventid;
 
     if ( is_valid_id( event_hov ) && events[ event_hov ].is_timeline() )
     {
+        // Find the fence signaled event for this timeline
         std::string context = get_event_gfxcontext_str( events[ event_hov ] );
         const std::vector< uint32_t > *plocs = win->m_trace_events->get_gfxcontext_locs( context.c_str() );
 
-        hovered_timeline_event = plocs->back();
+        // Mark it as hovered so it'll have a selection rectangle
+        hovered_fence_signaled = plocs->back();
     }
 }
 
@@ -701,16 +696,14 @@ uint32_t TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
             else
                 last_color = fence_signaled.color;
 
-            // Check if we're hovering this event.
-            if ( is_valid_id( gi.hovered_timeline_event ) )
+            // Check if this fence_signaled is selected / hovered
+            if ( ( gi.hovered_fence_signaled == fence_signaled.id ) ||
+                 gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
             {
-                if ( gi.hovered_timeline_event == fence_signaled.id )
-                    hov_rect = { x0, y, x1, y + row_h };
-            }
-            else if ( gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
-            {
-                gi.hovered_timeline_event = fence_signaled.id;
                 hov_rect = { x0, y, x1, y + row_h };
+
+                if ( !is_valid_id( gi.hovered_fence_signaled ) )
+                    gi.hovered_fence_signaled = fence_signaled.id;
             }
 
             num_events++;
@@ -771,15 +764,16 @@ uint32_t TraceWin::render_graph_row_timeline( graph_info_t &gi )
                 float x_hw_end = gi.ts_to_screenx( fence_signaled.ts );
                 float xleft = gi.timeline_render_user ? x_user_start : x_hwqueue_start;
 
-                if ( ( gi.hovered_timeline_event == fence_signaled.id ) ||
+                // Check if this fence_signaled is selected / hovered
+                if ( ( gi.hovered_fence_signaled == fence_signaled.id ) ||
                     gi.mouse_pos_in_rect( xleft, x_hw_end - xleft, y, gi.text_h ) )
                 {
                     // Mouse is hovering over this fence_signaled.
                     hovered = true;
                     hov_rect = { x_user_start, y, x_hw_end, y + gi.text_h };
 
-                    if ( !is_valid_id( gi.hovered_timeline_event ) )
-                        gi.hovered_timeline_event = fence_signaled.id;
+                    if ( !is_valid_id( gi.hovered_fence_signaled ) )
+                        gi.hovered_fence_signaled = fence_signaled.id;
                 }
 
                 // Draw user bar
@@ -1635,6 +1629,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
             }
         }
 
+        // Mark the first event in the list as our hovered graph event
         m_hovered_graph_eventid = gi.hovered_items[ 0 ].eventid;
 
         if ( sync_event_list_to_graph && !m_do_gotoevent )
@@ -1644,9 +1639,9 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
         }
     }
 
-    if ( is_valid_id( gi.hovered_timeline_event ) )
+    if ( is_valid_id( gi.hovered_fence_signaled ) )
     {
-        const trace_event_t &event_hov = get_event( gi.hovered_timeline_event );
+        const trace_event_t &event_hov = get_event( gi.hovered_fence_signaled );
         std::string context = get_event_gfxcontext_str( event_hov );
         const std::vector< uint32_t > *plocs = m_trace_events->get_gfxcontext_locs( context.c_str() );
 

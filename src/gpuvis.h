@@ -547,10 +547,11 @@ public:
 
     // Currently selected event.
     uint32_t m_selected_eventid = INVALID_ID;
+    // Currently hovered event in event list.
     uint32_t m_hovered_eventlist_eventid = INVALID_ID;
-
+    // Graph hovered event
     uint32_t m_hovered_graph_eventid = INVALID_ID;
-
+    // Hovered event ids so we can highlight them in the events list
     std::vector< uint32_t > m_highlight_ids;
 
     uint32_t m_eventlist_start_eventid = INVALID_ID;
