@@ -204,14 +204,15 @@ public:
         LOC_TYPE_Max
     };
 
-    const std::vector< uint32_t > *get_locs( const char *name, loc_type_t *type )
+    const std::vector< uint32_t > *get_locs( const char *name, loc_type_t *type = nullptr )
     {
         const std::vector< uint32_t > *plocs = NULL;
 
         if ( !strcmp( name, "print" ) )
         {
             // Check for explicit "print" row
-            *type = LOC_TYPE_Print;
+            if ( type )
+                *type = LOC_TYPE_Print;
             plocs = get_tdopexpr_locs( "$name=print" );
         }
         else
@@ -223,32 +224,36 @@ public:
                 // Check for "gfx hw", "comp_1.1.1 hw", etc.
                 uint32_t hashval = fnv_hashstr32( name, len - 3 );
 
-                *type = LOC_TYPE_Timeline_hw;
+                if ( type )
+                    *type = LOC_TYPE_Timeline_hw;
                 plocs = m_timeline_locations.get_locations_u32( hashval );
             }
             else
             {
                 // Check for regular comm type rows
-                *type = LOC_TYPE_Comm;
+                if ( type )
+                    *type = LOC_TYPE_Comm;
                 plocs = get_comm_locs( name );
 
                 if ( !plocs )
                 {
                     // TDOP Expressions. Ie, $name = print, etc.
-                    *type = LOC_TYPE_Tdopexpr;
+                    if ( type )
+                        *type = LOC_TYPE_Tdopexpr;
                     plocs = get_tdopexpr_locs( name );
 
                     if ( !plocs )
                     {
                         // Timelines: sdma0, gfx, comp_1.2.1, etc.
-                        *type = LOC_TYPE_Timeline;
+                        if ( type )
+                            *type = LOC_TYPE_Timeline;
                         plocs = get_timeline_locs( name );
                     }
                 }
             }
         }
 
-        if ( !plocs )
+        if ( !plocs && type )
             *type = LOC_TYPE_Max;
         return plocs;
     }
@@ -344,19 +349,15 @@ public:
 
 public:
     // Initialize graph rows
-    void init( CIniFile &inifile, TraceEvents *trace_events, bool reset = false );
-
-    // Get the default graph rows string
-    std::string get_default_str();
+    void init( CIniFile &inifile, TraceEvents *trace_events );
 
     struct graph_rows_info_t
     {
+        size_t event_count;
         std::string name;
         bool hidden;
     };
-    // Convert graph row string to graph row list (with hidden entries marked)
-    static std::vector< graph_rows_info_t > get_row_list(
-        const std::string &graph_rows_str, const std::vector< std::string > &rows_hide );
+    const std::vector< graph_rows_info_t > get_hidden_rows_list( TraceEvents *trace_events );
 
     enum graph_rows_show_t
     {
@@ -367,34 +368,12 @@ public:
     };
     void show_row( const std::string &name, graph_rows_show_t show );
 
-    struct hidden_row_t
-    {
-        std::string name;
-        size_t num_events;
-    };
-    const std::vector< hidden_row_t > get_hidden_rows_list( TraceEvents *trace_events );
-
     void rename_comm( TraceEvents *trace_events, const char *comm_old, const char *comm_new );
 
-    void update_graph_row_list()
-    {
-        m_graph_rows_list = get_row_list( m_graph_rows_str, m_graph_rows_list_hide );
-    }
-
 public:
-    struct comm_t
-    {
-        size_t event_count;
-        const char *comm;
-    };
-    // Comm info sorted by event count
-    std::vector< comm_t > m_comm_info;
-
-    // Editable graph rows string
-    std::string m_graph_rows_str;
-    // Graph rows list (generated from m_graph_rows_str)
+    // List of graph rows
     std::vector< graph_rows_info_t > m_graph_rows_list;
-    // List of graph rows to hide
+    // List of graph rows we need to hide
     std::vector< std::string > m_graph_rows_list_hide;
 };
 
@@ -529,7 +508,7 @@ public:
 
     bool m_graph_popup = false;
     std::string m_mouse_over_row_name;
-    std::vector< GraphRows::hidden_row_t > m_graph_rows_hidden_rows;
+    std::vector< GraphRows::graph_rows_info_t > m_graph_rows_hidden_rows;
 
     char m_rename_comm_buf[ 512 ] = { 0 };
 

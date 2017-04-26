@@ -555,22 +555,14 @@ void TraceLoader::render()
 /*
  * GraphRows
  */
-const std::vector< GraphRows::hidden_row_t > GraphRows::get_hidden_rows_list( TraceEvents *trace_events )
+const std::vector< GraphRows::graph_rows_info_t > GraphRows::get_hidden_rows_list( TraceEvents *trace_events )
 {
-    std::vector< hidden_row_t > hidden_rows;
+    std::vector< graph_rows_info_t > hidden_rows;
 
     for ( const graph_rows_info_t &rinfo : m_graph_rows_list )
     {
         if ( rinfo.hidden )
-        {
-            TraceEvents::loc_type_t loc_type;
-            const std::vector< uint32_t > *plocs = trace_events->get_locs( rinfo.name.c_str(), &loc_type );
-
-            if ( plocs )
-            {
-                hidden_rows.push_back( { rinfo.name.c_str(), plocs->size() } );
-            }
-        }
+            hidden_rows.push_back( rinfo );
     }
 
     return hidden_rows;
@@ -592,7 +584,7 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
         if ( idx != m_graph_rows_list_hide.end() )
             m_graph_rows_list_hide.erase( idx );
 
-        // Search for it in m_graph_rows_list and mark not hidden
+        // Search for it in m_graph_rows_list and mark as not hidden
         for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
         {
             if ( m_graph_rows_list[ i ].name == name )
@@ -610,7 +602,7 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
         {
             if ( found || ( m_graph_rows_list[ i ].name == name ) )
             {
-                // Add it to the graph_rows_hide array
+                // Add entry to the graph_rows_hide array
                 auto idx = std::find( m_graph_rows_list_hide.begin(), m_graph_rows_list_hide.end(), m_graph_rows_list[ i ].name );
                 if ( idx == m_graph_rows_list_hide.end() )
                     m_graph_rows_list_hide.push_back( m_graph_rows_list[ i ].name );
@@ -627,16 +619,19 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
     }
 }
 
-std::string GraphRows::get_default_str()
+// Initialize m_graph_rows_list
+void GraphRows::init( CIniFile &inifile, TraceEvents *trace_events )
 {
-    std::string graph_rows_str = "# comm and filter expressions to graph\n\n";
+    if ( !m_graph_rows_list.empty() )
+        return;
 
     // Order: gfx -> compute -> gfx hw -> compute hw -> sdma -> sdma hw
-    graph_rows_str += "gfx\n";
+    const std::vector< uint32_t > *plocs;
+
+    if ( ( plocs = trace_events->get_locs( "gfx" ) ) )
+        m_graph_rows_list.push_back( { plocs->size(), "gfx", false } );
 
     // Andres: full list of compute rings is comp_[1-2].[0-3].[0-8]
-    std::string comp_str;
-    std::string comp_hw_str;
     for ( int c0 = 1; c0 < 3; c0++)
     {
         for ( int c1 = 0; c1 < 4; c1++ )
@@ -645,144 +640,80 @@ std::string GraphRows::get_default_str()
             {
                 std::string str = string_format( "comp_%d.%d.%d", c0, c1, c2 );
 
-                comp_str += str + ", ";
-                comp_hw_str += str + " hw, ";
+                if ( ( plocs = trace_events->get_locs( str.c_str() ) ) )
+                    m_graph_rows_list.push_back( { plocs->size(), str, false } );
             }
-
-            comp_str += "\n";
-            comp_hw_str += "\n";
         }
     }
 
-    graph_rows_str += comp_str + "\n";
-    graph_rows_str += "gfx hw\n";
-    graph_rows_str += comp_hw_str + "\n";
-    graph_rows_str += "sdma0, sdma1\n\n";
-    graph_rows_str += "print\n\n";
+    if ( ( plocs = trace_events->get_locs( "gfx hw" ) ) )
+        m_graph_rows_list.push_back( { plocs->size(), "gfx hw", false } );
 
-    graph_rows_str += "# comms\n";
-    for ( const comm_t &item : m_comm_info )
-        graph_rows_str += std::string( item.comm ) + "\n";
-
-    return graph_rows_str;
-}
-
-void GraphRows::init( CIniFile &inifile, TraceEvents *trace_events, bool reset )
-{
-    // Initialize m_comm_info
-    if ( m_comm_info.empty() )
+    for ( int c0 = 1; c0 < 3; c0++)
     {
-        for ( auto item : trace_events->m_comm_locations.m_locs.m_map )
+        for ( int c1 = 0; c1 < 4; c1++ )
         {
-            uint32_t hashval = item.first;
-            const char *comm = trace_events->m_strpool.findstr( hashval );
+            for ( int c2 = 0; c2 < 9; c2++ )
+            {
+                std::string str = string_format( "comp_%d.%d.%d hw", c0, c1, c2 );
 
-            item.second.size();
-            m_comm_info.push_back( { item.second.size(), comm } );
+                if ( ( plocs =trace_events->get_locs( str.c_str() ) ) )
+                    m_graph_rows_list.push_back( { plocs->size(), str, false } );
+            }
         }
+    }
 
-        // Sort by count of events
-        std::sort( m_comm_info.begin(), m_comm_info.end(),
-                   [=]( const comm_t &lx, const comm_t &rx )
+    if ( ( plocs = trace_events->get_locs( "sdma0" ) ) )
+        m_graph_rows_list.push_back( { plocs->size(), "sdma0", false } );
+    if ( ( plocs = trace_events->get_locs( "sdma1" ) ) )
+        m_graph_rows_list.push_back( { plocs->size(), "sdma1", false } );
+
+    if ( ( plocs = trace_events->get_locs( "print" ) ) )
+        m_graph_rows_list.push_back( { plocs->size(), "print", false } );
+
+    std::vector< graph_rows_info_t > comms;
+    for ( auto item : trace_events->m_comm_locations.m_locs.m_map )
+    {
+        uint32_t hashval = item.first;
+        const char *comm = trace_events->m_strpool.findstr( hashval );
+
+        comms.push_back( { item.second.size(), comm, false } );
+    }
+
+    // Sort by count of events
+    std::sort( comms.begin(), comms.end(),
+               [=]( const graph_rows_info_t &lx, const graph_rows_info_t &rx )
+    {
+        return rx.event_count < lx.event_count;
+    } );
+
+    // Add the sorted comm events to our m_graph_rows_list array
+    m_graph_rows_list.insert( m_graph_rows_list.end(), comms.begin(), comms.end() );
+
+    std::string graph_rows_hide_str = inifile.GetStr( "graph_rows_hide_str", "" );
+    if ( !graph_rows_hide_str.empty() )
+    {
+        m_graph_rows_list_hide = string_explode( graph_rows_hide_str, ',' );
+
+        for ( graph_rows_info_t &row_info : m_graph_rows_list )
         {
-            return rx.event_count < lx.event_count;
-        } );
-    }
+            auto idx = std::find( m_graph_rows_list_hide.begin(), m_graph_rows_list_hide.end(), row_info.name );
 
-    if ( reset )
-    {
-        m_graph_rows_str.clear();
-        m_graph_rows_list_hide.clear();
-    }
-    else
-    {
-        m_graph_rows_str = inifile.GetStr( "graph_rows_str", "" );
-
-        std::string m_graph_rows_hide_str = inifile.GetStr( "graph_rows_hide_str", "" );
-        if ( !m_graph_rows_hide_str.empty() )
-            m_graph_rows_list_hide = string_explode( m_graph_rows_hide_str, ',' );
-    }
-
-    if ( m_graph_rows_str.empty() )
-    {
-        m_graph_rows_str = get_default_str();
-
-        inifile.PutStr( "graph_rows_str", m_graph_rows_str.c_str() );
-    }
-
-    // Update m_graph_rows_list from m_graph_rows_str and m_graph_rows_list_hide
-    update_graph_row_list();
-}
-
-std::vector< GraphRows::graph_rows_info_t > GraphRows::get_row_list(
-        const std::string &graph_rows_str, const std::vector< std::string > &rows_hide )
-{
-    const char *begin = graph_rows_str.c_str();
-    std::vector< graph_rows_info_t > graph_rows;
-
-    graph_rows.clear();
-
-    for ( ;; )
-    {
-        const char *end;
-
-        // Skip over all whitespace and commas.
-        while ( isspace( begin[ 0 ] ) || ( begin[ 0 ] == ',' ) )
-            begin++;
-
-        if ( !begin[ 0 ] )
-        {
-            break;
+            row_info.hidden = ( idx != m_graph_rows_list_hide.end() );
         }
-        else if ( begin[ 0 ] == '#' )
-        {
-            // Eat rest of line for comments
-            end = strchr( begin, '\n' );
-            if ( !end )
-                break;
-        }
-        else
-        {
-            end = begin + 1;
-
-            // Find end of this token
-            while ( end[ 0 ] && ( end[ 0 ] != ',' ) && ( end[ 0 ] != '\n' ) && ( end[ 0 ] != '#' ) )
-                end++;
-
-            // Trim trailing whitespace
-            size_t len = end - begin;
-            while ( ( len > 0 ) && isspace( begin[ len - 1 ] ) )
-                len--;
-
-            std::string name = std::string( begin, len );
-
-            auto idx = std::find( rows_hide.begin(), rows_hide.end(), name );
-            bool hidden = ( idx != rows_hide.end() );
-
-            graph_rows.push_back( { name, hidden } );
-        }
-
-        begin = ( end[ 0 ] && ( end[ 0 ] != '#' ) ) ? end + 1 : end;
     }
-
-    return graph_rows;
 }
 
 void GraphRows::rename_comm( TraceEvents *trace_events, const char *comm_old, const char *comm_new )
 {
-    for ( comm_t &comm_info : m_comm_info )
+    for ( graph_rows_info_t &row_info : m_graph_rows_list )
     {
-        if ( !strcmp( comm_info.comm, comm_old ) )
+        if ( row_info.name == comm_old )
         {
-            comm_info.comm = trace_events->m_strpool.getstr( comm_new );
+            row_info.name = comm_new;
             break;
         }
     }
-
-    string_replace_str( m_graph_rows_str, comm_old, comm_new );
-
-    // Update m_graph_rows_list from m_graph_rows_str and m_graph_rows_list_hide
-    update_graph_row_list();
 }
 
 /*
@@ -1252,7 +1183,6 @@ TraceWin::TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string 
 TraceWin::~TraceWin()
 {
     m_loader.m_inifile.PutStr( "event_filter_buf", m_event_filter_buf );
-    m_loader.m_inifile.PutStr( "graph_rows_str", m_graphrows.m_graph_rows_str.c_str() );
 
     std::string m_graph_rows_hide_str = string_implode( m_graphrows.m_graph_rows_list_hide, "," );
     m_loader.m_inifile.PutStr( "graph_rows_hide_str", m_graph_rows_hide_str.c_str() );
@@ -1331,23 +1261,6 @@ bool TraceWin::render()
 
     if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        ImGui::Indent();
-        if ( ImGui::CollapsingHeader( "Edit Graph Rows" ) )
-        {
-            if ( ImGui::Button( "Update Graph Rows" ) )
-                m_graphrows.update_graph_row_list();
-
-            ImGui::SameLine();
-            if ( ImGui::Button( "Reset Graph Rows" ) )
-                m_graphrows.init( m_loader.m_inifile, m_trace_events, true );
-
-            m_graphrows.m_graph_rows_str.reserve( 8192 );
-            ImGui::InputTextMultiline( "##GraphRowsText", &m_graphrows.m_graph_rows_str[ 0 ],
-                    m_graphrows.m_graph_rows_str.capacity(),
-                    ImVec2( -1.0f, ImGui::GetTextLineHeight() * 16 ) );
-        }
-        ImGui::Unindent();
-
         if ( imgui_input_text( "Start:", "##GraphStart", m_graphtime_start_buf, 150 ) )
             m_graph_start_ts = timestr_to_ts( m_graphtime_start_buf );
 
@@ -1519,16 +1432,16 @@ void TraceWin::render_trace_info()
 
         ImGui::Indent();
 
-        if ( !m_graphrows.m_comm_info.empty() )
+        if ( !m_graphrows.m_graph_rows_list.empty() )
         {
-            if ( ImGui::CollapsingHeader( "Comm Info", ImGuiTreeNodeFlags_DefaultOpen ) )
+            if ( ImGui::CollapsingHeader( "Graph Row Info", ImGuiTreeNodeFlags_DefaultOpen ) )
             {
-                if ( imgui_begin_columns( "comm_info", { "Comm", "Events" } ) )
+                if ( imgui_begin_columns( "row_info", { "Name", "Events" } ) )
                     ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
 
-                for ( const GraphRows::comm_t &info : m_graphrows.m_comm_info )
+                for ( const GraphRows::graph_rows_info_t &info : m_graphrows.m_graph_rows_list )
                 {
-                    ImGui::Text( "%s", info.comm );
+                    ImGui::Text( "%s", info.name.c_str() );
                     ImGui::NextColumn();
                     ImGui::Text( "%lu", info.event_count );
                     ImGui::NextColumn();

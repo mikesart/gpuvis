@@ -1353,10 +1353,10 @@ bool TraceWin::render_graph_popup( graph_info_t &gi )
 
             ImGui::Separator();
 
-            for ( const GraphRows::hidden_row_t &entry : m_graph_rows_hidden_rows )
+            for ( const GraphRows::graph_rows_info_t &entry : m_graph_rows_hidden_rows )
             {
                 const std::string label = string_format( "%s (%lu events)",
-                                                         entry.name.c_str(), entry.num_events );
+                                                         entry.name.c_str(), entry.event_count );
 
                 if ( ImGui::MenuItem( label.c_str() ) )
                 {
