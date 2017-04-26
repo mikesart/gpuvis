@@ -374,20 +374,26 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
         if ( plocs->size() > 1 )
         {
             // First event.
-            trace_event_t &event0 = m_trace_events->m_events[ plocs->front() ];
+            const trace_event_t &event0 = m_trace_events->m_events[ plocs->front() ];
 
             // Event right before the event we just added.
             auto it = plocs->rbegin() + 1;
             const trace_event_t &event_prev = m_trace_events->m_events[ *it ];
-
-            event0.flags |= TRACE_FLAG_IS_TIMELINE;
-            event.flags |= TRACE_FLAG_IS_TIMELINE;
 
             // Assume the user comm is the first comm event in this set.
             event.user_comm = event0.comm;
 
             // Point the event we just added to the previous event in this series
             event.id_start = event_prev.id;
+
+            if ( event.is_fence_signaled() )
+            {
+                // Mark all the events in this series as timeline events
+                for ( uint32_t idx : *plocs )
+                {
+                    m_trace_events->m_events[ idx ].flags |= TRACE_FLAG_IS_TIMELINE;
+                }
+            }
         }
     }
 
@@ -1102,12 +1108,23 @@ void TraceEvents::calculate_event_durations()
 {
     std::vector< trace_event_t > &events = m_events;
 
-    for ( const auto &timeline_locs : m_timeline_locations.m_locs.m_map )
+    std::vector< uint32_t > erase_list;
+
+    for ( auto &timeline_locs : m_timeline_locations.m_locs.m_map )
     {
         uint32_t graph_row_id = 0;
         int64_t last_fence_signaled_ts = 0;
-        const std::vector< uint32_t > &locs = timeline_locs.second;
+        std::vector< uint32_t > &locs = timeline_locs.second;
         // const char *name = m_strpool.findstr( timeline_locs.first );
+
+        // Erase all timeline events with single entries or no fence_signaled
+        locs.erase( std::remove_if( locs.begin(), locs.end(),
+                                    [&events]( const uint32_t index )
+                                        { return !events[ index ].is_timeline(); } ),
+                    locs.end() );
+
+        if ( locs.empty() )
+            erase_list.push_back( timeline_locs.first );
 
         for ( uint32_t index : locs )
         {
@@ -1158,8 +1175,13 @@ void TraceEvents::calculate_event_durations()
             }
         }
     }
-}
 
+    for ( uint32_t hashval : erase_list )
+    {
+        // Completely erase timeline rows with zero entries.
+        m_timeline_locations.m_locs.m_map.erase( hashval );
+    }
+}
 
 TraceWin::TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string &title ) : m_loader( loader )
 {

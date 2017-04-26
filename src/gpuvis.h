@@ -91,6 +91,10 @@ struct trace_event_t
     {
         return !!( flags & TRACE_FLAG_IS_VBLANK );
     }
+    bool is_timeline() const
+    {
+        return !!( flags & TRACE_FLAG_IS_TIMELINE );
+    }
 
     bool is_filtered_out;
     int pid;                    // event process id
