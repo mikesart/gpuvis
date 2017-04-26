@@ -184,7 +184,7 @@ public:
     const size_t hovered_max = 6;
     std::vector< hovered_t > hovered_items;
 
-    uint32_t hovered_graph_event = INVALID_ID;
+    uint32_t hovered_timeline_event = INVALID_ID;
 
     bool do_zoom_gfx;
     bool timeline_render_user;
@@ -444,13 +444,21 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
     timeline_render_user = !!win->m_loader.get_opt( OPT_TimelineRenderUserSpace );
 
     const std::vector< trace_event_t > &events = win->m_trace_events->m_events;
+
     uint32_t event_hov = win->m_hovered_eventlist_eventid;
     if ( is_valid_id( event_hov ) && events[ event_hov ].is_timeline() )
     {
         std::string context = get_event_gfxcontext_str( events[ event_hov ] );
         const std::vector< uint32_t > *plocs = win->m_trace_events->get_gfxcontext_locs( context.c_str() );
 
-        hovered_graph_event = plocs->back();
+        hovered_timeline_event = plocs->back();
+    }
+    else if ( is_valid_id( win->m_hovered_graph_eventid ) && events[ win->m_hovered_graph_eventid ].is_timeline() )
+    {
+        std::string context = get_event_gfxcontext_str( events[ win->m_hovered_graph_eventid ] );
+        const std::vector< uint32_t > *plocs = win->m_trace_events->get_gfxcontext_locs( context.c_str() );
+
+        hovered_timeline_event = plocs->back();
     }
 }
 
@@ -697,14 +705,14 @@ uint32_t TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
                 last_color = fence_signaled.color;
 
             // Check if we're hovering this event.
-            if ( is_valid_id( gi.hovered_graph_event ) )
+            if ( is_valid_id( gi.hovered_timeline_event ) )
             {
-                if ( gi.hovered_graph_event == fence_signaled.id )
+                if ( gi.hovered_timeline_event == fence_signaled.id )
                     hov_rect = { x0, y, x1, y + row_h };
             }
             else if ( gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
             {
-                gi.hovered_graph_event = fence_signaled.id;
+                gi.hovered_timeline_event = fence_signaled.id;
                 hov_rect = { x0, y, x1, y + row_h };
             }
 
@@ -766,15 +774,15 @@ uint32_t TraceWin::render_graph_row_timeline( graph_info_t &gi )
                 float x_hw_end = gi.ts_to_screenx( fence_signaled.ts );
                 float xleft = gi.timeline_render_user ? x_user_start : x_hwqueue_start;
 
-                if ( ( gi.hovered_graph_event == fence_signaled.id ) ||
+                if ( ( gi.hovered_timeline_event == fence_signaled.id ) ||
                     gi.mouse_pos_in_rect( xleft, x_hw_end - xleft, y, gi.text_h ) )
                 {
                     // Mouse is hovering over this fence_signaled.
                     hovered = true;
                     hov_rect = { x_user_start, y, x_hw_end, y + gi.text_h };
 
-                    if ( !is_valid_id( gi.hovered_graph_event ) )
-                        gi.hovered_graph_event = fence_signaled.id;
+                    if ( !is_valid_id( gi.hovered_timeline_event ) )
+                        gi.hovered_timeline_event = fence_signaled.id;
                 }
 
                 // Draw user bar
@@ -1550,6 +1558,9 @@ void TraceWin::handle_mouse_graph_captured( graph_info_t &gi )
 void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts )
 {
     std::string time_buf = "Time: " + ts_to_timestr( mouse_ts, m_tsoffset );
+    bool sync_event_list_to_graph = m_loader.get_opt( OPT_SyncEventListToGraph ) && m_show_eventlist;
+
+    m_highlight_ids.clear();
 
     const std::vector< uint32_t > *vblank_locs = m_trace_events->get_tdopexpr_locs( "$name=drm_vblank_event" );
     if ( vblank_locs )
@@ -1585,34 +1596,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
             time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 ) + "ms";
     }
 
-    bool sync_event_list_to_graph = m_loader.get_opt( OPT_SyncEventListToGraph ) && m_show_eventlist;
-
-    if ( is_valid_id( gi.hovered_graph_event ) )
-    {
-        const trace_event_t &event_hov = get_event( gi.hovered_graph_event );
-        std::string context = get_event_gfxcontext_str( event_hov );
-        const std::vector< uint32_t > *plocs = m_trace_events->get_gfxcontext_locs( context.c_str() );
-
-        if ( sync_event_list_to_graph )
-        {
-            // Sync event list to first event id in this context
-            m_do_gotoevent = true;
-            m_goto_eventid = plocs->at( 0 );
-        }
-
-        time_buf += string_format( "\n%s [%s]", event_hov.user_comm, context.c_str() );
-
-        for ( uint32_t id : *plocs )
-        {
-            const trace_event_t &event = get_event( id );
-
-            time_buf += string_format( "\n  %u %s %sms", event.id, event.name,
-                                       ts_to_timestr( event.duration, 0, 4 ).c_str() );
-        }
-    }
-
-    m_highlight_ids.clear();
-
+    m_hovered_graph_eventid = INVALID_ID;
     if ( !gi.hovered_items.empty() )
     {
         // Sort hovered items array by id
@@ -1622,11 +1606,12 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
             return lx.eventid < rx.eventid;
         } );
 
+        time_buf += "\n";
+
         // Show tooltip with the closest events we could drum up
         for ( graph_info_t::hovered_t &hov : gi.hovered_items )
         {
             trace_event_t &event = get_event( hov.eventid );
-            std::string gfxcontext_str = get_event_gfxcontext_str( event );
 
             m_highlight_ids.push_back( event.id );
 
@@ -1643,10 +1628,6 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
             if ( event.crtc >= 0 )
                 time_buf += std::to_string( event.crtc );
 
-            // If this is a timeline gfx context, add it plus the user comm
-            if ( !gfxcontext_str.empty() )
-                time_buf += string_format( " [%s] %s", gfxcontext_str.c_str(), event.user_comm );
-
             // Add yellow string for ftrace print events
             if ( event.is_ftrace_print() )
             {
@@ -1657,10 +1638,42 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
             }
         }
 
+        m_hovered_graph_eventid = gi.hovered_items[ 0 ].eventid;
+
         if ( sync_event_list_to_graph && !m_do_gotoevent )
         {
             m_do_gotoevent = true;
             m_goto_eventid = gi.hovered_items[ 0 ].eventid;
+        }
+    }
+
+    if ( is_valid_id( gi.hovered_timeline_event ) )
+    {
+        const trace_event_t &event_hov = get_event( gi.hovered_timeline_event );
+        std::string context = get_event_gfxcontext_str( event_hov );
+        const std::vector< uint32_t > *plocs = m_trace_events->get_gfxcontext_locs( context.c_str() );
+
+        time_buf += string_format( "\n\n%s", event_hov.user_comm );
+
+        for ( uint32_t id : *plocs )
+        {
+            const trace_event_t &event = get_event( id );
+            const char *name = event.get_timeline_name( event.name );
+
+            if ( gi.hovered_items.empty() )
+                m_highlight_ids.push_back( id );
+
+            time_buf += string_format( "\n  %u %s duration: %s%sms%s", event.id, name,
+                                       multi_text_color::yellow.c_str(),
+                                       ts_to_timestr( event.duration, 0, 4 ).c_str(),
+                                       multi_text_color::def.c_str() );
+        }
+
+        if ( sync_event_list_to_graph && !m_do_gotoevent )
+        {
+            // Sync event list to first event id in this context
+            m_do_gotoevent = true;
+            m_goto_eventid = plocs->at( 0 );
         }
     }
 

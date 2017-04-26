@@ -64,10 +64,14 @@ enum trace_flag_type_t {
     // TRACE_FLAG_NEED_RESCHED = 0x04,
     // TRACE_FLAG_HARDIRQ = 0x08, // inside an interrupt handler
     // TRACE_FLAG_SOFTIRQ = 0x10, // inside a softirq handler
-    TRACE_FLAG_FENCE_SIGNALED = 0x100,
-    TRACE_FLAG_FTRACE_PRINT = 0x200,
-    TRACE_FLAG_IS_VBLANK = 0x400,
-    TRACE_FLAG_IS_TIMELINE = 0x800,
+
+    TRACE_FLAG_FTRACE_PRINT = 0x100,
+    TRACE_FLAG_IS_VBLANK = 0x200,
+    TRACE_FLAG_IS_TIMELINE = 0x400,
+
+    TRACE_FLAG_IS_SW_QUEUE = 0x1000, // amdgpu_cs_ioctl
+    TRACE_FLAG_IS_HW_QUEUE = 0x2000, // amdgpu_sched_run_job
+    TRACE_FLAG_FENCE_SIGNALED = 0x4000, // *fence_signaled
 };
 
 #define INVALID_ID ( ( uint32_t )-1 )
@@ -94,6 +98,17 @@ struct trace_event_t
     bool is_timeline() const
     {
         return !!( flags & TRACE_FLAG_IS_TIMELINE );
+    }
+    const char *get_timeline_name( const char *def = NULL ) const
+    {
+        if ( flags & TRACE_FLAG_IS_SW_QUEUE )
+            return "SW queue";
+        else if ( flags & TRACE_FLAG_IS_HW_QUEUE )
+            return "HW queue";
+        else if ( is_fence_signaled() )
+            return "Execution";
+
+        return def;
     }
 
     bool is_filtered_out;
@@ -533,6 +548,8 @@ public:
     // Currently selected event.
     uint32_t m_selected_eventid = INVALID_ID;
     uint32_t m_hovered_eventlist_eventid = INVALID_ID;
+
+    uint32_t m_hovered_graph_eventid = INVALID_ID;
 
     std::vector< uint32_t > m_highlight_ids;
 

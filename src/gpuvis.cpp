@@ -330,7 +330,9 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
     event.flags &= ~( TRACE_FLAG_FENCE_SIGNALED |
                       TRACE_FLAG_FTRACE_PRINT |
                       TRACE_FLAG_IS_VBLANK |
-                      TRACE_FLAG_IS_TIMELINE );
+                      TRACE_FLAG_IS_TIMELINE |
+                      TRACE_FLAG_IS_SW_QUEUE |
+                      TRACE_FLAG_IS_HW_QUEUE);
 
     // fence_signaled was renamed to dma_fence_signaled post v4.9
     if ( strstr( event.name, "fence_signaled" ) )
@@ -339,6 +341,10 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
         event.flags |= TRACE_FLAG_FTRACE_PRINT;
     else if ( !strcmp( event.name, "drm_vblank_event" ) )
         event.flags |= TRACE_FLAG_IS_VBLANK;
+    else if ( strstr( event.name, "amdgpu_cs_ioctl" ) )
+        event.flags |= TRACE_FLAG_IS_SW_QUEUE;
+    else if ( strstr( event.name, "amdgpu_sched_run_job" ) )
+        event.flags |= TRACE_FLAG_IS_HW_QUEUE;
 
     // Add this event name to our event locations map
     if ( event.is_vblank() )
