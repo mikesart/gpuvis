@@ -33,6 +33,7 @@
 #include <vector>
 #include <array>
 
+#define SDL_MAIN_HANDLED
 #include <SDL.h>
 
 #include "GL/gl3w.h"

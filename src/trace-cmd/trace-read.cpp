@@ -147,8 +147,8 @@ typedef struct tracecmd_input
     std::jmp_buf jump_buffer;
 } tracecmd_input_t;
 
-[[noreturn]] static int die( tracecmd_input_t *handle, const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
-[[noreturn]] static int die( tracecmd_input_t *handle, const char *fmt, ... )
+[[noreturn]] static void die( tracecmd_input_t *handle, const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
+[[noreturn]] static void die( tracecmd_input_t *handle, const char *fmt, ... )
 {
     va_list ap;
     char *buf = NULL;

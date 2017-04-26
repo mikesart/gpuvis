@@ -568,7 +568,7 @@ uint32_t TraceWin::render_graph_print_timeline( graph_info_t &gi )
 
     uint32_t num_events = 0;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
-    bool timeline_labels = m_loader.get_opt( OPT_PrintTimelineLabels );
+    bool timeline_labels = m_loader.get_opt( OPT_PrintTimelineLabels ) != 0;
     uint32_t row_count = std::max< uint32_t >( 1, gi.h / gi.text_h - 1 );
 
     row_draw_info.resize( row_count + 1 );
