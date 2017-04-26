@@ -442,6 +442,16 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
                           !win->m_filtered_events.empty();
 
     timeline_render_user = !!win->m_loader.get_opt( OPT_TimelineRenderUserSpace );
+
+    const std::vector< trace_event_t > &events = win->m_trace_events->m_events;
+    uint32_t event_hov = win->m_hovered_eventlist_eventid;
+    if ( is_valid_id( event_hov ) && events[ event_hov ].is_timeline() )
+    {
+        std::string context = get_event_gfxcontext_str( events[ event_hov ] );
+        const std::vector< uint32_t > *plocs = win->m_trace_events->get_gfxcontext_locs( context.c_str() );
+
+        hovered_graph_event = plocs->back();
+    }
 }
 
 void graph_info_t::set_pos_y( float y_in, float h_in, const row_info_t *ri )
@@ -687,8 +697,12 @@ uint32_t TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
                 last_color = fence_signaled.color;
 
             // Check if we're hovering this event.
-            if ( !is_valid_id( gi.hovered_graph_event ) &&
-                 gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
+            if ( is_valid_id( gi.hovered_graph_event ) )
+            {
+                if ( gi.hovered_graph_event == fence_signaled.id )
+                    hov_rect = { x0, y, x1, y + row_h };
+            }
+            else if ( gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
             {
                 gi.hovered_graph_event = fence_signaled.id;
                 hov_rect = { x0, y, x1, y + row_h };
