@@ -1773,7 +1773,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
         uint32_t end_idx = std::min< uint32_t >( start_idx + 2 + visible_rows, event_count );
 
         // Draw columns
-        imgui_begin_columns( "event_list", { "Id", "Time Stamp", "Task", "Event", "context", "Info" },
+        imgui_begin_columns( "event_list", { "Id", "Time Stamp", "Task", "Event", "Duration", "Info" },
                              &inifile, &m_columns_eventlist_resized );
         {
             bool popup_shown = false;
@@ -1871,9 +1871,10 @@ void TraceWin::render_events_list( CIniFile &inifile )
                     ImGui::NextColumn();
                 }
 
-                // column 4: gfx context
+                // column 4: duration
                 {
-                    ImGui::Text( "%s", get_event_gfxcontext_str( event ).c_str() );
+                    if ( event.duration )
+                        ImGui::Text( "%sms", ts_to_timestr( event.duration, 0, 4 ).c_str() );
                     ImGui::NextColumn();
                 }
 
