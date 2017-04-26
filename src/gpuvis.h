@@ -315,6 +315,7 @@ public:
     void render( TraceLoader &loader );
     void render_options( TraceLoader &loader );
     void render_log( TraceLoader &loader );
+    void render_console( TraceLoader &loader );
 
 protected:
     static int text_edit_cb_stub( ImGuiTextEditCallbackData *data );
@@ -478,8 +479,6 @@ public:
 
     // Whether our window is open or not
     bool m_open = true;
-    // Counter for setting window focus
-    int m_setfocus = 0;
 
     GraphRows m_graphrows;
 

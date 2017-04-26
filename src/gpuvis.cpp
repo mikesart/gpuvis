@@ -279,7 +279,6 @@ void TraceLoader::new_event_window( TraceEvents *trace_events )
     TraceWin *win = new TraceWin( *this, trace_events, title );
 
     m_trace_windows_list.push_back( win );
-    win->m_setfocus = 2;
 }
 
 void TraceLoader::close_event_file( TraceEvents *trace_events, bool close_file )
@@ -1239,18 +1238,8 @@ TraceWin::~TraceWin()
 
 bool TraceWin::render()
 {
-    ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
-
-    // If we're told to set focus, wait until the mouse isn't down as they
-    //  could have clicked on a button to set focus. Also, hack to do it
-    //  twice as the button code still steals our focus if we do it once.
-    if ( m_setfocus && !ImGui::IsMouseDown( 0 ) )
-    {
-        ImGui::SetNextWindowFocus();
-        m_setfocus--;
-    }
-
     int eventsloaded = SDL_AtomicGet( &m_trace_events->m_eventsloaded );
+
     if ( eventsloaded > 0 )
     {
         ImGui::Begin( m_title.c_str(), &m_open );
@@ -2097,6 +2086,10 @@ void TraceConsole::render_log( TraceLoader &loader )
         ImGui::EndChild();
     }
 
+#if 0
+    //$ TODO: There are no useful commands yet, and the keyboard focus stuff below is broken.
+    // It's stealing focus back here when you click on buttons.
+
     ImGui::Separator();
 
     // Command-line
@@ -2123,12 +2116,11 @@ void TraceConsole::render_log( TraceLoader &loader )
         // Auto focus previous widget
         ImGui::SetKeyboardFocusHere( -1 );
     }
+#endif
 }
 
-void TraceConsole::render( TraceLoader &loader )
+void TraceConsole::render_console( TraceLoader &loader )
 {
-    ImGui::SetNextWindowSize( ImVec2( 720, 800 ), ImGuiSetCond_FirstUseEver );
-
     if ( !ImGui::Begin( "gpuvis console" ) )
     {
         ImGui::End();
@@ -2138,7 +2130,6 @@ void TraceConsole::render( TraceLoader &loader )
     ImGui::Text( "%.2f ms/frame (%.1f FPS)",
                  1000.0f / ImGui::GetIO().Framerate,
                  ImGui::GetIO().Framerate );
-
     if ( ImGui::CollapsingHeader( "Trace File", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
         bool is_loading = loader.is_loading();
@@ -2220,8 +2211,17 @@ void TraceConsole::render( TraceLoader &loader )
     if ( ImGui::CollapsingHeader( "Log", ImGuiTreeNodeFlags_DefaultOpen ) )
         render_log( loader );
 
+    ImGui::End();
+}
+
+void TraceConsole::render( TraceLoader &loader )
+{
+    render_console( loader );
+
     if ( m_show_imgui_test_window )
+    {
         ImGui::ShowTestWindow( &m_show_imgui_test_window );
+    }
 
     if ( m_show_imgui_style_editor )
     {
@@ -2231,9 +2231,9 @@ void TraceConsole::render( TraceLoader &loader )
     }
 
     if ( m_show_imgui_metrics_editor )
+    {
         ImGui::ShowMetricsWindow( &m_show_imgui_metrics_editor );
-
-    ImGui::End();
+    }
 }
 
 void TraceConsole::exec_command( const std::string &cmdlinein )
