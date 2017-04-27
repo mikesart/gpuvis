@@ -1407,11 +1407,11 @@ bool TraceWin::render()
 
     if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        if ( imgui_input_text( "Start:", "##GraphStart", m_graphtime_start_buf, 150 ) )
+        if ( imgui_input_text( "Start:", "##GraphStart", m_graphtime_start_buf, 150.0f ) )
             m_graph_start_ts = timestr_to_ts( m_graphtime_start_buf );
 
         ImGui::SameLine();
-        if ( imgui_input_text( "Length:", "##GraphLength", m_graphtime_length_buf, 150 ) )
+        if ( imgui_input_text( "Length:", "##GraphLength", m_graphtime_length_buf, 150.0f ) )
             m_graph_length_ts = timestr_to_ts( m_graphtime_length_buf );
 
         ImGui::SameLine();
@@ -1460,18 +1460,18 @@ bool TraceWin::render()
         m_do_gotoevent |= imgui_input_int( &m_goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
 
         ImGui::SameLine();
-        if ( imgui_input_text( "Goto Time:", "##GotoTime", m_timegoto_buf, 150 ) )
+        if ( imgui_input_text( "Goto Time:", "##GotoTime", m_timegoto_buf, 150.0f ) )
         {
             m_do_gotoevent = true;
             m_goto_eventid = timestr_to_eventid( m_timegoto_buf, m_tsoffset );
         }
 
         ImGui::SameLine();
-        if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_timeoffset_buf, 150 ) )
+        if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_timeoffset_buf, 150.0f ) )
             m_tsoffset = timestr_to_ts( m_timeoffset_buf );
 
         if ( m_do_event_filter ||
-             imgui_input_text( "Event Filter:", "##Event Filter", m_event_filter_buf, 500,
+             imgui_input_text( "Event Filter:", "##Event Filter", m_event_filter_buf, 500.0f,
                                ImGuiInputTextFlags_EnterReturnsTrue ) )
         {
             m_filtered_events.clear();
@@ -2033,6 +2033,7 @@ void TraceConsole::init( CIniFile *inifile )
 
     logf( "graph shortcuts:" );
     logf( "  shift+click+drag: zoom to selection" );
+    logf( "  ctrl+click+drag: select area to see time" );
     logf( "  click+drag: pan graph" );
 
     //$ TODO mikesart: use https://github.com/SirCmpwn/libccmd.git

@@ -579,6 +579,8 @@ uint32_t TraceWin::render_graph_print_timeline( graph_info_t &gi )
     int64_t ts = timeline_labels ? gi.screenx_to_ts( gi.x - m_trace_events->m_buf_size_max_x ) : gi.ts0;
     uint32_t eventstart = ts_to_eventid( ts );
 
+    static float dx = imgui_scale( 3.0f );
+
     for ( size_t idx = vec_find_eventid( locs, eventstart );
           idx < locs.size();
           idx++ )
@@ -597,13 +599,15 @@ uint32_t TraceWin::render_graph_print_timeline( graph_info_t &gi )
         // Check if we drew something on this row already
         if ( row_draw_info[ row_id ].print_info )
         {
-            float x0 = row_draw_info[ row_id ].x;
-            const TraceEvents::event_print_info_t *print_info = row_draw_info[ row_id ].print_info;
+            const row_draw_info_t &draw_info = row_draw_info[ row_id ];
+            float x0 = draw_info.x + dx;
+            const TraceEvents::event_print_info_t *print_info = draw_info.print_info;
 
             // If we did and there is room, draw the ftrace print buf
             if ( x - x0 > print_info->buf_size.x )
             {
-                imgui_drawrect( x0, print_info->buf_size.x, y + imgui_scale( 2.0f ), print_info->buf_size.y, event.color );
+                imgui_drawrect( x0, print_info->buf_size.x + 1.0f, y + imgui_scale( 2.0f ), print_info->buf_size.y,
+                                draw_info.event->color );
                 imgui_draw_text( x0, y + imgui_scale( 2.0f ), print_info->buf, IM_COL32_WHITE );
             }
         }
@@ -632,11 +636,11 @@ uint32_t TraceWin::render_graph_print_timeline( graph_info_t &gi )
 
         if ( print_info )
         {
-            float x0 = draw_info.x;
+            float x0 = draw_info.x + dx;
             float y = gi.y + row_id * gi.text_h;
             const trace_event_t *event = draw_info.event;
 
-            imgui_drawrect( x0, print_info->buf_size.x, y + imgui_scale( 2.0f ), print_info->buf_size.y, event->color );
+            imgui_drawrect( x0, print_info->buf_size.x + 1.0f, y + imgui_scale( 2.0f ), print_info->buf_size.y, event->color );
             imgui_draw_text( x0, y + imgui_scale( 2.0f ), print_info->buf, IM_COL32_WHITE );
         }
     }
@@ -1800,7 +1804,9 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
         {
             // right click: popup menu
             m_graph_popupmenu = true;
+
             m_graph_rows_hidden_rows = m_graphrows.get_hidden_rows_list( m_trace_events );
+            m_new_graph_row_errstr = "";
 
             ImGui::OpenPopup( "GraphPopup" );
         }
