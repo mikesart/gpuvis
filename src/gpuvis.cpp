@@ -40,16 +40,6 @@
 #include "gpuvis.h"
 #include "tdopexpr.h"
 
-/*
-   (11:40:57 AM) Pierre-Loup A. Griffais: Eric is looking at the UI now
-   (11:41:10 AM) Pierre-Loup A. Griffais: he suggested we switch to this font, it apparently does well at small text sizes
-   (11:41:20 AM) Pierre-Loup A. Griffais: and to enable anti-aliasing if it's doable
-   (11:41:26 AM) Pierre-Loup A. Griffais: https://fonts.google.com/specimen/Roboto+Condensed?selection.family=Roboto+Condensed
-   (11:41:47 AM) Pierre-Loup A. Griffais: (you can download the TTF by clicking "select this font" and clicking on the "download" button in the top right of the popup that shows)
-   (03:17:58 PM) Pierre-Loup A. Griffais: he also suggested you separate the bars in the print timeline from the labels
-   (03:17:59 PM) Pierre-Loup A. Griffais: with a little gap
- */
-
 multi_text_color multi_text_color::yellow = { ImVec4( 1, 1, 0, 1 ) };
 multi_text_color multi_text_color::def = { ImVec4( 0.90f, 0.90f, 0.90f, 1.00f ) };
 

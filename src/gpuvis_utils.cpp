@@ -462,11 +462,16 @@ void imgui_multicolored_text( const char *text, const ImVec4 &color0 )
 void imgui_load_fonts()
 {
 #include "proggy_tiny.cpp"
+// #include "RobotoCondensed_Regular.cpp"
 
     ImGuiIO &io = ImGui::GetIO();
 
     // Add default font
     io.Fonts->AddFontDefault();
+
+    // Add Roboto Condensed Regular
+    // io.Fonts->AddFontFromMemoryCompressedTTF(
+    //    RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, 10.0f );
 
     // Add ProggyTiny font
     io.Fonts->AddFontFromMemoryCompressedTTF(
