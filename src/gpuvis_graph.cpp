@@ -1362,6 +1362,30 @@ bool TraceWin::render_graph_popupmenu( graph_info_t &gi )
 
             ImGui::EndMenu();
         }
+
+    }
+
+    if ( !m_mouse_over_row_name.empty() )
+    {
+        std::string move_label = string_format( "Move '%s' after", m_mouse_over_row_name.c_str() );
+
+        if ( ImGui::BeginMenu( move_label.c_str() ) )
+        {
+            for ( const GraphRows::graph_rows_info_t &entry : m_graphrows.m_graph_rows_list )
+            {
+                if ( !entry.hidden && ( entry.name != m_mouse_over_row_name ) )
+                {
+                    if ( ImGui::MenuItem( entry.name.c_str() ) )
+                    {
+                        m_graphrows.move_row( m_mouse_over_row_name, entry.name );
+                        ImGui::CloseCurrentPopup();
+                        break;
+                    }
+                }
+            }
+
+            ImGui::EndMenu();
+        }
     }
 
     {

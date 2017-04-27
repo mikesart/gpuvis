@@ -388,33 +388,13 @@ public:
         HIDE_ROW_AND_ALL_BELOW
     };
     void show_row( const std::string &name, graph_rows_show_t show );
+    void add_row( TraceEvents *trace_events, const std::string &name );
+    void move_row( const std::string &name_src, const std::string &name_dest );
+
+    // Search in m_graph_rows_list for name. Returns index or -1 if not found.
+    size_t find_row( const std::string &name );
 
     void rename_comm( TraceEvents *trace_events, const char *comm_old, const char *comm_new );
-
-    void add_row( TraceEvents *trace_events, const std::string &name )
-    {
-        TraceEvents::loc_type_t type;
-        const std::vector< uint32_t > *plocs = trace_events->get_locs( name.c_str(), &type );
-        size_t size = plocs ? plocs->size() : 0;
-
-        // Add expression to our added rows list
-        m_graph_rows_add.push_back( name );
-
-        for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
-        {
-            // Add this new filter expression before the first comm / tdop expression event we find
-            if ( m_graph_rows_list[ i ].type == TraceEvents::LOC_TYPE_Tdopexpr ||
-                 m_graph_rows_list[ i ].type == TraceEvents::LOC_TYPE_Comm )
-            {
-
-                m_graph_rows_list.insert( m_graph_rows_list.begin() + i,
-                        { type, size, name, false } );
-                return;
-            }
-        }
-
-        m_graph_rows_list.push_back( { type, size, name, false } );
-    }
 
 public:
     // List of graph rows
@@ -423,6 +403,8 @@ public:
     std::vector< std::string > m_graph_rows_hide;
     // List of filter expression we need to add to graph rows list
     std::vector< std::string > m_graph_rows_add;
+
+    util_umap< std::string, std::string > m_graph_rows_move;
 };
 
 class TraceWin

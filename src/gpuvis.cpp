@@ -739,6 +739,23 @@ void GraphRows::init( CIniFile &inifile, TraceEvents *trace_events )
             add_row( trace_events, name );
     }
 
+    std::vector< INIEntry > entries = inifile.GetSectionEntries( "$graph_rows_move_after$" );
+    if ( !entries.empty() )
+    {
+        // Do the moves twice to handle move dependencies
+        for ( int i = 0; i < 2; i++ )
+        {
+            for ( const INIEntry &entry : entries )
+            {
+                std::string name_src = entry.first;
+
+                // Undo any = replacements we did when saving to ini file
+                string_replace_str( name_src, "**equalsign**", "=" );
+
+                move_row( name_src, entry.second );
+            }
+        }
+    }
 
     std::string graph_rows_hide_str = inifile.GetStr( "graph_rows_hide_str", "" );
     if ( !graph_rows_hide_str.empty() )
@@ -764,6 +781,59 @@ void GraphRows::rename_comm( TraceEvents *trace_events, const char *comm_old, co
             break;
         }
     }
+}
+
+void GraphRows::add_row( TraceEvents *trace_events, const std::string &name )
+{
+    TraceEvents::loc_type_t type;
+    const std::vector< uint32_t > *plocs = trace_events->get_locs( name.c_str(), &type );
+    size_t size = plocs ? plocs->size() : 0;
+
+    // Add expression to our added rows list
+    m_graph_rows_add.push_back( name );
+
+    for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
+    {
+        // Add this new filter expression before the first comm / tdop expression event we find
+        if ( m_graph_rows_list[ i ].type == TraceEvents::LOC_TYPE_Tdopexpr ||
+             m_graph_rows_list[ i ].type == TraceEvents::LOC_TYPE_Comm )
+        {
+
+            m_graph_rows_list.insert( m_graph_rows_list.begin() + i,
+            { type, size, name, false } );
+            return;
+        }
+    }
+
+    m_graph_rows_list.push_back( { type, size, name, false } );
+}
+
+void GraphRows::move_row( const std::string &name_src, const std::string &name_dest )
+{
+    size_t index_src = find_row( name_src );
+    size_t index_dest = find_row( name_dest );
+
+    if ( ( index_dest != ( size_t )-1 ) &&
+         ( index_src != ( size_t )-1 ) &&
+         ( index_src != index_dest ) )
+    {
+        m_graph_rows_list.insert( m_graph_rows_list.begin() + index_dest + 1,
+                                  m_graph_rows_list[ index_src ] );
+
+        m_graph_rows_list.erase( m_graph_rows_list.begin() + index_src + ( index_src > index_dest ) );
+    }
+
+    m_graph_rows_move.m_map[ name_src ] = name_dest;
+}
+
+// Search in m_graph_rows_list for name. Returns index or -1 if not found.
+size_t GraphRows::find_row( const std::string &name )
+{
+    auto lambda_name_cmp = [ &name ]( const GraphRows::graph_rows_info_t& row_info )
+                                        { return row_info.name == name; };
+    auto idx = std::find_if( m_graph_rows_list.begin(), m_graph_rows_list.end(), lambda_name_cmp );
+
+    return ( idx != m_graph_rows_list.end() ) ? ( idx - m_graph_rows_list.begin() ) : ( size_t )-1;
 }
 
 /*
@@ -1263,6 +1333,15 @@ TraceWin::~TraceWin()
 
     str = string_implode( m_graphrows.m_graph_rows_add, "," );
     m_loader.m_inifile.PutStr( "graph_rows_add_str", str.c_str() );
+
+    for ( const auto &item : m_graphrows.m_graph_rows_move.m_map )
+    {
+        std::string key = item.first;
+
+        // Can't have equal signs in our ini keys...
+        string_replace_str( key, "=", "**equalsign**" );
+        m_loader.m_inifile.PutStr( key.c_str(), item.second.c_str(), "$graph_rows_move_after$" );
+    }
 }
 
 bool TraceWin::render()
