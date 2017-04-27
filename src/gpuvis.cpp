@@ -40,8 +40,15 @@
 #include "gpuvis.h"
 #include "tdopexpr.h"
 
-// String we prefix graph rows with to hide them
-static const char g_hide_row_str[] = "#hide# ";
+/*
+   (11:40:57 AM) Pierre-Loup A. Griffais: Eric is looking at the UI now
+   (11:41:10 AM) Pierre-Loup A. Griffais: he suggested we switch to this font, it apparently does well at small text sizes
+   (11:41:20 AM) Pierre-Loup A. Griffais: and to enable anti-aliasing if it's doable
+   (11:41:26 AM) Pierre-Loup A. Griffais: https://fonts.google.com/specimen/Roboto+Condensed?selection.family=Roboto+Condensed
+   (11:41:47 AM) Pierre-Loup A. Griffais: (you can download the TTF by clicking "select this font" and clicking on the "download" button in the top right of the popup that shows)
+   (03:17:58 PM) Pierre-Loup A. Griffais: he also suggested you separate the bars in the print timeline from the labels
+   (03:17:59 PM) Pierre-Loup A. Griffais: with a little gap
+ */
 
 multi_text_color multi_text_color::yellow = { ImVec4( 1, 1, 0, 1 ) };
 multi_text_color multi_text_color::def = { ImVec4( 0.90f, 0.90f, 0.90f, 1.00f ) };
@@ -603,7 +610,7 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
 {
     if ( show == GraphRows::SHOW_ALL_ROWS )
     {
-        m_graph_rows_list_hide.clear();
+        m_graph_rows_hide.clear();
 
         for ( graph_rows_info_t &row_info : m_graph_rows_list )
             row_info.hidden = false;
@@ -611,9 +618,9 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
     else if ( show == GraphRows::SHOW_ROW )
     {
         // Remove this name from the graph_rows_hide array
-        auto idx = std::find( m_graph_rows_list_hide.begin(), m_graph_rows_list_hide.end(), name );
-        if ( idx != m_graph_rows_list_hide.end() )
-            m_graph_rows_list_hide.erase( idx );
+        auto idx = std::find( m_graph_rows_hide.begin(), m_graph_rows_hide.end(), name );
+        if ( idx != m_graph_rows_hide.end() )
+            m_graph_rows_hide.erase( idx );
 
         // Search for it in m_graph_rows_list and mark as not hidden
         for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
@@ -634,9 +641,9 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
             if ( found || ( m_graph_rows_list[ i ].name == name ) )
             {
                 // Add entry to the graph_rows_hide array
-                auto idx = std::find( m_graph_rows_list_hide.begin(), m_graph_rows_list_hide.end(), m_graph_rows_list[ i ].name );
-                if ( idx == m_graph_rows_list_hide.end() )
-                    m_graph_rows_list_hide.push_back( m_graph_rows_list[ i ].name );
+                auto idx = std::find( m_graph_rows_hide.begin(), m_graph_rows_hide.end(), m_graph_rows_list[ i ].name );
+                if ( idx == m_graph_rows_hide.end() )
+                    m_graph_rows_hide.push_back( m_graph_rows_list[ i ].name );
 
                 // Mark this graph_row as hidden
                 m_graph_rows_list[ i ].hidden = true;
@@ -645,6 +652,7 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
                     break;
 
                 found = true;
+
             }
         }
     }
@@ -657,10 +665,11 @@ void GraphRows::init( CIniFile &inifile, TraceEvents *trace_events )
         return;
 
     // Order: gfx -> compute -> gfx hw -> compute hw -> sdma -> sdma hw
+    TraceEvents::loc_type_t type;
     const std::vector< uint32_t > *plocs;
 
-    if ( ( plocs = trace_events->get_locs( "gfx" ) ) )
-        m_graph_rows_list.push_back( { plocs->size(), "gfx", false } );
+    if ( ( plocs = trace_events->get_locs( "gfx", &type ) ) )
+        m_graph_rows_list.push_back( { type, plocs->size(), "gfx", false } );
 
     // Andres: full list of compute rings is comp_[1-2].[0-3].[0-8]
     for ( int c0 = 1; c0 < 3; c0++)
@@ -671,14 +680,14 @@ void GraphRows::init( CIniFile &inifile, TraceEvents *trace_events )
             {
                 std::string str = string_format( "comp_%d.%d.%d", c0, c1, c2 );
 
-                if ( ( plocs = trace_events->get_locs( str.c_str() ) ) )
-                    m_graph_rows_list.push_back( { plocs->size(), str, false } );
+                if ( ( plocs = trace_events->get_locs( str.c_str(), &type ) ) )
+                    m_graph_rows_list.push_back( { type, plocs->size(), str, false } );
             }
         }
     }
 
-    if ( ( plocs = trace_events->get_locs( "gfx hw" ) ) )
-        m_graph_rows_list.push_back( { plocs->size(), "gfx hw", false } );
+    if ( ( plocs = trace_events->get_locs( "gfx hw", &type ) ) )
+        m_graph_rows_list.push_back( { type, plocs->size(), "gfx hw", false } );
 
     for ( int c0 = 1; c0 < 3; c0++)
     {
@@ -688,19 +697,19 @@ void GraphRows::init( CIniFile &inifile, TraceEvents *trace_events )
             {
                 std::string str = string_format( "comp_%d.%d.%d hw", c0, c1, c2 );
 
-                if ( ( plocs =trace_events->get_locs( str.c_str() ) ) )
-                    m_graph_rows_list.push_back( { plocs->size(), str, false } );
+                if ( ( plocs =trace_events->get_locs( str.c_str(), &type ) ) )
+                    m_graph_rows_list.push_back( { type, plocs->size(), str, false } );
             }
         }
     }
 
-    if ( ( plocs = trace_events->get_locs( "sdma0" ) ) )
-        m_graph_rows_list.push_back( { plocs->size(), "sdma0", false } );
-    if ( ( plocs = trace_events->get_locs( "sdma1" ) ) )
-        m_graph_rows_list.push_back( { plocs->size(), "sdma1", false } );
+    if ( ( plocs = trace_events->get_locs( "sdma0", &type ) ) )
+        m_graph_rows_list.push_back( { type, plocs->size(), "sdma0", false } );
+    if ( ( plocs = trace_events->get_locs( "sdma1", &type ) ) )
+        m_graph_rows_list.push_back( { type, plocs->size(), "sdma1", false } );
 
-    if ( ( plocs = trace_events->get_locs( "print" ) ) )
-        m_graph_rows_list.push_back( { plocs->size(), "print", false } );
+    if ( ( plocs = trace_events->get_locs( "print", &type ) ) )
+        m_graph_rows_list.push_back( { type, plocs->size(), "print", false } );
 
     std::vector< graph_rows_info_t > comms;
     for ( auto item : trace_events->m_comm_locations.m_locs.m_map )
@@ -708,7 +717,7 @@ void GraphRows::init( CIniFile &inifile, TraceEvents *trace_events )
         uint32_t hashval = item.first;
         const char *comm = trace_events->m_strpool.findstr( hashval );
 
-        comms.push_back( { item.second.size(), comm, false } );
+        comms.push_back( { TraceEvents::LOC_TYPE_Comm, item.second.size(), comm, false } );
     }
 
     // Sort by count of events
@@ -721,16 +730,26 @@ void GraphRows::init( CIniFile &inifile, TraceEvents *trace_events )
     // Add the sorted comm events to our m_graph_rows_list array
     m_graph_rows_list.insert( m_graph_rows_list.end(), comms.begin(), comms.end() );
 
+    std::string graph_rows_add_str = inifile.GetStr( "graph_rows_add_str", "" );
+    if ( !graph_rows_add_str.empty() )
+    {
+        std::vector< std::string > rows_add = string_explode( graph_rows_add_str, ',' );
+
+        for ( const std::string &name : rows_add )
+            add_row( trace_events, name );
+    }
+
+
     std::string graph_rows_hide_str = inifile.GetStr( "graph_rows_hide_str", "" );
     if ( !graph_rows_hide_str.empty() )
     {
-        m_graph_rows_list_hide = string_explode( graph_rows_hide_str, ',' );
+        m_graph_rows_hide = string_explode( graph_rows_hide_str, ',' );
 
         for ( graph_rows_info_t &row_info : m_graph_rows_list )
         {
-            auto idx = std::find( m_graph_rows_list_hide.begin(), m_graph_rows_list_hide.end(), row_info.name );
+            auto idx = std::find( m_graph_rows_hide.begin(), m_graph_rows_hide.end(), row_info.name );
 
-            row_info.hidden = ( idx != m_graph_rows_list_hide.end() );
+            row_info.hidden = ( idx != m_graph_rows_hide.end() );
         }
     }
 }
@@ -935,7 +954,7 @@ const char *filter_get_keyval_func( const trace_event_t *event, const char *name
     return "";
 }
 
-const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name )
+const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name, std::string *err )
 {
     std::vector< uint32_t > *plocs;
     uint32_t hashval = fnv_hashstr32( name );
@@ -959,7 +978,10 @@ const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name 
 
         if ( !tdop_expr )
         {
-            logf( "[Error] compiling '%s': %s", name, errstr.c_str() );
+            if ( err )
+                *err = errstr;
+            else
+                logf( "[Error] compiling '%s': %s", name, errstr.c_str() );
         }
         else
         {
@@ -1236,8 +1258,11 @@ TraceWin::~TraceWin()
 {
     m_loader.m_inifile.PutStr( "event_filter_buf", m_event_filter_buf );
 
-    std::string m_graph_rows_hide_str = string_implode( m_graphrows.m_graph_rows_list_hide, "," );
-    m_loader.m_inifile.PutStr( "graph_rows_hide_str", m_graph_rows_hide_str.c_str() );
+    std::string str = string_implode( m_graphrows.m_graph_rows_hide, "," );
+    m_loader.m_inifile.PutStr( "graph_rows_hide_str", str.c_str() );
+
+    str = string_implode( m_graphrows.m_graph_rows_add, "," );
+    m_loader.m_inifile.PutStr( "graph_rows_add_str", str.c_str() );
 }
 
 bool TraceWin::render()
@@ -1522,7 +1547,7 @@ void TraceWin::render_trace_info()
     }
 }
 
-bool TraceWin::render_events_list_popup( uint32_t eventid )
+bool TraceWin::render_events_list_popupmenu( uint32_t eventid )
 {
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
         return false;
@@ -1620,7 +1645,7 @@ static float get_keyboard_scroll_lines( float visible_rows )
 }
 
 
-bool TraceWin::handle_event_list_mouse( const trace_event_t &event, uint32_t i )
+bool TraceWin::handle_events_list_mouse( const trace_event_t &event, uint32_t i )
 {
     bool popup_shown = false;
 
@@ -1637,7 +1662,7 @@ bool TraceWin::handle_event_list_mouse( const trace_event_t &event, uint32_t i )
             // If they right clicked, show the context menu.
             m_events_list_popup_eventid = i;
 
-            // Open the popup for render_events_list_popup().
+            // Open the popup for render_events_list_popupmenu().
             ImGui::OpenPopup( "EventsListPopup" );
         }
         else
@@ -1660,7 +1685,7 @@ bool TraceWin::handle_event_list_mouse( const trace_event_t &event, uint32_t i )
 
         imgui_pop_smallfont();
 
-        if ( !TraceWin::render_events_list_popup( eventid ) )
+        if ( !TraceWin::render_events_list_popupmenu( eventid ) )
             m_events_list_popup_eventid = INVALID_ID;
 
         imgui_push_smallfont();
@@ -1832,7 +1857,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
                     ImGui::SetItemAllowOverlap();
 
                     // Handle popup menu / tooltip
-                    popup_shown |= handle_event_list_mouse( event, i );
+                    popup_shown |= handle_events_list_mouse( event, i );
 
                     ImGui::NextColumn();
                 }
@@ -1904,7 +1929,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
             if ( !popup_shown )
             {
                 // When we modify a filter via the context menu, it can hide the item
-                //  we right clicked on which means render_events_list_popup() won't get
+                //  we right clicked on which means render_events_list_popupmenu() won't get
                 //  called. Check for that case here.
                 m_events_list_popup_eventid = INVALID_ID;
             }

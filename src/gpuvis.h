@@ -199,7 +199,7 @@ public:
 
 public:
     // Return vec of locations for a tdop expression. Ie: "$name=drm_handle_vblank"
-    const std::vector< uint32_t > *get_tdopexpr_locs( const char *name );
+    const std::vector< uint32_t > *get_tdopexpr_locs( const char *name, std::string *err = nullptr );
     // Return vec of locations for a cmdline. Ie: "SkinningApp-1536"
     const std::vector< uint32_t > *get_comm_locs( const char *name );
     // "gfx", "sdma0", etc.
@@ -373,6 +373,7 @@ public:
 
     struct graph_rows_info_t
     {
+        TraceEvents::loc_type_t type;
         size_t event_count;
         std::string name;
         bool hidden;
@@ -390,11 +391,35 @@ public:
 
     void rename_comm( TraceEvents *trace_events, const char *comm_old, const char *comm_new );
 
+    void add_row( TraceEvents *trace_events, const std::string &name )
+    {
+        TraceEvents::loc_type_t type;
+        const std::vector< uint32_t > *plocs = trace_events->get_locs( name.c_str(), &type );
+
+        m_graph_rows_add.push_back( name );
+
+        for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
+        {
+            if ( m_graph_rows_list[ i ].type == TraceEvents::LOC_TYPE_Tdopexpr ||
+                 m_graph_rows_list[ i ].type == TraceEvents::LOC_TYPE_Comm )
+            {
+                size_t size = plocs ? plocs->size() : 0;
+                m_graph_rows_list.insert( m_graph_rows_list.begin() + i,
+                        { type, size, name, false } );
+                return;
+            }
+        }
+
+        m_graph_rows_list.push_back( { type, plocs->size(), name, false } );
+    }
+
 public:
     // List of graph rows
     std::vector< graph_rows_info_t > m_graph_rows_list;
     // List of graph rows we need to hide
-    std::vector< std::string > m_graph_rows_list_hide;
+    std::vector< std::string > m_graph_rows_hide;
+    // List of filter expression we need to add to graph rows list
+    std::vector< std::string > m_graph_rows_add;
 };
 
 class TraceWin
@@ -419,13 +444,13 @@ protected:
 
 protected:
     // Handle events list popup menu
-    bool render_events_list_popup( uint32_t eventid );
+    bool render_events_list_popupmenu( uint32_t eventid );
 
     // Initialize m_graph_start_ts
     void render_time_offset_button_init( TraceEvents &trace_events );
 
     // Handle mouse clicking and tooltips for event list
-    bool handle_event_list_mouse( const trace_event_t &event, uint32_t i );
+    bool handle_events_list_mouse( const trace_event_t &event, uint32_t i );
 
     // Render regular graph row
     void render_graph_row( class graph_info_t &gi );
@@ -441,8 +466,8 @@ protected:
 
     // Render graph vblanks, tick markers, mouse location, etc.
     void render_graph_vblanks( class graph_info_t &gi );
-    // Right clicking on graph
-    bool render_graph_popup( class graph_info_t &gi );
+    // Handle graph popup menu
+    bool render_graph_popupmenu( class graph_info_t &gi );
 
     // Mouse wheel, clicking for graph
     void handle_mouse_graph( class graph_info_t &gi );
@@ -524,11 +549,13 @@ public:
 
     float m_resize_graph_click_pos = 0.0f;
 
-    bool m_graph_popup = false;
+    bool m_graph_popupmenu = false;
     std::string m_mouse_over_row_name;
     std::vector< GraphRows::graph_rows_info_t > m_graph_rows_hidden_rows;
 
     char m_rename_comm_buf[ 512 ] = { 0 };
+    char m_new_graph_row_buf[ 512 ] = { 0 };
+    std::string m_new_graph_row_errstr;
 
     // Graph Start
     bool m_do_graph_start_timestr = false;

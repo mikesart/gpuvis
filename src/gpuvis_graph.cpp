@@ -364,14 +364,16 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
             continue;
 
         plocs = trace_events->get_locs( comm.c_str(), &rinfo.loc_type );
-        if ( !plocs )
-            continue;
 
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
         rinfo.comm = comm;
 
-        if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Print )
+        if ( !plocs )
+        {
+            rinfo.render_cb = nullptr;
+        }
+        else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Print )
         {
             // ftrace print row
             rinfo.row_h = win->m_loader.get_opt( OPT_TimelinePrint ) * text_h;
@@ -915,7 +917,7 @@ void TraceWin::render_graph_row( graph_info_t &gi )
         col_get( col_GraphRowBk ) );
 
     // Call the render callback function
-    uint32_t num_events = gi.prinfo_cur->render_cb( gi );
+    uint32_t num_events = gi.prinfo_cur->render_cb ? gi.prinfo_cur->render_cb( gi ) : 0;
 
     // Draw row label
     std::string label = string_format( "%u) %s", gi.prinfo_cur->id, comm.c_str() );
@@ -1234,7 +1236,7 @@ void TraceWin::render_process_graph()
                                           gi.visible_graph_height - gi.total_graph_height, 0.0f );
 
         // If we don't have a popup menu, clear the mouse over row name
-        if ( !m_graph_popup )
+        if ( !m_graph_popupmenu )
         {
             m_mouse_over_row_name = "";
             m_rename_comm_buf[ 0 ] = 0;
@@ -1306,7 +1308,7 @@ void TraceWin::render_process_graph()
     }
 }
 
-bool TraceWin::render_graph_popup( graph_info_t &gi )
+bool TraceWin::render_graph_popupmenu( graph_info_t &gi )
 {
     option_id_t optid = OPT_Invalid;
 
@@ -1360,6 +1362,45 @@ bool TraceWin::render_graph_popup( graph_info_t &gi )
 
             ImGui::EndMenu();
         }
+    }
+
+    {
+        ImGui::AlignFirstTextHeightToWidgets();
+        ImGui::Text( "New Graph Row:" );
+
+        ImGui::SameLine();
+        if ( ImGui::InputText( "##new_graph_row", m_new_graph_row_buf, sizeof( m_new_graph_row_buf ),
+                               ImGuiInputTextFlags_EnterReturnsTrue ) )
+        {
+            m_new_graph_row_errstr.clear();
+
+            if ( m_trace_events->get_tdopexpr_locs( m_new_graph_row_buf, &m_new_graph_row_errstr ) )
+            {
+                m_graphrows.add_row( m_trace_events, m_new_graph_row_buf );
+                ImGui::CloseCurrentPopup();
+            }
+            else if ( m_new_graph_row_errstr.empty() )
+            {
+                m_new_graph_row_errstr = string_format( "ERROR: no events found for '%s'", m_new_graph_row_buf );
+            }
+        }
+
+        if ( ImGui::IsItemHovered() )
+        {
+            std::string tooltip;
+
+            tooltip += multi_text_color::yellow.m_str( "Add a new row with filtered events\n\n" );
+            tooltip += "Examples:\n";
+            tooltip += "  $pid = 4615\n";
+            tooltip += "  $duration >= 5.5\n";
+            tooltip += "  $buf =~ \"[Compositor] Warp\"\n";
+            tooltip += "  ( $timeline = gfx ) && ( $id < 10 || $id > 100 )";
+
+            imgui_set_tooltip( tooltip );
+        }
+
+        if ( !m_new_graph_row_errstr.empty() )
+            ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_new_graph_row_errstr.c_str() );
     }
 
     if ( m_trace_events->get_comm_locs( m_mouse_over_row_name.c_str() ) )
@@ -1675,9 +1716,9 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
 void TraceWin::handle_mouse_graph( graph_info_t &gi )
 {
     // If we've got an active popup menu, render it.
-    if ( m_graph_popup )
+    if ( m_graph_popupmenu )
     {
-        m_graph_popup = TraceWin::render_graph_popup( gi );
+        m_graph_popupmenu = TraceWin::render_graph_popupmenu( gi );
         return;
     }
 
@@ -1734,7 +1775,7 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
         else if ( ImGui::IsMouseClicked( 1 ) )
         {
             // right click: popup menu
-            m_graph_popup = true;
+            m_graph_popupmenu = true;
             m_graph_rows_hidden_rows = m_graphrows.get_hidden_rows_list( m_trace_events );
 
             ImGui::OpenPopup( "GraphPopup" );
