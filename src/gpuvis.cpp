@@ -256,14 +256,14 @@ void TraceLoader::new_event_window( TraceEvents *trace_events )
 
     for ( int i = ( int )m_trace_windows_list.size() - 1; i >= 0; i-- )
     {
-        if ( m_trace_windows_list[ i ]->m_trace_events == trace_events )
+        if ( &m_trace_windows_list[ i ]->m_trace_events == trace_events )
             refcount++;
     }
 
     if ( refcount )
         title += string_format( " #%lu", refcount + 1 );
 
-    TraceWin *win = new TraceWin( *this, trace_events, title );
+    TraceWin *win = new TraceWin( *this, *trace_events, title );
 
     m_trace_windows_list.push_back( win );
 }
@@ -274,7 +274,7 @@ void TraceLoader::close_event_file( TraceEvents *trace_events, bool close_file )
     {
         TraceWin *win = m_trace_windows_list[ i ];
 
-        if ( win->m_open && ( win->m_trace_events == trace_events ) )
+        if ( win->m_open && ( &win->m_trace_events == trace_events ) )
             win->m_open = false;
     }
 
@@ -584,7 +584,7 @@ void TraceLoader::render()
 /*
  * GraphRows
  */
-const std::vector< GraphRows::graph_rows_info_t > GraphRows::get_hidden_rows_list( TraceEvents *trace_events )
+const std::vector< GraphRows::graph_rows_info_t > GraphRows::get_hidden_rows_list()
 {
     std::vector< graph_rows_info_t > hidden_rows;
 
@@ -650,7 +650,7 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
 }
 
 // Initialize m_graph_rows_list
-void GraphRows::init( CIniFile &inifile, TraceEvents *trace_events )
+void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
 {
     if ( !m_graph_rows_list.empty() )
         return;
@@ -659,7 +659,7 @@ void GraphRows::init( CIniFile &inifile, TraceEvents *trace_events )
     TraceEvents::loc_type_t type;
     const std::vector< uint32_t > *plocs;
 
-    if ( ( plocs = trace_events->get_locs( "gfx", &type ) ) )
+    if ( ( plocs = trace_events.get_locs( "gfx", &type ) ) )
         m_graph_rows_list.push_back( { type, plocs->size(), "gfx", false } );
 
     // Andres: full list of compute rings is comp_[1-2].[0-3].[0-8]
@@ -671,13 +671,13 @@ void GraphRows::init( CIniFile &inifile, TraceEvents *trace_events )
             {
                 std::string str = string_format( "comp_%d.%d.%d", c0, c1, c2 );
 
-                if ( ( plocs = trace_events->get_locs( str.c_str(), &type ) ) )
+                if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
                     m_graph_rows_list.push_back( { type, plocs->size(), str, false } );
             }
         }
     }
 
-    if ( ( plocs = trace_events->get_locs( "gfx hw", &type ) ) )
+    if ( ( plocs = trace_events.get_locs( "gfx hw", &type ) ) )
         m_graph_rows_list.push_back( { type, plocs->size(), "gfx hw", false } );
 
     for ( int c0 = 1; c0 < 3; c0++)
@@ -688,25 +688,25 @@ void GraphRows::init( CIniFile &inifile, TraceEvents *trace_events )
             {
                 std::string str = string_format( "comp_%d.%d.%d hw", c0, c1, c2 );
 
-                if ( ( plocs =trace_events->get_locs( str.c_str(), &type ) ) )
+                if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
                     m_graph_rows_list.push_back( { type, plocs->size(), str, false } );
             }
         }
     }
 
-    if ( ( plocs = trace_events->get_locs( "sdma0", &type ) ) )
+    if ( ( plocs = trace_events.get_locs( "sdma0", &type ) ) )
         m_graph_rows_list.push_back( { type, plocs->size(), "sdma0", false } );
-    if ( ( plocs = trace_events->get_locs( "sdma1", &type ) ) )
+    if ( ( plocs = trace_events.get_locs( "sdma1", &type ) ) )
         m_graph_rows_list.push_back( { type, plocs->size(), "sdma1", false } );
 
-    if ( ( plocs = trace_events->get_locs( "print", &type ) ) )
+    if ( ( plocs = trace_events.get_locs( "print", &type ) ) )
         m_graph_rows_list.push_back( { type, plocs->size(), "print", false } );
 
     std::vector< graph_rows_info_t > comms;
-    for ( auto item : trace_events->m_comm_locations.m_locs.m_map )
+    for ( auto item : trace_events.m_comm_locations.m_locs.m_map )
     {
         uint32_t hashval = item.first;
-        const char *comm = trace_events->m_strpool.findstr( hashval );
+        const char *comm = trace_events.m_strpool.findstr( hashval );
 
         comms.push_back( { TraceEvents::LOC_TYPE_Comm, item.second.size(), comm, false } );
     }
@@ -762,7 +762,7 @@ void GraphRows::init( CIniFile &inifile, TraceEvents *trace_events )
     }
 }
 
-void GraphRows::rename_comm( TraceEvents *trace_events, const char *comm_old, const char *comm_new )
+void GraphRows::rename_row( const char *comm_old, const char *comm_new )
 {
     for ( graph_rows_info_t &row_info : m_graph_rows_list )
     {
@@ -774,10 +774,10 @@ void GraphRows::rename_comm( TraceEvents *trace_events, const char *comm_old, co
     }
 }
 
-void GraphRows::add_row( TraceEvents *trace_events, const std::string &name )
+void GraphRows::add_row( TraceEvents &trace_events, const std::string &name )
 {
     TraceEvents::loc_type_t type;
-    const std::vector< uint32_t > *plocs = trace_events->get_locs( name.c_str(), &type );
+    const std::vector< uint32_t > *plocs = trace_events.get_locs( name.c_str(), &type );
     size_t size = plocs ? plocs->size() : 0;
 
     // Add expression to our added rows list
@@ -855,9 +855,9 @@ bool TraceWin::rename_comm_event( const char *comm_old, const char *comm_new )
     while ( isspace( *comm_new ) )
         comm_new++;
 
-    if ( m_trace_events->rename_comm( comm_old, comm_new ) )
+    if ( m_trace_events.rename_comm( comm_old, comm_new ) )
     {
-        m_graph.rows.rename_comm( m_trace_events, comm_old, comm_new );
+        m_graph.rows.rename_row( comm_old, comm_new );
 
         m_loader.m_inifile.PutStr( comm_old, comm_new, "$rename_comm$" );
         return true;
@@ -875,7 +875,7 @@ int TraceWin::ts_to_eventid( int64_t ts )
         return *pid;
 
     trace_event_t x;
-    std::vector< trace_event_t > &events = m_trace_events->m_events;
+    const std::vector< trace_event_t > &events = m_trace_events.m_events;
 
     x.ts = ts;
 
@@ -1331,12 +1331,13 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name, loc_type
     return plocs;
 }
 
-TraceWin::TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string &title ) : m_loader( loader )
+TraceWin::TraceWin( TraceLoader &loader, TraceEvents &trace_events, std::string &title ) :
+    m_trace_events( trace_events), m_loader( loader )
 {
     // Note that m_trace_events is possibly being loaded in
     //  a background thread at this moment, so be sure to check
     //  m_eventsloaded before accessing it...
-    m_trace_events = trace_events;
+
     m_title = title;
 
     strcpy_safe( m_eventlist.timegoto_buf, "0.0" );
@@ -1374,7 +1375,7 @@ TraceWin::~TraceWin()
 
 bool TraceWin::render()
 {
-    int eventsloaded = SDL_AtomicGet( &m_trace_events->m_eventsloaded );
+    int eventsloaded = SDL_AtomicGet( &m_trace_events.m_eventsloaded );
 
     if ( eventsloaded > 0 )
     {
@@ -1391,7 +1392,7 @@ bool TraceWin::render()
     {
         ImGui::Begin( m_title.c_str(), &m_open );
 
-        ImGui::Text( "Error loading filed %s...\n", m_trace_events->m_filename.c_str() );
+        ImGui::Text( "Error loading filed %s...\n", m_trace_events.m_filename.c_str() );
 
         ImGui::End();
         return true;
@@ -1402,7 +1403,7 @@ bool TraceWin::render()
     if ( ImGui::CollapsingHeader( "Trace Info" ) )
         trace_render_info();
 
-    if ( m_trace_events->m_events.empty() )
+    if ( m_trace_events.m_events.empty() )
     {
         ImGui::End();
         return true;
@@ -1413,9 +1414,9 @@ bool TraceWin::render()
         std::vector< INIEntry > entries = m_loader.m_inifile.GetSectionEntries( "$rename_comm$" );
 
         // Init event durations
-        m_trace_events->calculate_event_durations();
+        m_trace_events.calculate_event_durations();
         // Init print column information
-        m_trace_events->calculate_event_print_info();
+        m_trace_events.calculate_event_print_info();
 
         // Initialize our graph rows first time through.
         m_graph.rows.init( m_loader.m_inifile, m_trace_events );
@@ -1425,14 +1426,14 @@ bool TraceWin::render()
 
         //$ TODO mikesart: we should go to the start_ts event down below?
         //$ TODO: try it...
-        const std::vector< uint32_t > *vblank_locs = m_trace_events->get_tdopexpr_locs( "$name=drm_vblank_event" );
+        const std::vector< uint32_t > *vblank_locs = m_trace_events.get_tdopexpr_locs( "$name=drm_vblank_event" );
         if ( vblank_locs )
         {
             m_eventlist.do_gotoevent = true;
             m_eventlist.goto_eventid = vblank_locs->back();
         }
 
-        int64_t last_ts = m_trace_events->m_events.back().ts;
+        int64_t last_ts = m_trace_events.m_events.back().ts;
 
         m_graph.do_start_timestr = true;
         m_graph.do_length_timestr = true;
@@ -1516,14 +1517,14 @@ bool TraceWin::render()
 
             if ( m_eventlist.filter_buf[ 0 ] )
             {
-                tdop_get_key_func get_key_func = std::bind( filter_get_key_func, &m_trace_events->m_strpool, _1, _2 );
+                tdop_get_key_func get_key_func = std::bind( filter_get_key_func, &m_trace_events.m_strpool, _1, _2 );
                 class TdopExpr *tdop_expr = tdopexpr_compile( m_eventlist.filter_buf, get_key_func, m_eventlist.filtered_events_str );
 
                 util_time_t t0 = util_get_time();
 
                 if ( tdop_expr )
                 {
-                    for ( trace_event_t &event : m_trace_events->m_events )
+                    for ( trace_event_t &event : m_trace_events.m_events )
                     {
                         tdop_get_keyval_func get_keyval_func = std::bind( filter_get_keyval_func, &event, _1, _2 );
 
@@ -1600,13 +1601,13 @@ bool TraceWin::render()
 
 void TraceWin::trace_render_info()
 {
-    size_t event_count = m_trace_events->m_events.size();
+    size_t event_count = m_trace_events.m_events.size();
 
     ImGui::Text( "Total Events: %lu\n", event_count );
 
     if ( event_count )
     {
-        trace_info_t &trace_info = m_trace_events->m_trace_info;
+        const trace_info_t &trace_info = m_trace_events.m_trace_info;
         ImGui::Text( "Trace cpus: %u", trace_info.cpus );
 
         if ( !trace_info.uname.empty() )
@@ -1827,7 +1828,7 @@ static void draw_ts_line( const ImVec2 &pos )
 
 void TraceWin::events_list_render( CIniFile &inifile )
 {
-    std::vector< trace_event_t > &events = m_trace_events->m_events;
+    const std::vector< trace_event_t > &events = m_trace_events.m_events;
     size_t event_count = m_eventlist.filtered_events.empty() ?
                 events.size() : m_eventlist.filtered_events.size();
 
@@ -1934,8 +1935,8 @@ void TraceWin::events_list_render( CIniFile &inifile )
             for ( uint32_t i = start_idx; i < end_idx; i++ )
             {
                 trace_event_t &event = filtered_events ?
-                            m_trace_events->m_events[ m_eventlist.filtered_events[ i ] ] :
-                            m_trace_events->m_events[ i ];
+                            m_trace_events.m_events[ m_eventlist.filtered_events[ i ] ] :
+                            m_trace_events.m_events[ i ];
                 bool selected = ( m_eventlist.selected_eventid == event.id );
                 ImVec2 cursorpos = ImGui::GetCursorScreenPos();
 

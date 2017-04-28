@@ -303,7 +303,7 @@ public:
 
 public:
     // Initialize graph rows
-    void init( CIniFile &inifile, TraceEvents *trace_events );
+    void init( CIniFile &inifile, TraceEvents &trace_events );
 
     struct graph_rows_info_t
     {
@@ -312,7 +312,7 @@ public:
         std::string name;
         bool hidden;
     };
-    const std::vector< graph_rows_info_t > get_hidden_rows_list( TraceEvents *trace_events );
+    const std::vector< graph_rows_info_t > get_hidden_rows_list();
 
     enum graph_rows_show_t
     {
@@ -322,13 +322,12 @@ public:
         HIDE_ROW_AND_ALL_BELOW
     };
     void show_row( const std::string &name, graph_rows_show_t show );
-    void add_row( TraceEvents *trace_events, const std::string &name );
+    void add_row( TraceEvents &trace_events, const std::string &name );
     void move_row( const std::string &name_src, const std::string &name_dest );
+    void rename_row( const char *comm_old, const char *comm_new );
 
     // Search in m_graph_rows_list for name. Returns index or -1 if not found.
     size_t find_row( const std::string &name );
-
-    void rename_comm( TraceEvents *trace_events, const char *comm_old, const char *comm_new );
 
 public:
     // List of graph rows
@@ -337,14 +336,14 @@ public:
     std::vector< std::string > m_graph_rows_hide;
     // List of filter expression we need to add to graph rows list
     std::vector< std::string > m_graph_rows_add;
-
+    // Map of user row moves: row src --> row dst
     util_umap< std::string, std::string > m_graph_rows_move;
 };
 
 class TraceWin
 {
 public:
-    TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string &title );
+    TraceWin( TraceLoader &loader, TraceEvents &trace_events, std::string &title );
     ~TraceWin();
 
 public:
@@ -410,7 +409,7 @@ protected:
 
     trace_event_t &get_event( uint32_t id )
     {
-        return m_trace_events->m_events[ id ];
+        return m_trace_events.m_events[ id ];
     }
 
 public:
@@ -423,9 +422,9 @@ public:
     // false first time through render() call
     bool m_inited = false;
 
-    // Our trace events
-    TraceEvents *m_trace_events = nullptr;
-
+    // trace events
+    TraceEvents &m_trace_events;
+    // trace loader
     TraceLoader &m_loader;
 
     int m_selected_color = 0;

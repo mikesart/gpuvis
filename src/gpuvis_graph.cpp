@@ -343,7 +343,6 @@ static option_id_t get_comm_option_id( TraceLoader &loader, const std::string &c
 void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows )
 {
     uint32_t id = 0;
-    TraceEvents *trace_events = win->m_trace_events;
 
     imgui_push_smallfont();
 
@@ -365,7 +364,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         if ( grow.hidden )
             continue;
 
-        plocs = trace_events->get_locs( comm.c_str(), &rinfo.loc_type );
+        plocs = win->m_trace_events.get_locs( comm.c_str(), &rinfo.loc_type );
 
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
@@ -438,7 +437,7 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
 
     timeline_render_user = !!win->m_loader.get_opt( OPT_TimelineRenderUserSpace );
 
-    const std::vector< trace_event_t > &events = win->m_trace_events->m_events;
+    const std::vector< trace_event_t > &events = win->m_trace_events.m_events;
 
     // First check if they're hovering a timeline event in the event list
     uint32_t event_hov = win->m_eventlist.hovered_eventid;
@@ -451,7 +450,7 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
     {
         // Find the fence signaled event for this timeline
         std::string context = get_event_gfxcontext_str( events[ event_hov ] );
-        const std::vector< uint32_t > *plocs = win->m_trace_events->get_gfxcontext_locs( context.c_str() );
+        const std::vector< uint32_t > *plocs = win->m_trace_events.get_gfxcontext_locs( context.c_str() );
 
         // Mark it as hovered so it'll have a selection rectangle
         hovered_fence_signaled = plocs->back();
@@ -578,7 +577,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     row_draw_info.resize( row_count + 1 );
 
     // We need to start drawing to the left of 0 for timeline_labels
-    int64_t ts = timeline_labels ? gi.screenx_to_ts( gi.x - m_trace_events->m_buf_size_max_x ) : gi.ts0;
+    int64_t ts = timeline_labels ? gi.screenx_to_ts( gi.x - m_trace_events.m_buf_size_max_x ) : gi.ts0;
     uint32_t eventstart = ts_to_eventid( ts );
 
     static float dx = imgui_scale( 3.0f );
@@ -626,7 +625,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         if ( timeline_labels )
         {
             row_draw_info[ row_id ].x = x;
-            row_draw_info[ row_id ].print_info = m_trace_events->m_print_buf_info.get_val( event.id );
+            row_draw_info[ row_id ].print_info = m_trace_events.m_print_buf_info.get_val( event.id );
             row_draw_info[ row_id ].event = &event;
         }
     }
@@ -966,7 +965,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
     }
 
     // Draw vblank events on every graph.
-    const std::vector< uint32_t > *vblank_locs = m_trace_events->get_tdopexpr_locs( "$name=drm_vblank_event" );
+    const std::vector< uint32_t > *vblank_locs = m_trace_events.get_tdopexpr_locs( "$name=drm_vblank_event" );
 
     if ( vblank_locs )
     {
@@ -1065,7 +1064,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
 
 void TraceWin::graph_range_check_times()
 {
-    std::vector< trace_event_t > &events = m_trace_events->m_events;
+    const std::vector< trace_event_t > &events = m_trace_events.m_events;
 
     if ( m_graph.length_ts < m_graph.s_min_length )
     {
@@ -1138,7 +1137,7 @@ void TraceWin::graph_handle_keyboard_scroll()
         return;
 
     int64_t start_ts = m_graph.start_ts + m_eventlist.tsoffset;
-    std::vector< trace_event_t > &events = m_trace_events->m_events;
+    const std::vector< trace_event_t > &events = m_trace_events.m_events;
 
     if ( imgui_key_pressed( ImGuiKey_UpArrow ) )
     {
@@ -1368,7 +1367,6 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
             ImGui::EndMenu();
         }
-
     }
 
     if ( !m_graph.mouse_over_row_name.empty() )
@@ -1404,7 +1402,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         {
             m_graph.new_row_errstr.clear();
 
-            if ( m_trace_events->get_tdopexpr_locs( m_graph.new_row_buf, &m_graph.new_row_errstr ) )
+            if ( m_trace_events.get_tdopexpr_locs( m_graph.new_row_buf, &m_graph.new_row_errstr ) )
             {
                 m_graph.rows.add_row( m_trace_events, m_graph.new_row_buf );
                 ImGui::CloseCurrentPopup();
@@ -1433,7 +1431,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_graph.new_row_errstr.c_str() );
     }
 
-    if ( m_trace_events->get_comm_locs( m_graph.mouse_over_row_name.c_str() ) )
+    if ( m_trace_events.get_comm_locs( m_graph.mouse_over_row_name.c_str() ) )
     {
         if ( !m_graph.rename_comm_buf[ 0 ] )
         {
@@ -1624,7 +1622,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
     m_eventlist.highlight_ids.clear();
 
-    const std::vector< uint32_t > *vblank_locs = m_trace_events->get_tdopexpr_locs( "$name=drm_vblank_event" );
+    const std::vector< uint32_t > *vblank_locs = m_trace_events.get_tdopexpr_locs( "$name=drm_vblank_event" );
     if ( vblank_locs )
     {
         int64_t prev_vblank_ts = INT64_MAX;
@@ -1714,7 +1712,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
     {
         const trace_event_t &event_hov = get_event( gi.hovered_fence_signaled );
         std::string context = get_event_gfxcontext_str( event_hov );
-        const std::vector< uint32_t > *plocs = m_trace_events->get_gfxcontext_locs( context.c_str() );
+        const std::vector< uint32_t > *plocs = m_trace_events.get_gfxcontext_locs( context.c_str() );
 
         time_buf += string_format( "\n\n%s", event_hov.user_comm );
 
@@ -1807,7 +1805,7 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
             // right click: popup menu
             m_graph.popupmenu = true;
 
-            m_graph.rows_hidden_rows = m_graph.rows.get_hidden_rows_list( m_trace_events );
+            m_graph.rows_hidden_rows = m_graph.rows.get_hidden_rows_list();
             m_graph.new_row_errstr = "";
 
             ImGui::OpenPopup( "GraphPopup" );
