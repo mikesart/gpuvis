@@ -259,30 +259,15 @@ public:
     void init( class CIniFile *inifile );
     void shutdown( class CIniFile *inifile );
 
-    void exec_command( const std::string &command_line );
-
     void render( TraceLoader &loader );
     void render_options( TraceLoader &loader );
     void render_log( TraceLoader &loader );
     void render_console( TraceLoader &loader );
 
-protected:
-    static int text_edit_cb_stub( ImGuiTextEditCallbackData *data );
-    int text_edit_cb_completion( ImGuiTextEditCallbackData *data );
-    int text_edit_cb_history( ImGuiTextEditCallbackData *data );
-
 public:
     ImGuiTextFilter m_filter;
     std::string m_inputbuf;
     std::vector< std::string > m_log;
-
-    size_t m_completion_index = 0;
-    std::vector< const char * > m_completions;
-    std::set< std::string > m_commands;
-
-    // -1: new line, 0..History.size-1 browsing history.
-    int m_history_pos = -1;
-    std::vector< std::string > m_history;
 
     char m_trace_file[ PATH_MAX ] = { 0 };
 

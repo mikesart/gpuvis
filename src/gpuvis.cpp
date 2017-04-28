@@ -2073,23 +2073,12 @@ void TraceConsole::init( CIniFile *inifile )
     logf( "  ctrl+click+drag: select area to see time" );
     logf( "  click+drag: pan graph" );
 
-    //$ TODO mikesart: use https://github.com/SirCmpwn/libccmd.git
-    //$ TODO mikesart: add "load" command
-
-    m_commands.insert( "clear" );
-    m_commands.insert( "help" );
-    m_commands.insert( "history" );
-    m_commands.insert( "quit" );
-    m_commands.insert( "q" );
-
     strcpy_safe( m_trace_file, "trace.dat" );
 }
 
 void TraceConsole::shutdown( CIniFile *inifile )
 {
     inifile->PutVec4( "clearcolor", m_clear_color );
-
-    m_history.clear();
 }
 
 void TraceConsole::render_options( TraceLoader &loader )
@@ -2102,21 +2091,23 @@ void TraceConsole::render_options( TraceLoader &loader )
 
     ImGui::Separator();
 
-    // Align text to upcoming widgets
-    ImGui::AlignFirstTextHeightToWidgets();
-    ImGui::Text( "Imgui debug: " );
+    {
+        // Align text to upcoming widgets
+        ImGui::AlignFirstTextHeightToWidgets();
+        ImGui::Text( "Imgui debug: " );
 
-    ImGui::SameLine();
-    if ( ImGui::Button( "Style Editor" ) )
-        m_show_imgui_style_editor ^= 1;
+        ImGui::SameLine();
+        if ( ImGui::Button( "Style Editor" ) )
+            m_show_imgui_style_editor ^= 1;
 
-    ImGui::SameLine();
-    if ( ImGui::Button( "Metrics" ) )
-        m_show_imgui_metrics_editor ^= 1;
+        ImGui::SameLine();
+        if ( ImGui::Button( "Metrics" ) )
+            m_show_imgui_metrics_editor ^= 1;
 
-    ImGui::SameLine();
-    if ( ImGui::Button( "Test Window" ) )
-        m_show_imgui_test_window ^= 1;
+        ImGui::SameLine();
+        if ( ImGui::Button( "Test Window" ) )
+            m_show_imgui_test_window ^= 1;
+    }
 
     ImGui::Separator();
 
@@ -2231,38 +2222,6 @@ void TraceConsole::render_log( TraceLoader &loader )
         ImGui::PopStyleVar();
         ImGui::EndChild();
     }
-
-#if 0
-    //$ TODO: There are no useful commands yet, and the keyboard focus stuff below is broken.
-    // It's stealing focus back here when you click on buttons.
-
-    ImGui::Separator();
-
-    // Command-line
-    ImGui::Text( "Command:" );
-
-    ImGui::SameLine();
-    m_inputbuf.reserve( 512 );
-    if ( ImGui::InputText( "##log-command", &m_inputbuf[ 0 ], m_inputbuf.capacity(),
-                           ImGuiInputTextFlags_EnterReturnsTrue |
-                               ImGuiInputTextFlags_CallbackCompletion |
-                               ImGuiInputTextFlags_CallbackHistory |
-                               ImGuiInputTextFlags_CallbackCharFilter,
-                           &text_edit_cb_stub, ( void * )this ) )
-    {
-        exec_command( m_inputbuf.c_str() );
-
-        m_inputbuf = "";
-    }
-
-    // Keep auto focus on the input box
-    if ( ImGui::IsItemHovered() ||
-         ( ImGui::IsRootWindowOrAnyChildFocused() && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked( 0 ) ) )
-    {
-        // Auto focus previous widget
-        ImGui::SetKeyboardFocusHere( -1 );
-    }
-#endif
 }
 
 void TraceConsole::render_console( TraceLoader &loader )
@@ -2386,172 +2345,6 @@ void TraceConsole::render( TraceLoader &loader )
     {
         ImGui::ShowMetricsWindow( &m_show_imgui_metrics_editor );
     }
-}
-
-void TraceConsole::exec_command( const std::string &cmdlinein )
-{
-    std::string cmdline = string_trimmed( cmdlinein );
-
-    if ( cmdline.empty() )
-        return;
-
-    logf( "# %s\n", cmdline.c_str() );
-
-    // Insert into history. First find match and delete it so it can be pushed to the back. This isn't trying to be smart or optimal.
-    m_history_pos = -1;
-
-    for ( size_t i = 0; i < m_history.size(); i++ )
-    {
-        if ( cmdline == m_history[ i ] )
-        {
-            m_history.erase( m_history.begin() + i );
-            break;
-        }
-    }
-    m_history.push_back( cmdline );
-
-    // Process command
-    if ( cmdline == "clear" )
-    {
-        logf_clear();
-    }
-    else if ( ( cmdline == "quit" ) || ( cmdline == "q" ) )
-    {
-        m_quit = true;
-    }
-    else if ( cmdline == "help" )
-    {
-        logf( "Commands:" );
-
-        for ( const std::string &cmd : m_commands )
-            logf( "- %s", cmd.c_str() );
-    }
-    else if ( cmdline == "history" )
-    {
-        for ( size_t i = m_history.size() >= 20 ? m_history.size() - 20 : 0; i < m_history.size(); i++ )
-            logf( "%3lu: %s\n", i, m_history[ i ].c_str() );
-    }
-    else
-    {
-        logf( "Unknown command: '%s'\n", cmdline.c_str() );
-    }
-}
-
-int TraceConsole::text_edit_cb_completion( ImGuiTextEditCallbackData *data )
-{
-    if ( m_completions.empty() )
-    {
-        const char *word_end = data->Buf + data->CursorPos;
-        const char *word_start = word_end;
-
-        // Locate beginning of current word
-        while ( word_start > data->Buf )
-        {
-            const char c = word_start[ -1 ];
-
-            if ( c == ' ' || c == '\t' || c == ',' || c == ';' )
-                break;
-            word_start--;
-        }
-
-        const char *comp_str = word_start;
-        size_t comp_len = word_end - word_start;
-
-        if ( comp_len )
-        {
-            for ( const std::string &str : m_commands )
-            {
-                if ( !strncasecmp( str.c_str(), comp_str, comp_len ) )
-                {
-                    m_completions.push_back( str.c_str() );
-                    printf( "%s\n", str.c_str() );
-                }
-            }
-            for ( int i = m_history.size() - 1; i >= 0; i-- )
-            {
-                std::string str( comp_str, comp_len );
-
-                if ( !strncasecmp( m_history[ i ].c_str(), comp_str, comp_len ) &&
-                     m_commands.find( m_history[ i ].c_str() ) == m_commands.end() )
-                {
-                    m_completions.push_back( m_history[ i ].c_str() );
-                }
-            }
-        }
-
-        m_completion_index = 0;
-    }
-
-    if ( m_completion_index < m_completions.size() )
-    {
-        const char *str = m_completions[ m_completion_index ];
-        size_t len = strlen( str );
-
-        // Delete line and replace it
-        data->DeleteChars( 0, data->BufTextLen );
-        data->InsertChars( 0, str );
-        data->InsertChars( len, " " );
-        data->CursorPos = len + 1;
-
-        if ( ++m_completion_index >= m_completions.size() )
-            m_completion_index = 0;
-    }
-
-    return 0;
-}
-
-int TraceConsole::text_edit_cb_history( ImGuiTextEditCallbackData *data )
-{
-    const int prev_history_pos = m_history_pos;
-
-    if ( data->EventKey == ImGuiKey_UpArrow )
-    {
-        if ( m_history_pos == -1 )
-            m_history_pos = m_history.size() - 1;
-        else if ( m_history_pos > 0 )
-            m_history_pos--;
-    }
-    else if ( data->EventKey == ImGuiKey_DownArrow )
-    {
-        if ( m_history_pos != -1 )
-        {
-            m_history_pos++;
-            if ( m_history_pos >= ( int )m_history.size() )
-                m_history_pos = -1;
-        }
-    }
-
-    if ( prev_history_pos != m_history_pos )
-    {
-        const char *str = ( m_history_pos >= 0 ) ? m_history[ m_history_pos ].c_str() : "";
-
-        SDL_strlcpy( data->Buf, str, data->BufSize );
-
-        data->CursorPos = data->SelectionStart = data->SelectionEnd = data->BufTextLen = strlen( data->Buf );
-        data->BufDirty = true;
-    }
-
-    return 0;
-}
-
-int TraceConsole::text_edit_cb_stub( ImGuiTextEditCallbackData *data )
-{
-    int ret = 0;
-    TraceConsole *console = ( TraceConsole * )data->UserData;
-
-    if ( data->EventFlag == ImGuiInputTextFlags_CallbackCompletion )
-    {
-        ret = console->text_edit_cb_completion( data );
-    }
-    else
-    {
-        console->m_completions.clear();
-
-        if ( data->EventFlag == ImGuiInputTextFlags_CallbackHistory )
-            ret = console->text_edit_cb_history( data );
-    }
-
-    return ret;
 }
 
 static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
