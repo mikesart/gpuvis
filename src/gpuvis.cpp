@@ -1306,6 +1306,8 @@ TraceWin::TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string 
     strcpy_safe( m_timegoto_buf, "0.0" );
     strcpy_safe( m_timeoffset_buf, "0.0" );
 
+    strcpy_safe( m_new_graph_row_buf, "<Enter Filter Expression>" );
+
     std::string event_filter = m_loader.m_inifile.GetStr( "event_filter_buf", "" );
     if ( !event_filter.empty() )
     {
