@@ -2425,6 +2425,8 @@ int main( int argc, char **argv )
         fprintf( stderr, "Error. SDL_Init failed: %s\n", SDL_GetError() );
         return -1;
     }
+    SDL_Cursor *cursor_sizens = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENS );
+    SDL_Cursor *cursor_default = SDL_GetDefaultCursor();
 
     logf_init();
 
@@ -2479,9 +2481,18 @@ int main( int argc, char **argv )
 
     // Main loop
     bool done = false;
+    ImGuiMouseCursor mouse_cursor = ImGuiMouseCursor_Arrow;
     while ( !done )
     {
         SDL_Event event;
+
+        if ( mouse_cursor != ImGui::GetMouseCursor() )
+        {
+            mouse_cursor = ImGui::GetMouseCursor();
+
+            SDL_SetCursor( ( mouse_cursor == ImGuiMouseCursor_ResizeNS ) ?
+                               cursor_sizens : cursor_default );
+        }
 
         while ( SDL_PollEvent( &event ) )
         {
@@ -2554,6 +2565,9 @@ int main( int argc, char **argv )
     logf_shutdown();
 
     ImGui_ImplSdlGL3_Shutdown();
+
+    SDL_FreeCursor( cursor_sizens );
+
     SDL_GL_DeleteContext( glcontext );
     SDL_DestroyWindow( window );
     SDL_Quit();

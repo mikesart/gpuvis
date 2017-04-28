@@ -1302,6 +1302,8 @@ void TraceWin::graph_render_process()
     ImGui::EndChild();
 
     ImGui::Button( "##resize_graph", ImVec2( ImGui::GetContentRegionAvailWidth(), imgui_scale( 4.0f ) ) );
+    if ( ImGui::IsItemHovered() )
+        ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeNS );
     if ( ImGui::IsItemActive() )
     {
         option_id_t opt = gi.do_zoom_gfx ? OPT_GraphHeightZoomed : OPT_GraphHeight;
