@@ -15,18 +15,22 @@
 
 NAME = gpuvis
 
-# TODO: default ASAN to 0 when building release builds?
+CFG ?= release
 
 # Use gcc-6 / gcc-5 if it exists and CC is the default cc
 ifeq ($(CC),cc)
     ifneq ("$(wildcard /usr/bin/gcc-6)","")
-		ASAN ?= 1
+        ifeq ($(CFG), debug)
+            ASAN ?= 1
+        endif
 		CC = gcc-6
 		CXX = g++-6
 		WSHADOW = -Wshadow
 	else ifneq ("$(wildcard /usr/bin/gcc-5)","")
-		ASAN ?= 1
-		CC = gcc-5
+        ifeq ($(CFG), debug)
+            ASAN ?= 1
+        endif
+        CC = gcc-5
 		CXX = g++-5
 		WSHADOW = -Wshadow
 	endif
@@ -36,7 +40,6 @@ LD = $(CC)
 RM = rm -f
 MKDIR = mkdir -p
 VERBOSE ?= 0
-CFG ?= release
 
 SDL2FLAGS=$(shell sdl2-config --cflags)
 SDL2LIBS=$(shell sdl2-config --static-libs)
