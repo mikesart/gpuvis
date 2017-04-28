@@ -830,25 +830,6 @@ size_t GraphRows::find_row( const std::string &name )
 /*
  * TraceWin
  */
-void TraceWin::render_time_offset_button_init( TraceEvents &trace_events )
-{
-    const std::vector< uint32_t > *vblank_locs =
-            trace_events.get_tdopexpr_locs( "$name=drm_vblank_event" );
-
-    if ( vblank_locs )
-    {
-        uint32_t id = vblank_locs->back();
-
-        m_do_gotoevent = true;
-        m_goto_eventid = id;
-
-        // Don't set offset time. If user cancels when loading it'll be at different locations
-        //  so let the user explicitly control this.
-        m_tsoffset = 0; // events[ id ].ts;
-        strcpy_safe( m_timeoffset_buf, ts_to_timestr( m_tsoffset ) );
-    }
-}
-
 int64_t TraceWin::timestr_to_ts( const char *buf, int64_t tsoffset )
 {
     double val;
@@ -876,7 +857,7 @@ bool TraceWin::rename_comm_event( const char *comm_old, const char *comm_new )
 
     if ( m_trace_events->rename_comm( comm_old, comm_new ) )
     {
-        m_graphrows.rename_comm( m_trace_events, comm_old, comm_new );
+        m_graph.rows.rename_comm( m_trace_events, comm_old, comm_new );
 
         m_loader.m_inifile.PutStr( comm_old, comm_new, "$rename_comm$" );
         return true;
@@ -1296,6 +1277,60 @@ void TraceEvents::calculate_event_durations()
     }
 }
 
+const std::vector< uint32_t > *TraceEvents::get_locs( const char *name, loc_type_t *type = nullptr )
+{
+    const std::vector< uint32_t > *plocs = NULL;
+
+    if ( !strcmp( name, "print" ) )
+    {
+        // Check for explicit "print" row
+        if ( type )
+            *type = LOC_TYPE_Print;
+        plocs = get_tdopexpr_locs( "$name=print" );
+    }
+    else
+    {
+        size_t len = strlen( name );
+
+        if ( ( len > 3 ) && !strcmp( name + len - 3, " hw" ) )
+        {
+            // Check for "gfx hw", "comp_1.1.1 hw", etc.
+            uint32_t hashval = fnv_hashstr32( name, len - 3 );
+
+            if ( type )
+                *type = LOC_TYPE_Timeline_hw;
+            plocs = m_timeline_locations.get_locations_u32( hashval );
+        }
+        else
+        {
+            // Check for regular comm type rows
+            if ( type )
+                *type = LOC_TYPE_Comm;
+            plocs = get_comm_locs( name );
+
+            if ( !plocs )
+            {
+                // TDOP Expressions. Ie, $name = print, etc.
+                if ( type )
+                    *type = LOC_TYPE_Tdopexpr;
+                plocs = get_tdopexpr_locs( name );
+
+                if ( !plocs )
+                {
+                    // Timelines: sdma0, gfx, comp_1.2.1, etc.
+                    if ( type )
+                        *type = LOC_TYPE_Timeline;
+                    plocs = get_timeline_locs( name );
+                }
+            }
+        }
+    }
+
+    if ( !plocs && type )
+        *type = LOC_TYPE_Max;
+    return plocs;
+}
+
 TraceWin::TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string &title ) : m_loader( loader )
 {
     // Note that m_trace_events is possibly being loaded in
@@ -1304,30 +1339,30 @@ TraceWin::TraceWin( TraceLoader &loader, TraceEvents *trace_events, std::string 
     m_trace_events = trace_events;
     m_title = title;
 
-    strcpy_safe( m_timegoto_buf, "0.0" );
-    strcpy_safe( m_timeoffset_buf, "0.0" );
+    strcpy_safe( m_eventlist.timegoto_buf, "0.0" );
+    strcpy_safe( m_eventlist.timeoffset_buf, "0.0" );
 
-    strcpy_safe( m_new_graph_row_buf, "<Enter Filter Expression>" );
+    strcpy_safe( m_graph.new_row_buf, "<Enter Filter Expression>" );
 
     std::string event_filter = m_loader.m_inifile.GetStr( "event_filter_buf", "" );
     if ( !event_filter.empty() )
     {
-        strcpy_safe( m_event_filter_buf, event_filter.c_str() );
-        m_do_event_filter = true;
+        strcpy_safe( m_eventlist.filter_buf, event_filter.c_str() );
+        m_eventlist.do_filter = true;
     }
 }
 
 TraceWin::~TraceWin()
 {
-    m_loader.m_inifile.PutStr( "event_filter_buf", m_event_filter_buf );
+    m_loader.m_inifile.PutStr( "event_filter_buf", m_eventlist.filter_buf );
 
-    std::string str = string_implode( m_graphrows.m_graph_rows_hide, "," );
+    std::string str = string_implode( m_graph.rows.m_graph_rows_hide, "," );
     m_loader.m_inifile.PutStr( "graph_rows_hide_str", str.c_str() );
 
-    str = string_implode( m_graphrows.m_graph_rows_add, "," );
+    str = string_implode( m_graph.rows.m_graph_rows_add, "," );
     m_loader.m_inifile.PutStr( "graph_rows_add_str", str.c_str() );
 
-    for ( const auto &item : m_graphrows.m_graph_rows_move.m_map )
+    for ( const auto &item : m_graph.rows.m_graph_rows_move.m_map )
     {
         std::string key = item.first;
 
@@ -1383,60 +1418,68 @@ bool TraceWin::render()
         m_trace_events->calculate_event_print_info();
 
         // Initialize our graph rows first time through.
-        m_graphrows.init( m_loader.m_inifile, m_trace_events );
+        m_graph.rows.init( m_loader.m_inifile, m_trace_events );
 
         for ( INIEntry &entry : entries )
             rename_comm_event( entry.first.c_str(), entry.second.c_str() );
 
-        render_time_offset_button_init( *m_trace_events );
+        //$ TODO mikesart: we should go to the start_ts event down below?
+        //$ TODO: try it...
+        const std::vector< uint32_t > *vblank_locs = m_trace_events->get_tdopexpr_locs( "$name=drm_vblank_event" );
+        if ( vblank_locs )
+        {
+            m_eventlist.do_gotoevent = true;
+            m_eventlist.goto_eventid = vblank_locs->back();
+        }
 
         int64_t last_ts = m_trace_events->m_events.back().ts;
 
-        m_do_graph_start_timestr = true;
-        m_do_graph_length_timestr = true;
-        m_graph_length_ts = std::min< int64_t >( last_ts, 40 * MSECS_PER_SEC );
-        m_graph_start_ts = last_ts - m_tsoffset - m_graph_length_ts;
+        m_graph.do_start_timestr = true;
+        m_graph.do_length_timestr = true;
+        m_graph.length_ts = std::min< int64_t >( last_ts, 40 * MSECS_PER_SEC );
+        m_graph.start_ts = last_ts - m_eventlist.tsoffset - m_graph.length_ts;
     }
 
     if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        if ( imgui_input_text( "Start:", "##GraphStart", m_graphtime_start_buf, 150.0f ) )
-            m_graph_start_ts = timestr_to_ts( m_graphtime_start_buf );
+        if ( imgui_input_text( "Start:", "##GraphStart", m_graph.time_start_buf, 150.0f ) )
+            m_graph.start_ts = timestr_to_ts( m_graph.time_start_buf );
 
         ImGui::SameLine();
-        if ( imgui_input_text( "Length:", "##GraphLength", m_graphtime_length_buf, 150.0f ) )
-            m_graph_length_ts = timestr_to_ts( m_graphtime_length_buf );
+        if ( imgui_input_text( "Length:", "##GraphLength", m_graph.time_length_buf, 150.0f ) )
+            m_graph.length_ts = timestr_to_ts( m_graph.time_length_buf );
 
         ImGui::SameLine();
-        m_do_graph_zoom_in |= ImGui::SmallButton( "Zoom In" );
-        ImGui::SameLine();
-        m_do_graph_zoom_out |= ImGui::SmallButton( "Zoom Out" );
+        bool m_do_graph_zoom_in = ImGui::SmallButton( "Zoom In" );
 
-        if ( m_graph_length_ts >= g_max_graph_length )
+        ImGui::SameLine();
+        bool m_do_graph_zoom_out = ImGui::SmallButton( "Zoom Out" );
+
+        if ( m_graph.length_ts >= m_graph.s_max_length )
             m_do_graph_zoom_out = false;
 
         if ( m_do_graph_zoom_in || m_do_graph_zoom_out )
         {
             int64_t sign = m_do_graph_zoom_in ? -1 : +1;
-            int64_t amt = sign * m_graph_length_ts / 2;
-            int64_t newlen = m_graph_length_ts + amt;
+            int64_t amt = sign * m_graph.length_ts / 2;
+            int64_t newlen = m_graph.length_ts + amt;
 
-            if ( ( newlen > g_min_graph_length ) && ( newlen < g_max_graph_length ) )
+            if ( ( newlen > m_graph.s_min_length ) && ( newlen < m_graph.s_max_length ) )
             {
-                m_graph_start_ts -= amt / 2;
-                m_graph_length_ts = newlen;
-                m_do_graph_start_timestr = true;
-                m_do_graph_length_timestr = true;
+                m_graph.start_ts -= amt / 2;
+                m_graph.length_ts = newlen;
+                m_graph.do_start_timestr = true;
+                m_graph.do_length_timestr = true;
             }
 
             m_do_graph_zoom_in = false;
             m_do_graph_zoom_out = false;
         }
 
-        if ( m_do_graph_start_timestr )
-            strcpy_safe( m_graphtime_start_buf, ts_to_timestr( m_graph_start_ts, 0, 4 ) );
-        if ( m_do_graph_length_timestr )
-            strcpy_safe( m_graphtime_length_buf, ts_to_timestr( m_graph_length_ts, 0, 4 ) );
+        if ( m_graph.do_start_timestr )
+            strcpy_safe( m_graph.time_start_buf, ts_to_timestr( m_graph.start_ts, 0, 4 ) );
+        if ( m_graph.do_length_timestr )
+            strcpy_safe( m_graph.time_length_buf, ts_to_timestr( m_graph.length_ts, 0, 4 ) );
 
         render_process_graph();
 
@@ -1447,34 +1490,34 @@ bool TraceWin::render()
 
     ImGuiTreeNodeFlags eventslist_flags = m_loader.get_opt( OPT_ShowEventList) ?
         ImGuiTreeNodeFlags_DefaultOpen : 0;
-    m_show_eventlist = ImGui::CollapsingHeader( "Events List", eventslist_flags );
-    if ( m_show_eventlist )
+    m_eventlist.show = ImGui::CollapsingHeader( "Events List", eventslist_flags );
+    if ( m_eventlist.show )
     {
-        m_do_gotoevent |= imgui_input_int( &m_goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
+        m_eventlist.do_gotoevent |= imgui_input_int( &m_eventlist.goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
 
         ImGui::SameLine();
-        if ( imgui_input_text( "Goto Time:", "##GotoTime", m_timegoto_buf, 150.0f ) )
+        if ( imgui_input_text( "Goto Time:", "##GotoTime", m_eventlist.timegoto_buf, 150.0f ) )
         {
-            m_do_gotoevent = true;
-            m_goto_eventid = timestr_to_eventid( m_timegoto_buf, m_tsoffset );
+            m_eventlist.do_gotoevent = true;
+            m_eventlist.goto_eventid = timestr_to_eventid( m_eventlist.timegoto_buf, m_eventlist.tsoffset );
         }
 
         ImGui::SameLine();
-        if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_timeoffset_buf, 150.0f ) )
-            m_tsoffset = timestr_to_ts( m_timeoffset_buf );
+        if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_eventlist.timeoffset_buf, 150.0f ) )
+            m_eventlist.tsoffset = timestr_to_ts( m_eventlist.timeoffset_buf );
 
-        if ( m_do_event_filter ||
-             imgui_input_text( "Event Filter:", "##Event Filter", m_event_filter_buf, 500.0f,
+        if ( m_eventlist.do_filter ||
+             imgui_input_text( "Event Filter:", "##Event Filter", m_eventlist.filter_buf, 500.0f,
                                ImGuiInputTextFlags_EnterReturnsTrue ) )
         {
-            m_filtered_events.clear();
-            m_filtered_events_str.clear();
-            m_do_event_filter = false;
+            m_eventlist.filtered_events.clear();
+            m_eventlist.filtered_events_str.clear();
+            m_eventlist.do_filter = false;
 
-            if ( m_event_filter_buf[ 0 ] )
+            if ( m_eventlist.filter_buf[ 0 ] )
             {
                 tdop_get_key_func get_key_func = std::bind( filter_get_key_func, &m_trace_events->m_strpool, _1, _2 );
-                class TdopExpr *tdop_expr = tdopexpr_compile( m_event_filter_buf, get_key_func, m_filtered_events_str );
+                class TdopExpr *tdop_expr = tdopexpr_compile( m_eventlist.filter_buf, get_key_func, m_eventlist.filtered_events_str );
 
                 util_time_t t0 = util_get_time();
 
@@ -1488,11 +1531,11 @@ bool TraceWin::render()
 
                         event.is_filtered_out = !ret[ 0 ];
                         if ( !event.is_filtered_out )
-                            m_filtered_events.push_back( event.id );
+                            m_eventlist.filtered_events.push_back( event.id );
                     }
 
-                    if ( m_filtered_events.empty() )
-                        m_filtered_events_str = "WARNING: No events found.";
+                    if ( m_eventlist.filtered_events.empty() )
+                        m_eventlist.filtered_events_str = "WARNING: No events found.";
 
                     tdopexpr_delete( tdop_expr );
                     tdop_expr = NULL;
@@ -1500,7 +1543,7 @@ bool TraceWin::render()
 
                 float time = util_time_to_ms( t0, util_get_time() );
                 if ( time > 1000.0f )
-                    logf( "tdopexpr_compile(\"%s\"): %.2fms\n", m_event_filter_buf, time );
+                    logf( "tdopexpr_compile(\"%s\"): %.2fms\n", m_eventlist.filter_buf, time );
             }
         }
 
@@ -1526,19 +1569,19 @@ bool TraceWin::render()
         ImGui::SameLine();
         if ( ImGui::SmallButton( "Clear Filter" ) )
         {
-            m_filtered_events.clear();
-            m_filtered_events_str.clear();
-            m_event_filter_buf[ 0 ] = 0;
+            m_eventlist.filtered_events.clear();
+            m_eventlist.filtered_events_str.clear();
+            m_eventlist.filter_buf[ 0 ] = 0;
         }
 
-        if ( !m_filtered_events_str.empty() )
+        if ( !m_eventlist.filtered_events_str.empty() )
         {
             ImGui::SameLine();
-            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_filtered_events_str.c_str() );
+            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_eventlist.filtered_events_str.c_str() );
         }
-        else if ( !m_filtered_events.empty() )
+        else if ( !m_eventlist.filtered_events.empty() )
         {
-            std::string label = string_format( "Graph only filtered (%lu events)", m_filtered_events.size() );
+            std::string label = string_format( "Graph only filtered (%lu events)", m_eventlist.filtered_events.size() );
 
             ImGui::SameLine();
             bool val = !!m_loader.get_opt( OPT_GraphOnlyFiltered );
@@ -1571,14 +1614,14 @@ void TraceWin::render_trace_info()
 
         ImGui::Indent();
 
-        if ( !m_graphrows.m_graph_rows_list.empty() )
+        if ( !m_graph.rows.m_graph_rows_list.empty() )
         {
             if ( ImGui::CollapsingHeader( "Graph Row Info", ImGuiTreeNodeFlags_DefaultOpen ) )
             {
                 if ( imgui_begin_columns( "row_info", { "Name", "Events" } ) )
                     ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
 
-                for ( const GraphRows::graph_rows_info_t &info : m_graphrows.m_graph_rows_list )
+                for ( const GraphRows::graph_rows_info_t &info : m_graph.rows.m_graph_rows_list )
                 {
                     ImGui::Text( "%s", info.name.c_str() );
                     ImGui::NextColumn();
@@ -1632,16 +1675,16 @@ bool TraceWin::render_events_list_popupmenu( uint32_t eventid )
     std::string label = string_format( "Center event %u on graph", event.id );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
-        m_selected_eventid = event.id;
-        m_graph_start_ts = event.ts - m_tsoffset - m_graph_length_ts / 2;
-        m_do_graph_start_timestr = true;
+        m_eventlist.selected_eventid = event.id;
+        m_graph.start_ts = event.ts - m_eventlist.tsoffset - m_graph.length_ts / 2;
+        m_graph.do_start_timestr = true;
     }
 
     label = string_format( "Set Time Offset to %s", ts_to_timestr( event.ts ).c_str() );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
-        m_tsoffset = event.ts;
-        strcpy_safe( m_timeoffset_buf, ts_to_timestr( m_tsoffset ) );
+        m_eventlist.tsoffset = event.ts;
+        strcpy_safe( m_eventlist.timeoffset_buf, ts_to_timestr( m_eventlist.tsoffset ) );
     }
 
     ImGui::Separator();
@@ -1649,21 +1692,21 @@ bool TraceWin::render_events_list_popupmenu( uint32_t eventid )
     label = string_format( "Filter pid %d events", event.pid );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
-        snprintf_safe( m_event_filter_buf, "$pid == %d", event.pid );
-        m_do_event_filter = true;
+        snprintf_safe( m_eventlist.filter_buf, "$pid == %d", event.pid );
+        m_eventlist.do_filter = true;
     }
 
     label = string_format( "Filter '%s' events", event.name );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
-        snprintf_safe( m_event_filter_buf, "$name == %s", event.name );
-        m_do_event_filter = true;
+        snprintf_safe( m_eventlist.filter_buf, "$name == %s", event.name );
+        m_eventlist.do_filter = true;
     }
 
-    if ( !m_filtered_events.empty() && ImGui::MenuItem( "Clear Filter" ) )
+    if ( !m_eventlist.filtered_events.empty() && ImGui::MenuItem( "Clear Filter" ) )
     {
-        m_event_filter_buf[ 0 ] = 0;
-        m_do_event_filter = true;
+        m_eventlist.filter_buf[ 0 ] = 0;
+        m_eventlist.do_filter = true;
     }
 
     ImGui::EndPopup();
@@ -1722,17 +1765,17 @@ bool TraceWin::handle_events_list_mouse( const trace_event_t &event, uint32_t i 
     bool popup_shown = false;
 
     // Check if item is hovered and we don't have a popup menu going already.
-    if ( !is_valid_id( m_events_list_popup_eventid ) &&
+    if ( !is_valid_id( m_eventlist.popup_eventid ) &&
          ImGui::IsItemHovered() &&
          ImGui::IsRootWindowOrAnyChildFocused() )
     {
         // Store the hovered event id.
-        m_hovered_eventlist_eventid = event.id;
+        m_eventlist.hovered_eventid = event.id;
 
         if ( ImGui::IsMouseClicked( 1 ) )
         {
             // If they right clicked, show the context menu.
-            m_events_list_popup_eventid = i;
+            m_eventlist.popup_eventid = i;
 
             // Open the popup for render_events_list_popupmenu().
             ImGui::OpenPopup( "EventsListPopup" );
@@ -1740,7 +1783,7 @@ bool TraceWin::handle_events_list_mouse( const trace_event_t &event, uint32_t i 
         else
         {
             // Otherwise show a tooltip.
-            std::string ts_str = ts_to_timestr( event.ts, m_tsoffset );
+            std::string ts_str = ts_to_timestr( event.ts, m_eventlist.tsoffset );
             std::string fieldstr = get_event_fields_str( event, ": ", '\n' );
 
             imgui_set_tooltip( string_format( "Id: %u\nTime: %s\nComm: %s\n%s",
@@ -1749,16 +1792,16 @@ bool TraceWin::handle_events_list_mouse( const trace_event_t &event, uint32_t i 
     }
 
     // If we've got an active popup menu, render it.
-    if ( m_events_list_popup_eventid == i )
+    if ( m_eventlist.popup_eventid == i )
     {
-        uint32_t eventid = !m_filtered_events.empty() ?
-                    m_filtered_events[ m_events_list_popup_eventid ] :
-                    m_events_list_popup_eventid;
+        uint32_t eventid = !m_eventlist.filtered_events.empty() ?
+                    m_eventlist.filtered_events[ m_eventlist.popup_eventid ] :
+                    m_eventlist.popup_eventid;
 
         imgui_pop_smallfont();
 
         if ( !TraceWin::render_events_list_popupmenu( eventid ) )
-            m_events_list_popup_eventid = INVALID_ID;
+            m_eventlist.popup_eventid = INVALID_ID;
 
         imgui_push_smallfont();
         popup_shown = true;
@@ -1785,8 +1828,8 @@ static void draw_ts_line( const ImVec2 &pos )
 void TraceWin::render_events_list( CIniFile &inifile )
 {
     std::vector< trace_event_t > &events = m_trace_events->m_events;
-    size_t event_count = m_filtered_events.empty() ?
-                events.size() : m_filtered_events.size();
+    size_t event_count = m_eventlist.filtered_events.empty() ?
+                events.size() : m_eventlist.filtered_events.size();
 
     // Set focus on event list first time we open.
     if ( !m_inited && ImGui::IsWindowFocused() )
@@ -1819,33 +1862,33 @@ void TraceWin::render_events_list( CIniFile &inifile )
         if ( scroll_lines )
             ImGui::SetScrollY( ImGui::GetScrollY() + scroll_lines * lineh );
 
-        bool filtered_events = !m_filtered_events.empty();
+        bool filtered_events = !m_eventlist.filtered_events.empty();
 
-        if ( m_do_gotoevent )
+        if ( m_eventlist.do_gotoevent )
         {
             uint32_t pos;
 
             if ( filtered_events )
             {
-                auto i = std::lower_bound( m_filtered_events.begin(), m_filtered_events.end(), m_goto_eventid );
+                auto i = std::lower_bound( m_eventlist.filtered_events.begin(), m_eventlist.filtered_events.end(), m_eventlist.goto_eventid );
 
-                pos = i - m_filtered_events.begin();
+                pos = i - m_eventlist.filtered_events.begin();
             }
             else
             {
-                pos = m_goto_eventid;
+                pos = m_eventlist.goto_eventid;
             }
 
             pos = std::min< uint32_t >( pos, event_count - 1 );
 
             // Only scroll if our goto event isn't visible.
-            if ( ( uint32_t )m_goto_eventid <= m_eventlist_start_eventid )
+            if ( ( uint32_t )m_eventlist.goto_eventid <= m_eventlist.start_eventid )
             {
                 float scrolly = std::max< int >( 0, pos ) * lineh;
 
                 ImGui::SetScrollY( scrolly );
             }
-            else if ( ( uint32_t )m_goto_eventid + 1 >= m_eventlist_end_eventid )
+            else if ( ( uint32_t )m_eventlist.goto_eventid + 1 >= m_eventlist.end_eventid )
             {
                 float scrolly = std::max< int >( 0, pos - visible_rows + 1 ) * lineh;
 
@@ -1853,9 +1896,9 @@ void TraceWin::render_events_list( CIniFile &inifile )
             }
 
             // Select the event also
-            m_selected_eventid = m_goto_eventid;
+            m_eventlist.selected_eventid = m_eventlist.goto_eventid;
 
-            m_do_gotoevent = false;
+            m_eventlist.do_gotoevent = false;
         }
 
         float scrolly = ImGui::GetScrollY();
@@ -1864,13 +1907,13 @@ void TraceWin::render_events_list( CIniFile &inifile )
 
         // Draw columns
         imgui_begin_columns( "event_list", { "Id", "Time Stamp", "Task", "Event", "Duration", "Info" },
-                             &inifile, &m_columns_eventlist_resized );
+                             &inifile, &m_eventlist.columns_resized );
         {
             bool popup_shown = false;
             int64_t ts_marker_diff = 0;
 
             // Reset our hovered event id
-            m_hovered_eventlist_eventid = INVALID_ID;
+            m_eventlist.hovered_eventid = INVALID_ID;
 
             // Move cursor position down to where we've scrolled.
             if ( start_idx > 0 )
@@ -1878,22 +1921,22 @@ void TraceWin::render_events_list( CIniFile &inifile )
 
             if ( filtered_events )
             {
-                m_eventlist_start_eventid = m_filtered_events[ start_idx ];
-                m_eventlist_end_eventid = m_filtered_events[ end_idx - 1 ];
+                m_eventlist.start_eventid = m_eventlist.filtered_events[ start_idx ];
+                m_eventlist.end_eventid = m_eventlist.filtered_events[ end_idx - 1 ];
             }
             else
             {
-                m_eventlist_start_eventid = start_idx;
-                m_eventlist_end_eventid = end_idx;
+                m_eventlist.start_eventid = start_idx;
+                m_eventlist.end_eventid = end_idx;
             }
 
             // Loop through and draw events
             for ( uint32_t i = start_idx; i < end_idx; i++ )
             {
                 trace_event_t &event = filtered_events ?
-                            m_trace_events->m_events[ m_filtered_events[ i ] ] :
+                            m_trace_events->m_events[ m_eventlist.filtered_events[ i ] ] :
                             m_trace_events->m_events[ i ];
-                bool selected = ( m_selected_eventid == event.id );
+                bool selected = ( m_eventlist.selected_eventid == event.id );
                 ImVec2 cursorpos = ImGui::GetCursorScreenPos();
 
                 ImGui::PushID( i );
@@ -1908,7 +1951,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
 
                 // If this event is in the highlighted list, give it a bit of a colored background
                 bool highlight = !selected && std::binary_search(
-                            m_highlight_ids.begin(), m_highlight_ids.end(), event.id );
+                            m_eventlist.highlight_ids.begin(), m_eventlist.highlight_ids.end(), event.id );
                 if ( highlight )
                 {
                     const ImVec4 &col = ImGui::GetColorVec4( ImGuiCol_PlotLinesHovered );
@@ -1921,7 +1964,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
                     if ( ImGui::Selectable( std::to_string( event.id ).c_str(),
                                             highlight || selected, ImGuiSelectableFlags_SpanAllColumns ) )
                     {
-                        m_selected_eventid = event.id;
+                        m_eventlist.selected_eventid = event.id;
                     }
 
                     // Columns bug workaround: selectable with SpanAllColumns & overlaid button does not work.
@@ -1936,7 +1979,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
 
                 // column 1: time stamp
                 {
-                    std::string ts_str = ts_to_timestr( event.ts, m_tsoffset ) + "ms";
+                    std::string ts_str = ts_to_timestr( event.ts, m_eventlist.tsoffset ) + "ms";
 
                     if ( event.id > 0 )
                     {
@@ -1983,9 +2026,9 @@ void TraceWin::render_events_list( CIniFile &inifile )
                     ImGui::NextColumn();
                 }
 
-                // Draw time stamp marker diff line if we're right below m_ts_marker
+                // Draw time stamp marker diff line if we're right below ts_marker
                 {
-                    int64_t ts_diff = event.ts - m_ts_marker;
+                    int64_t ts_diff = event.ts - m_graph.ts_marker;
                     bool do_draw_ts_line = ( ts_marker_diff < 0 ) && ( ts_diff > 0 );
 
                     if ( do_draw_ts_line )
@@ -2003,11 +2046,11 @@ void TraceWin::render_events_list( CIniFile &inifile )
                 // When we modify a filter via the context menu, it can hide the item
                 //  we right clicked on which means render_events_list_popupmenu() won't get
                 //  called. Check for that case here.
-                m_events_list_popup_eventid = INVALID_ID;
+                m_eventlist.popup_eventid = INVALID_ID;
             }
         }
         if ( ImGui::EndColumns() )
-            m_columns_eventlist_resized = true;
+            m_eventlist.columns_resized = true;
 
         ImGui::EndChild();
     }

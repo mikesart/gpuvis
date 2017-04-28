@@ -418,8 +418,8 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
     x = x_in;
     w = w_in;
 
-    ts0 = win->m_graph_start_ts + win->m_tsoffset;
-    ts1 = ts0 + win->m_graph_length_ts;
+    ts0 = win->m_graph.start_ts + win->m_eventlist.tsoffset;
+    ts1 = ts0 + win->m_graph.length_ts;
 
     eventstart = win->ts_to_eventid( ts0 );
     eventend = win->ts_to_eventid( ts1 );
@@ -432,18 +432,18 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
 
     // Check if we're supposed to render filtered events only
     graph_only_filtered = win->m_loader.m_options[ OPT_GraphOnlyFiltered ].val &&
-                          !win->m_filtered_events.empty();
+                          !win->m_eventlist.filtered_events.empty();
 
     timeline_render_user = !!win->m_loader.get_opt( OPT_TimelineRenderUserSpace );
 
     const std::vector< trace_event_t > &events = win->m_trace_events->m_events;
 
     // First check if they're hovering a timeline event in the event list
-    uint32_t event_hov = win->m_hovered_eventlist_eventid;
+    uint32_t event_hov = win->m_eventlist.hovered_eventid;
 
     // If not, check if they're hovering a timeline event in the graph
     if ( !is_valid_id( event_hov ) || !events[ event_hov ].is_timeline() )
-        event_hov = win->m_hovered_graph_eventid;
+        event_hov = win->m_graph.hovered_eventid;
 
     if ( is_valid_id( event_hov ) && events[ event_hov ].is_timeline() )
     {
@@ -867,9 +867,9 @@ uint32_t TraceWin::render_graph_row_events( graph_info_t &gi )
 
         float x = gi.ts_to_screenx( event.ts );
 
-        if ( eventid == m_hovered_eventlist_eventid )
+        if ( eventid == m_eventlist.hovered_eventid )
             draw_hovered_event = true;
-        else if ( eventid == m_selected_eventid )
+        else if ( eventid == m_eventlist.selected_eventid )
             draw_selected_event = true;
 
         // Check if we're mouse hovering this event
@@ -884,7 +884,7 @@ uint32_t TraceWin::render_graph_row_events( graph_info_t &gi )
 
     if ( draw_hovered_event )
     {
-        trace_event_t &event = get_event( m_hovered_eventlist_eventid );
+        trace_event_t &event = get_event( m_eventlist.hovered_eventid );
         float x = gi.ts_to_screenx( event.ts );
 
         ImGui::GetWindowDrawList()->AddCircleFilled(
@@ -895,7 +895,7 @@ uint32_t TraceWin::render_graph_row_events( graph_info_t &gi )
 
     if ( draw_selected_event )
     {
-        trace_event_t &event = get_event( m_selected_eventid );
+        trace_event_t &event = get_event( m_eventlist.selected_eventid );
         float x = gi.ts_to_screenx( event.ts );
 
         ImGui::GetWindowDrawList()->AddCircleFilled(
@@ -912,7 +912,7 @@ void TraceWin::render_graph_row( graph_info_t &gi )
     const std::string comm = gi.prinfo_cur->comm;
 
     if ( gi.mouse_over )
-        m_mouse_over_row_name = comm;
+        m_graph.mouse_over_row_name = comm;
 
     // Draw background
     ImGui::GetWindowDrawList()->AddRectFilled(
@@ -993,7 +993,7 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
     }
 
     // Draw location line for mouse if mouse is over graph
-    if ( m_mouse_over_graph &&
+    if ( m_graph.is_mouse_over &&
          gi.mouse_pos.x >= gi.x &&
          gi.mouse_pos.x <= gi.x + gi.w )
     {
@@ -1002,9 +1002,9 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
                         col_get( col_MousePos ) );
     }
 
-    if ( is_valid_id( m_hovered_eventlist_eventid ) )
+    if ( is_valid_id( m_eventlist.hovered_eventid ) )
     {
-        trace_event_t &event = get_event( m_hovered_eventlist_eventid );
+        trace_event_t &event = get_event( m_eventlist.hovered_eventid );
 
         if ( event.ts >= gi.ts0 && event.ts <= gi.ts1 )
         {
@@ -1016,9 +1016,9 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
         }
     }
 
-    if ( is_valid_id( m_selected_eventid ) )
+    if ( is_valid_id( m_eventlist.selected_eventid ) )
     {
-        trace_event_t &event = get_event( m_selected_eventid );
+        trace_event_t &event = get_event( m_eventlist.selected_eventid );
 
         if ( event.ts >= gi.ts0 && event.ts <= gi.ts1 )
         {
@@ -1031,10 +1031,10 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
     }
 
     // Draw mouse selection location
-    if ( ( m_mouse_captured == MOUSE_CAPTURED_ZOOM ) ||
-         ( m_mouse_captured == MOUSE_CAPTURED_SELECT_AREA ) )
+    if ( ( m_graph.mouse_captured == MOUSE_CAPTURED_ZOOM ) ||
+         ( m_graph.mouse_captured == MOUSE_CAPTURED_SELECT_AREA ) )
     {
-        float mousex0 = m_mouse_capture_pos.x;
+        float mousex0 = m_graph.mouse_capture_pos.x;
         float mousex1 = gi.mouse_pos.x;
 
         imgui_drawrect( mousex0, mousex1 - mousex0,
@@ -1042,14 +1042,14 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
                         col_get( col_ZoomSel ) );
     }
 
-    if ( m_show_eventlist )
+    if ( m_eventlist.show )
     {
         // Draw rectangle for visible event list contents
-        if ( is_valid_id( m_eventlist_start_eventid ) &&
-             is_valid_id( m_eventlist_end_eventid ) )
+        if ( is_valid_id( m_eventlist.start_eventid ) &&
+             is_valid_id( m_eventlist.end_eventid ) )
         {
-            trace_event_t &event0 = get_event( m_eventlist_start_eventid );
-            trace_event_t &event1 = get_event( m_eventlist_end_eventid - 1 );
+            trace_event_t &event0 = get_event( m_eventlist.start_eventid );
+            trace_event_t &event1 = get_event( m_eventlist.end_eventid - 1 );
             float xstart = gi.ts_to_screenx( event0.ts );
             float xend = gi.ts_to_screenx( event1.ts );
 
@@ -1065,34 +1065,34 @@ void TraceWin::range_check_graph_location()
 {
     std::vector< trace_event_t > &events = m_trace_events->m_events;
 
-    if ( m_graph_length_ts < g_min_graph_length )
+    if ( m_graph.length_ts < m_graph.s_min_length )
     {
-        m_graph_length_ts = g_min_graph_length;
-        m_do_graph_length_timestr = true;
+        m_graph.length_ts = m_graph.s_min_length;
+        m_graph.do_length_timestr = true;
     }
-    else if ( m_graph_length_ts > g_max_graph_length )
+    else if ( m_graph.length_ts > m_graph.s_max_length )
     {
-        m_graph_length_ts = g_max_graph_length;
-        m_do_graph_length_timestr = true;
+        m_graph.length_ts = m_graph.s_max_length;
+        m_graph.do_length_timestr = true;
     }
 
     // Sanity check the graph start doesn't go completely off the rails.
-    if ( m_graph_start_ts + m_tsoffset < events.front().ts - 1 * MSECS_PER_SEC )
+    if ( m_graph.start_ts + m_eventlist.tsoffset < events.front().ts - 1 * MSECS_PER_SEC )
     {
-        m_graph_start_ts = events.front().ts - m_tsoffset - 1 * MSECS_PER_SEC;
-        m_do_graph_start_timestr = true;
+        m_graph.start_ts = events.front().ts - m_eventlist.tsoffset - 1 * MSECS_PER_SEC;
+        m_graph.do_start_timestr = true;
     }
-    else if ( m_graph_start_ts + m_tsoffset > events.back().ts )
+    else if ( m_graph.start_ts + m_eventlist.tsoffset > events.back().ts )
     {
-        m_graph_start_ts = events.back().ts - m_tsoffset;
-        m_do_graph_start_timestr = true;
+        m_graph.start_ts = events.back().ts - m_eventlist.tsoffset;
+        m_graph.do_start_timestr = true;
     }
 }
 
 void TraceWin::handle_graph_hotkeys()
 {
-    if ( m_saved_graph_locs.size() < 9 )
-        m_saved_graph_locs.resize( 9 );
+    if ( m_graph.saved_locs.size() < 9 )
+        m_graph.saved_locs.resize( 9 );
 
     if ( ImGui::GetIO().KeyCtrl )
     {
@@ -1113,15 +1113,15 @@ void TraceWin::handle_graph_hotkeys()
                     if ( keyshift )
                     {
                         // ctrl+shift+#: save location
-                        m_saved_graph_locs[ index ] = std::make_pair( m_graph_start_ts, m_graph_length_ts );
+                        m_graph.saved_locs[ index ] = std::make_pair( m_graph.start_ts, m_graph.length_ts );
                     }
-                    else if ( m_saved_graph_locs[ index ].second )
+                    else if ( m_graph.saved_locs[ index ].second )
                     {
                         // ctrl+#: goto location
-                        m_graph_start_ts = m_saved_graph_locs[ index ].first;
-                        m_graph_length_ts = m_saved_graph_locs[ index ].second;
-                        m_do_graph_start_timestr = true;
-                        m_do_graph_length_timestr = true;
+                        m_graph.start_ts = m_graph.saved_locs[ index ].first;
+                        m_graph.length_ts = m_graph.saved_locs[ index ].second;
+                        m_graph.do_start_timestr = true;
+                        m_graph.do_length_timestr = true;
                     }
                     break;
                 }
@@ -1135,26 +1135,26 @@ void TraceWin::handle_graph_keyboard_scroll()
     if ( !ImGui::IsWindowFocused() )
         return;
 
-    int64_t start_ts = m_graph_start_ts + m_tsoffset;
+    int64_t start_ts = m_graph.start_ts + m_eventlist.tsoffset;
     std::vector< trace_event_t > &events = m_trace_events->m_events;
 
     if ( imgui_key_pressed( ImGuiKey_UpArrow ) )
     {
-        m_graph_start_y += ImGui::GetTextLineHeightWithSpacing() * 4;
+        m_graph.start_y += ImGui::GetTextLineHeightWithSpacing() * 4;
     }
     else if ( imgui_key_pressed( ImGuiKey_DownArrow ) )
     {
-        m_graph_start_y -= ImGui::GetTextLineHeightWithSpacing() * 4;
+        m_graph.start_y -= ImGui::GetTextLineHeightWithSpacing() * 4;
     }
     else if ( imgui_key_pressed( ImGuiKey_LeftArrow ) )
     {
-        start_ts = std::max< int64_t >( start_ts - 9 * m_graph_length_ts / 10,
+        start_ts = std::max< int64_t >( start_ts - 9 * m_graph.length_ts / 10,
                                         -MSECS_PER_SEC );
     }
     else if ( imgui_key_pressed( ImGuiKey_RightArrow ) )
     {
-        start_ts = std::min< int64_t >( start_ts + 9 * m_graph_length_ts / 10,
-                                        events.back().ts - m_graph_length_ts + MSECS_PER_SEC );
+        start_ts = std::min< int64_t >( start_ts + 9 * m_graph.length_ts / 10,
+                                        events.back().ts - m_graph.length_ts + MSECS_PER_SEC );
     }
     else if ( imgui_key_pressed( ImGuiKey_Home ) )
     {
@@ -1162,14 +1162,14 @@ void TraceWin::handle_graph_keyboard_scroll()
     }
     else if ( imgui_key_pressed( ImGuiKey_End ) )
     {
-        start_ts = events.back().ts - m_graph_length_ts + MSECS_PER_SEC;
+        start_ts = events.back().ts - m_graph.length_ts + MSECS_PER_SEC;
     }
 
-    start_ts -= m_tsoffset;
-    if ( start_ts != m_graph_start_ts )
+    start_ts -= m_eventlist.tsoffset;
+    if ( start_ts != m_graph.start_ts )
     {
-        m_graph_start_ts = start_ts;
-        m_do_graph_start_timestr = true;
+        m_graph.start_ts = start_ts;
+        m_graph.do_start_timestr = true;
     }
 }
 
@@ -1211,7 +1211,7 @@ void TraceWin::render_process_graph()
     graph_info_t gi;
 
     // Initialize our row size, location, etc information based on our graph rows
-    gi.init_row_info( this, m_graphrows.m_graph_rows_list );
+    gi.init_row_info( this, m_graph.rows.m_graph_rows_list );
 
     // Checkbox to toggle zooming gfx timeline view
     ImGui::SameLine();
@@ -1236,14 +1236,14 @@ void TraceWin::render_process_graph()
         gi.init( this, windowpos.x, windowsize.x );
 
         // Range check mouse pan values
-        m_graph_start_y = Clamp< float >( m_graph_start_y,
+        m_graph.start_y = Clamp< float >( m_graph.start_y,
                                           gi.visible_graph_height - gi.total_graph_height, 0.0f );
 
         // If we don't have a popup menu, clear the mouse over row name
-        if ( !m_graph_popupmenu )
+        if ( !m_graph.popupmenu )
         {
-            m_mouse_over_row_name = "";
-            m_rename_comm_buf[ 0 ] = 0;
+            m_graph.mouse_over_row_name = "";
+            m_graph.rename_comm_buf[ 0 ] = 0;
         }
 
         // If we have a gfx graph and we're zoomed, render only that
@@ -1278,7 +1278,7 @@ void TraceWin::render_process_graph()
 
                     if ( is_timeline == render_timelines )
                     {
-                        gi.set_pos_y( windowpos.y + ri.row_y + m_graph_start_y, ri.row_h, &ri );
+                        gi.set_pos_y( windowpos.y + ri.row_y + m_graph.start_y, ri.row_h, &ri );
                         render_graph_row( gi );
                     }
                 }
@@ -1306,9 +1306,9 @@ void TraceWin::render_process_graph()
         option_id_t opt = gi.do_zoom_gfx ? OPT_GraphHeightZoomed : OPT_GraphHeight;
 
         if ( ImGui::IsMouseClicked( 0 ) )
-            m_resize_graph_click_pos = m_loader.m_options[ opt ].valf;
+            m_graph.resize_graph_click_pos = m_loader.m_options[ opt ].valf;
 
-        m_loader.m_options[ opt ].valf = m_resize_graph_click_pos + ImGui::GetMouseDragDelta( 0 ).y;
+        m_loader.m_options[ opt ].valf = m_graph.resize_graph_click_pos + ImGui::GetMouseDragDelta( 0 ).y;
     }
 }
 
@@ -1321,7 +1321,7 @@ bool TraceWin::render_graph_popupmenu( graph_info_t &gi )
 
     auto get_location_label_lambda = [this]( size_t i )
     {
-        auto &pair = m_saved_graph_locs[ i ];
+        auto &pair = m_graph.saved_locs[ i ];
         std::string start = ts_to_timestr( pair.first );
         std::string len = ts_to_timestr( pair.second );
         return string_format( "Start:%s Length:%s", start.c_str(), len.c_str() );
@@ -1330,37 +1330,37 @@ bool TraceWin::render_graph_popupmenu( graph_info_t &gi )
     imgui_text_bg( "Options", ImGui::GetColorVec4( ImGuiCol_Header ) );
     ImGui::Separator();
 
-    if ( !m_mouse_over_row_name.empty() )
+    if ( !m_graph.mouse_over_row_name.empty() )
     {
-        optid = get_comm_option_id( m_loader, m_mouse_over_row_name.c_str() );
+        optid = get_comm_option_id( m_loader, m_graph.mouse_over_row_name.c_str() );
 
-        std::string label = string_format( "Hide row '%s'", m_mouse_over_row_name.c_str() );
+        std::string label = string_format( "Hide row '%s'", m_graph.mouse_over_row_name.c_str() );
 
         if ( ImGui::MenuItem( label.c_str() ) )
-            m_graphrows.show_row( m_mouse_over_row_name, GraphRows::HIDE_ROW );
+            m_graph.rows.show_row( m_graph.mouse_over_row_name, GraphRows::HIDE_ROW );
 
-        label = string_format( "Hide row '%s' and below", m_mouse_over_row_name.c_str() );
+        label = string_format( "Hide row '%s' and below", m_graph.mouse_over_row_name.c_str() );
         if ( ImGui::MenuItem( label.c_str() ) )
-            m_graphrows.show_row( m_mouse_over_row_name, GraphRows::HIDE_ROW_AND_ALL_BELOW );
+            m_graph.rows.show_row( m_graph.mouse_over_row_name, GraphRows::HIDE_ROW_AND_ALL_BELOW );
     }
 
-    if ( !m_graph_rows_hidden_rows.empty() )
+    if ( !m_graph.rows_hidden_rows.empty() )
     {
         if ( ImGui::BeginMenu( "Show row" ) )
         {
             if ( ImGui::MenuItem( "All Rows" ) )
-                m_graphrows.show_row( "", GraphRows::SHOW_ALL_ROWS );
+                m_graph.rows.show_row( "", GraphRows::SHOW_ALL_ROWS );
 
             ImGui::Separator();
 
-            for ( const GraphRows::graph_rows_info_t &entry : m_graph_rows_hidden_rows )
+            for ( const GraphRows::graph_rows_info_t &entry : m_graph.rows_hidden_rows )
             {
                 const std::string label = string_format( "%s (%lu events)",
                                                          entry.name.c_str(), entry.event_count );
 
                 if ( ImGui::MenuItem( label.c_str() ) )
                 {
-                    m_graphrows.show_row( entry.name.c_str(), GraphRows::SHOW_ROW );
+                    m_graph.rows.show_row( entry.name.c_str(), GraphRows::SHOW_ROW );
                 }
             }
 
@@ -1369,19 +1369,19 @@ bool TraceWin::render_graph_popupmenu( graph_info_t &gi )
 
     }
 
-    if ( !m_mouse_over_row_name.empty() )
+    if ( !m_graph.mouse_over_row_name.empty() )
     {
-        std::string move_label = string_format( "Move '%s' after", m_mouse_over_row_name.c_str() );
+        std::string move_label = string_format( "Move '%s' after", m_graph.mouse_over_row_name.c_str() );
 
         if ( ImGui::BeginMenu( move_label.c_str() ) )
         {
-            for ( const GraphRows::graph_rows_info_t &entry : m_graphrows.m_graph_rows_list )
+            for ( const GraphRows::graph_rows_info_t &entry : m_graph.rows.m_graph_rows_list )
             {
-                if ( !entry.hidden && ( entry.name != m_mouse_over_row_name ) )
+                if ( !entry.hidden && ( entry.name != m_graph.mouse_over_row_name ) )
                 {
                     if ( ImGui::MenuItem( entry.name.c_str() ) )
                     {
-                        m_graphrows.move_row( m_mouse_over_row_name, entry.name );
+                        m_graph.rows.move_row( m_graph.mouse_over_row_name, entry.name );
                         ImGui::CloseCurrentPopup();
                         break;
                     }
@@ -1397,19 +1397,19 @@ bool TraceWin::render_graph_popupmenu( graph_info_t &gi )
         ImGui::Text( "New Graph Row:" );
 
         ImGui::SameLine();
-        if ( ImGui::InputText( "##new_graph_row", m_new_graph_row_buf, sizeof( m_new_graph_row_buf ),
+        if ( ImGui::InputText( "##new_graph_row", m_graph.new_row_buf, sizeof( m_graph.new_row_buf ),
                                ImGuiInputTextFlags_EnterReturnsTrue ) )
         {
-            m_new_graph_row_errstr.clear();
+            m_graph.new_row_errstr.clear();
 
-            if ( m_trace_events->get_tdopexpr_locs( m_new_graph_row_buf, &m_new_graph_row_errstr ) )
+            if ( m_trace_events->get_tdopexpr_locs( m_graph.new_row_buf, &m_graph.new_row_errstr ) )
             {
-                m_graphrows.add_row( m_trace_events, m_new_graph_row_buf );
+                m_graph.rows.add_row( m_trace_events, m_graph.new_row_buf );
                 ImGui::CloseCurrentPopup();
             }
-            else if ( m_new_graph_row_errstr.empty() )
+            else if ( m_graph.new_row_errstr.empty() )
             {
-                m_new_graph_row_errstr = string_format( "ERROR: no events found for '%s'", m_new_graph_row_buf );
+                m_graph.new_row_errstr = string_format( "ERROR: no events found for '%s'", m_graph.new_row_buf );
             }
         }
 
@@ -1427,29 +1427,29 @@ bool TraceWin::render_graph_popupmenu( graph_info_t &gi )
             imgui_set_tooltip( tooltip );
         }
 
-        if ( !m_new_graph_row_errstr.empty() )
-            ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_new_graph_row_errstr.c_str() );
+        if ( !m_graph.new_row_errstr.empty() )
+            ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_graph.new_row_errstr.c_str() );
     }
 
-    if ( m_trace_events->get_comm_locs( m_mouse_over_row_name.c_str() ) )
+    if ( m_trace_events->get_comm_locs( m_graph.mouse_over_row_name.c_str() ) )
     {
-        if ( !m_rename_comm_buf[ 0 ] )
+        if ( !m_graph.rename_comm_buf[ 0 ] )
         {
-            strcpy_safe( m_rename_comm_buf, m_mouse_over_row_name.c_str() );
+            strcpy_safe( m_graph.rename_comm_buf, m_graph.mouse_over_row_name.c_str() );
 
-            char *slash = strrchr( m_rename_comm_buf, '-' );
+            char *slash = strrchr( m_graph.rename_comm_buf, '-' );
             if ( slash )
                 *slash = 0;
         }
 
         ImGui::AlignFirstTextHeightToWidgets();
-        ImGui::Text( "Rename '%s':", m_mouse_over_row_name.c_str() );
+        ImGui::Text( "Rename '%s':", m_graph.mouse_over_row_name.c_str() );
 
         ImGui::SameLine();
-        if ( ImGui::InputText( "##rename_comm", m_rename_comm_buf, sizeof( m_rename_comm_buf ),
+        if ( ImGui::InputText( "##rename_comm", m_graph.rename_comm_buf, sizeof( m_graph.rename_comm_buf ),
                                ImGuiInputTextFlags_EnterReturnsTrue ) )
         {
-            if ( rename_comm_event( m_mouse_over_row_name.c_str(), m_rename_comm_buf ) )
+            if ( rename_comm_event( m_graph.mouse_over_row_name.c_str(), m_graph.rename_comm_buf ) )
                 ImGui::CloseCurrentPopup();
         }
     }
@@ -1469,14 +1469,14 @@ bool TraceWin::render_graph_popupmenu( graph_info_t &gi )
 
     if ( ImGui::BeginMenu( "Save Location" ) )
     {
-        for ( size_t i = 0; i < m_saved_graph_locs.size(); i++ )
+        for ( size_t i = 0; i < m_graph.saved_locs.size(); i++ )
         {
             std::string label = get_location_label_lambda( i );
             std::string shortcut = string_format( "Ctrl+Shift+%c", ( int )( i + '1' ) );
 
             if ( ImGui::MenuItem( label.c_str(), shortcut.c_str() ) )
             {
-                m_saved_graph_locs[ i ] = std::make_pair( m_graph_start_ts, m_graph_length_ts );
+                m_graph.saved_locs[ i ] = std::make_pair( m_graph.start_ts, m_graph.length_ts );
                 break;
             }
         }
@@ -1486,19 +1486,19 @@ bool TraceWin::render_graph_popupmenu( graph_info_t &gi )
 
     if ( ImGui::BeginMenu( "Restore Location" ) )
     {
-        for ( size_t i = 0; i < m_saved_graph_locs.size(); i++ )
+        for ( size_t i = 0; i < m_graph.saved_locs.size(); i++ )
         {
-            if ( m_saved_graph_locs[ i ].second )
+            if ( m_graph.saved_locs[ i ].second )
             {
                 std::string label = get_location_label_lambda( i );
                 std::string shortcut = string_format( "Ctrl+%c", ( int )( i + '1' ) );
 
                 if ( ImGui::MenuItem( label.c_str(), shortcut.c_str() ) )
                 {
-                    m_graph_start_ts = m_saved_graph_locs[ i ].first;
-                    m_graph_length_ts = m_saved_graph_locs[ i ].second;
-                    m_do_graph_start_timestr = true;
-                    m_do_graph_length_timestr = true;
+                    m_graph.start_ts = m_graph.saved_locs[ i ].first;
+                    m_graph.length_ts = m_graph.saved_locs[ i ].second;
+                    m_graph.do_start_timestr = true;
+                    m_graph.do_length_timestr = true;
                 }
             }
         }
@@ -1553,9 +1553,9 @@ bool TraceWin::render_graph_popupmenu( graph_info_t &gi )
 void TraceWin::handle_mouse_graph_captured( graph_info_t &gi )
 {
     // Uncapture mouse if user hits escape
-    if ( m_mouse_captured && imgui_key_pressed( ImGuiKey_Escape ) )
+    if ( m_graph.mouse_captured && imgui_key_pressed( ImGuiKey_Escape ) )
     {
-        m_mouse_captured = MOUSE_NOT_CAPTURED;
+        m_graph.mouse_captured = MOUSE_NOT_CAPTURED;
         ImGui::CaptureMouseFromApp( false );
 
         return;
@@ -1563,11 +1563,11 @@ void TraceWin::handle_mouse_graph_captured( graph_info_t &gi )
 
     bool is_mouse_down = ImGui::IsMouseDown( 0 );
 
-    if ( ( m_mouse_captured == MOUSE_CAPTURED_ZOOM ) ||
-         ( m_mouse_captured == MOUSE_CAPTURED_SELECT_AREA ) )
+    if ( ( m_graph.mouse_captured == MOUSE_CAPTURED_ZOOM ) ||
+         ( m_graph.mouse_captured == MOUSE_CAPTURED_SELECT_AREA ) )
     {
         // shift + click: zoom area
-        int64_t event_ts0 = gi.screenx_to_ts( m_mouse_capture_pos.x );
+        int64_t event_ts0 = gi.screenx_to_ts( m_graph.mouse_capture_pos.x );
         int64_t event_ts1 = gi.screenx_to_ts( gi.mouse_pos.x );
 
         if ( event_ts0 > event_ts1 )
@@ -1575,41 +1575,41 @@ void TraceWin::handle_mouse_graph_captured( graph_info_t &gi )
 
         if ( is_mouse_down )
         {
-            std::string time_buf0 = ts_to_timestr( event_ts0, m_tsoffset );
+            std::string time_buf0 = ts_to_timestr( event_ts0, m_eventlist.tsoffset );
             std::string time_buf1 = ts_to_timestr( event_ts1 - event_ts0 );
 
             // Show tooltip with starting time and length of selected area.
             imgui_set_tooltip( string_format( "%s (%s ms)", time_buf0.c_str(), time_buf1.c_str() ) );
         }
-        else if ( m_mouse_captured == MOUSE_CAPTURED_ZOOM )
+        else if ( m_graph.mouse_captured == MOUSE_CAPTURED_ZOOM )
         {
-            m_graph_start_ts = event_ts0 - m_tsoffset;
-            m_graph_length_ts = event_ts1 - event_ts0;
-            m_do_graph_start_timestr = true;
-            m_do_graph_length_timestr = true;
+            m_graph.start_ts = event_ts0 - m_eventlist.tsoffset;
+            m_graph.length_ts = event_ts1 - event_ts0;
+            m_graph.do_start_timestr = true;
+            m_graph.do_length_timestr = true;
         }
     }
-    else if ( m_mouse_captured == MOUSE_CAPTURED_PAN )
+    else if ( m_graph.mouse_captured == MOUSE_CAPTURED_PAN )
     {
         // click: pan
         if ( is_mouse_down )
         {
-            float dx = gi.mouse_pos.x - m_mouse_capture_pos.x;
+            float dx = gi.mouse_pos.x - m_graph.mouse_capture_pos.x;
             int64_t tsdiff = gi.dx_to_ts( dx );
 
-            m_graph_start_ts -= tsdiff;
-            m_do_graph_start_timestr = true;
+            m_graph.start_ts -= tsdiff;
+            m_graph.do_start_timestr = true;
 
-            m_graph_start_y += gi.mouse_pos.y - m_mouse_capture_pos.y;
+            m_graph.start_y += gi.mouse_pos.y - m_graph.mouse_capture_pos.y;
 
-            m_mouse_capture_pos = gi.mouse_pos;
+            m_graph.mouse_capture_pos = gi.mouse_pos;
         }
     }
 
     if ( !is_mouse_down )
     {
         // Mouse is no longer down, uncapture mouse...
-        m_mouse_captured = MOUSE_NOT_CAPTURED;
+        m_graph.mouse_captured = MOUSE_NOT_CAPTURED;
         ImGui::CaptureMouseFromApp( false );
     }
 
@@ -1617,10 +1617,10 @@ void TraceWin::handle_mouse_graph_captured( graph_info_t &gi )
 
 void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts )
 {
-    std::string time_buf = "Time: " + ts_to_timestr( mouse_ts, m_tsoffset );
-    bool sync_event_list_to_graph = m_loader.get_opt( OPT_SyncEventListToGraph ) && m_show_eventlist;
+    std::string time_buf = "Time: " + ts_to_timestr( mouse_ts, m_eventlist.tsoffset );
+    bool sync_event_list_to_graph = m_loader.get_opt( OPT_SyncEventListToGraph ) && m_eventlist.show;
 
-    m_highlight_ids.clear();
+    m_eventlist.highlight_ids.clear();
 
     const std::vector< uint32_t > *vblank_locs = m_trace_events->get_tdopexpr_locs( "$name=drm_vblank_event" );
     if ( vblank_locs )
@@ -1656,7 +1656,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
             time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 ) + "ms";
     }
 
-    m_hovered_graph_eventid = INVALID_ID;
+    m_graph.hovered_eventid = INVALID_ID;
     if ( !gi.hovered_items.empty() )
     {
         // Sort hovered items array by id
@@ -1673,7 +1673,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
         {
             trace_event_t &event = get_event( hov.eventid );
 
-            m_highlight_ids.push_back( event.id );
+            m_eventlist.highlight_ids.push_back( event.id );
 
             // Add event id and distance from cursor to this event
             time_buf += string_format( "\n%u %c%sms",
@@ -1699,12 +1699,12 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
         }
 
         // Mark the first event in the list as our hovered graph event
-        m_hovered_graph_eventid = gi.hovered_items[ 0 ].eventid;
+        m_graph.hovered_eventid = gi.hovered_items[ 0 ].eventid;
 
-        if ( sync_event_list_to_graph && !m_do_gotoevent )
+        if ( sync_event_list_to_graph && !m_eventlist.do_gotoevent )
         {
-            m_do_gotoevent = true;
-            m_goto_eventid = gi.hovered_items[ 0 ].eventid;
+            m_eventlist.do_gotoevent = true;
+            m_eventlist.goto_eventid = gi.hovered_items[ 0 ].eventid;
         }
     }
 
@@ -1722,7 +1722,7 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
             const char *name = event.get_timeline_name( event.name );
 
             if ( gi.hovered_items.empty() )
-                m_highlight_ids.push_back( id );
+                m_eventlist.highlight_ids.push_back( id );
 
             time_buf += string_format( "\n  %u %s duration: %s%sms%s", event.id, name,
                                        multi_text_color::yellow.c_str(),
@@ -1730,11 +1730,11 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
                                        multi_text_color::def.c_str() );
         }
 
-        if ( sync_event_list_to_graph && !m_do_gotoevent )
+        if ( sync_event_list_to_graph && !m_eventlist.do_gotoevent )
         {
             // Sync event list to first event id in this context
-            m_do_gotoevent = true;
-            m_goto_eventid = plocs->at( 0 );
+            m_eventlist.do_gotoevent = true;
+            m_eventlist.goto_eventid = plocs->at( 0 );
         }
     }
 
@@ -1744,23 +1744,23 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
 void TraceWin::handle_mouse_graph( graph_info_t &gi )
 {
     // If we've got an active popup menu, render it.
-    if ( m_graph_popupmenu )
+    if ( m_graph.popupmenu )
     {
-        m_graph_popupmenu = TraceWin::render_graph_popupmenu( gi );
+        m_graph.popupmenu = TraceWin::render_graph_popupmenu( gi );
         return;
     }
 
-    m_ts_marker = -1;
+    m_graph.ts_marker = -1;
 
     // Check if mouse if over our graph and we've got focus
-    m_mouse_over_graph = gi.mouse_pos_in_graph() &&
+    m_graph.is_mouse_over = gi.mouse_pos_in_graph() &&
                          ImGui::IsRootWindowOrAnyChildFocused();
 
     // If we don't own the mouse and we don't have focus, bail.
-    if ( !m_mouse_captured && !m_mouse_over_graph )
+    if ( !m_graph.mouse_captured && !m_graph.is_mouse_over )
         return;
 
-    if ( m_mouse_captured )
+    if ( m_graph.mouse_captured )
     {
         handle_mouse_graph_captured( gi );
         return;
@@ -1770,7 +1770,7 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
     {
         int64_t mouse_ts = gi.screenx_to_ts( gi.mouse_pos.x );
 
-        m_ts_marker = mouse_ts;
+        m_graph.ts_marker = mouse_ts;
 
         // Set the tooltip
         set_mouse_graph_tooltip( gi, mouse_ts );
@@ -1781,32 +1781,32 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
             if ( ImGui::GetIO().KeyCtrl )
             {
                 // ctrl + click: select area
-                m_mouse_captured = MOUSE_CAPTURED_SELECT_AREA;
+                m_graph.mouse_captured = MOUSE_CAPTURED_SELECT_AREA;
                 ImGui::CaptureMouseFromApp( true );
-                m_mouse_capture_pos = gi.mouse_pos;
+                m_graph.mouse_capture_pos = gi.mouse_pos;
             }
             else if ( ImGui::GetIO().KeyShift )
             {
                 // shift + click: zoom
-                m_mouse_captured = MOUSE_CAPTURED_ZOOM;
+                m_graph.mouse_captured = MOUSE_CAPTURED_ZOOM;
                 ImGui::CaptureMouseFromApp( true );
-                m_mouse_capture_pos = gi.mouse_pos;
+                m_graph.mouse_capture_pos = gi.mouse_pos;
             }
             else
             {
                 // click: pan
-                m_mouse_captured = MOUSE_CAPTURED_PAN;
+                m_graph.mouse_captured = MOUSE_CAPTURED_PAN;
                 ImGui::CaptureMouseFromApp( true );
-                m_mouse_capture_pos = gi.mouse_pos;
+                m_graph.mouse_capture_pos = gi.mouse_pos;
             }
         }
         else if ( ImGui::IsMouseClicked( 1 ) )
         {
             // right click: popup menu
-            m_graph_popupmenu = true;
+            m_graph.popupmenu = true;
 
-            m_graph_rows_hidden_rows = m_graphrows.get_hidden_rows_list( m_trace_events );
-            m_new_graph_row_errstr = "";
+            m_graph.rows_hidden_rows = m_graph.rows.get_hidden_rows_list( m_trace_events );
+            m_graph.new_row_errstr = "";
 
             ImGui::OpenPopup( "GraphPopup" );
         }
@@ -1817,19 +1817,19 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
             if ( mousewheel )
             {
                 bool zoomin = ( mousewheel > 0.0f );
-                int64_t len0 = m_graph_length_ts;
-                int64_t amt = zoomin ? -( m_graph_length_ts / 2 ) : ( m_graph_length_ts / 2 );
+                int64_t len0 = m_graph.length_ts;
+                int64_t amt = zoomin ? -( m_graph.length_ts / 2 ) : ( m_graph.length_ts / 2 );
                 int64_t len1 = len0 + amt;
 
-                if ( ( len1 > g_min_graph_length ) && ( len1 < g_max_graph_length ) )
+                if ( ( len1 > m_graph.s_min_length ) && ( len1 < m_graph.s_max_length ) )
                 {
                     //$ TODO mikesart: we've gotten overflow error here:
                     // runtime error: signed integer overflow: 2023691192 * 4676142294 cannot be represented in type 'long int'
-                    m_graph_start_ts = mouse_ts - len1 * ( mouse_ts - gi.ts0 ) / len0 - m_tsoffset;
-                    m_graph_length_ts = len1;
+                    m_graph.start_ts = mouse_ts - len1 * ( mouse_ts - gi.ts0 ) / len0 - m_eventlist.tsoffset;
+                    m_graph.length_ts = len1;
 
-                    m_do_graph_start_timestr = true;
-                    m_do_graph_length_timestr = true;
+                    m_graph.do_start_timestr = true;
+                    m_graph.do_length_timestr = true;
                 }
             }
         }

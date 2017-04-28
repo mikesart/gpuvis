@@ -30,19 +30,6 @@
 #include "gpuvis_utils.h"
 #include "stlini.h"
 
-class StrPool
-{
-public:
-    StrPool() {}
-    ~StrPool() {}
-
-    const char *getstr( const char *str, size_t len = ( size_t )-1 );
-    const char *findstr( uint32_t hashval );
-
-public:
-    util_umap< uint32_t, std::string > m_pool;
-};
-
 struct trace_info_t
 {
     uint32_t cpus = 0;
@@ -222,60 +209,7 @@ public:
         LOC_TYPE_Timeline_hw,
         LOC_TYPE_Max
     };
-
-    const std::vector< uint32_t > *get_locs( const char *name, loc_type_t *type = nullptr )
-    {
-        const std::vector< uint32_t > *plocs = NULL;
-
-        if ( !strcmp( name, "print" ) )
-        {
-            // Check for explicit "print" row
-            if ( type )
-                *type = LOC_TYPE_Print;
-            plocs = get_tdopexpr_locs( "$name=print" );
-        }
-        else
-        {
-            size_t len = strlen( name );
-
-            if ( ( len > 3 ) && !strcmp( name + len - 3, " hw" ) )
-            {
-                // Check for "gfx hw", "comp_1.1.1 hw", etc.
-                uint32_t hashval = fnv_hashstr32( name, len - 3 );
-
-                if ( type )
-                    *type = LOC_TYPE_Timeline_hw;
-                plocs = m_timeline_locations.get_locations_u32( hashval );
-            }
-            else
-            {
-                // Check for regular comm type rows
-                if ( type )
-                    *type = LOC_TYPE_Comm;
-                plocs = get_comm_locs( name );
-
-                if ( !plocs )
-                {
-                    // TDOP Expressions. Ie, $name = print, etc.
-                    if ( type )
-                        *type = LOC_TYPE_Tdopexpr;
-                    plocs = get_tdopexpr_locs( name );
-
-                    if ( !plocs )
-                    {
-                        // Timelines: sdma0, gfx, comp_1.2.1, etc.
-                        if ( type )
-                            *type = LOC_TYPE_Timeline;
-                        plocs = get_timeline_locs( name );
-                    }
-                }
-            }
-        }
-
-        if ( !plocs && type )
-            *type = LOC_TYPE_Max;
-        return plocs;
-    }
+    const std::vector< uint32_t > *get_locs( const char *name, loc_type_t *type = nullptr );
 
 public:
     int64_t m_ts_min = 0;
@@ -414,33 +348,30 @@ public:
     ~TraceWin();
 
 public:
-    // Main TraceWin render
     bool render();
 
 protected:
-    // Render trace information header
-    void render_trace_info();
-    // Render the process graph
-    void render_process_graph();
+    /*
+     * Events list
+     */
+
     // Render events list
     void render_events_list( CIniFile &inifile );
-    // Render the graph color picker
-    void render_color_picker();
-
-protected:
     // Handle events list popup menu
     bool render_events_list_popupmenu( uint32_t eventid );
-
-    // Initialize m_graph_start_ts
-    void render_time_offset_button_init( TraceEvents &trace_events );
-
     // Handle mouse clicking and tooltips for event list
     bool handle_events_list_mouse( const trace_event_t &event, uint32_t i );
 
+protected:
+    /*
+     * Graph functions
+     */
+
+    // Render the process graph
+    void render_process_graph();
     // Render regular graph row
     void render_graph_row( class graph_info_t &gi );
-
-    // Render timeline grah row
+    // Render timeline graph row
     uint32_t render_graph_row_timeline( class graph_info_t &gi );
     // Render hw graph row
     uint32_t render_graph_hw_row_timeline( class graph_info_t &gi );
@@ -448,12 +379,11 @@ protected:
     uint32_t render_graph_print_timeline( class graph_info_t &gi );
     // Render regular trace events
     uint32_t render_graph_row_events( class graph_info_t &gi );
-
     // Render graph vblanks, tick markers, mouse location, etc.
     void render_graph_vblanks( class graph_info_t &gi );
+
     // Handle graph popup menu
     bool render_graph_popupmenu( class graph_info_t &gi );
-
     // Mouse wheel, clicking for graph
     void handle_mouse_graph( class graph_info_t &gi );
     // Graph mouse handler when captured
@@ -463,19 +393,26 @@ protected:
 
     // Potentially dd a hovered mouse graph event
     bool add_mouse_hovered_event( float x, class graph_info_t &gi, const trace_event_t &event );
-
-    // Handle graph keys
+    // graph keyboard handling
     void handle_graph_hotkeys();
     void handle_graph_keyboard_scroll();
 
-
-    // Make sure m_graph_start_ts and m_graph_length_ts are legit
+    // Make sure m_graph.start_ts and m_graph.length_ts are legit
     void range_check_graph_location();
+
+protected:
+    // Render trace information header
+    void render_trace_info();
+    // Render graph color picker
+    void render_color_picker();
+
+public:
+    /*
+     * Utils
+     */
 
     // Rename a comm event
     bool rename_comm_event( const char *comm_old, const char *comm_new );
-
-public:
     // Return an event id for a given time stamp
     int ts_to_eventid( int64_t ts );
     // Return an event id from a time string
@@ -491,88 +428,61 @@ public:
     }
 
 public:
-    TraceLoader &m_loader;
-
-    // Our events
-    TraceEvents *m_trace_events = nullptr;
-
     // Window title
     std::string m_title;
-
-    // false first time through render() call
-    bool m_inited = false;
 
     // Whether our window is open or not
     bool m_open = true;
 
-    GraphRows m_graphrows;
+    // false first time through render() call
+    bool m_inited = false;
 
-    bool m_do_gotoevent = false;
-    int m_goto_eventid = 0;
+    // Our trace events
+    TraceEvents *m_trace_events = nullptr;
 
-    // Mouse timestamp location in graph
-    int64_t m_ts_marker = -1;
+    TraceLoader &m_loader;
 
-    // Is Event List Header visible?
-    bool m_show_eventlist = false;
+    int m_selected_color = 0;
+    ColorPicker m_colorpicker;
 
-    // Whether column has been resized.
-    bool m_columns_eventlist_resized = false;
+    util_umap< int64_t, int > m_ts_to_eventid_cache;
 
-    // Goto Time buffer
-    char m_timegoto_buf[ 32 ] = { 0 };
+    struct
+    {
+        // Is event list visible?
+        bool show = false;
 
-    bool m_do_event_filter = false;
-    char m_event_filter_buf[ 512 ] = { 0 };
+        bool do_gotoevent = false;
+        int goto_eventid = 0;
 
-    // Time Offset
-    char m_timeoffset_buf[ 32 ] = { 0 };
-    int64_t m_tsoffset = 0;
+        bool do_filter = false;
+        char filter_buf[ 512 ] = { 0 };
+        std::string filtered_events_str;
+        std::vector< uint32_t > filtered_events;
 
-    // Event id of event list popup menu
-    uint32_t m_events_list_popup_eventid = INVALID_ID;
+        // Goto Time buffer
+        char timegoto_buf[ 32 ] = { 0 };
 
-    float m_resize_graph_click_pos = 0.0f;
+        // Time Offset
+        char timeoffset_buf[ 32 ] = { 0 };
+        int64_t tsoffset = 0;
 
-    bool m_graph_popupmenu = false;
-    std::string m_mouse_over_row_name;
-    std::vector< GraphRows::graph_rows_info_t > m_graph_rows_hidden_rows;
+        uint32_t start_eventid = INVALID_ID;
+        uint32_t end_eventid = INVALID_ID;
 
-    char m_rename_comm_buf[ 512 ] = { 0 };
-    char m_new_graph_row_buf[ 512 ] = { 0 };
-    std::string m_new_graph_row_errstr;
+        // Event id of event list popup menu
+        uint32_t popup_eventid = INVALID_ID;
+        // Currently selected event.
+        uint32_t selected_eventid = INVALID_ID;
+        // Currently hovered event in event list.
+        uint32_t hovered_eventid = INVALID_ID;
 
-    // Graph Start
-    bool m_do_graph_start_timestr = false;
-    int64_t m_graph_start_ts = 0;
-    char m_graphtime_start_buf[ 32 ] = { 0 };
-    // Graph Length
-    bool m_do_graph_length_timestr = false;
-    int64_t m_graph_length_ts = INT64_MAX;
-    char m_graphtime_length_buf[ 32 ] = { 0 };
+        // Hovered event ids to highlight in events list
+        std::vector< uint32_t > highlight_ids;
 
-    // Graph vertical panning
-    float m_graph_start_y = 0.0f;
-
-    bool m_do_graph_zoom_in = false;
-    bool m_do_graph_zoom_out = false;
-
-    // Currently selected event.
-    uint32_t m_selected_eventid = INVALID_ID;
-    // Currently hovered event in event list.
-    uint32_t m_hovered_eventlist_eventid = INVALID_ID;
-    // Graph hovered event
-    uint32_t m_hovered_graph_eventid = INVALID_ID;
-    // Hovered event ids so we can highlight them in the events list
-    std::vector< uint32_t > m_highlight_ids;
-
-    uint32_t m_eventlist_start_eventid = INVALID_ID;
-    uint32_t m_eventlist_end_eventid = INVALID_ID;
-
-    std::vector< std::pair< int64_t, int64_t > > m_saved_graph_locs;
-
-    // Mouse currently over our events graph?
-    bool m_mouse_over_graph = false;
+        // Whether event list columns have been resized.
+        bool columns_resized = false;
+    } m_eventlist;
 
     enum mouse_captured_t
     {
@@ -581,19 +491,51 @@ public:
         MOUSE_CAPTURED_ZOOM,
         MOUSE_CAPTURED_PAN,
     };
-    mouse_captured_t m_mouse_captured = MOUSE_NOT_CAPTURED;
-    ImVec2 m_mouse_capture_pos;
+    struct
+    {
+        // Our graph row handling and info
+        GraphRows rows;
 
-    int m_selected_color = 0;
-    ColorPicker m_colorpicker;
+        // Mouse timestamp location in graph
+        int64_t ts_marker = -1;
 
-    std::vector< uint32_t > m_filtered_events;
-    std::string m_filtered_events_str;
+        float resize_graph_click_pos = 0.0f;
 
-    util_umap< int64_t, int > m_ts_to_eventid_cache;
+        bool popupmenu = false;
+        std::string mouse_over_row_name;
+        std::vector< GraphRows::graph_rows_info_t > rows_hidden_rows;
 
-    const int64_t g_min_graph_length = 100;
-    const int64_t g_max_graph_length = 5000 * MSECS_PER_SEC;
+        char rename_comm_buf[ 512 ] = { 0 };
+        char new_row_buf[ 512 ] = { 0 };
+        std::string new_row_errstr;
+
+        // Graph Start
+        bool do_start_timestr = false;
+        int64_t start_ts = 0;
+        char time_start_buf[ 32 ] = { 0 };
+
+        // Graph Length
+        bool do_length_timestr = false;
+        int64_t length_ts = INT64_MAX;
+        char time_length_buf[ 32 ] = { 0 };
+
+        // Graph vertical panning
+        float start_y = 0.0f;
+
+        // Graph hovered event
+        uint32_t hovered_eventid = INVALID_ID;
+
+        // Mouse currently over our events graph?
+        bool is_mouse_over = false;
+
+        std::vector< std::pair< int64_t, int64_t > > saved_locs;
+
+        mouse_captured_t mouse_captured = MOUSE_NOT_CAPTURED;
+        ImVec2 mouse_capture_pos;
+
+        const int64_t s_min_length = 100;
+        const int64_t s_max_length = 5000 * MSECS_PER_SEC;
+    } m_graph;
 
     friend class graph_info_t;
 };

@@ -94,6 +94,19 @@ public:
     map_t m_map;
 };
 
+class StrPool
+{
+public:
+    StrPool() {}
+    ~StrPool() {}
+
+    const char *getstr( const char *str, size_t len = ( size_t )-1 );
+    const char *findstr( uint32_t hashval );
+
+public:
+    util_umap< uint32_t, std::string > m_pool;
+};
+
 void logf_init();
 void logf_shutdown();
 void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
