@@ -1424,21 +1424,15 @@ bool TraceWin::render()
         for ( INIEntry &entry : entries )
             rename_comm_event( entry.first.c_str(), entry.second.c_str() );
 
-        //$ TODO mikesart: we should go to the start_ts event down below?
-        //$ TODO: try it...
-        const std::vector< uint32_t > *vblank_locs = m_trace_events.get_tdopexpr_locs( "$name=drm_vblank_event" );
-        if ( vblank_locs )
-        {
-            m_eventlist.do_gotoevent = true;
-            m_eventlist.goto_eventid = vblank_locs->back();
-        }
-
         int64_t last_ts = m_trace_events.m_events.back().ts;
 
         m_graph.do_start_timestr = true;
         m_graph.do_length_timestr = true;
         m_graph.length_ts = std::min< int64_t >( last_ts, 40 * MSECS_PER_SEC );
         m_graph.start_ts = last_ts - m_eventlist.tsoffset - m_graph.length_ts;
+
+        m_eventlist.do_gotoevent = true;
+        m_eventlist.goto_eventid = ts_to_eventid( m_graph.start_ts + m_graph.length_ts / 2 );
     }
 
     if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
