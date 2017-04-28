@@ -30,8 +30,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-SQLite is [public domain](https://www.sqlite.org/copyright.html)
-
 Simple DirectMedia Layer is [zlib licensed](https://www.libsdl.org/license.php)
 
 gl3w is [public domain](https://github.com/skaslev/gl3w)
