@@ -900,7 +900,7 @@ int TraceWin::timestr_to_eventid( const char *buf, int64_t tsoffset )
     return ts_to_eventid( ts );
 }
 
-void TraceWin::render_color_picker()
+void TraceWin::color_picker_render()
 {
     if ( !m_loader.get_opt( OPT_ShowColorPicker ) )
         return;
@@ -1277,7 +1277,7 @@ void TraceEvents::calculate_event_durations()
     }
 }
 
-const std::vector< uint32_t > *TraceEvents::get_locs( const char *name, loc_type_t *type = nullptr )
+const std::vector< uint32_t > *TraceEvents::get_locs( const char *name, loc_type_t *type )
 {
     const std::vector< uint32_t > *plocs = NULL;
 
@@ -1400,7 +1400,7 @@ bool TraceWin::render()
     ImGui::Begin( m_title.c_str(), &m_open );
 
     if ( ImGui::CollapsingHeader( "Trace Info" ) )
-        render_trace_info();
+        trace_render_info();
 
     if ( m_trace_events->m_events.empty() )
     {
@@ -1481,10 +1481,10 @@ bool TraceWin::render()
         if ( m_graph.do_length_timestr )
             strcpy_safe( m_graph.time_length_buf, ts_to_timestr( m_graph.length_ts, 0, 4 ) );
 
-        render_process_graph();
+        graph_render_process();
 
         ImGui::Indent();
-        render_color_picker();
+        color_picker_render();
         ImGui::Unindent();
     }
 
@@ -1589,7 +1589,7 @@ bool TraceWin::render()
                 m_loader.m_options[ OPT_GraphOnlyFiltered ].val = val;
         }
 
-        render_events_list( m_loader.m_inifile );
+        events_list_render( m_loader.m_inifile );
     }
 
     ImGui::End();
@@ -1598,7 +1598,7 @@ bool TraceWin::render()
     return m_open;
 }
 
-void TraceWin::render_trace_info()
+void TraceWin::trace_render_info()
 {
     size_t event_count = m_trace_events->m_events.size();
 
@@ -1662,7 +1662,7 @@ void TraceWin::render_trace_info()
     }
 }
 
-bool TraceWin::render_events_list_popupmenu( uint32_t eventid )
+bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
 {
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
         return false;
@@ -1760,7 +1760,7 @@ static float get_keyboard_scroll_lines( float visible_rows )
 }
 
 
-bool TraceWin::handle_events_list_mouse( const trace_event_t &event, uint32_t i )
+bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i )
 {
     bool popup_shown = false;
 
@@ -1777,7 +1777,7 @@ bool TraceWin::handle_events_list_mouse( const trace_event_t &event, uint32_t i 
             // If they right clicked, show the context menu.
             m_eventlist.popup_eventid = i;
 
-            // Open the popup for render_events_list_popupmenu().
+            // Open the popup for events_list_render_popupmenu().
             ImGui::OpenPopup( "EventsListPopup" );
         }
         else
@@ -1800,7 +1800,7 @@ bool TraceWin::handle_events_list_mouse( const trace_event_t &event, uint32_t i 
 
         imgui_pop_smallfont();
 
-        if ( !TraceWin::render_events_list_popupmenu( eventid ) )
+        if ( !TraceWin::events_list_render_popupmenu( eventid ) )
             m_eventlist.popup_eventid = INVALID_ID;
 
         imgui_push_smallfont();
@@ -1825,7 +1825,7 @@ static void draw_ts_line( const ImVec2 &pos )
     ImGui::PushColumnClipRect();
 }
 
-void TraceWin::render_events_list( CIniFile &inifile )
+void TraceWin::events_list_render( CIniFile &inifile )
 {
     std::vector< trace_event_t > &events = m_trace_events->m_events;
     size_t event_count = m_eventlist.filtered_events.empty() ?
@@ -1972,7 +1972,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
                     ImGui::SetItemAllowOverlap();
 
                     // Handle popup menu / tooltip
-                    popup_shown |= handle_events_list_mouse( event, i );
+                    popup_shown |= events_list_handle_mouse( event, i );
 
                     ImGui::NextColumn();
                 }
@@ -2044,7 +2044,7 @@ void TraceWin::render_events_list( CIniFile &inifile )
             if ( !popup_shown )
             {
                 // When we modify a filter via the context menu, it can hide the item
-                //  we right clicked on which means render_events_list_popupmenu() won't get
+                //  we right clicked on which means events_list_render_popupmenu() won't get
                 //  called. Check for that case here.
                 m_eventlist.popup_eventid = INVALID_ID;
             }

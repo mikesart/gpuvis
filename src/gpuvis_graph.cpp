@@ -151,6 +151,8 @@ public:
 
     row_info_t *find_row( const char *name );
 
+    bool add_mouse_hovered_event( float x, const trace_event_t &event );
+
 public:
     float x, y, w, h;
 
@@ -377,7 +379,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         {
             // ftrace print row
             rinfo.row_h = win->m_loader.get_opt( OPT_TimelinePrint ) * text_h;
-            rinfo.render_cb = std::bind( &TraceWin::render_graph_print_timeline, win, _1 );
+            rinfo.render_cb = std::bind( &TraceWin::graph_render_print_timeline, win, _1 );
         }
         else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Timeline )
         {
@@ -386,17 +388,17 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
                         Clamp< int >( win->m_loader.get_opt( optid ), 2, 50 ) : 4;
 
             rinfo.row_h = text_h * rows;
-            rinfo.render_cb = std::bind( &TraceWin::render_graph_row_timeline, win, _1 );
+            rinfo.render_cb = std::bind( &TraceWin::graph_render_row_timeline, win, _1 );
         }
         else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Timeline_hw )
         {
             rinfo.row_h = 2 * text_h;
-            rinfo.render_cb = std::bind( &TraceWin::render_graph_hw_row_timeline, win, _1 );
+            rinfo.render_cb = std::bind( &TraceWin::graph_render_hw_row_timeline, win, _1 );
         }
         else
         {
             // LOC_Type_Comm or LOC_TYPE_Tdopexpr
-            rinfo.render_cb = std::bind( &TraceWin::render_graph_row_events, win, _1 );
+            rinfo.render_cb = std::bind( &TraceWin::graph_render_row_events, win, _1 );
         }
 
         rinfo.id = id++;
@@ -519,10 +521,10 @@ row_info_t *graph_info_t::find_row( const char *name )
     return NULL;
 }
 
-bool TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, const trace_event_t &event )
+bool graph_info_t::add_mouse_hovered_event( float xin, const trace_event_t &event )
 {
     bool inserted = false;
-    float xdist_mouse = x - gi.mouse_pos.x;
+    float xdist_mouse = xin - mouse_pos.x;
     bool neg = xdist_mouse < 0.0f;
 
     if ( neg )
@@ -530,33 +532,33 @@ bool TraceWin::add_mouse_hovered_event( float x, class graph_info_t &gi, const t
 
     if ( xdist_mouse < imgui_scale( 8.0f ) )
     {
-        int64_t dist_ts = gi.dx_to_ts( xdist_mouse );
+        int64_t dist_ts = dx_to_ts( xdist_mouse );
 
-        for ( auto it = gi.hovered_items.begin(); it != gi.hovered_items.end(); it++ )
+        for ( auto it = hovered_items.begin(); it != hovered_items.end(); it++ )
         {
             if ( dist_ts < it->dist_ts )
             {
-                gi.hovered_items.insert( it, { neg, dist_ts, event.id } );
+                hovered_items.insert( it, { neg, dist_ts, event.id } );
                 inserted = true;
                 break;
             }
         }
 
-        if ( !inserted && ( gi.hovered_items.size() < gi.hovered_max ) )
+        if ( !inserted && ( hovered_items.size() < hovered_max ) )
         {
-            gi.hovered_items.push_back( { neg, dist_ts, event.id } );
+            hovered_items.push_back( { neg, dist_ts, event.id } );
             inserted = true;
         }
-        else if ( gi.hovered_items.size() > gi.hovered_max )
+        else if ( hovered_items.size() > hovered_max )
         {
-            gi.hovered_items.pop_back();
+            hovered_items.pop_back();
         }
     }
 
     return inserted;
 }
 
-uint32_t TraceWin::render_graph_print_timeline( graph_info_t &gi )
+uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 {
     imgui_push_smallfont();
 
@@ -617,7 +619,7 @@ uint32_t TraceWin::render_graph_print_timeline( graph_info_t &gi )
 
         // Check if we're mouse hovering this event
         if ( gi.mouse_over && gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + gi.text_h )
-            add_mouse_hovered_event( x, gi, event );
+            gi.add_mouse_hovered_event( x, event );
 
         num_events++;
 
@@ -650,7 +652,7 @@ uint32_t TraceWin::render_graph_print_timeline( graph_info_t &gi )
     return num_events;
 }
 
-uint32_t TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
+uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
 {
     imgui_push_smallfont();
 
@@ -724,7 +726,7 @@ uint32_t TraceWin::render_graph_hw_row_timeline( graph_info_t &gi )
     return num_events;
 }
 
-uint32_t TraceWin::render_graph_row_timeline( graph_info_t &gi )
+uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
 {
     imgui_push_smallfont();
 
@@ -816,7 +818,7 @@ uint32_t TraceWin::render_graph_row_timeline( graph_info_t &gi )
                         if ( gi.mouse_over && gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + gi.text_h )
                         {
                             // If we are hovering, and no selection bar is set, do it.
-                            if ( add_mouse_hovered_event( x_user_start, gi, cs_ioctl ) && ( hov_rect.Min.x == FLT_MAX ) )
+                            if ( gi.add_mouse_hovered_event( x_user_start, cs_ioctl ) && ( hov_rect.Min.x == FLT_MAX ) )
                             {
                                 hov_rect = { x_user_start, y, x_hw_end, y + gi.text_h };
 
@@ -845,7 +847,7 @@ uint32_t TraceWin::render_graph_row_timeline( graph_info_t &gi )
     return num_events;
 }
 
-uint32_t TraceWin::render_graph_row_events( graph_info_t &gi )
+uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 {
     uint32_t num_events = 0;
     bool draw_hovered_event = false;
@@ -874,7 +876,7 @@ uint32_t TraceWin::render_graph_row_events( graph_info_t &gi )
 
         // Check if we're mouse hovering this event
         if ( gi.mouse_over )
-            add_mouse_hovered_event( x, gi, event );
+            gi.add_mouse_hovered_event( x, event );
 
         event_renderer.add_event( x );
         num_events++;
@@ -907,7 +909,7 @@ uint32_t TraceWin::render_graph_row_events( graph_info_t &gi )
     return num_events;
 }
 
-void TraceWin::render_graph_row( graph_info_t &gi )
+void TraceWin::graph_render_row( graph_info_t &gi )
 {
     const std::string comm = gi.prinfo_cur->comm;
 
@@ -936,7 +938,7 @@ void TraceWin::render_graph_row( graph_info_t &gi )
     }
 }
 
-void TraceWin::render_graph_vblanks( graph_info_t &gi )
+void TraceWin::graph_render_vblanks( graph_info_t &gi )
 {
     // Draw time ticks every millisecond
     int64_t tsstart = std::max< int64_t >( gi.ts0 / MSECS_PER_SEC - 1, 0 ) * MSECS_PER_SEC;
@@ -1061,7 +1063,7 @@ void TraceWin::render_graph_vblanks( graph_info_t &gi )
     }
 }
 
-void TraceWin::range_check_graph_location()
+void TraceWin::graph_range_check_times()
 {
     std::vector< trace_event_t > &events = m_trace_events->m_events;
 
@@ -1089,7 +1091,7 @@ void TraceWin::range_check_graph_location()
     }
 }
 
-void TraceWin::handle_graph_hotkeys()
+void TraceWin::graph_handle_hotkeys()
 {
     if ( m_graph.saved_locs.size() < 9 )
         m_graph.saved_locs.resize( 9 );
@@ -1130,7 +1132,7 @@ void TraceWin::handle_graph_hotkeys()
     }
 }
 
-void TraceWin::handle_graph_keyboard_scroll()
+void TraceWin::graph_handle_keyboard_scroll()
 {
     if ( !ImGui::IsWindowFocused() )
         return;
@@ -1206,7 +1208,7 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
     gi.visible_graph_height = opt.valf;
 }
 
-void TraceWin::render_process_graph()
+void TraceWin::graph_render_process()
 {
     graph_info_t gi;
 
@@ -1221,7 +1223,7 @@ void TraceWin::render_process_graph()
     calc_process_graph_height( this, gi );
 
     // Make sure ts start and length values are mostly sane
-    range_check_graph_location();
+    graph_range_check_times();
 
     ImGui::BeginChild( "EventGraph", ImVec2( 0, gi.visible_graph_height ), true );
     {
@@ -1257,12 +1259,12 @@ void TraceWin::render_process_graph()
                 gfx_hw_row_h = ri.row_h + ImGui::GetStyle().FramePadding.y;
 
                 gi.set_pos_y( windowpos.y + windowsize.y - ri.row_h, ri.row_h, &ri );
-                render_graph_row( gi );
+                graph_render_row( gi );
             }
 
             gi.timeline_render_user = true;
             gi.set_pos_y( windowpos.y, windowsize.y - gfx_hw_row_h, gi.prinfo_gfx );
-            render_graph_row( gi );
+            graph_render_row( gi );
         }
         else
         {
@@ -1279,7 +1281,7 @@ void TraceWin::render_process_graph()
                     if ( is_timeline == render_timelines )
                     {
                         gi.set_pos_y( windowpos.y + ri.row_y + m_graph.start_y, ri.row_h, &ri );
-                        render_graph_row( gi );
+                        graph_render_row( gi );
                     }
                 }
             }
@@ -1287,16 +1289,16 @@ void TraceWin::render_process_graph()
 
         // Render full graph lines: vblanks, mouse cursors, etc...
         gi.set_pos_y( windowpos.y, windowsize.y, NULL );
-        render_graph_vblanks( gi );
+        graph_render_vblanks( gi );
 
         // Handle right, left, pgup, pgdown, etc in graph
-        handle_graph_keyboard_scroll();
+        graph_handle_keyboard_scroll();
 
         // Handle hotkeys. Ie: Ctrl+Shift+1, etc
-        handle_graph_hotkeys();
+        graph_handle_hotkeys();
 
         // Render mouse tooltips, mouse selections, etc
-        handle_mouse_graph( gi );
+        graph_handle_mouse( gi );
     }
     ImGui::EndChild();
 
@@ -1312,7 +1314,7 @@ void TraceWin::render_process_graph()
     }
 }
 
-bool TraceWin::render_graph_popupmenu( graph_info_t &gi )
+bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 {
     option_id_t optid = OPT_Invalid;
 
@@ -1550,7 +1552,7 @@ bool TraceWin::render_graph_popupmenu( graph_info_t &gi )
     return true;
 }
 
-void TraceWin::handle_mouse_graph_captured( graph_info_t &gi )
+void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
 {
     // Uncapture mouse if user hits escape
     if ( m_graph.mouse_captured && imgui_key_pressed( ImGuiKey_Escape ) )
@@ -1615,7 +1617,7 @@ void TraceWin::handle_mouse_graph_captured( graph_info_t &gi )
 
 }
 
-void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts )
+void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts )
 {
     std::string time_buf = "Time: " + ts_to_timestr( mouse_ts, m_eventlist.tsoffset );
     bool sync_event_list_to_graph = m_loader.get_opt( OPT_SyncEventListToGraph ) && m_eventlist.show;
@@ -1741,12 +1743,12 @@ void TraceWin::set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts
     imgui_set_tooltip( time_buf );
 }
 
-void TraceWin::handle_mouse_graph( graph_info_t &gi )
+void TraceWin::graph_handle_mouse( graph_info_t &gi )
 {
     // If we've got an active popup menu, render it.
     if ( m_graph.popupmenu )
     {
-        m_graph.popupmenu = TraceWin::render_graph_popupmenu( gi );
+        m_graph.popupmenu = TraceWin::graph_render_popupmenu( gi );
         return;
     }
 
@@ -1762,7 +1764,7 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
 
     if ( m_graph.mouse_captured )
     {
-        handle_mouse_graph_captured( gi );
+        graph_handle_mouse_captured( gi );
         return;
     }
 
@@ -1773,7 +1775,7 @@ void TraceWin::handle_mouse_graph( graph_info_t &gi )
         m_graph.ts_marker = mouse_ts;
 
         // Set the tooltip
-        set_mouse_graph_tooltip( gi, mouse_ts );
+        graph_set_mouse_tooltip( gi, mouse_ts );
 
         // Check for clicking, wheeling, etc.
         if ( ImGui::IsMouseClicked( 0 ) )

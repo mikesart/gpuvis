@@ -351,66 +351,52 @@ public:
     bool render();
 
 protected:
-    /*
-     * Events list
-     */
-
     // Render events list
-    void render_events_list( CIniFile &inifile );
+    void events_list_render( CIniFile &inifile );
     // Handle events list popup menu
-    bool render_events_list_popupmenu( uint32_t eventid );
+    bool events_list_render_popupmenu( uint32_t eventid );
     // Handle mouse clicking and tooltips for event list
-    bool handle_events_list_mouse( const trace_event_t &event, uint32_t i );
+    bool events_list_handle_mouse( const trace_event_t &event, uint32_t i );
 
 protected:
-    /*
-     * Graph functions
-     */
-
     // Render the process graph
-    void render_process_graph();
+    void graph_render_process();
     // Render regular graph row
-    void render_graph_row( class graph_info_t &gi );
+    void graph_render_row( class graph_info_t &gi );
     // Render timeline graph row
-    uint32_t render_graph_row_timeline( class graph_info_t &gi );
+    uint32_t graph_render_row_timeline( class graph_info_t &gi );
     // Render hw graph row
-    uint32_t render_graph_hw_row_timeline( class graph_info_t &gi );
+    uint32_t graph_render_hw_row_timeline( class graph_info_t &gi );
     // Render ftrace print row
-    uint32_t render_graph_print_timeline( class graph_info_t &gi );
+    uint32_t graph_render_print_timeline( class graph_info_t &gi );
     // Render regular trace events
-    uint32_t render_graph_row_events( class graph_info_t &gi );
+    uint32_t graph_render_row_events( class graph_info_t &gi );
     // Render graph vblanks, tick markers, mouse location, etc.
-    void render_graph_vblanks( class graph_info_t &gi );
+    void graph_render_vblanks( class graph_info_t &gi );
 
     // Handle graph popup menu
-    bool render_graph_popupmenu( class graph_info_t &gi );
+    bool graph_render_popupmenu( class graph_info_t &gi );
     // Mouse wheel, clicking for graph
-    void handle_mouse_graph( class graph_info_t &gi );
+    void graph_handle_mouse( class graph_info_t &gi );
     // Graph mouse handler when captured
-    void handle_mouse_graph_captured( class graph_info_t &gi );
+    void graph_handle_mouse_captured( class graph_info_t &gi );
     // Set mouse tooltip for graph
-    void set_mouse_graph_tooltip( class graph_info_t &gi, int64_t mouse_ts );
+    void graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts );
 
-    // Potentially dd a hovered mouse graph event
-    bool add_mouse_hovered_event( float x, class graph_info_t &gi, const trace_event_t &event );
     // graph keyboard handling
-    void handle_graph_hotkeys();
-    void handle_graph_keyboard_scroll();
+    void graph_handle_hotkeys();
+    void graph_handle_keyboard_scroll();
 
     // Make sure m_graph.start_ts and m_graph.length_ts are legit
-    void range_check_graph_location();
+    void graph_range_check_times();
 
 protected:
     // Render trace information header
-    void render_trace_info();
+    void trace_render_info();
     // Render graph color picker
-    void render_color_picker();
+    void color_picker_render();
 
-public:
-    /*
-     * Utils
-     */
-
+protected:
     // Rename a comm event
     bool rename_comm_event( const char *comm_old, const char *comm_new );
     // Return an event id for a given time stamp
