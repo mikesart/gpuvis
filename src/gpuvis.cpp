@@ -2485,6 +2485,9 @@ int main( int argc, char **argv )
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 3 );
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 2 );
 
+    // 1 for updates synchronized with the vertical retrace
+    SDL_GL_SetSwapInterval( 1 );
+
     SDL_DisplayMode current;
     SDL_GetCurrentDisplayMode( 0, &current );
 
