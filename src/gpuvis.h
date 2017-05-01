@@ -205,6 +205,7 @@ public:
         LOC_TYPE_Comm,
         LOC_TYPE_Tdopexpr,
         LOC_TYPE_Print,
+        LOC_TYPE_Plot,
         LOC_TYPE_Timeline,
         LOC_TYPE_Timeline_hw,
         LOC_TYPE_Max
@@ -353,6 +354,8 @@ protected:
     uint32_t graph_render_hw_row_timeline( class graph_info_t &gi );
     // Render ftrace print row
     uint32_t graph_render_print_timeline( class graph_info_t &gi );
+    // Render plot row
+    uint32_t graph_render_plot( class graph_info_t &gi );
     // Render regular trace events
     uint32_t graph_render_row_events( class graph_info_t &gi );
     // Render graph vblanks, tick markers, mouse location, etc.

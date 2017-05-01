@@ -702,6 +702,10 @@ void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
     if ( ( plocs = trace_events.get_locs( "print", &type ) ) )
         m_graph_rows_list.push_back( { type, plocs->size(), "print", false } );
 
+    //$ TODO: Make this something like "plot: TimeSyncLastVsync"?
+    if ( ( plocs = trace_events.get_locs( "plot", &type ) ) )
+        m_graph_rows_list.push_back( { type, plocs->size(), "plot", false } );
+
     std::vector< graph_rows_info_t > comms;
     for ( auto item : trace_events.m_comm_locations.m_locs.m_map )
     {
@@ -1287,6 +1291,13 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name, loc_type
         if ( type )
             *type = LOC_TYPE_Print;
         plocs = get_tdopexpr_locs( "$name=print" );
+    }
+    else if ( !strcmp( name, "plot" ) )
+    {
+        // Check for explicit "plot" row
+        if ( type )
+            *type = LOC_TYPE_Plot;
+        plocs = get_tdopexpr_locs( "$buf=~TimeSinceLastVsync" );
     }
     else
     {

@@ -322,6 +322,9 @@ static option_id_t get_comm_option_id( TraceLoader &loader, const std::string &c
         return OPT_TimelineSdma1Size;
     else if ( comm == "print" )
         return OPT_TimelinePrint;
+    else if ( comm == "plot" )
+    //$ TODO: plot needs own opt
+        return OPT_TimelinePrint;
 
     // Try to parse "comp_[1-2].[0-3].[0-8]" string
     uint32_t a, b, c;
@@ -379,6 +382,13 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
             // ftrace print row
             rinfo.row_h = win->m_loader.get_opt( OPT_TimelinePrint ) * text_h;
             rinfo.render_cb = std::bind( &TraceWin::graph_render_print_timeline, win, _1 );
+        }
+        else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Plot )
+        {
+            // plot row
+            //$ TODO: Need own height
+            rinfo.row_h = win->m_loader.get_opt( OPT_TimelinePrint ) * text_h;
+            rinfo.render_cb = std::bind( &TraceWin::graph_render_plot, win, _1 );
         }
         else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Timeline )
         {
@@ -555,6 +565,150 @@ bool graph_info_t::add_mouse_hovered_event( float xin, const trace_event_t &even
     }
 
     return inserted;
+}
+
+class GraphPlot
+{
+public:
+    GraphPlot() {}
+    ~GraphPlot() {}
+
+    bool init( TraceEvents &trace_events, const char *name, const char *filter, const char *scanf_str )
+    {
+        m_name = name;
+        m_filter_str = filter;
+        m_scanf_str = scanf_str;
+
+        std::string errstr;
+        const std::vector< uint32_t > *plocs = trace_events.get_tdopexpr_locs( filter, &errstr );
+
+        const char *valstr = strstr( scanf_str, "%f" );
+        size_t valoffset = valstr - scanf_str;
+
+        if ( plocs )
+        {
+            m_color_line = trace_events.m_events[ plocs->front() ].color;
+            m_color_point = imgui_col_complement( m_color_line );
+
+            for ( uint32_t idx : *plocs )
+            {
+                const trace_event_t &event = trace_events.m_events[ idx ];
+                const char *buf = get_event_field_val( event.fields, "buf" );
+
+                if ( buf && ( strlen( buf ) > valoffset ) )
+                {
+                    float valf = atof( buf + valoffset );
+
+                    m_minval = std::min< float >( m_minval, valf );
+                    m_maxval = std::max< float >( m_maxval, valf );
+
+                    m_plotdata.push_back( { event.ts, event.id, valf } );
+                }
+            }
+
+            for ( plotdata_t &data : m_plotdata )
+            {
+                data.valf_norm = ( data.valf - m_minval ) / ( m_maxval - m_minval );
+            }
+        }
+
+        return !m_plotdata.empty();
+    }
+
+    uint32_t find_ts_index( int64_t ts0 )
+    {
+        auto lambda = []( const GraphPlot::plotdata_t &lhs, int64_t ts )
+                                { return lhs.ts < ts; };
+        auto i = std::lower_bound( m_plotdata.begin(), m_plotdata.end(), ts0, lambda );
+
+        if ( i != m_plotdata.end() )
+        {
+            size_t index = i - m_plotdata.begin();
+
+            return ( index > 0 ) ? ( index - 1 ) : 0;
+        }
+
+        return ( uint32_t )-1;
+    }
+
+public:
+    struct plotdata_t
+    {
+        int64_t ts;
+        uint32_t eventid;
+        float valf;
+        float valf_norm;
+    };
+    std::vector< plotdata_t > m_plotdata;
+
+    float m_minval = FLT_MAX;
+    float m_maxval = FLT_MIN;
+
+    ImU32 m_color_line;
+    ImU32 m_color_point;
+
+    // TimeSyncLastVSync
+    std::string m_name;
+
+    // $buf =~ "[Compositor] TimeSyncLastVsync: "
+    std::string m_filter_str;
+
+    // "[Compositor] TimeSyncLastVsync: %f("
+    std::string m_scanf_str;
+};
+
+uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
+{
+    GraphPlot plot;
+
+    plot.init( m_trace_events,
+               "TimeSinceLastVSync",
+               "$buf =~ \"[Compositor] TimeSinceLastVsync: \"",
+               "[Compositor] TimeSinceLastVsync: %f(012345)" );
+
+    std::vector< ImVec2 > points;
+    uint32_t index0 = plot.find_ts_index( gi.ts0 );
+    uint32_t index1 = plot.find_ts_index( gi.ts1 );
+
+    if ( index1 == ( uint32_t)-1 )
+        index1 = plot.m_plotdata.size();
+
+    points.reserve( index1 - index0 + 10 );
+
+    for ( size_t idx = index0; idx < plot.m_plotdata.size(); idx++ )
+    {
+        GraphPlot::plotdata_t &data = plot.m_plotdata[ idx ];
+        float x = gi.ts_to_screenx( data.ts );
+        float y = gi.y + gi.h * ( 1.0f - data.valf_norm );
+
+        points.push_back( ImVec2( x, y ) );
+
+        // Check if we're mouse hovering this event
+        if ( gi.mouse_over )
+            gi.add_mouse_hovered_event( x, get_event( data.eventid ) );
+
+        if ( x >= gi.x + gi.w )
+            break;
+    }
+
+    if ( points.size() )
+    {
+        bool anti_aliased = true;
+        bool closed = false;
+        float thickness = 2.0f;
+
+        ImGui::GetWindowDrawList()->AddPolyline( points.data(), points.size(),
+                                                 plot.m_color_line, closed, thickness, anti_aliased );
+
+        for ( const ImVec2 &pt : points )
+        {
+            imgui_drawrect( pt.x - imgui_scale( 1.5f ), imgui_scale( 3.0f ),
+                            pt.y - imgui_scale( 1.5f ), imgui_scale( 3.0f ),
+                            plot.m_color_point );
+        }
+    }
+
+    return points.size();
 }
 
 uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )

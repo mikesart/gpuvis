@@ -340,6 +340,19 @@ ImVec4 imgui_u32_to_vec4( ImU32 col )
     return ImGui::ColorConvertU32ToFloat4( col );
 }
 
+ImU32 imgui_col_complement( ImU32 col )
+{
+    float h, s, v;
+    ImVec4 color = imgui_u32_to_vec4( col );
+    ImGui::ColorConvertRGBtoHSV( color.x, color.y, color.z, h, s, v );
+
+    h += 0.5f;
+    if ( h > 1.0f )
+        h -= 1.0f;
+
+    return imgui_hsv( h, s, v, 1.0f );
+}
+
 ImU32 imgui_vec4_to_u32( const ImVec4 &vec )
 {
     return ImGui::ColorConvertFloat4ToU32( vec );
