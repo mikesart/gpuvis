@@ -315,28 +315,13 @@ void event_renderer_t::draw()
 
 static option_id_t get_comm_option_id( TraceLoader &loader, const std::string &rowname )
 {
-    if ( rowname == "gfx" )
-        return OPT_TimelineGfxSize;
-    else if ( rowname == "sdma0" )
-        return OPT_TimelineSdma0Size;
-    else if ( rowname == "sdma1" )
-        return OPT_TimelineSdma1Size;
-    else if ( rowname == "print" )
-        return OPT_TimelinePrint;
-    else if ( rowname == "plot" )
-    //$ TODO: plot needs own opt
-        return OPT_TimelinePrint;
+    option_id_t *optid = loader.m_name_optid_map.get_val( rowname );
 
-    // Try to parse "comp_[1-2].[0-3].[0-8]" string
-    uint32_t a, b, c;
-    if ( ( rowname.size() == 10 ) && comp_str_parse( rowname.c_str(), a, b, c ) )
-    {
-        // convert a, b, c to an index value
-        uint32_t val = comp_abc_to_val( a, b, c );
+    if ( optid )
+        return *optid;
 
-        if ( val < loader.m_comp_option_count )
-            return ( option_id_t )( loader.m_comp_option_index + val );
-    }
+    if ( !strncmp( rowname.c_str(), "plot:", 5 ) )
+        return loader.add_option_graph_rowsize( rowname.c_str() );
 
     return OPT_Invalid;
 }
@@ -362,6 +347,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
     for ( const GraphRows::graph_rows_info_t &grow : graph_rows )
     {
         row_info_t rinfo;
+        option_id_t optid = OPT_Invalid;
         const std::vector< uint32_t > *plocs;
         const std::string &rowname = grow.name;
 
@@ -376,30 +362,31 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
 
         if ( !plocs )
         {
+            // Nothing to render
             rinfo.render_cb = nullptr;
         }
         else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Print )
         {
             // ftrace print row
-            rinfo.row_h = win->m_loader.get_opt( OPT_TimelinePrint ) * text_h;
+            optid = get_comm_option_id( win->m_loader, rinfo.rowname );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_print_timeline, win, _1 );
         }
         else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Plot )
         {
-            //$ TODO: Need own height
-            rinfo.row_h = win->m_loader.get_opt( OPT_TimelinePrint ) * text_h;
-            rinfo.render_cb = std::bind( &TraceWin::graph_render_plot, win, _1 );
-
+            // Full plot string: "plot:name\tfilter_str\tscanf_str"
             rinfo.plotstr = rowname;
+
             parse_plot_str( rowname.c_str(), &rinfo.rowname, NULL, NULL );
+
+            // Row name is just "plot:name"
+            rinfo.rowname = "plot:" + rinfo.rowname;
+            optid = get_comm_option_id( win->m_loader, rinfo.rowname );
+
+            rinfo.render_cb = std::bind( &TraceWin::graph_render_plot, win, _1 );
         }
         else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Timeline )
         {
-            option_id_t optid = get_comm_option_id( win->m_loader, rowname );
-            int rows = ( optid != OPT_Invalid ) ?
-                        Clamp< int >( win->m_loader.get_opt( optid ), 2, 50 ) : 4;
-
-            rinfo.row_h = text_h * rows;
+            optid = get_comm_option_id( win->m_loader, rinfo.rowname );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_row_timeline, win, _1 );
         }
         else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Timeline_hw )
@@ -409,8 +396,16 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         }
         else
         {
-            // LOC_Type_Comm or LOC_TYPE_Tdopexpr
+            // LOC_Type_Comm or LOC_TYPE_Tdopexpr hopefully
             rinfo.render_cb = std::bind( &TraceWin::graph_render_row_events, win, _1 );
+        }
+
+        if ( optid != OPT_Invalid )
+        {
+            int rows = ( optid != OPT_Invalid ) ?
+                        Clamp< int >( win->m_loader.get_opt( optid ), 2, 50 ) : 4;
+
+            rinfo.row_h = rows * text_h;
         }
 
         rinfo.id = id++;

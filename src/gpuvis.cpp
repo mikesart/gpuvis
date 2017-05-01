@@ -461,20 +461,6 @@ void TraceLoader::init()
     m_options[ OPT_EventListRowCount ].opt_int( "Event List Size: %.0f", "eventlist_rows", 0, 0, 100 );
     m_options[ OPT_EventListRowCount ].hidden = true;
 
-    m_options[ OPT_TimelineGfxSize ].opt_int( "Gfx Size:", "row_gfx_size", 8, 8, 40 );
-    m_options[ OPT_TimelinePrint ].opt_int( "Print Size:", "row_print_size", 10, 4, 40 );
-    m_options[ OPT_TimelineGfxSize ].hidden = true;
-    m_options[ OPT_TimelinePrint ].hidden = true;
-
-    for ( int i = 0; i <= OPT_TimelineSdma1Size - OPT_TimelineSdma0Size; i++ )
-    {
-        const std::string descr = string_format( "Sdma%d Size:", i );
-        const std::string key = string_format( "row_sdma%d_size", i );
-
-        m_options[ OPT_TimelineSdma0Size + i ].opt_int( descr, key, 4, 4, 40 );
-        m_options[ OPT_TimelineSdma0Size + i ].hidden = true;
-    }
-
     for ( int i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
         const std::string desc = string_format( "Show drm_vblank_event crtc%d markers", i - OPT_RenderCrtc0 );
@@ -483,26 +469,19 @@ void TraceLoader::init()
         m_options[ i ].opt_bool( desc, inikey, true );
     }
 
+    add_option_graph_rowsize( "gfx", 8 );
+    add_option_graph_rowsize( "print", 10 );
+    add_option_graph_rowsize( "sdma0" );
+    add_option_graph_rowsize( "sdma1" );
+
     // Create all the entries for the compute shader rows
-    m_comp_option_index = m_options.size();
     for ( uint32_t val = 0; ; val++ )
     {
-        const std::string str = comp_str_create_val( val );
+        std::string str = comp_str_create_val( val );
         if ( str.empty() )
             break;
 
-        option_t opt;
-        std::string descr = string_format( "%s Size:", str.c_str() );
-        const std::string key = string_format( "row_%s_size", str.c_str() );
-
-        // Capitalize the first 'c' in comp...
-        descr[ 0 ] = 'C';
-
-        opt.opt_int( descr, key, 4, 4, 40 );
-        opt.hidden = true;
-        m_options.push_back( opt );
-
-        m_comp_option_count++;
+        add_option_graph_rowsize( str.c_str() );
     }
 
     // Read option settings from ini file
@@ -515,6 +494,30 @@ void TraceLoader::init()
         else
             opt.val = m_inifile.GetInt( opt.inikey.c_str(), opt.val );
     }
+}
+
+option_id_t TraceLoader::add_option_graph_rowsize( const char *name, int defval )
+{
+    TraceLoader::option_t opt;
+    const char *fullname = name;
+
+    if ( !strncmp( name, "plot:", 5 ) )
+        name = fullname + 5;
+
+    std::string descr = string_format( "%s Size:", name );
+    std::string key = string_format( "row_%s_size", name );
+
+    descr[ 0 ] = toupper( descr[ 0 ] );
+
+    opt.opt_int( descr, key, defval, 4, 40 );
+    opt.hidden = true;
+
+    opt.val = m_inifile.GetInt( opt.inikey.c_str(), opt.val );
+
+    m_name_optid_map.m_map[ fullname ] = ( option_id_t )m_options.size();
+    m_options.push_back( opt );
+
+    return ( option_id_t )( m_options.size() - 1 );
 }
 
 void TraceLoader::shutdown()

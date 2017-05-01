@@ -615,12 +615,6 @@ enum option_id_t
     OPT_GraphHeightZoomed,
     OPT_EventListRowCount,
 
-    OPT_TimelineGfxSize,
-    OPT_TimelinePrint,
-
-    OPT_TimelineSdma0Size,
-    OPT_TimelineSdma1Size,
-
     OPT_PresetMax
 };
 
@@ -731,9 +725,10 @@ public:
 
         return ( val <= OPT_RenderCrtc9 ) ? m_options[ val ].val : 0;
     }
+    option_id_t add_option_graph_rowsize( const char *name, int defval = 4 );
 
-    size_t m_comp_option_index = 0;
-    size_t m_comp_option_count = 0;
+    // Map row names to option IDs. Ie, "gfx", "print", "sdma0", etc.
+    util_umap< std::string, option_id_t > m_name_optid_map;
 
     std::vector< option_t > m_options;
     std::string m_event_filter_str;
