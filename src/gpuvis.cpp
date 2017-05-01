@@ -2485,9 +2485,6 @@ int main( int argc, char **argv )
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 3 );
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 2 );
 
-    // 1 for updates synchronized with the vertical retrace
-    SDL_GL_SetSwapInterval( 1 );
-
     SDL_DisplayMode current;
     SDL_GetCurrentDisplayMode( 0, &current );
 
@@ -2501,6 +2498,9 @@ int main( int argc, char **argv )
 
     // Setup ImGui binding
     ImGui_ImplSdlGL3_Init( window );
+
+    // 1 for updates synchronized with the vertical retrace
+    SDL_GL_SetSwapInterval( 1 );
 
     // Setup imgui default text color
     multi_text_color::def.set( ImGui::GetColorVec4( ImGuiCol_Text ) );
