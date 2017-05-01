@@ -125,7 +125,8 @@ struct row_info_t
 
     RenderGraphRowCallback render_cb;
 
-    std::string comm;
+    std::string rowname;
+    std::string plotstr;
 
     TraceEvents::loc_type_t loc_type;
     const std::vector< uint32_t > *plocs;
@@ -312,23 +313,23 @@ void event_renderer_t::draw()
     imgui_drawrect( x0, width, y, h, color );
 }
 
-static option_id_t get_comm_option_id( TraceLoader &loader, const std::string &comm )
+static option_id_t get_comm_option_id( TraceLoader &loader, const std::string &rowname )
 {
-    if ( comm == "gfx" )
+    if ( rowname == "gfx" )
         return OPT_TimelineGfxSize;
-    else if ( comm == "sdma0" )
+    else if ( rowname == "sdma0" )
         return OPT_TimelineSdma0Size;
-    else if ( comm == "sdma1" )
+    else if ( rowname == "sdma1" )
         return OPT_TimelineSdma1Size;
-    else if ( comm == "print" )
+    else if ( rowname == "print" )
         return OPT_TimelinePrint;
-    else if ( comm == "plot" )
+    else if ( rowname == "plot" )
     //$ TODO: plot needs own opt
         return OPT_TimelinePrint;
 
     // Try to parse "comp_[1-2].[0-3].[0-8]" string
     uint32_t a, b, c;
-    if ( ( comm.size() == 10 ) && comp_str_parse( comm.c_str(), a, b, c ) )
+    if ( ( rowname.size() == 10 ) && comp_str_parse( rowname.c_str(), a, b, c ) )
     {
         // convert a, b, c to an index value
         uint32_t val = comp_abc_to_val( a, b, c );
@@ -362,16 +363,16 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
     {
         row_info_t rinfo;
         const std::vector< uint32_t > *plocs;
-        const std::string &comm = grow.name;
+        const std::string &rowname = grow.name;
 
         if ( grow.hidden )
             continue;
 
-        plocs = win->m_trace_events.get_locs( comm.c_str(), &rinfo.loc_type );
+        plocs = win->m_trace_events.get_locs( rowname.c_str(), &rinfo.loc_type );
 
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
-        rinfo.comm = comm;
+        rinfo.rowname = rowname;
 
         if ( !plocs )
         {
@@ -385,14 +386,16 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         }
         else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Plot )
         {
-            // plot row
             //$ TODO: Need own height
             rinfo.row_h = win->m_loader.get_opt( OPT_TimelinePrint ) * text_h;
             rinfo.render_cb = std::bind( &TraceWin::graph_render_plot, win, _1 );
+
+            rinfo.plotstr = rowname;
+            parse_plot_str( rowname.c_str(), &rinfo.rowname, NULL, NULL );
         }
         else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Timeline )
         {
-            option_id_t optid = get_comm_option_id( win->m_loader, comm );
+            option_id_t optid = get_comm_option_id( win->m_loader, rowname );
             int rows = ( optid != OPT_Invalid ) ?
                         Clamp< int >( win->m_loader.get_opt( optid ), 2, 50 ) : 4;
 
@@ -524,7 +527,7 @@ row_info_t *graph_info_t::find_row( const char *name )
 {
     for ( row_info_t &ri : row_info )
     {
-        if ( ri.comm == name )
+        if ( ri.rowname == name )
             return &ri;
     }
     return NULL;
@@ -575,33 +578,47 @@ bool GraphPlot::init( TraceEvents &trace_events, const char *plotstr )
     std::string errstr;
     const std::vector< uint32_t > *plocs = trace_events.get_tdopexpr_locs( m_filter_str.c_str(), &errstr );
 
-    const char *valstr = strstr( m_scanf_str.c_str(), "%f" );
-    size_t valoffset = valstr - m_scanf_str.c_str();
-
     if ( plocs )
     {
-        m_color_line = trace_events.m_events[ plocs->front() ].color;
-        m_color_point = imgui_col_complement( m_color_line );
+        // Find the "%f" specifier
+        const char *valstr = strstr( m_scanf_str.c_str(), "%f" );
 
-        for ( uint32_t idx : *plocs )
+        if ( valstr && ( valstr > m_scanf_str.c_str() ) )
         {
-            const trace_event_t &event = trace_events.m_events[ idx ];
-            const char *buf = get_event_field_val( event.fields, "buf" );
+            // Grab the text before the %f token
+            size_t prefixlen = valstr - m_scanf_str.c_str();
+            std::string prefixstr = std::string( m_scanf_str.c_str(), prefixlen );
 
-            if ( buf && ( strlen( buf ) > valoffset ) )
+            m_color_line = trace_events.m_events[ plocs->front() ].color;
+            m_color_point = imgui_col_complement( m_color_line );
+
+            for ( uint32_t idx : *plocs )
             {
-                float valf = atof( buf + valoffset );
+                const char *valfstr;
+                const trace_event_t &event = trace_events.m_events[ idx ];
+                const char *buf = get_event_field_val( event.fields, "buf" );
 
-                m_minval = std::min< float >( m_minval, valf );
-                m_maxval = std::max< float >( m_maxval, valf );
+                // If we have a printk string, search for our prefix string in it
+                if ( buf && ( valfstr = strcasestr( buf, prefixstr.c_str() ) ) )
+                {
+                    char *endptr;
+                    const char *nptr = valfstr + prefixstr.size();
+                    float valf = strtof( nptr, &endptr );
 
-                m_plotdata.push_back( { event.ts, event.id, valf } );
+                    if ( endptr != nptr )
+                    {
+                        m_minval = std::min< float >( m_minval, valf );
+                        m_maxval = std::max< float >( m_maxval, valf );
+
+                        m_plotdata.push_back( { event.ts, event.id, valf } );
+                    }
+                }
             }
-        }
 
-        for ( plotdata_t &data : m_plotdata )
-        {
-            data.valf_norm = ( data.valf - m_minval ) / ( m_maxval - m_minval );
+            for ( plotdata_t &data : m_plotdata )
+            {
+                data.valf_norm = ( data.valf - m_minval ) / ( m_maxval - m_minval );
+            }
         }
     }
 
@@ -626,7 +643,7 @@ uint32_t GraphPlot::find_ts_index( int64_t ts0 )
 
 uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
 {
-    const char *plotstr = gi.prinfo_cur->comm.c_str();
+    const char *plotstr = gi.prinfo_cur->plotstr.c_str();
     uint32_t hashval = fnv_hashstr32( plotstr );
     GraphPlot &plot = m_trace_events.m_graph_plots.m_map[ hashval ];
 
@@ -1034,10 +1051,10 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 
 void TraceWin::graph_render_row( graph_info_t &gi )
 {
-    const std::string comm = gi.prinfo_cur->comm;
+    const std::string rowname = gi.prinfo_cur->rowname;
 
     if ( gi.mouse_over )
-        m_graph.mouse_over_row_name = comm;
+        m_graph.mouse_over_row_name = rowname;
 
     // Draw background
     ImGui::GetWindowDrawList()->AddRectFilled(
@@ -1049,7 +1066,7 @@ void TraceWin::graph_render_row( graph_info_t &gi )
     uint32_t num_events = gi.prinfo_cur->render_cb ? gi.prinfo_cur->render_cb( gi ) : 0;
 
     // Draw row label
-    std::string label = string_format( "%u) %s", gi.prinfo_cur->id, comm.c_str() );
+    std::string label = string_format( "%u) %s", gi.prinfo_cur->id, rowname.c_str() );
     imgui_draw_text( gi.x, gi.y, label.c_str(),
                      col_get( col_RowLabel ) );
 
