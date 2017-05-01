@@ -702,9 +702,17 @@ void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
     if ( ( plocs = trace_events.get_locs( "print", &type ) ) )
         m_graph_rows_list.push_back( { type, plocs->size(), "print", false } );
 
-    //$ TODO: Make this something like "plot: TimeSyncLastVsync"?
-    if ( ( plocs = trace_events.get_locs( "plot", &type ) ) )
-        m_graph_rows_list.push_back( { type, plocs->size(), "plot", false } );
+    {
+        std::vector< INIEntry > entries = inifile.GetSectionEntries( "$graph_plots$" );
+
+        for ( const INIEntry &entry : entries )
+        {
+            std::string plotstr = string_format( "plot:%s\t%s", entry.first.c_str(), entry.second.c_str() );
+
+            if ( ( plocs = trace_events.get_locs( plotstr.c_str(), &type ) ) )
+                m_graph_rows_list.push_back( { type, plocs->size(), plotstr, false } );
+        }
+    }
 
     std::vector< graph_rows_info_t > comms;
     for ( auto item : trace_events.m_comm_locations.m_locs.m_map )
@@ -734,20 +742,23 @@ void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
             add_row( trace_events, name );
     }
 
-    std::vector< INIEntry > entries = inifile.GetSectionEntries( "$graph_rows_move_after$" );
-    if ( !entries.empty() )
     {
-        // Do the moves twice to handle move dependencies
-        for ( int i = 0; i < 2; i++ )
+        std::vector< INIEntry > entries = inifile.GetSectionEntries( "$graph_rows_move_after$" );
+
+        if ( !entries.empty() )
         {
-            for ( const INIEntry &entry : entries )
+            // Do the moves twice to handle move dependencies
+            for ( int i = 0; i < 2; i++ )
             {
-                std::string name_src = entry.first;
+                for ( const INIEntry &entry : entries )
+                {
+                    std::string name_src = entry.first;
 
-                // Undo any = replacements we did when saving to ini file
-                string_replace_str( name_src, "**equalsign**", "=" );
+                    // Undo any = replacements we did when saving to ini file
+                    string_replace_str( name_src, "**equalsign**", "=" );
 
-                move_row( name_src, entry.second );
+                    move_row( name_src, entry.second );
+                }
             }
         }
     }
@@ -1287,17 +1298,20 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name, loc_type
 
     if ( !strcmp( name, "print" ) )
     {
-        // Check for explicit "print" row
         if ( type )
             *type = LOC_TYPE_Print;
         plocs = get_tdopexpr_locs( "$name=print" );
     }
-    else if ( !strcmp( name, "plot" ) )
+    else if ( !strncmp( name, "plot:", 5 ) )
     {
-        // Check for explicit "plot" row
-        if ( type )
-            *type = LOC_TYPE_Plot;
-        plocs = get_tdopexpr_locs( "$buf=~TimeSinceLastVsync" );
+        std::string filter;
+
+        if ( parse_plot_str( name, NULL, &filter, NULL ) )
+        {
+            if ( type )
+                *type = LOC_TYPE_Plot;
+            plocs = get_tdopexpr_locs( filter.c_str() );
+        }
     }
     else
     {

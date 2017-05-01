@@ -178,6 +178,79 @@ inline std::string get_event_gfxcontext_str( const trace_event_t &event )
     return "";
 }
 
+class TraceEvents;
+class TraceLoader;
+
+/*
+   [Compositor] NewFrame idx=2776
+   [Compositor Client] WaitGetPoses End ThreadId=5125
+   [Compositor] frameTimeout( 27 ms )
+   [Compositor Client] Received Idx 100
+   [Compositor] NewFrame idx=3769
+   [Compositor] Predicting( 33.047485 ms )
+   [Compositor] Re-predicting( 25.221056 ms )
+   [Compositor] Re-predicting( -28.942781 ms )
+   [Compositor] TimeSinceLastVSync: 0.076272(79975)
+*/
+class GraphPlot
+{
+public:
+    GraphPlot() {}
+    ~GraphPlot() {}
+
+    bool init( TraceEvents &trace_events, const char *plotstr );
+
+    uint32_t find_ts_index( int64_t ts0 );
+
+public:
+    struct plotdata_t
+    {
+        int64_t ts;
+        uint32_t eventid;
+        float valf;
+        float valf_norm;
+    };
+    std::vector< plotdata_t > m_plotdata;
+
+    float m_minval = FLT_MAX;
+    float m_maxval = FLT_MIN;
+
+    ImU32 m_color_line;
+    ImU32 m_color_point;
+
+    // TimeSyncLastVSync
+    std::string m_name;
+
+    // $buf =~ "[Compositor] TimeSyncLastVsync: "
+    std::string m_filter_str;
+
+    // "[Compositor] TimeSyncLastVsync: %f("
+    std::string m_scanf_str;
+};
+
+// "plot:name\tfilter_str\tscanf_str"
+inline bool parse_plot_str( const char *plotstr, std::string *name, std::string *filter, std::string *scanfstr )
+{
+    if ( !strncmp( plotstr, "plot:", 5 ) )
+    {
+        std::vector< std::string > plotvals = string_explode( plotstr + 5, '\t' );
+
+        if ( plotvals.size() == 3 )
+        {
+            if ( name )
+                *name = plotvals[ 0 ];
+            if ( filter )
+                *filter = plotvals[ 1 ];
+            if ( scanfstr )
+                *scanfstr = plotvals[ 2 ];
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
 class TraceEvents
 {
 public:
@@ -245,11 +318,12 @@ public:
     util_umap< uint32_t, event_print_info_t > m_print_buf_info;
     float m_buf_size_max_x = -1.0f;
 
+    // plot str to GraphPlot
+    util_umap< uint32_t, GraphPlot > m_graph_plots;
+
     // 0: events loaded, 1+: loading events, -1: error
     SDL_atomic_t m_eventsloaded = { 0 };
 };
-
-class TraceLoader;
 
 struct TraceConsole
 {

@@ -567,104 +567,74 @@ bool graph_info_t::add_mouse_hovered_event( float xin, const trace_event_t &even
     return inserted;
 }
 
-class GraphPlot
+bool GraphPlot::init( TraceEvents &trace_events, const char *plotstr )
 {
-public:
-    GraphPlot() {}
-    ~GraphPlot() {}
+    if ( !parse_plot_str( plotstr, &m_name, &m_filter_str, &m_scanf_str ) )
+        return false;
 
-    bool init( TraceEvents &trace_events, const char *name, const char *filter, const char *scanf_str )
+    std::string errstr;
+    const std::vector< uint32_t > *plocs = trace_events.get_tdopexpr_locs( m_filter_str.c_str(), &errstr );
+
+    const char *valstr = strstr( m_scanf_str.c_str(), "%f" );
+    size_t valoffset = valstr - m_scanf_str.c_str();
+
+    if ( plocs )
     {
-        m_name = name;
-        m_filter_str = filter;
-        m_scanf_str = scanf_str;
+        m_color_line = trace_events.m_events[ plocs->front() ].color;
+        m_color_point = imgui_col_complement( m_color_line );
 
-        std::string errstr;
-        const std::vector< uint32_t > *plocs = trace_events.get_tdopexpr_locs( filter, &errstr );
-
-        const char *valstr = strstr( scanf_str, "%f" );
-        size_t valoffset = valstr - scanf_str;
-
-        if ( plocs )
+        for ( uint32_t idx : *plocs )
         {
-            m_color_line = trace_events.m_events[ plocs->front() ].color;
-            m_color_point = imgui_col_complement( m_color_line );
+            const trace_event_t &event = trace_events.m_events[ idx ];
+            const char *buf = get_event_field_val( event.fields, "buf" );
 
-            for ( uint32_t idx : *plocs )
+            if ( buf && ( strlen( buf ) > valoffset ) )
             {
-                const trace_event_t &event = trace_events.m_events[ idx ];
-                const char *buf = get_event_field_val( event.fields, "buf" );
+                float valf = atof( buf + valoffset );
 
-                if ( buf && ( strlen( buf ) > valoffset ) )
-                {
-                    float valf = atof( buf + valoffset );
+                m_minval = std::min< float >( m_minval, valf );
+                m_maxval = std::max< float >( m_maxval, valf );
 
-                    m_minval = std::min< float >( m_minval, valf );
-                    m_maxval = std::max< float >( m_maxval, valf );
-
-                    m_plotdata.push_back( { event.ts, event.id, valf } );
-                }
-            }
-
-            for ( plotdata_t &data : m_plotdata )
-            {
-                data.valf_norm = ( data.valf - m_minval ) / ( m_maxval - m_minval );
+                m_plotdata.push_back( { event.ts, event.id, valf } );
             }
         }
 
-        return !m_plotdata.empty();
-    }
-
-    uint32_t find_ts_index( int64_t ts0 )
-    {
-        auto lambda = []( const GraphPlot::plotdata_t &lhs, int64_t ts )
-                                { return lhs.ts < ts; };
-        auto i = std::lower_bound( m_plotdata.begin(), m_plotdata.end(), ts0, lambda );
-
-        if ( i != m_plotdata.end() )
+        for ( plotdata_t &data : m_plotdata )
         {
-            size_t index = i - m_plotdata.begin();
-
-            return ( index > 0 ) ? ( index - 1 ) : 0;
+            data.valf_norm = ( data.valf - m_minval ) / ( m_maxval - m_minval );
         }
-
-        return ( uint32_t )-1;
     }
 
-public:
-    struct plotdata_t
+    return !m_plotdata.empty();
+}
+
+uint32_t GraphPlot::find_ts_index( int64_t ts0 )
+{
+    auto lambda = []( const GraphPlot::plotdata_t &lhs, int64_t ts )
+                            { return lhs.ts < ts; };
+    auto i = std::lower_bound( m_plotdata.begin(), m_plotdata.end(), ts0, lambda );
+
+    if ( i != m_plotdata.end() )
     {
-        int64_t ts;
-        uint32_t eventid;
-        float valf;
-        float valf_norm;
-    };
-    std::vector< plotdata_t > m_plotdata;
+        size_t index = i - m_plotdata.begin();
 
-    float m_minval = FLT_MAX;
-    float m_maxval = FLT_MIN;
+        return ( index > 0 ) ? ( index - 1 ) : 0;
+    }
 
-    ImU32 m_color_line;
-    ImU32 m_color_point;
-
-    // TimeSyncLastVSync
-    std::string m_name;
-
-    // $buf =~ "[Compositor] TimeSyncLastVsync: "
-    std::string m_filter_str;
-
-    // "[Compositor] TimeSyncLastVsync: %f("
-    std::string m_scanf_str;
-};
+    return ( uint32_t )-1;
+}
 
 uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
 {
-    GraphPlot plot;
+    const char *plotstr = gi.prinfo_cur->comm.c_str();
+    uint32_t hashval = fnv_hashstr32( plotstr );
+    GraphPlot &plot = m_trace_events.m_graph_plots.m_map[ hashval ];
 
-    plot.init( m_trace_events,
-               "TimeSinceLastVSync",
-               "$buf =~ \"[Compositor] TimeSinceLastVsync: \"",
-               "[Compositor] TimeSinceLastVsync: %f(012345)" );
+    if ( plot.m_name.empty() )
+    {
+        if ( !plot.init( m_trace_events, plotstr ) )
+            return 0;
+    }
 
     std::vector< ImVec2 > points;
     uint32_t index0 = plot.find_ts_index( gi.ts0 );
