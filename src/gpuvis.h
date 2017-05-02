@@ -198,7 +198,8 @@ public:
     GraphPlot() {}
     ~GraphPlot() {}
 
-    bool init( TraceEvents &trace_events, const char *plotstr );
+    bool init( TraceEvents &trace_events, const std::string &name,
+               const std::string &filter_str, const std::string scanf_str );
 
     uint32_t find_ts_index( int64_t ts0 );
 
@@ -218,7 +219,7 @@ public:
     ImU32 m_color_line;
     ImU32 m_color_point;
 
-    // TimeSyncLastVSync
+    // plot: TimeSyncLastVSync
     std::string m_name;
 
     // $buf =~ "[Compositor] TimeSyncLastVsync: "
@@ -227,29 +228,6 @@ public:
     // "[Compositor] TimeSyncLastVsync: %f("
     std::string m_scanf_str;
 };
-
-// "plot:name\tfilter_str\tscanf_str"
-inline bool parse_plot_str( const char *plotstr, std::string *name, std::string *filter, std::string *scanfstr )
-{
-    if ( !strncmp( plotstr, "plot:", 5 ) )
-    {
-        std::vector< std::string > plotvals = string_explode( plotstr + 5, '\t' );
-
-        if ( plotvals.size() == 3 )
-        {
-            if ( name )
-                *name = plotvals[ 0 ];
-            if ( filter )
-                *filter = plotvals[ 1 ];
-            if ( scanfstr )
-                *scanfstr = plotvals[ 2 ];
-
-            return true;
-        }
-    }
-
-    return false;
-}
 
 class TraceEvents
 {
@@ -369,7 +347,7 @@ public:
     {
         TraceEvents::loc_type_t type;
         size_t event_count;
-        std::string name;
+        std::string row_name;
         bool hidden;
     };
     const std::vector< graph_rows_info_t > get_hidden_rows_list();

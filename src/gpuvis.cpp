@@ -619,7 +619,7 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
         // Search for it in m_graph_rows_list and mark as not hidden
         for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
         {
-            if ( m_graph_rows_list[ i ].name == name )
+            if ( m_graph_rows_list[ i ].row_name == name )
             {
                 m_graph_rows_list[ i ].hidden = false;
                 break;
@@ -632,12 +632,12 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
 
         for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
         {
-            if ( found || ( m_graph_rows_list[ i ].name == name ) )
+            if ( found || ( m_graph_rows_list[ i ].row_name == name ) )
             {
                 // Add entry to the graph_rows_hide array
-                auto idx = std::find( m_graph_rows_hide.begin(), m_graph_rows_hide.end(), m_graph_rows_list[ i ].name );
+                auto idx = std::find( m_graph_rows_hide.begin(), m_graph_rows_hide.end(), m_graph_rows_list[ i ].row_name );
                 if ( idx == m_graph_rows_hide.end() )
-                    m_graph_rows_hide.push_back( m_graph_rows_list[ i ].name );
+                    m_graph_rows_hide.push_back( m_graph_rows_list[ i ].row_name );
 
                 // Mark this graph_row as hidden
                 m_graph_rows_list[ i ].hidden = true;
@@ -710,10 +710,26 @@ void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
 
         for ( const INIEntry &entry : entries )
         {
-            std::string plotstr = string_format( "plot:%s\t%s", entry.first.c_str(), entry.second.c_str() );
+            const std::string &plot_name = "plot:" + entry.first;
+            const std::vector< std::string > plot_args = string_explode( entry.second, '\t' );
 
-            if ( ( plocs = trace_events.get_locs( plotstr.c_str(), &type ) ) )
-                m_graph_rows_list.push_back( { type, plocs->size(), plotstr, false } );
+            if ( plot_args.size() == 2 )
+            {
+                const std::string &plot_filter = plot_args[ 0 ];
+                const std::string &plot_scanf = plot_args[ 1 ];
+
+                plocs = trace_events.get_locs( plot_filter.c_str() );
+                if ( plocs )
+                {
+                    uint32_t hashval = fnv_hashstr32( plot_name.c_str() );
+                    GraphPlot &plot = trace_events.m_graph_plots.m_map[ hashval ];
+
+                    if ( plot.init( trace_events, plot_name, plot_filter, plot_scanf ) )
+                    {
+                        m_graph_rows_list.push_back( { type, plot.m_plotdata.size(), plot_name, false } );
+                    }
+                }
+            }
         }
     }
 
@@ -773,7 +789,7 @@ void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
 
         for ( graph_rows_info_t &row_info : m_graph_rows_list )
         {
-            auto idx = std::find( m_graph_rows_hide.begin(), m_graph_rows_hide.end(), row_info.name );
+            auto idx = std::find( m_graph_rows_hide.begin(), m_graph_rows_hide.end(), row_info.row_name );
 
             row_info.hidden = ( idx != m_graph_rows_hide.end() );
         }
@@ -784,9 +800,9 @@ void GraphRows::rename_row( const char *comm_old, const char *comm_new )
 {
     for ( graph_rows_info_t &row_info : m_graph_rows_list )
     {
-        if ( row_info.name == comm_old )
+        if ( row_info.row_name == comm_old )
         {
-            row_info.name = comm_new;
+            row_info.row_name = comm_new;
             break;
         }
     }
@@ -807,13 +823,13 @@ void GraphRows::add_row( TraceEvents &trace_events, const std::string &name )
         if ( m_graph_rows_list[ i ].type == TraceEvents::LOC_TYPE_Tdopexpr ||
              m_graph_rows_list[ i ].type == TraceEvents::LOC_TYPE_Comm )
         {
-
             m_graph_rows_list.insert( m_graph_rows_list.begin() + i,
-            { type, size, name, false } );
+                                        { type, size, name, false } );
             return;
         }
     }
 
+    // Just add to the end.
     m_graph_rows_list.push_back( { type, size, name, false } );
 }
 
@@ -826,20 +842,20 @@ void GraphRows::move_row( const std::string &name_src, const std::string &name_d
          ( index_src != ( size_t )-1 ) &&
          ( index_src != index_dest ) )
     {
+        m_graph_rows_move.m_map[ name_src ] = name_dest;
+
         m_graph_rows_list.insert( m_graph_rows_list.begin() + index_dest + 1,
                                   m_graph_rows_list[ index_src ] );
 
         m_graph_rows_list.erase( m_graph_rows_list.begin() + index_src + ( index_src > index_dest ) );
     }
-
-    m_graph_rows_move.m_map[ name_src ] = name_dest;
 }
 
 // Search in m_graph_rows_list for name. Returns index or -1 if not found.
 size_t GraphRows::find_row( const std::string &name )
 {
     auto lambda_name_cmp = [ &name ]( const GraphRows::graph_rows_info_t& row_info )
-                                        { return row_info.name == name; };
+                                        { return row_info.row_name == name; };
     auto idx = std::find_if( m_graph_rows_list.begin(), m_graph_rows_list.end(), lambda_name_cmp );
 
     return ( idx != m_graph_rows_list.end() ) ? ( idx - m_graph_rows_list.begin() ) : ( size_t )-1;
@@ -1307,13 +1323,14 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name, loc_type
     }
     else if ( !strncmp( name, "plot:", 5 ) )
     {
-        std::string filter;
+        uint32_t hashval = fnv_hashstr32( name );
+        GraphPlot *plot = m_graph_plots.get_val( hashval );
 
-        if ( parse_plot_str( name, NULL, &filter, NULL ) )
+        if ( plot )
         {
             if ( type )
                 *type = LOC_TYPE_Plot;
-            plocs = get_tdopexpr_locs( filter.c_str() );
+            plocs = get_tdopexpr_locs( plot->m_filter_str.c_str() );
         }
     }
     else
@@ -1646,7 +1663,7 @@ void TraceWin::trace_render_info()
 
                 for ( const GraphRows::graph_rows_info_t &info : m_graph.rows.m_graph_rows_list )
                 {
-                    ImGui::Text( "%s", info.name.c_str() );
+                    ImGui::Text( "%s", info.row_name.c_str() );
                     ImGui::NextColumn();
                     ImGui::Text( "%lu", info.event_count );
                     ImGui::NextColumn();

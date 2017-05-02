@@ -119,17 +119,15 @@ typedef std::function< uint32_t ( class graph_info_t &gi ) > RenderGraphRowCallb
 struct row_info_t
 {
     uint32_t id;
+    std::string row_name;
 
     float row_y;
     float row_h;
 
-    RenderGraphRowCallback render_cb;
-
-    std::string rowname;
-    std::string plotstr;
-
     TraceEvents::loc_type_t loc_type;
     const std::vector< uint32_t > *plocs;
+
+    RenderGraphRowCallback render_cb;
 };
 
 class graph_info_t
@@ -313,15 +311,15 @@ void event_renderer_t::draw()
     imgui_drawrect( x0, width, y, h, color );
 }
 
-static option_id_t get_comm_option_id( TraceLoader &loader, const std::string &rowname )
+static option_id_t get_comm_option_id( TraceLoader &loader, const std::string &row_name )
 {
-    option_id_t *optid = loader.m_name_optid_map.get_val( rowname );
+    option_id_t *optid = loader.m_name_optid_map.get_val( row_name );
 
     if ( optid )
         return *optid;
 
-    if ( !strncmp( rowname.c_str(), "plot:", 5 ) )
-        return loader.add_option_graph_rowsize( rowname.c_str() );
+    if ( !strncmp( row_name.c_str(), "plot:", 5 ) )
+        return loader.add_option_graph_rowsize( row_name.c_str() );
 
     return OPT_Invalid;
 }
@@ -349,16 +347,16 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         row_info_t rinfo;
         option_id_t optid = OPT_Invalid;
         const std::vector< uint32_t > *plocs;
-        const std::string &rowname = grow.name;
+        const std::string &row_name = grow.row_name;
 
         if ( grow.hidden )
             continue;
 
-        plocs = win->m_trace_events.get_locs( rowname.c_str(), &rinfo.loc_type );
+        plocs = win->m_trace_events.get_locs( row_name.c_str(), &rinfo.loc_type );
 
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
-        rinfo.rowname = rowname;
+        rinfo.row_name = row_name;
 
         if ( !plocs )
         {
@@ -368,25 +366,17 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Print )
         {
             // ftrace print row
-            optid = get_comm_option_id( win->m_loader, rinfo.rowname );
+            optid = get_comm_option_id( win->m_loader, rinfo.row_name );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_print_timeline, win, _1 );
         }
         else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Plot )
         {
-            // Full plot string: "plot:name\tfilter_str\tscanf_str"
-            rinfo.plotstr = rowname;
-
-            parse_plot_str( rowname.c_str(), &rinfo.rowname, NULL, NULL );
-
-            // Row name is just "plot:name"
-            rinfo.rowname = "plot:" + rinfo.rowname;
-            optid = get_comm_option_id( win->m_loader, rinfo.rowname );
-
+            optid = get_comm_option_id( win->m_loader, rinfo.row_name );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_plot, win, _1 );
         }
         else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Timeline )
         {
-            optid = get_comm_option_id( win->m_loader, rinfo.rowname );
+            optid = get_comm_option_id( win->m_loader, rinfo.row_name );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_row_timeline, win, _1 );
         }
         else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Timeline_hw )
@@ -522,7 +512,7 @@ row_info_t *graph_info_t::find_row( const char *name )
 {
     for ( row_info_t &ri : row_info )
     {
-        if ( ri.rowname == name )
+        if ( ri.row_name == name )
             return &ri;
     }
     return NULL;
@@ -565,10 +555,12 @@ bool graph_info_t::add_mouse_hovered_event( float xin, const trace_event_t &even
     return inserted;
 }
 
-bool GraphPlot::init( TraceEvents &trace_events, const char *plotstr )
+bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
+                      const std::string &filter_str, const std::string scanf_str )
 {
-    if ( !parse_plot_str( plotstr, &m_name, &m_filter_str, &m_scanf_str ) )
-        return false;
+    m_name = name;
+    m_filter_str = filter_str;
+    m_scanf_str = scanf_str;
 
     std::string errstr;
     const std::vector< uint32_t > *plocs = trace_events.get_tdopexpr_locs( m_filter_str.c_str(), &errstr );
@@ -638,17 +630,10 @@ uint32_t GraphPlot::find_ts_index( int64_t ts0 )
 
 uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
 {
-    const char *plotstr = gi.prinfo_cur->plotstr.c_str();
-    uint32_t hashval = fnv_hashstr32( plotstr );
-    GraphPlot &plot = m_trace_events.m_graph_plots.m_map[ hashval ];
-
-    if ( plot.m_name.empty() )
-    {
-        if ( !plot.init( m_trace_events, plotstr ) )
-            return 0;
-    }
-
     std::vector< ImVec2 > points;
+    const char *row_name = gi.prinfo_cur->row_name.c_str();
+    uint32_t hashval = fnv_hashstr32( row_name );
+    GraphPlot &plot = m_trace_events.m_graph_plots.m_map[ hashval ];
     uint32_t index0 = plot.find_ts_index( gi.ts0 );
     uint32_t index1 = plot.find_ts_index( gi.ts1 );
 
@@ -1046,10 +1031,10 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 
 void TraceWin::graph_render_row( graph_info_t &gi )
 {
-    const std::string rowname = gi.prinfo_cur->rowname;
+    const std::string row_name = gi.prinfo_cur->row_name;
 
     if ( gi.mouse_over )
-        m_graph.mouse_over_row_name = rowname;
+        m_graph.mouse_over_row_name = row_name;
 
     // Draw background
     ImGui::GetWindowDrawList()->AddRectFilled(
@@ -1061,7 +1046,7 @@ void TraceWin::graph_render_row( graph_info_t &gi )
     uint32_t num_events = gi.prinfo_cur->render_cb ? gi.prinfo_cur->render_cb( gi ) : 0;
 
     // Draw row label
-    std::string label = string_format( "%u) %s", gi.prinfo_cur->id, rowname.c_str() );
+    std::string label = string_format( "%u) %s", gi.prinfo_cur->id, row_name.c_str() );
     imgui_draw_text( gi.x, gi.y, label.c_str(),
                      col_get( col_RowLabel ) );
 
@@ -1495,11 +1480,11 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             for ( const GraphRows::graph_rows_info_t &entry : m_graph.rows_hidden_rows )
             {
                 const std::string label = string_format( "%s (%lu events)",
-                                                         entry.name.c_str(), entry.event_count );
+                                                         entry.row_name.c_str(), entry.event_count );
 
                 if ( ImGui::MenuItem( label.c_str() ) )
                 {
-                    m_graph.rows.show_row( entry.name.c_str(), GraphRows::SHOW_ROW );
+                    m_graph.rows.show_row( entry.row_name.c_str(), GraphRows::SHOW_ROW );
                 }
             }
 
@@ -1515,11 +1500,11 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         {
             for ( const GraphRows::graph_rows_info_t &entry : m_graph.rows.m_graph_rows_list )
             {
-                if ( !entry.hidden && ( entry.name != m_graph.mouse_over_row_name ) )
+                if ( !entry.hidden && ( entry.row_name != m_graph.mouse_over_row_name ) )
                 {
-                    if ( ImGui::MenuItem( entry.name.c_str() ) )
+                    if ( ImGui::MenuItem( entry.row_name.c_str() ) )
                     {
-                        m_graph.rows.move_row( m_graph.mouse_over_row_name, entry.name );
+                        m_graph.rows.move_row( m_graph.mouse_over_row_name, entry.row_name );
                         ImGui::CloseCurrentPopup();
                         break;
                     }
