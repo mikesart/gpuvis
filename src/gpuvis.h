@@ -588,10 +588,12 @@ public:
 };
 
 // TraceLoader ini options
-enum option_id_t
+typedef uint32_t option_id_t;
+// Preset ini options
+enum : uint32_t
 {
-    OPT_Invalid = -1,
-    OPT_TimelineZoomGfx,
+    OPT_Invalid = ( uint32_t )-1,
+    OPT_TimelineZoomGfx = 0,
     OPT_TimelineLabels,
     OPT_TimelineEvents,
     OPT_TimelineRenderUserSpace,
@@ -721,7 +723,7 @@ public:
     }
     int get_opt_crtc( int crtc )
     {
-        int val = crtc + OPT_RenderCrtc0;
+        uint32_t val = crtc + OPT_RenderCrtc0;
 
         return ( val <= OPT_RenderCrtc9 ) ? m_options[ val ].val : 0;
     }

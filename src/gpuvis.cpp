@@ -461,7 +461,7 @@ void TraceLoader::init()
     m_options[ OPT_EventListRowCount ].opt_int( "Event List Size: %.0f", "eventlist_rows", 0, 0, 100 );
     m_options[ OPT_EventListRowCount ].hidden = true;
 
-    for ( int i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
+    for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
         const std::string desc = string_format( "Show drm_vblank_event crtc%d markers", i - OPT_RenderCrtc0 );
         const std::string inikey = string_format( "render_crtc%d", i - OPT_RenderCrtc0 );
