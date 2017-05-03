@@ -1762,7 +1762,8 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_graph.new_row_errstr.c_str() );
     }
 
-    if ( is_valid_id( m_graph.hovered_eventid ) )
+    if ( is_valid_id( m_graph.hovered_eventid ) &&
+         strncmp( m_graph.mouse_over_row_name.c_str(), "plot:", 5 ) )
     {
         const trace_event_t &event = m_trace_events.m_events[ m_graph.hovered_eventid ];
         const char *plot_str = CreatePlotDlg::get_plot_str( event );
