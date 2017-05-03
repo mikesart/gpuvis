@@ -193,19 +193,6 @@ public:
     float total_graph_height;
 };
 
-static size_t str_get_digit_loc( const char *str )
-{
-    const char *buf = str;
-
-    for ( ; *buf; buf++ )
-    {
-        if ( isdigit( *buf ) )
-            return buf - str;
-    }
-
-    return 0;
-}
-
 static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
 {
     if ( w < 0.0f )
@@ -566,6 +553,32 @@ bool graph_info_t::add_mouse_hovered_event( float xin, const trace_event_t &even
     }
 
     return inserted;
+}
+
+static size_t str_get_digit_loc( const char *str )
+{
+    const char *buf = str;
+
+    for ( ; *buf; buf++ )
+    {
+        if ( isdigit( *buf ) )
+            return buf - str;
+    }
+
+    return 0;
+}
+
+const char *CreatePlotDlg::get_plot_str( const trace_event_t &event )
+{
+    if ( event.is_ftrace_print() )
+    {
+        const char *buf = get_event_field_val( event.fields, "buf" );
+
+        if ( str_get_digit_loc( buf ) )
+            return buf;
+    }
+
+    return NULL;
 }
 
 bool CreatePlotDlg::init( TraceEvents &trace_events, uint32_t eventid )
@@ -1602,10 +1615,10 @@ void TraceWin::graph_render_process()
         // Render mouse tooltips, mouse selections, etc
         graph_handle_mouse( gi );
 
-        if ( m_graph.do_create_plot )
+        if ( is_valid_id( m_graph.create_plot_eventid ) )
         {
-            m_create_plot_dlg.init( m_trace_events, m_graph.hovered_eventid );
-            m_graph.do_create_plot = false;
+            m_create_plot_dlg.init( m_trace_events, m_graph.create_plot_eventid );
+            m_graph.create_plot_eventid = INVALID_ID;
         }
         if ( m_create_plot_dlg.render_dlg( m_trace_events ) )
             m_create_plot_dlg.add_plot( m_loader.m_inifile, m_graph.rows );
@@ -1747,20 +1760,17 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     if ( is_valid_id( m_graph.hovered_eventid ) )
     {
         const trace_event_t &event = m_trace_events.m_events[ m_graph.hovered_eventid ];
+        const char *plot_str = CreatePlotDlg::get_plot_str( event );
 
-        if ( event.is_ftrace_print() )
+        if ( plot_str )
         {
-            const char *buf = get_event_field_val( event.fields, "buf" );
+            ImGui::Text( "Create Plot for" );
+            ImGui::SameLine();
 
-            if ( str_get_digit_loc( buf ) )
-            {
-                ImGui::Text( "Create Plot for" );
-                ImGui::SameLine();
-
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4( 1, 1, 0, 1 ) );
-                m_graph.do_create_plot |= ImGui::MenuItem( buf );
-                ImGui::PopStyleColor();
-            }
+            ImGui::PushStyleColor( ImGuiCol_Text, ImVec4( 1, 1, 0, 1 ) );
+            if ( ImGui::MenuItem( plot_str ) )
+                m_graph.create_plot_eventid = event.id;
+            ImGui::PopStyleColor();
         }
     }
 

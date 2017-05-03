@@ -1750,6 +1750,20 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
         m_eventlist.do_filter = true;
     }
 
+    const char *plot_str = CreatePlotDlg::get_plot_str( event );
+    if ( plot_str )
+    {
+        ImGui::Separator();
+
+        ImGui::Text( "Create Plot for" );
+        ImGui::SameLine();
+
+        ImGui::PushStyleColor( ImGuiCol_Text, ImVec4( 1, 1, 0, 1 ) );
+        if ( ImGui::MenuItem( plot_str ) )
+            m_graph.create_plot_eventid = event.id;
+        ImGui::PopStyleColor();
+    }
+
     ImGui::EndPopup();
     return true;
 }

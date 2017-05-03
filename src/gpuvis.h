@@ -239,6 +239,8 @@ public:
     bool render_dlg( TraceEvents &trace_events );
     void add_plot( CIniFile &inifile, class GraphRows &rows );
 
+    static const char *get_plot_str( const trace_event_t &event );
+
 public:
     GraphPlot *m_plot = nullptr;
     std::string m_plot_name;
@@ -578,7 +580,7 @@ public:
         // Mouse currently over our events graph?
         bool is_mouse_over = false;
         // Show the create plot dlg?
-        bool do_create_plot = false;
+        uint32_t create_plot_eventid = INVALID_ID;
 
         std::vector< std::pair< int64_t, int64_t > > saved_locs;
 
