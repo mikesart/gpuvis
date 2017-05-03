@@ -152,6 +152,7 @@
  Here is a change-log of API breaking changes, if you are using one of the functions listed, expect to have to fix some code.
  Also read releases logs https://github.com/ocornut/imgui/releases for more details.
 
+ - 2017/05/01 (1.50) - Renamed ImDrawList::PathFill() to ImDrawList::PathFillConvex() for clarity.
  - 2016/11/06 (1.50) - BeginChild(const char*) now applies the stack id to the provided label, consistently with other functions as it should always have been. It shouldn't affect you unless (extremely unlikely) you were appending multiple times to a same child from different locations of the stack id. If that's the case, generate an id with GetId() and use it instead of passing string to BeginChild().
  - 2016/10/15 (1.50) - avoid 'void* user_data' parameter to io.SetClipboardTextFn/io.GetClipboardTextFn pointers. We pass io.ClipboardUserData to it.
  - 2016/09/25 (1.50) - style.WindowTitleAlign is now a ImVec2 (ImGuiAlign enum was removed). set to (0.5f,0.5f) for horizontal+vertical centering, (0.0f,0.0f) for upper-left, etc.
@@ -638,11 +639,12 @@
 // Clang warnings with -Weverything
 #ifdef __clang__
 #pragma clang diagnostic ignored "-Wold-style-cast"         // warning : use of old-style cast                              // yes, they are more terse.
-#pragma clang diagnostic ignored "-Wfloat-equal"            // warning : comparing floating point with == or != is unsafe   // storing and comparing against same constants ok.
+#pragma clang diagnostic ignored "-Wfloat-equal"            // warning : comparing floating point with == or != is unsafe   // storing and comparing against same constants (typically 0.0f) is ok.
 #pragma clang diagnostic ignored "-Wformat-nonliteral"      // warning : format string is not a string literal              // passing non-literal to vsnformat(). yes, user passing incorrect format strings can crash the code.
 #pragma clang diagnostic ignored "-Wexit-time-destructors"  // warning : declaration requires an exit-time destructor       // exit-time destruction order is undefined. if MemFree() leads to users code that has been disabled before exit it might cause problems. ImGui coding style welcomes static/globals.
 #pragma clang diagnostic ignored "-Wglobal-constructors"    // warning : declaration requires a global destructor           // similar to above, not sure what the exact difference it.
 #pragma clang diagnostic ignored "-Wsign-conversion"        // warning : implicit conversion changes signedness             //
+#pragma clang diagnostic ignored "-Wformat-pedantic"        // warning : format specifies type 'void *' but the argument has type 'xxxx *' // unreasonable, would lead to casting every %p arg to void*. probably enabled by -pedantic. 
 #pragma clang diagnostic ignored "-Wint-to-void-pointer-cast" // warning : cast to 'void *' from smaller integer type 'int' //
 #elif defined(__GNUC__)
 #pragma GCC diagnostic ignored "-Wunused-function"          // warning: 'xxxx' defined but not used
@@ -697,7 +699,7 @@ static bool             BeginPopupEx(const char* str_id, ImGuiWindowFlags extra_
 static void             CloseInactivePopups();
 static void             ClosePopupToLevel(int remaining);
 static void             ClosePopup(ImGuiID id);
-static bool             IsPopupIdOpen(ImGuiID id);
+static bool             IsPopupOpen(ImGuiID id);
 static ImGuiWindow*     GetFrontMostModalRootWindow();
 static ImVec2           FindBestPopupWindowPos(const ImVec2& base_pos, const ImVec2& size, int* last_dir, const ImRect& rect_to_avoid);
 
@@ -3452,7 +3454,7 @@ void ImGui::EndTooltip()
     ImGui::End();
 }
 
-static bool IsPopupIdOpen(ImGuiID id)
+static bool IsPopupOpen(ImGuiID id)
 {
     ImGuiContext& g = *GImGui;
     return g.OpenPopupStack.Size > g.CurrentPopupStack.Size && g.OpenPopupStack[g.CurrentPopupStack.Size].PopupId == id;
@@ -3536,7 +3538,7 @@ static void ClosePopupToLevel(int remaining)
 
 static void ClosePopup(ImGuiID id)
 {
-    if (!IsPopupIdOpen(id))
+    if (!IsPopupOpen(id))
         return;
     ImGuiContext& g = *GImGui;
     ClosePopupToLevel(g.OpenPopupStack.Size - 1);
@@ -3566,7 +3568,7 @@ static bool BeginPopupEx(const char* str_id, ImGuiWindowFlags extra_flags)
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
     const ImGuiID id = window->GetID(str_id);
-    if (!IsPopupIdOpen(id))
+    if (!IsPopupOpen(id))
     {
         ClearSetNextWindowData(); // We behave like Begin() and need to consume those values
         return false;
@@ -3592,7 +3594,7 @@ static bool BeginPopupEx(const char* str_id, ImGuiWindowFlags extra_flags)
 
 bool ImGui::BeginPopup(const char* str_id)
 {
-    if (GImGui->OpenPopupStack.Size <= GImGui->CurrentPopupStack.Size)	// Early out for performance
+    if (GImGui->OpenPopupStack.Size <= GImGui->CurrentPopupStack.Size)    // Early out for performance
     {
         ClearSetNextWindowData(); // We behave like Begin() and need to consume those values
         return false;
@@ -3600,20 +3602,12 @@ bool ImGui::BeginPopup(const char* str_id)
     return BeginPopupEx(str_id, ImGuiWindowFlags_ShowBorders);
 }
 
-bool ImGui::IsPopupOpen(const char* str_id)
-{
-    ImGuiContext& g = *GImGui;
-    ImGuiWindow* window = g.CurrentWindow;
-    const ImGuiID id = window->GetID(str_id);
-    return IsPopupIdOpen(id);
-}
-
 bool ImGui::BeginPopupModal(const char* name, bool* p_open, ImGuiWindowFlags extra_flags)
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
     const ImGuiID id = window->GetID(name);
-    if (!IsPopupIdOpen(id))
+    if (!IsPopupOpen(id))
     {
         ClearSetNextWindowData(); // We behave like Begin() and need to consume those values
         return false;
@@ -3773,12 +3767,12 @@ static void CheckStacksSize(ImGuiWindow* window, bool write)
     // NOT checking: DC.ItemWidth, DC.AllowKeyboardFocus, DC.ButtonRepeat, DC.TextWrapPos (per window) to allow user to conveniently push once and not pop (they are cleared on Begin)
     ImGuiContext& g = *GImGui;
     int* p_backup = &window->DC.StackSizesBackup[0];
-    { int current = window->IDStack.Size;       if (write) *p_backup = current; else IM_ASSERT(*p_backup == current && "PushID/PopID Mismatch!");                   p_backup++; }    // User forgot PopID()
-    { int current = window->DC.GroupStack.Size; if (write) *p_backup = current; else IM_ASSERT(*p_backup == current && "BeginGroup/EndGroup Mismatch!");            p_backup++; }    // User forgot EndGroup()
-    { int current = g.CurrentPopupStack.Size;   if (write) *p_backup = current; else IM_ASSERT(*p_backup == current && "BeginMenu/EndMenu or BeginPopup/EndPopup Mismatch"); p_backup++; }// User forgot EndPopup()/EndMenu()
-    { int current = g.ColorModifiers.Size;      if (write) *p_backup = current; else IM_ASSERT(*p_backup == current && "PushStyleColor/PopStyleColor Mismatch!");   p_backup++; }    // User forgot PopStyleColor()
-    { int current = g.StyleModifiers.Size;      if (write) *p_backup = current; else IM_ASSERT(*p_backup == current && "PushStyleVar/PopStyleVar Mismatch!");       p_backup++; }    // User forgot PopStyleVar()
-    { int current = g.FontStack.Size;           if (write) *p_backup = current; else IM_ASSERT(*p_backup == current && "PushFont/PopFont Mismatch!");               p_backup++; }    // User forgot PopFont()
+    { int current = window->IDStack.Size;       if (write) *p_backup = current; else IM_ASSERT(*p_backup == current && "PushID/PopID or TreeNode/TreePop Mismatch!");   p_backup++; }    // Too few or too many PopID()/TreePop()
+    { int current = window->DC.GroupStack.Size; if (write) *p_backup = current; else IM_ASSERT(*p_backup == current && "BeginGroup/EndGroup Mismatch!");                p_backup++; }    // Too few or too many EndGroup()
+    { int current = g.CurrentPopupStack.Size;   if (write) *p_backup = current; else IM_ASSERT(*p_backup == current && "BeginMenu/EndMenu or BeginPopup/EndPopup Mismatch"); p_backup++;}// Too few or too many EndMenu()/EndPopup()
+    { int current = g.ColorModifiers.Size;      if (write) *p_backup = current; else IM_ASSERT(*p_backup == current && "PushStyleColor/PopStyleColor Mismatch!");       p_backup++; }    // Too few or too many PopStyleColor()
+    { int current = g.StyleModifiers.Size;      if (write) *p_backup = current; else IM_ASSERT(*p_backup == current && "PushStyleVar/PopStyleVar Mismatch!");           p_backup++; }    // Too few or too many PopStyleVar()
+    { int current = g.FontStack.Size;           if (write) *p_backup = current; else IM_ASSERT(*p_backup == current && "PushFont/PopFont Mismatch!");                   p_backup++; }    // Too few or too many PopFont()
     IM_ASSERT(p_backup == window->DC.StackSizesBackup + IM_ARRAYSIZE(window->DC.StackSizesBackup));
 }
 
@@ -4338,7 +4332,7 @@ bool ImGui::Begin(const char* name, bool* p_open, const ImVec2& size_on_first_us
                 window->DrawList->PathLineTo(br + ImVec2(-resize_corner_size, -window->BorderSize));
                 window->DrawList->PathLineTo(br + ImVec2(-window->BorderSize, -resize_corner_size));
                 window->DrawList->PathArcToFast(ImVec2(br.x - window_rounding - window->BorderSize, br.y - window_rounding - window->BorderSize), window_rounding, 0, 3);
-                window->DrawList->PathFill(resize_col);
+                window->DrawList->PathFillConvex(resize_col);
             }
 
             // Borders
@@ -4488,7 +4482,8 @@ void ImGui::End()
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
 
-    Columns(1, "#CloseColumns");
+    if (window->DC.ColumnsCount != 1) // close columns set if any is open
+        Columns(1, "#CLOSECOLUMNS");
     PopClipRect();   // inner window clip rectangle
 
     // Stop logging
@@ -8556,7 +8551,7 @@ bool ImGui::Combo(const char* label, int* current_item, bool (*items_getter)(voi
 
     const float arrow_size = (g.FontSize + style.FramePadding.x * 2.0f);
     const bool hovered = IsHovered(frame_bb, id);
-    bool popup_open = IsPopupIdOpen(id);
+    bool popup_open = IsPopupOpen(id);
     bool popup_opened_now = false;
 
     const ImRect value_bb(frame_bb.Min, frame_bb.Max - ImVec2(arrow_size, 0.0f));
@@ -8580,7 +8575,7 @@ bool ImGui::Combo(const char* label, int* current_item, bool (*items_getter)(voi
         if (g.IO.MouseClicked[0])
         {
             ClearActiveID();
-            if (IsPopupIdOpen(id))
+            if (IsPopupOpen(id))
             {
                 ClosePopup(id);
             }
@@ -8594,7 +8589,7 @@ bool ImGui::Combo(const char* label, int* current_item, bool (*items_getter)(voi
     }
 
     bool value_changed = false;
-    if (IsPopupIdOpen(id))
+    if (IsPopupOpen(id))
     {
         // Size default to hold ~7 items
         if (height_in_items < 0)
@@ -8940,7 +8935,7 @@ bool ImGui::BeginMenu(const char* label, bool enabled)
     ImGuiWindow* backed_focused_window = g.FocusedWindow;
 
     bool pressed;
-    bool menu_is_open = IsPopupIdOpen(id);
+    bool menu_is_open = IsPopupOpen(id);
     bool menuset_is_open = !(window->Flags & ImGuiWindowFlags_Popup) && (g.OpenPopupStack.Size > g.CurrentPopupStack.Size && g.OpenPopupStack[g.CurrentPopupStack.Size].ParentMenuSet == window->GetID("##menus"));
     if (menuset_is_open)
         g.FocusedWindow = window;
@@ -9007,7 +9002,7 @@ bool ImGui::BeginMenu(const char* label, bool enabled)
         want_open = true;
     if (!enabled) // explicitly close if an open menu becomes disabled, facilitate users code a lot in pattern such as 'if (BeginMenu("options", has_object)) { ..use object.. }'
         want_close = true;
-    if (want_close && IsPopupIdOpen(id))
+    if (want_close && IsPopupOpen(id))
         ClosePopupToLevel(GImGui->CurrentPopupStack.Size);
 
     if (!menu_is_open && want_open && g.OpenPopupStack.Size > g.CurrentPopupStack.Size)
