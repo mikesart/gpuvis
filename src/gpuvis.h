@@ -237,6 +237,7 @@ public:
 
     bool init( TraceEvents &trace_events, uint32_t eventid );
     bool render_dlg( TraceEvents &trace_events );
+    void add_plot( CIniFile &inifile, class GraphRows &rows );
 
 public:
     GraphPlot *m_plot = nullptr;

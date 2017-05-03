@@ -718,6 +718,18 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
     return !!m_plot;
 }
 
+void CreatePlotDlg::add_plot( CIniFile &inifile, GraphRows &rows )
+{
+    size_t print_row_index = rows.find_row( "print", rows.m_graph_rows_list.size() - 1 );
+    auto it = rows.m_graph_rows_list.begin() + print_row_index + 1;
+
+    rows.m_graph_rows_list.insert( it,
+                { TraceEvents::LOC_TYPE_Plot, m_plot->m_plotdata.size(), m_plot_name, false } );
+
+    std::string val = string_format( "%s\t%s", m_plot->m_filter_str.c_str(), m_plot->m_scanf_str.c_str() );
+    inifile.PutStr( m_plot_name.c_str(), val.c_str(), "$graph_plots$" );
+}
+
 bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
                       const std::string &filter_str, const std::string scanf_str )
 {
@@ -1596,19 +1608,7 @@ void TraceWin::graph_render_process()
             m_graph.do_create_plot = false;
         }
         if ( m_create_plot_dlg.render_dlg( m_trace_events ) )
-        {
-            GraphRows &rows = m_graph.rows;
-            GraphPlot *plot = m_create_plot_dlg.m_plot;
-            const std::string &plot_name = m_create_plot_dlg.m_plot_name;
-
-            size_t print_row_index = rows.find_row( "print", rows.m_graph_rows_list.size() - 1 );
-
-            rows.m_graph_rows_list.insert( rows.m_graph_rows_list.begin() + print_row_index + 1,
-                { TraceEvents::LOC_TYPE_Plot, plot->m_plotdata.size(), plot_name, false } );
-
-            std::string val = string_format( "%s\t%s", plot->m_filter_str.c_str(), plot->m_scanf_str.c_str() );
-            m_loader.m_inifile.PutStr( plot_name.c_str(), val.c_str(), "$graph_plots$" );
-        }
+            m_create_plot_dlg.add_plot( m_loader.m_inifile, m_graph.rows );
     }
     ImGui::EndChild();
 
