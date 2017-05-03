@@ -429,6 +429,8 @@ protected:
     // Make sure m_graph.start_ts and m_graph.length_ts are legit
     void graph_range_check_times();
 
+    bool show_create_plot_dialog( uint32_t eventid = INVALID_ID );
+
 protected:
     // Render trace information header
     void trace_render_info();
@@ -552,6 +554,13 @@ public:
 
         // Mouse currently over our events graph?
         bool is_mouse_over = false;
+
+        bool do_create_plot = false;
+        std::string plot_buf;
+        std::string plot_err_str;
+        char plot_name_buf[ 64 ];
+        char plot_filter_buf[ 256 ];
+        char plot_scanf_buf[ 256 ];
 
         std::vector< std::pair< int64_t, int64_t > > saved_locs;
 

@@ -240,6 +240,16 @@ std::string string_trimmed( std::string s )
     return s;
 }
 
+std::string string_remove_punct( const std::string &s )
+{
+    std::string ret;
+    std::remove_copy_if( s.begin(), s.end(),
+                         std::back_inserter( ret ),
+                         std::ptr_fun< int, int >( &std::ispunct ) );
+
+    return ret;
+}
+
 std::string gen_random_str( size_t len )
 {
     std::string str;

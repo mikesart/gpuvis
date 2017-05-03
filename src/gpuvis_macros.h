@@ -112,6 +112,8 @@ void string_ltrim( std::string &s );
 void string_rtrim( std::string &s );
 // trim from both ends (in place)
 void string_trim( std::string &s );
+// remove punctuation from string
+std::string string_remove_punct( const std::string &s );
 
 // disassemble a string into parts
 std::vector< std::string > string_explode( std::string const &s, char delim );

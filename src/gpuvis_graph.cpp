@@ -602,10 +602,14 @@ bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
                 }
             }
 
-            for ( plotdata_t &data : m_plotdata )
+            if ( m_minval == m_maxval )
             {
-                data.valf_norm = ( data.valf - m_minval ) / ( m_maxval - m_minval );
+                m_minval--;
+                m_maxval++;
             }
+
+            for ( plotdata_t &data : m_plotdata )
+                data.valf_norm = ( data.valf - m_minval ) / ( m_maxval - m_minval );
         }
     }
 
@@ -1419,6 +1423,9 @@ void TraceWin::graph_render_process()
 
         // Render mouse tooltips, mouse selections, etc
         graph_handle_mouse( gi );
+
+        show_create_plot_dialog( m_graph.do_create_plot ? m_graph.hovered_eventid : INVALID_ID );
+        m_graph.do_create_plot = false;
     }
     ImGui::EndChild();
 
@@ -1434,6 +1441,173 @@ void TraceWin::graph_render_process()
 
         m_loader.m_options[ opt ].valf = m_graph.resize_graph_click_pos + ImGui::GetMouseDragDelta( 0 ).y;
     }
+}
+
+static size_t str_get_digit_loc( const char *str )
+{
+    const char *buf = str;
+
+    for ( ; *buf; buf++ )
+    {
+        if ( isdigit( *buf ) )
+            return buf - str;
+    }
+
+    return 0;
+}
+
+bool TraceWin::show_create_plot_dialog( uint32_t eventid )
+{
+    if ( is_valid_id( eventid ) )
+    {
+        const trace_event_t &event = get_event( eventid );
+        const char *buf = get_event_field_val( event.fields, "buf" );
+        size_t digit_loc = str_get_digit_loc( buf );
+
+        m_graph.plot_buf = buf;
+        m_graph.plot_err_str.clear();
+
+        /*
+           [Compositor] NewFrame idx=2776
+           [Compositor Client] WaitGetPoses End ThreadId=5125
+           [Compositor] frameTimeout( 27 ms )
+           [Compositor Client] Received Idx 100
+           [Compositor] NewFrame idx=3769
+           [Compositor] Predicting( 33.047485 ms )
+           [Compositor] Re-predicting( 25.221056 ms )
+           [Compositor] Re-predicting( -28.942781 ms )
+           [Compositor] TimeSinceLastVSync: 0.076272(79975)
+        */
+        if ( digit_loc )
+        {
+            std::string shortstr;
+            std::string fullstr = string_ltrimmed( std::string( buf, digit_loc ) );
+
+            if ( fullstr[ 0 ] == '[' )
+            {
+                char *name = &fullstr[ 0 ];
+                char *right_bracket = strchr( name, ']' );
+
+                if ( right_bracket )
+                {
+                    name = right_bracket + 1;
+                    while ( isspace( *name ) )
+                        name++;
+
+                    shortstr = std::string( name );
+                }
+            }
+            if ( shortstr.empty() )
+                shortstr = fullstr;
+
+            std::string namestr = string_trimmed( string_remove_punct( shortstr ) );
+            strcpy_safe( m_graph.plot_name_buf, namestr.c_str() );
+
+            std::string filter_str = string_format( "$buf =~ \"%s\"", fullstr.c_str() );
+            strcpy_safe( m_graph.plot_filter_buf, filter_str.c_str() );
+
+            fullstr += "%f";
+            strcpy_safe( m_graph.plot_scanf_buf, fullstr.c_str() );
+
+            ImGui::OpenPopup( "Create Plot" );
+        }
+    }
+
+    bool ret = ImGui::BeginPopupModal( "Create Plot", NULL, ImGuiWindowFlags_AlwaysAutoResize );
+    if ( ret )
+    {
+        float w = imgui_scale( 350.0f );
+        ImVec2 text_size = ImGui::CalcTextSize( "Plot Scan Str: " );
+        float x = ImGui::GetCursorPos().x + text_size.x;
+
+        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", m_graph.plot_buf.c_str() );
+
+        ImGui::NewLine();
+
+        ImGui::AlignFirstTextHeightToWidgets();
+        ImGui::Text( "%s", "Plot Name:" );
+        ImGui::SameLine();
+        ImGui::PushItemWidth( w );
+        ImGui::SetCursorPos( { x, ImGui::GetCursorPos().y } );
+
+        struct TextFilters {
+            static int FilterImGuiLetters( ImGuiTextEditCallbackData *data )
+            {
+                if ( ( data->EventChar < 256 ) && ispunct( data->EventChar ) )
+                    return 1;
+                return 0;
+            }
+        };
+        ImGui::InputText( "##plot_name", m_graph.plot_name_buf, sizeof( m_graph.plot_name_buf ),
+                          ImGuiInputTextFlags_CallbackCharFilter,
+                          TextFilters::FilterImGuiLetters );
+
+        ImGui::AlignFirstTextHeightToWidgets();
+        ImGui::Text( "%s", "Plot Filter:" );
+        ImGui::SameLine();
+        ImGui::PushItemWidth( w );
+        ImGui::SetCursorPos( { x, ImGui::GetCursorPos().y } );
+        ImGui::InputText( "##plot_filter", m_graph.plot_filter_buf, sizeof( m_graph.plot_filter_buf ) );
+
+        if ( m_graph.plot_err_str.size() )
+            ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_graph.plot_err_str.c_str() );
+
+        ImGui::AlignFirstTextHeightToWidgets();
+        ImGui::Text( "%s", "Plot Scan Str:" );
+        ImGui::SameLine();
+        ImGui::PushItemWidth( w );
+        ImGui::SetCursorPos( { x, ImGui::GetCursorPos().y } );
+        ImGui::InputText( "##plot_scanf", m_graph.plot_scanf_buf, sizeof( m_graph.plot_scanf_buf ) );
+
+        ImGui::NewLine();
+
+        bool disabled = !m_graph.plot_name_buf[ 0 ] || !m_graph.plot_filter_buf[ 0 ] || !m_graph.plot_scanf_buf[ 0 ];
+        if ( disabled )
+            ImGui::PushStyleColor( ImGuiCol_Text, ImGui::GetColorVec4( ImGuiCol_TextDisabled ) );
+
+        const ImVec2 size = { imgui_scale( 120.0f ), 0.0f };
+        if ( ImGui::Button( "Create", size ) && !disabled )
+        {
+            m_graph.plot_err_str.clear();
+            const std::vector< uint32_t > *plocs = m_trace_events.get_tdopexpr_locs(
+                        m_graph.plot_filter_buf, &m_graph.plot_err_str );
+
+            if ( !plocs && m_graph.plot_err_str.empty() )
+            {
+                m_graph.plot_err_str = "WARNING: No events found.";
+            }
+            else
+            {
+                std::string plot_name = std::string( "plot:" ) + m_graph.plot_name_buf;
+                uint32_t hashval = fnv_hashstr32( plot_name.c_str() );
+                GraphPlot &plot = m_trace_events.m_graph_plots.m_map[ hashval ];
+
+                if ( plot.init( m_trace_events, plot_name,
+                                m_graph.plot_filter_buf,
+                                m_graph.plot_scanf_buf ) )
+                {
+                    m_graph.rows.m_graph_rows_list.push_back( { TraceEvents::LOC_TYPE_Plot, plot.m_plotdata.size(), plot_name, false } );
+
+                    ImGui::CloseCurrentPopup();
+                }
+                else
+                {
+                    m_graph.plot_err_str = "WARNING: No plot data values found.";
+                }
+            }
+        }
+
+        if ( disabled )
+            ImGui::PopStyleColor();
+
+        ImGui::SameLine();
+        if ( ImGui::Button( "Cancel", size ) )
+            ImGui::CloseCurrentPopup();
+
+        ImGui::EndPopup();
+    }
+
+    return ret;
 }
 
 bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
@@ -1552,6 +1726,26 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
         if ( !m_graph.new_row_errstr.empty() )
             ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_graph.new_row_errstr.c_str() );
+    }
+
+    if ( is_valid_id( m_graph.hovered_eventid ) )
+    {
+        const trace_event_t &event = m_trace_events.m_events[ m_graph.hovered_eventid ];
+
+        if ( event.is_ftrace_print() )
+        {
+            const char *buf = get_event_field_val( event.fields, "buf" );
+
+            if ( str_get_digit_loc( buf ) )
+            {
+                ImGui::Text( "Create Plot for" );
+                ImGui::SameLine();
+
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4( 1, 1, 0, 1 ) );
+                m_graph.do_create_plot |= ImGui::MenuItem( buf );
+                ImGui::PopStyleColor();
+            }
+        }
     }
 
     if ( m_trace_events.get_comm_locs( m_graph.mouse_over_row_name.c_str() ) )
@@ -1872,6 +2066,7 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
         m_graph.popupmenu = TraceWin::graph_render_popupmenu( gi );
         return;
     }
+
 
     m_graph.ts_marker = -1;
 
