@@ -733,11 +733,14 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
 
 void CreatePlotDlg::add_plot( CIniFile &inifile, GraphRows &rows )
 {
-    size_t print_row_index = rows.find_row( "print", rows.m_graph_rows_list.size() - 1 );
-    auto it = rows.m_graph_rows_list.begin() + print_row_index + 1;
+    if ( rows.find_row( m_plot_name ) == ( size_t )-1 )
+    {
+        size_t print_row_index = rows.find_row( "print", rows.m_graph_rows_list.size() - 1 );
+        auto it = rows.m_graph_rows_list.begin() + print_row_index + 1;
 
-    rows.m_graph_rows_list.insert( it,
+        rows.m_graph_rows_list.insert( it,
                 { TraceEvents::LOC_TYPE_Plot, m_plot->m_plotdata.size(), m_plot_name, false } );
+    }
 
     std::string val = string_format( "%s\t%s", m_plot->m_filter_str.c_str(), m_plot->m_scanf_str.c_str() );
     inifile.PutStr( m_plot_name.c_str(), val.c_str(), "$graph_plots$" );
@@ -749,6 +752,10 @@ bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
     m_name = name;
     m_filter_str = filter_str;
     m_scanf_str = scanf_str;
+
+    m_minval = FLT_MAX;
+    m_maxval = FLT_MIN;
+    m_plotdata.clear();
 
     std::string errstr;
     const std::vector< uint32_t > *plocs = trace_events.get_tdopexpr_locs( m_filter_str.c_str(), &errstr );
