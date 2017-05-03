@@ -229,6 +229,26 @@ public:
     std::string m_scanf_str;
 };
 
+class CreatePlotDlg
+{
+public:
+    CreatePlotDlg() {}
+    ~CreatePlotDlg() {}
+
+    bool init( TraceEvents &trace_events, uint32_t eventid );
+    bool render_dlg( TraceEvents &trace_events );
+
+public:
+    GraphPlot *m_plot = nullptr;
+    std::string m_plot_name;
+
+    std::string m_plot_buf;
+    std::string m_plot_err_str;
+    char m_plot_name_buf[ 64 ];
+    char m_plot_filter_buf[ 256 ];
+    char m_plot_scanf_buf[ 256 ];
+};
+
 class TraceEvents
 {
 public:
@@ -365,7 +385,7 @@ public:
     void rename_row( const char *comm_old, const char *comm_new );
 
     // Search in m_graph_rows_list for name. Returns index or -1 if not found.
-    size_t find_row( const std::string &name );
+    size_t find_row( const std::string &name, size_t not_found_val = ( size_t )-1 );
 
 public:
     // List of graph rows
@@ -474,6 +494,8 @@ public:
 
     util_umap< int64_t, int > m_ts_to_eventid_cache;
 
+    CreatePlotDlg m_create_plot_dlg;
+
     struct
     {
         // Is event list visible?
@@ -554,13 +576,8 @@ public:
 
         // Mouse currently over our events graph?
         bool is_mouse_over = false;
-
+        // Show the create plot dlg?
         bool do_create_plot = false;
-        std::string plot_buf;
-        std::string plot_err_str;
-        char plot_name_buf[ 64 ];
-        char plot_filter_buf[ 256 ];
-        char plot_scanf_buf[ 256 ];
 
         std::vector< std::pair< int64_t, int64_t > > saved_locs;
 

@@ -710,7 +710,7 @@ void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
 
         for ( const INIEntry &entry : entries )
         {
-            const std::string &plot_name = "plot:" + entry.first;
+            const std::string &plot_name = entry.first;
             const std::vector< std::string > plot_args = string_explode( entry.second, '\t' );
 
             if ( plot_args.size() == 2 )
@@ -852,13 +852,13 @@ void GraphRows::move_row( const std::string &name_src, const std::string &name_d
 }
 
 // Search in m_graph_rows_list for name. Returns index or -1 if not found.
-size_t GraphRows::find_row( const std::string &name )
+size_t GraphRows::find_row( const std::string &name, size_t not_found_val )
 {
     auto lambda_name_cmp = [ &name ]( const GraphRows::graph_rows_info_t& row_info )
                                         { return row_info.row_name == name; };
     auto idx = std::find_if( m_graph_rows_list.begin(), m_graph_rows_list.end(), lambda_name_cmp );
 
-    return ( idx != m_graph_rows_list.end() ) ? ( idx - m_graph_rows_list.begin() ) : ( size_t )-1;
+    return ( idx != m_graph_rows_list.end() ) ? ( idx - m_graph_rows_list.begin() ) : not_found_val;
 }
 
 /*
