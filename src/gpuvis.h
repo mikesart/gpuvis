@@ -286,6 +286,15 @@ public:
     };
     const std::vector< uint32_t > *get_locs( const char *name, loc_type_t *type = nullptr );
 
+    GraphPlot *get_plot_ptr( const char *plot_name )
+    {
+        return m_graph_plots.get_val( fnv_hashstr32( plot_name ) );
+    }
+    GraphPlot &get_plot( const char *plot_name )
+    {
+        return m_graph_plots.m_map[ fnv_hashstr32( plot_name ) ];
+    }
+
 public:
     int64_t m_ts_min = 0;
     std::vector< uint32_t > m_cpucount;

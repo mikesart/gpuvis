@@ -703,8 +703,7 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
         {
             m_plot_name = std::string( "plot:" ) + m_plot_name_buf;
 
-            uint32_t hashval = fnv_hashstr32( m_plot_name.c_str() );
-            GraphPlot &plot = trace_events.m_graph_plots.m_map[ hashval ];
+            GraphPlot &plot = trace_events.get_plot( m_plot_name.c_str() );
 
             if ( plot.init( trace_events, m_plot_name,
                             m_plot_filter_buf, m_plot_scanf_buf ) )
@@ -831,8 +830,7 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
 {
     std::vector< ImVec2 > points;
     const char *row_name = gi.prinfo_cur->row_name.c_str();
-    uint32_t hashval = fnv_hashstr32( row_name );
-    GraphPlot &plot = m_trace_events.m_graph_plots.m_map[ hashval ];
+    GraphPlot &plot = m_trace_events.get_plot( row_name );
     uint32_t index0 = plot.find_ts_index( gi.ts0 );
     uint32_t index1 = plot.find_ts_index( gi.ts1 );
 

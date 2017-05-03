@@ -721,8 +721,7 @@ void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
                 plocs = trace_events.get_locs( plot_filter.c_str() );
                 if ( plocs )
                 {
-                    uint32_t hashval = fnv_hashstr32( plot_name.c_str() );
-                    GraphPlot &plot = trace_events.m_graph_plots.m_map[ hashval ];
+                    GraphPlot &plot = trace_events.get_plot( plot_name.c_str() );
 
                     if ( plot.init( trace_events, plot_name, plot_filter, plot_scanf ) )
                     {
@@ -1324,8 +1323,7 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name, loc_type
     }
     else if ( !strncmp( name, "plot:", 5 ) )
     {
-        uint32_t hashval = fnv_hashstr32( name );
-        GraphPlot *plot = m_graph_plots.get_val( hashval );
+        GraphPlot *plot = get_plot_ptr( name );
 
         if ( plot )
         {
@@ -1667,6 +1665,17 @@ void TraceWin::trace_render_info()
                     ImGui::Text( "%s", info.row_name.c_str() );
                     ImGui::NextColumn();
                     ImGui::Text( "%lu", info.event_count );
+
+                    if ( info.type == TraceEvents::LOC_TYPE_Plot )
+                    {
+                        GraphPlot *plot = m_trace_events.get_plot_ptr( info.row_name.c_str() );
+
+                        if ( plot )
+                        {
+                            ImGui::SameLine();
+                            ImGui::Text( "(minval:%.2f maxval:%.2f)", plot->m_minval, plot->m_maxval );
+                        }
+                    }
                     ImGui::NextColumn();
                 }
 
