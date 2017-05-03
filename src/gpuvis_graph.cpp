@@ -599,19 +599,13 @@ bool CreatePlotDlg::init( TraceEvents &trace_events, uint32_t eventid )
         std::string shortstr;
         std::string fullstr = string_ltrimmed( std::string( buf, digit_loc ) );
 
+        // Skip the [Blah blah] section for the plot name
         if ( fullstr[ 0 ] == '[' )
         {
-            char *name = &fullstr[ 0 ];
-            char *right_bracket = strchr( name, ']' );
+            char *right_bracket = strchr( &fullstr[ 0 ], ']' );
 
             if ( right_bracket )
-            {
-                name = right_bracket + 1;
-                while ( isspace( *name ) )
-                    name++;
-
-                shortstr = std::string( name );
-            }
+                shortstr = std::string( right_bracket + 1 );
         }
         if ( shortstr.empty() )
             shortstr = fullstr;
@@ -632,54 +626,49 @@ bool CreatePlotDlg::init( TraceEvents &trace_events, uint32_t eventid )
     return false;
 }
 
+template < size_t T >
+static void plot_input_text( const char *label, char ( &buf )[ T ], float x, float w, ImGuiTextEditCallback callback = nullptr )
+{
+    ImGuiInputTextFlags flags = callback ? ImGuiInputTextFlags_CallbackCharFilter : 0;
+
+    ImGui::PushID( label );
+
+    ImGui::AlignFirstTextHeightToWidgets();
+    ImGui::Text( "%s", label );
+
+    ImGui::SameLine();
+    ImGui::PushItemWidth( w );
+    ImGui::SetCursorPos( { x, ImGui::GetCursorPos().y } );
+    ImGui::InputText( "##plot_input_text", buf, sizeof( buf ), flags, callback );
+
+    ImGui::PopID();
+}
+
 bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
 {
     if ( !ImGui::BeginPopupModal( "Create Plot", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
         return false;
 
-    bool ret = false;
     float w = imgui_scale( 350.0f );
-    ImVec2 text_size = ImGui::CalcTextSize( "Plot Scan Str: " );
+    const ImVec2 button_size = { imgui_scale( 120.0f ), 0.0f };
+    const ImVec2 text_size = ImGui::CalcTextSize( "Plot Scan Str: " );
     float x = ImGui::GetCursorPos().x + text_size.x;
 
     ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", m_plot_buf.c_str() );
-
     ImGui::NewLine();
-
-    ImGui::AlignFirstTextHeightToWidgets();
-    ImGui::Text( "%s", "Plot Name:" );
-    ImGui::SameLine();
-    ImGui::PushItemWidth( w );
-    ImGui::SetCursorPos( { x, ImGui::GetCursorPos().y } );
 
     struct TextFilters {
         static int FilterImGuiLetters( ImGuiTextEditCallbackData *data )
-        {
-            if ( ( data->EventChar < 256 ) && ispunct( data->EventChar ) )
-                return 1;
-            return 0;
-        }
+                { return ( ( data->EventChar < 256 ) && ispunct( data->EventChar ) ); }
     };
-    ImGui::InputText( "##plot_name", m_plot_name_buf, sizeof( m_plot_name_buf ),
-                      ImGuiInputTextFlags_CallbackCharFilter,
-                      TextFilters::FilterImGuiLetters );
+    plot_input_text( "Plot Name:", m_plot_name_buf, x, w, TextFilters::FilterImGuiLetters );
 
-    ImGui::AlignFirstTextHeightToWidgets();
-    ImGui::Text( "%s", "Plot Filter:" );
-    ImGui::SameLine();
-    ImGui::PushItemWidth( w );
-    ImGui::SetCursorPos( { x, ImGui::GetCursorPos().y } );
-    ImGui::InputText( "##plot_filter", m_plot_filter_buf, sizeof( m_plot_filter_buf ) );
+    plot_input_text( "Plot Filter:", m_plot_filter_buf, x, w, TextFilters::FilterImGuiLetters );
 
     if ( m_plot_err_str.size() )
         ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_plot_err_str.c_str() );
 
-    ImGui::AlignFirstTextHeightToWidgets();
-    ImGui::Text( "%s", "Plot Scan Str:" );
-    ImGui::SameLine();
-    ImGui::PushItemWidth( w );
-    ImGui::SetCursorPos( { x, ImGui::GetCursorPos().y } );
-    ImGui::InputText( "##plot_scanf", m_plot_scanf_buf, sizeof( m_plot_scanf_buf ) );
+    plot_input_text( "Plot Scan Str:", m_plot_scanf_buf, x, w, TextFilters::FilterImGuiLetters );
 
     ImGui::NewLine();
 
@@ -687,8 +676,7 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
     if ( disabled )
         ImGui::PushStyleColor( ImGuiCol_Text, ImGui::GetColorVec4( ImGuiCol_TextDisabled ) );
 
-    const ImVec2 size = { imgui_scale( 120.0f ), 0.0f };
-    if ( ImGui::Button( "Create", size ) && !disabled )
+    if ( ImGui::Button( "Create", button_size ) && !disabled )
     {
         m_plot_err_str.clear();
         const std::vector< uint32_t > *plocs = trace_events.get_tdopexpr_locs(
@@ -708,10 +696,8 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
             if ( plot.init( trace_events, m_plot_name,
                             m_plot_filter_buf, m_plot_scanf_buf ) )
             {
-                ImGui::CloseCurrentPopup();
-
                 m_plot = &plot;
-                ret = true;
+                ImGui::CloseCurrentPopup();
             }
             else
             {
@@ -724,12 +710,12 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
         ImGui::PopStyleColor();
 
     ImGui::SameLine();
-    if ( ImGui::Button( "Cancel", size ) )
+    if ( ImGui::Button( "Cancel", button_size ) || imgui_key_pressed( ImGuiKey_Escape ) )
         ImGui::CloseCurrentPopup();
 
     ImGui::EndPopup();
 
-    return ret;
+    return !!m_plot;
 }
 
 bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
@@ -1516,9 +1502,12 @@ void TraceWin::graph_render_process()
     // Initialize our row size, location, etc information based on our graph rows
     gi.init_row_info( this, m_graph.rows.m_graph_rows_list );
 
-    // Checkbox to toggle zooming gfx timeline view
-    ImGui::SameLine();
-    ImGui::CheckboxInt( "Zoom gfx timeline", &m_loader.m_options[ OPT_TimelineZoomGfx ].val );
+    if ( gi.prinfo_gfx )
+    {
+        // Checkbox to toggle zooming gfx timeline view
+        ImGui::SameLine();
+        ImGui::CheckboxInt( "Zoom gfx timeline", &m_loader.m_options[ OPT_TimelineZoomGfx ].val );
+    }
 
     // Figure out gi.visible_graph_height
     calc_process_graph_height( this, gi );

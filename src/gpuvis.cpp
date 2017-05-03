@@ -726,7 +726,8 @@ void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
 
                     if ( plot.init( trace_events, plot_name, plot_filter, plot_scanf ) )
                     {
-                        m_graph_rows_list.push_back( { TraceEvents::LOC_TYPE_Plot, plot.m_plotdata.size(), plot_name, false } );
+                        m_graph_rows_list.push_back(
+                                { TraceEvents::LOC_TYPE_Plot, plot.m_plotdata.size(), plot_name, false } );
                     }
                 }
             }
