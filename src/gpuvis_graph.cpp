@@ -670,11 +670,11 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
     ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", m_plot_buf.c_str() );
     ImGui::NewLine();
 
-    struct TextFilters {
-        static int FilterImGuiLetters( ImGuiTextEditCallbackData *data )
+    struct PlotNameFilter {
+        static int FilterPunct( ImGuiTextEditCallbackData *data )
                 { return ( ( data->EventChar < 256 ) && ispunct( data->EventChar ) ); }
     };
-    plot_input_text( "Plot Name:", m_plot_name_buf, x, w, TextFilters::FilterImGuiLetters );
+    plot_input_text( "Plot Name:", m_plot_name_buf, x, w, PlotNameFilter::FilterPunct );
 
     plot_input_text( "Plot Filter:", m_plot_filter_buf, x, w );
 
