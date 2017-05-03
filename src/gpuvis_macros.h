@@ -177,6 +177,18 @@ char *strcpy_safe( char ( &dest )[ T ], const std::string &src )
     return dest;
 }
 
+template < size_t T >
+void strcat_safe( char ( &dest )[ T ], const char *src )
+{
+    size_t i;
+
+    for ( i = strlen( dest ); ( i < T - 1 ) && *src; i++ )
+        dest[ i++ ] = *src++;
+
+    dest[ i ] = '\0';
+    return dest;
+}
+
 #define STATIC_ASSERT( _x ) static_assert( _x, #_x )
 
 #else
