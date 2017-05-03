@@ -676,12 +676,12 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
     };
     plot_input_text( "Plot Name:", m_plot_name_buf, x, w, TextFilters::FilterImGuiLetters );
 
-    plot_input_text( "Plot Filter:", m_plot_filter_buf, x, w, TextFilters::FilterImGuiLetters );
+    plot_input_text( "Plot Filter:", m_plot_filter_buf, x, w );
 
     if ( m_plot_err_str.size() )
         ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_plot_err_str.c_str() );
 
-    plot_input_text( "Plot Scan Str:", m_plot_scanf_buf, x, w, TextFilters::FilterImGuiLetters );
+    plot_input_text( "Plot Scan Str:", m_plot_scanf_buf, x, w );
 
     ImGui::NewLine();
 

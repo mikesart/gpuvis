@@ -328,7 +328,7 @@ public:
     util_umap< uint32_t, event_print_info_t > m_print_buf_info;
     float m_buf_size_max_x = -1.0f;
 
-    // plot str to GraphPlot
+    // plot name to GraphPlot
     util_umap< uint32_t, GraphPlot > m_graph_plots;
 
     // 0: events loaded, 1+: loading events, -1: error
