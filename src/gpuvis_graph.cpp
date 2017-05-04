@@ -1326,6 +1326,14 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
                         col_get( col_MousePos ) );
     }
 
+    if ( m_graph.ts_marker_a >= gi.ts0 && m_graph.ts_marker_a < gi.ts1 )
+    {
+        float x = gi.ts_to_screenx( m_graph.ts_marker_a );
+
+        imgui_drawrect( x, imgui_scale( 2.0f ),
+                        gi.y, gi.h, col_get( col_MarkerA ) );
+    }
+
     if ( is_valid_id( m_eventlist.hovered_eventid ) )
     {
         trace_event_t &event = get_event( m_eventlist.hovered_eventid );
@@ -1831,6 +1839,11 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     ImGui::Separator();
 
+    if ( ImGui::MenuItem( "Set Marker A" ) )
+        m_graph.ts_marker_a = m_graph.ts_marker_mouse;
+    if ( ( m_graph.ts_marker_a != INT64_MAX ) && ImGui::MenuItem( "Clear Marker A" ) )
+        m_graph.ts_marker_a = INT64_MAX;
+
     if ( ImGui::BeginMenu( "Save Location" ) )
     {
         for ( size_t i = 0; i < m_graph.saved_locs.size(); i++ )
@@ -2020,6 +2033,9 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 ) + "ms";
     }
 
+    if ( m_graph.ts_marker_a != INT64_MIN )
+        time_buf += "\nMarker A: " + ts_to_timestr( m_graph.ts_marker_a - mouse_ts, 0, 2 ) + "ms";
+
     m_graph.hovered_eventid = INVALID_ID;
     if ( !gi.hovered_items.empty() )
     {
@@ -2114,8 +2130,7 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
         return;
     }
 
-
-    m_graph.ts_marker = -1;
+    m_graph.ts_marker_mouse = -1;
 
     // Check if mouse if over our graph and we've got focus
     m_graph.is_mouse_over = gi.mouse_pos_in_graph() &&
@@ -2135,7 +2150,7 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
     {
         int64_t mouse_ts = gi.screenx_to_ts( gi.mouse_pos.x );
 
-        m_graph.ts_marker = mouse_ts;
+        m_graph.ts_marker_mouse = mouse_ts;
 
         // Set the tooltip
         graph_set_mouse_tooltip( gi, mouse_ts );

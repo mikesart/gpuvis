@@ -560,7 +560,8 @@ public:
         GraphRows rows;
 
         // Mouse timestamp location in graph
-        int64_t ts_marker = -1;
+        int64_t ts_marker_mouse = -1;
+        int64_t ts_marker_a = INT64_MAX;
 
         float resize_graph_click_pos = 0.0f;
 

@@ -2084,9 +2084,9 @@ void TraceWin::events_list_render( CIniFile &inifile )
                     ImGui::NextColumn();
                 }
 
-                // Draw time stamp marker diff line if we're right below ts_marker
+                // Draw time stamp marker diff line if we're right below ts_marker_mouse
                 {
-                    int64_t ts_diff = event.ts - m_graph.ts_marker;
+                    int64_t ts_diff = event.ts - m_graph.ts_marker_mouse;
                     bool do_draw_ts_line = ( ts_marker_diff < 0 ) && ( ts_diff > 0 );
 
                     if ( do_draw_ts_line )
