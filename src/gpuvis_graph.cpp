@@ -889,7 +889,8 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
     uint32_t num_events = 0;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
-    bool timeline_labels = m_loader.get_opt( OPT_PrintTimelineLabels ) != 0;
+    bool timeline_labels = !!m_loader.get_opt( OPT_PrintTimelineLabels ) && !ImGui::GetIO().KeyAlt;
+
     uint32_t row_count = std::max< uint32_t >( 1, gi.h / gi.text_h - 1 );
 
     row_draw_info.resize( row_count + 1 );
@@ -980,6 +981,7 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
     ImRect hov_rect;
     ImU32 last_color = 0;
     float y = gi.y;
+    bool draw_label = !ImGui::GetIO().KeyAlt;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
@@ -998,21 +1000,24 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
             imgui_drawrect( x0, x1 - x0, y, row_h, fence_signaled.color );
 
             // Draw a label if we have room.
-            const char *label = fence_signaled.user_comm;
-            ImVec2 size = ImGui::CalcTextSize( label );
+            if ( draw_label )
+            {
+                const char *label = fence_signaled.user_comm;
+                ImVec2 size = ImGui::CalcTextSize( label );
 
-            if ( size.x + imgui_scale( 4 ) >= x1 - x0 )
-            {
-                // No room for the comm, try just the pid.
-                label = strrchr( label, '-' );
-                if ( label )
-                    size = ImGui::CalcTextSize( ++label );
-            }
-            if ( size.x + imgui_scale( 4 ) < x1 - x0 )
-            {
-                ImGui::GetWindowDrawList()->AddText(
-                            ImVec2( x0 + imgui_scale( 2.0f ), y + imgui_scale( 2.0f ) ),
-                            col_get( col_BarText ), label );
+                if ( size.x + imgui_scale( 4 ) >= x1 - x0 )
+                {
+                    // No room for the comm, try just the pid.
+                    label = strrchr( label, '-' );
+                    if ( label )
+                        size = ImGui::CalcTextSize( ++label );
+                }
+                if ( size.x + imgui_scale( 4 ) < x1 - x0 )
+                {
+                    ImGui::GetWindowDrawList()->AddText(
+                                ImVec2( x0 + imgui_scale( 2.0f ), y + imgui_scale( 2.0f ) ),
+                                col_get( col_BarText ), label );
+                }
             }
 
             // If we drew the same color last time, draw a separator.
@@ -1058,7 +1063,7 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
     uint32_t timeline_row_count = gi.h / gi.text_h;
 
     bool render_timeline_events = !!m_loader.get_opt( OPT_TimelineEvents );
-    bool render_timeline_labels = !!m_loader.get_opt( OPT_TimelineLabels );
+    bool render_timeline_labels = !!m_loader.get_opt( OPT_TimelineLabels ) && !ImGui::GetIO().KeyAlt;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();

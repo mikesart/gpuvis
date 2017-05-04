@@ -2129,6 +2129,7 @@ void TraceConsole::init( CIniFile *inifile )
     logf( "  shift+click+drag: zoom to selection" );
     logf( "  ctrl+click+drag: select area to see time" );
     logf( "  click+drag: pan graph" );
+    logf( "  alt key: hide all graph labels");
 
     strcpy_safe( m_trace_file, "trace.dat" );
 }
