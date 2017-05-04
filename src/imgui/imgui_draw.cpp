@@ -1844,7 +1844,12 @@ const char* ImFont::CalcWordWrapPositionA(float scale, const char* text, const c
     {
         unsigned int c = (unsigned int)*s;
         const char* next_s;
-        if (c < 0x80)
+        if (c == '\033' && s[1] && s[2] && s[3] && s[4])
+        {
+            s += 5;
+            continue;
+        }
+        else if (c < 0x80)
             next_s = s + 1;
         else
             next_s = s + ImTextCharFromUtf8(&c, s, text_end);
@@ -1960,7 +1965,13 @@ ImVec2 ImFont::CalcTextSizeA(float size, float max_width, float wrap_width, cons
         // Decode and advance source
         const char* prev_s = s;
         unsigned int c = (unsigned int)*s;
-        if (c < 0x80)
+
+        if (c == '\033' && s[1] && s[2] && s[3] && s[4])
+        {
+            s += 5;
+            continue;
+        }
+        else if (c < 0x80)
         {
             s += 1;
         }
@@ -2086,7 +2097,18 @@ void ImFont::RenderText(ImDrawList* draw_list, float size, ImVec2 pos, ImU32 col
 
         // Decode and advance source
         unsigned int c = (unsigned int)*s;
-        if (c < 0x80)
+
+        //$ TODO mikesart: quick hack to change text color until imgui gets official method.
+        //    https://github.com/ocornut/imgui/issues/902
+        // ESC + RGBA bytes
+        if (c == '\033' && s[1] && s[2] && s[3] && s[4])
+        {
+            const unsigned char *us = (const unsigned char *)s;
+            col = IM_COL32( us[1], us[2], us[3], us[4] );
+            s += 5;
+            continue;
+        }
+        else if (c < 0x80)
         {
             s += 1;
         }
