@@ -1494,25 +1494,11 @@ bool TraceWin::render()
         ImGui::SameLine();
         bool m_do_graph_zoom_out = ImGui::SmallButton( "Zoom Out" );
 
-        if ( m_graph.length_ts >= m_graph.s_max_length )
-            m_do_graph_zoom_out = false;
-
         if ( m_do_graph_zoom_in || m_do_graph_zoom_out )
         {
-            int64_t sign = m_do_graph_zoom_in ? -1 : +1;
-            int64_t amt = sign * m_graph.length_ts / 2;
-            int64_t newlen = m_graph.length_ts + amt;
+            int64_t ts0 = m_graph.start_ts + m_graph.length_ts / 2;
 
-            if ( ( newlen > m_graph.s_min_length ) && ( newlen < m_graph.s_max_length ) )
-            {
-                m_graph.start_ts -= amt / 2;
-                m_graph.length_ts = newlen;
-                m_graph.do_start_timestr = true;
-                m_graph.do_length_timestr = true;
-            }
-
-            m_do_graph_zoom_in = false;
-            m_do_graph_zoom_out = false;
+            graph_zoom( ts0, m_graph.start_ts, m_do_graph_zoom_in );
         }
 
         if ( m_graph.do_start_timestr )

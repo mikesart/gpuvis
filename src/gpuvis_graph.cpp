@@ -1408,6 +1408,24 @@ void TraceWin::graph_range_check_times()
     }
 }
 
+void TraceWin::graph_zoom( int64_t center_ts, int64_t ts0, bool zoomin )
+{
+    int64_t len0 = m_graph.length_ts;
+    int64_t amt = zoomin ? -( m_graph.length_ts / 2 ) : ( m_graph.length_ts / 2 );
+    int64_t len1 = Clamp< int64_t >( len0 + amt, m_graph.s_min_length, m_graph.s_max_length );
+
+    if ( len1 != m_graph.length_ts )
+    {
+        double scale = ( double )len1 / len0;
+
+        m_graph.start_ts = center_ts - ( int64_t )( ( center_ts - ts0 ) * scale ) - m_eventlist.tsoffset;
+        m_graph.length_ts = len1;
+
+        m_graph.do_start_timestr = true;
+        m_graph.do_length_timestr = true;
+    }
+}
+
 void TraceWin::graph_handle_hotkeys()
 {
     if ( m_graph.saved_locs.size() < 9 )
@@ -2152,28 +2170,11 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
 
             ImGui::OpenPopup( "GraphPopup" );
         }
-        else
+        else if ( ImGui::GetIO().MouseWheel )
         {
-            float mousewheel = ImGui::GetIO().MouseWheel;
+            bool zoomin = ( ImGui::GetIO().MouseWheel > 0.0f );
 
-            if ( mousewheel )
-            {
-                bool zoomin = ( mousewheel > 0.0f );
-                int64_t len0 = m_graph.length_ts;
-                int64_t amt = zoomin ? -( m_graph.length_ts / 2 ) : ( m_graph.length_ts / 2 );
-                int64_t len1 = len0 + amt;
-
-                if ( ( len1 > m_graph.s_min_length ) && ( len1 < m_graph.s_max_length ) )
-                {
-                    //$ TODO mikesart: we've gotten overflow error here:
-                    // runtime error: signed integer overflow: 2023691192 * 4676142294 cannot be represented in type 'long int'
-                    m_graph.start_ts = mouse_ts - len1 * ( mouse_ts - gi.ts0 ) / len0 - m_eventlist.tsoffset;
-                    m_graph.length_ts = len1;
-
-                    m_graph.do_start_timestr = true;
-                    m_graph.do_length_timestr = true;
-                }
-            }
+            graph_zoom( mouse_ts, gi.ts0, zoomin );
         }
     }
 }

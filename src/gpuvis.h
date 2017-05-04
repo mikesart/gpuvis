@@ -460,8 +460,8 @@ protected:
 
     // Make sure m_graph.start_ts and m_graph.length_ts are legit
     void graph_range_check_times();
-
-    bool show_create_plot_dialog( uint32_t eventid = INVALID_ID );
+    // Zoom in / out graph
+    void graph_zoom( int64_t center_ts, int64_t ts0, bool zoomin );
 
 protected:
     // Render trace information header
@@ -597,7 +597,7 @@ public:
         ImVec2 mouse_capture_pos;
 
         const int64_t s_min_length = 100;
-        const int64_t s_max_length = 5000 * MSECS_PER_SEC;
+        const int64_t s_max_length = 7500 * MSECS_PER_SEC;
     } m_graph;
 
     friend class graph_info_t;
