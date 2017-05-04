@@ -1631,6 +1631,14 @@ bool TraceWin::render()
         events_list_render( m_loader.m_inifile );
     }
 
+    if ( is_valid_id( m_create_plot_eventid ) )
+    {
+        m_create_plot_dlg.init( m_trace_events, m_create_plot_eventid );
+        m_create_plot_eventid = INVALID_ID;
+    }
+    if ( m_create_plot_dlg.render_dlg( m_trace_events ) )
+        m_create_plot_dlg.add_plot( m_loader.m_inifile, m_graph.rows );
+
     ImGui::End();
 
     m_inited = true;
@@ -1769,7 +1777,7 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
 
         ImGui::PushStyleColor( ImGuiCol_Text, ImVec4( 1, 1, 0, 1 ) );
         if ( ImGui::MenuItem( plot_str ) )
-            m_graph.create_plot_eventid = event.id;
+            m_create_plot_eventid = event.id;
         ImGui::PopStyleColor();
     }
 

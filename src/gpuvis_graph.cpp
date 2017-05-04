@@ -1619,14 +1619,6 @@ void TraceWin::graph_render_process()
 
         // Render mouse tooltips, mouse selections, etc
         graph_handle_mouse( gi );
-
-        if ( is_valid_id( m_graph.create_plot_eventid ) )
-        {
-            m_create_plot_dlg.init( m_trace_events, m_graph.create_plot_eventid );
-            m_graph.create_plot_eventid = INVALID_ID;
-        }
-        if ( m_create_plot_dlg.render_dlg( m_trace_events ) )
-            m_create_plot_dlg.add_plot( m_loader.m_inifile, m_graph.rows );
     }
     ImGui::EndChild();
 
@@ -1775,7 +1767,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
             ImGui::PushStyleColor( ImGuiCol_Text, ImVec4( 1, 1, 0, 1 ) );
             if ( ImGui::MenuItem( plot_str ) )
-                m_graph.create_plot_eventid = event.id;
+                m_create_plot_eventid = event.id;
             ImGui::PopStyleColor();
         }
     }

@@ -504,9 +504,11 @@ public:
     int m_selected_color = 0;
     ColorPicker m_colorpicker;
 
-    util_umap< int64_t, int > m_ts_to_eventid_cache;
-
+    // Ftrace print event id to display create plot dialog
+    uint32_t m_create_plot_eventid = INVALID_ID;
     CreatePlotDlg m_create_plot_dlg;
+
+    util_umap< int64_t, int > m_ts_to_eventid_cache;
 
     struct
     {
@@ -588,8 +590,6 @@ public:
 
         // Mouse currently over our events graph?
         bool is_mouse_over = false;
-        // Show the create plot dlg?
-        uint32_t create_plot_eventid = INVALID_ID;
 
         std::vector< std::pair< int64_t, int64_t > > saved_locs;
 
