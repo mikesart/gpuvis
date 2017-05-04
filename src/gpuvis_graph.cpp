@@ -1793,13 +1793,10 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
         if ( plot_str )
         {
-            ImGui::Text( "Create Plot for" );
-            ImGui::SameLine();
+            std::string plot_label = std::string( "Create Plot for " ) + multi_text_color::yellow.m_str( plot_str );
 
-            ImGui::PushStyleColor( ImGuiCol_Text, ImVec4( 1, 1, 0, 1 ) );
-            if ( ImGui::MenuItem( plot_str ) )
+            if ( ImGui::MenuItem( plot_label.c_str() ) )
                 m_create_plot_eventid = event.id;
-            ImGui::PopStyleColor();
         }
     }
 

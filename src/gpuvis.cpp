@@ -1758,13 +1758,9 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
     {
         ImGui::Separator();
 
-        ImGui::Text( "Create Plot for" );
-        ImGui::SameLine();
-
-        ImGui::PushStyleColor( ImGuiCol_Text, ImVec4( 1, 1, 0, 1 ) );
-        if ( ImGui::MenuItem( plot_str ) )
+        std::string plot_label = std::string( "Create Plot for " ) + multi_text_color::yellow.m_str( plot_str );
+        if ( ImGui::MenuItem( plot_label.c_str() ) )
             m_create_plot_eventid = event.id;
-        ImGui::PopStyleColor();
     }
 
     ImGui::EndPopup();
