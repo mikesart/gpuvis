@@ -1588,7 +1588,7 @@ bool TraceWin::render()
             tooltip += "  $buf =~ \"[Compositor] Warp\"\n";
             tooltip += "  ( $timeline = gfx ) && ( $id < 10 || $id > 100 )";
 
-            imgui_set_tooltip( tooltip );
+            ImGui::SetTooltip( "%s", tooltip.c_str() );
         }
 
         ImGui::SameLine();
@@ -1840,8 +1840,8 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
             std::string ts_str = ts_to_timestr( event.ts, m_eventlist.tsoffset );
             std::string fieldstr = get_event_fields_str( event, ": ", '\n' );
 
-            imgui_set_tooltip( string_format( "Id: %u\nTime: %s\nComm: %s\n%s",
-                               event.id, ts_str.c_str(), event.comm, fieldstr.c_str() ) );
+            ImGui::SetTooltip( "Id: %u\nTime: %s\nComm: %s\n%s",
+                               event.id, ts_str.c_str(), event.comm, fieldstr.c_str() );
         }
     }
 
@@ -2582,8 +2582,6 @@ int main( int argc, char **argv )
         glViewport( 0, 0, ( int )size.x, ( int )size.y );
         glClearColor( color.x, color.y, color.z, color.w );
         glClear( GL_COLOR_BUFFER_BIT );
-
-        imgui_render_tooltip();
 
         ImGui::Render();
 

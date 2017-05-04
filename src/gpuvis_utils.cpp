@@ -44,8 +44,6 @@ static std::vector< char * > g_log;
 static std::vector< char * > g_thread_log;
 static SDL_mutex *g_mutex = nullptr;
 
-static std::string g_imgui_tooltip;
-
 /*
  * log routines
  */
@@ -375,30 +373,6 @@ void imgui_text_bg( const char *str, const ImVec4 &bgcolor )
     ImGui::PopStyleColor();
 }
 
-void imgui_set_tooltip( const std::string &str )
-{
-    g_imgui_tooltip = str;
-}
-
-void imgui_add_tooltip( const std::string &str )
-{
-    g_imgui_tooltip += str;
-}
-
-void imgui_render_tooltip()
-{
-    if ( !g_imgui_tooltip.empty() )
-    {
-        imgui_push_smallfont();
-        ImGui::BeginTooltip();
-        imgui_multicolored_text( g_imgui_tooltip.c_str() );
-        ImGui::EndTooltip();
-        imgui_pop_smallfont();
-
-        g_imgui_tooltip.clear();
-    }
-}
-
 bool imgui_push_smallfont()
 {
     ImFontAtlas *atlas = ImGui::GetIO().Fonts;
@@ -428,58 +402,6 @@ float imgui_scale( float val )
 bool imgui_key_pressed( ImGuiKey key )
 {
     return ImGui::IsKeyPressed( ImGui::GetKeyIndex( key ) );
-}
-
-void imgui_multicolored_text( const char *text, const ImVec4 &color0 )
-{
-    const char *start = text;
-
-    ImGui::PushStyleColor( ImGuiCol_Text, color0 );
-
-    for ( ; start[ 0 ]; start++ )
-    {
-        bool is_lf = ( *start == '\n' );
-        bool is_esc = ( *start == '\033' );
-
-        if ( is_lf || is_esc )
-        {
-            if ( start > text )
-            {
-                ImGui::SameLine( 0.0f, imgui_scale( 2.0f ) );
-                ImGui::TextUnformatted( text, start );
-            }
-
-            if ( is_lf )
-            {
-                ImGui::NewLine();
-            }
-            else
-            {
-                ImVec4 color;
-                uint8_t *rgba = ( uint8_t * )( start + 1 );
-
-                color.x = rgba[ 0 ] * ( 1.0f / 255.0f );
-                color.y = rgba[ 1 ] * ( 1.0f / 255.0f );
-                color.z = rgba[ 2 ] * ( 1.0f / 255.0f );
-                color.w = rgba[ 3 ] * ( 1.0f / 255.0f );
-
-                ImGui::PopStyleColor( 1 );
-                ImGui::PushStyleColor( ImGuiCol_Text, color );
-
-                start += 4;
-            }
-
-            text = start + 1;
-        }
-    }
-
-    if ( start > text )
-    {
-        ImGui::SameLine( 0.0f, imgui_scale( 2.0f ) );
-        ImGui::TextUnformatted( text, start );
-    }
-
-    ImGui::PopStyleColor( 1 );
 }
 
 void imgui_load_fonts()

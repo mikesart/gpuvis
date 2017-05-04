@@ -135,6 +135,9 @@ ImU32 imgui_vec4_to_u32( const ImVec4 &vec );
 void imgui_text_bg( const char *str, const ImVec4 &bgcolor );
 
 // Print color marked up text.
+// We've added a quick hack in ImFont::RenderText() which checks for:
+//   ESC + RGBA bytes
+// This class helps embed these 5 byte color esc sequences.
 class multi_text_color
 {
 public:
@@ -171,11 +174,6 @@ public:
     static multi_text_color yellow;
     static multi_text_color def;
 };
-void imgui_multicolored_text( const char *text, const ImVec4 &color0 = ImGui::GetColorVec4( ImGuiCol_Text ) );
-
-void imgui_set_tooltip( const std::string &str );
-void imgui_add_tooltip( const std::string &str );
-void imgui_render_tooltip();
 
 bool imgui_push_smallfont();
 void imgui_pop_smallfont();
