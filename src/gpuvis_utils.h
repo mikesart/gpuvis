@@ -134,6 +134,17 @@ ImU32 imgui_vec4_to_u32( const ImVec4 &vec );
 
 void imgui_text_bg( const char *str, const ImVec4 &bgcolor );
 
+inline char *strncasestr( const char *haystack, const char *needle, size_t needle_len )
+{
+   for ( ; *haystack; haystack++ )
+   {
+       if ( !strncasecmp( haystack, needle, needle_len ) )
+           return ( char * )haystack;
+   }
+   return NULL;
+}
+
+
 // Print color marked up text.
 // We've added a quick hack in ImFont::RenderText() which checks for:
 //   ESC + RGBA bytes
@@ -172,6 +183,7 @@ public:
     char buf[ 6 ];
 
     static multi_text_color yellow;
+    static multi_text_color red;
     static multi_text_color def;
 };
 

@@ -42,6 +42,7 @@
 #include "tdopexpr.h"
 
 multi_text_color multi_text_color::yellow = { ImVec4( 1, 1, 0, 1 ) };
+multi_text_color multi_text_color::red = { ImVec4( 1, 0, 0, 1 ) };
 multi_text_color multi_text_color::def = { ImVec4( 0.90f, 0.90f, 0.90f, 1.00f ) };
 
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )

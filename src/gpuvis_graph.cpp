@@ -662,12 +662,30 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
     if ( !ImGui::BeginPopupModal( "Create Plot", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
         return false;
 
+    ParsePlotStr parse_plot_str;
     float w = imgui_scale( 350.0f );
     const ImVec2 button_size = { imgui_scale( 120.0f ), 0.0f };
     const ImVec2 text_size = ImGui::CalcTextSize( "Plot Scan Str: " );
     float x = ImGui::GetCursorPos().x + text_size.x;
 
-    ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", m_plot_buf.c_str() );
+    if ( parse_plot_str.init( m_plot_scanf_buf ) &&
+         parse_plot_str.parse( m_plot_buf.c_str() ) )
+    {
+        const char *buf = m_plot_buf.c_str();
+        const char *val_start = parse_plot_str.m_val_start;
+        const char *val_end = parse_plot_str.m_val_end;
+
+        ImGui::Text( "%s%.*s%s%.*s%s%s",
+                     multi_text_color::yellow.c_str(),
+                     ( int )( val_start - buf ), buf,
+                     multi_text_color::red.c_str(), ( int )( val_end - val_start ), val_start,
+                     multi_text_color::yellow.c_str(), val_end );
+    }
+    else
+    {
+        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", m_plot_buf.c_str() );
+    }
+
     ImGui::NewLine();
 
     struct PlotNameFilter {
@@ -761,38 +779,26 @@ bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
 
     if ( plocs )
     {
-        // Find the "%f" specifier
-        const char *valstr = strstr( m_scanf_str.c_str(), "%f" );
+        ParsePlotStr parse_plot_str;
 
-        if ( valstr && ( valstr > m_scanf_str.c_str() ) )
+        m_color_line = trace_events.m_events[ plocs->front() ].color;
+        m_color_point = imgui_col_complement( m_color_line );
+
+        if ( parse_plot_str.init( m_scanf_str.c_str() ) )
         {
-            // Grab the text before the %f token
-            size_t prefixlen = valstr - m_scanf_str.c_str();
-            std::string prefixstr = std::string( m_scanf_str.c_str(), prefixlen );
-
-            m_color_line = trace_events.m_events[ plocs->front() ].color;
-            m_color_point = imgui_col_complement( m_color_line );
-
             for ( uint32_t idx : *plocs )
             {
-                const char *valfstr;
                 const trace_event_t &event = trace_events.m_events[ idx ];
                 const char *buf = get_event_field_val( event.fields, "buf" );
 
-                // If we have a printk string, search for our prefix string in it
-                if ( buf && ( valfstr = strcasestr( buf, prefixstr.c_str() ) ) )
+                if ( parse_plot_str.parse( buf ) )
                 {
-                    char *endptr;
-                    const char *nptr = valfstr + prefixstr.size();
-                    float valf = strtof( nptr, &endptr );
+                    float valf = parse_plot_str.m_valf;
 
-                    if ( endptr != nptr )
-                    {
-                        m_minval = std::min< float >( m_minval, valf );
-                        m_maxval = std::max< float >( m_maxval, valf );
+                    m_minval = std::min< float >( m_minval, valf );
+                    m_maxval = std::max< float >( m_maxval, valf );
 
-                        m_plotdata.push_back( { event.ts, event.id, valf } );
-                    }
+                    m_plotdata.push_back( { event.ts, event.id, valf } );
                 }
             }
 

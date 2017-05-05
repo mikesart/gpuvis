@@ -229,6 +229,60 @@ public:
     std::string m_scanf_str;
 };
 
+class ParsePlotStr
+{
+public:
+    ParsePlotStr() {}
+    ~ParsePlotStr() {}
+
+    bool init( const char *scanf_str )
+    {
+        const char *pct_f = strstr( scanf_str, "%f" );
+
+        if ( pct_f )
+        {
+            m_scanf_str = scanf_str;
+            m_scanf_len = pct_f - scanf_str;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool parse( const char *buf )
+    {
+        if ( buf )
+        {
+            const char *pat_start = strncasestr( buf, m_scanf_str, m_scanf_len );
+
+            if ( pat_start )
+            {
+                char *val_end;
+                const char *val_start = pat_start + m_scanf_len;
+
+                m_valf = strtof( val_start, &val_end );
+
+                if ( val_start != val_end )
+                {
+                    m_val_start = val_start;
+                    m_val_end = val_end;
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+public:
+    float m_valf;
+    const char *m_val_start;
+    const char *m_val_end;
+
+    const char *m_scanf_str = nullptr;
+    size_t m_scanf_len = 0;
+};
+
 class CreatePlotDlg
 {
 public:
