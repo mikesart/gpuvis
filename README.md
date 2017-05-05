@@ -1,6 +1,8 @@
 gpuvis
 =====
 
+![Alt text](images/gpuvis.jpg?raw=true "gpuvis")
+
 Credits
 -------
 
