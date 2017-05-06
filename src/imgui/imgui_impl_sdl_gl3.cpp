@@ -14,8 +14,10 @@
 #include <SDL_syswm.h>
 #include "../GL/gl3w.h"    // This example is using gl3w to access OpenGL functions (because it is small). You may use glew/glad/glLoadGen/etc. whatever already works for you.
 
-#ifdef USE_FREETYPE
+#if defined( USE_FREETYPE )
 #include "imgui_freetype.h"
+#elif defined( USE_SDLTTF )
+#include "imgui_sdlttf.h"
 #endif
 
 // Data
@@ -184,7 +186,7 @@ void ImGui_ImplSdlGL3_CreateFontsTexture()
     unsigned char* pixels;
     int width, height;
 
-#ifdef USE_FREETYPE
+#if defined( USE_FREETYPE ) || defined( USE_SDLTTF )
     unsigned int flags = ImGuiFreeType::ForceAutoHint;
     ImGuiFreeType::BuildFontAtlas(io.Fonts, flags);
 #endif

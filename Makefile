@@ -71,11 +71,14 @@ CFILES = \
 	src/trace-cmd/kbuffer-parse.c \
 	src/trace-cmd/trace-read.cpp
 
-ifeq ($(USE_FREETYPE), 1)
+ifeq ($(USE_SDLTTF), 1)
+    CFLAGS += -DUSE_SDLTTF
+    LIBS += -lSDL2_ttf
+    CFILES += src/imgui/imgui_sdlttf.cpp
+else ifeq ($(USE_FREETYPE), 1)
 	CFLAGS += -DUSE_FREETYPE -I/usr/include/freetype2
 	LIBS += -lfreetype
-	CFILES += \
-		src/imgui/imgui_freetype.cpp
+    CFILES += src/imgui/imgui_freetype.cpp
 endif
 
 ifeq ($(PROF), 1)
