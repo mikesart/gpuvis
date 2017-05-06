@@ -14,6 +14,10 @@
 #include <SDL_syswm.h>
 #include "../GL/gl3w.h"    // This example is using gl3w to access OpenGL functions (because it is small). You may use glew/glad/glLoadGen/etc. whatever already works for you.
 
+#ifdef USE_FREETYPE
+#include "imgui_freetype.h"
+#endif
+
 // Data
 static double       g_Time = 0.0f;
 static bool         g_MousePressed[3] = { false, false, false };
@@ -179,6 +183,12 @@ void ImGui_ImplSdlGL3_CreateFontsTexture()
     ImGuiIO& io = ImGui::GetIO();
     unsigned char* pixels;
     int width, height;
+
+#ifdef USE_FREETYPE
+    unsigned int flags = ImGuiFreeType::ForceAutoHint;
+    ImGuiFreeType::BuildFontAtlas(io.Fonts, flags);
+#endif
+
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);   // Load as RGBA 32-bits for OpenGL3 demo because it is more likely to be compatible with user's existing shader.
 
     // Upload texture to graphics system

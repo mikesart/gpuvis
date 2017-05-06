@@ -406,21 +406,48 @@ bool imgui_key_pressed( ImGuiKey key )
 
 void imgui_load_fonts()
 {
-#include "proggy_tiny.cpp"
-// #include "RobotoCondensed_Regular.cpp"
-
     ImGuiIO &io = ImGui::GetIO();
 
     // Add default font
     io.Fonts->AddFontDefault();
 
-    // Add Roboto Condensed Regular
-    // io.Fonts->AddFontFromMemoryCompressedTTF(
-    //    RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, 10.0f );
+    static const ImWchar ranges[] =
+    {
+        0x0020, 0x007F, // Basic Latin + Latin Supplement
+        0,
+    };
 
-    // Add ProggyTiny font
+#ifdef USE_FREETYPE
+    #include "RobotoCondensed_Regular.cpp"
+
+    ImFontConfig font_cfg = ImFontConfig();
+
+    font_cfg.OversampleH = 3;
+    font_cfg.OversampleV = 1;
+    font_cfg.PixelSnapH = true;
+
+    // Add Roboto Condensed Regular
     io.Fonts->AddFontFromMemoryCompressedTTF(
-        ProggyTiny_compressed_data, ProggyTiny_compressed_size, 10.0f );
+                RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, 11.0f, &font_cfg, &ranges[ 0 ] );
+#else
+    #include "RobotoCondensed_Regular.cpp"
+
+    ImFontConfig font_cfg = ImFontConfig();
+
+    font_cfg.OversampleH = 3;
+    font_cfg.OversampleV = 1;
+    font_cfg.PixelSnapH = true;
+
+    // Add Roboto Condensed Regular
+    io.Fonts->AddFontFromMemoryCompressedTTF(
+                RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, 11.0f, &font_cfg, &ranges[ 0 ] );
+
+//    #include "proggy_tiny.cpp"
+
+//    // Add ProggyTiny font
+//    io.Fonts->AddFontFromMemoryCompressedTTF(
+//        ProggyTiny_compressed_data, ProggyTiny_compressed_size, 10.0f, NULL, &ranges[ 0 ] );
+#endif
 }
 
 void imgui_ini_settings( CIniFile &inifile, bool save )

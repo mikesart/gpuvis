@@ -47,7 +47,7 @@ WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wsuggest-
 CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 $(SDL2FLAGS)
 CXXFLAGS = -fno-rtti -Woverloaded-virtual
 LDFLAGS = -march=native -gdwarf-4 -g2 -Wl,--build-id=sha1
-LIBS = -Wl,--no-as-needed -lm -ldl -lpthread  -lstdc++ $(SDL2LIBS) 
+LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lstdc++ $(SDL2LIBS)
 
 # https://gcc.gnu.org/onlinedocs/libstdc++/manual/profile_mode.html#manual.ext.profile_mode.intro
 # To resolve addresses from libstdcxx-profile.conf.out: addr2line -C -f -e _debug/gpuvis 0x42cc6a 0x43630a 0x46654d
@@ -70,6 +70,13 @@ CFILES = \
 	src/trace-cmd/trace-seq.c \
 	src/trace-cmd/kbuffer-parse.c \
 	src/trace-cmd/trace-read.cpp
+
+ifeq ($(USE_FREETYPE), 1)
+	CFLAGS += -DUSE_FREETYPE -I/usr/include/freetype2
+	LIBS += -lfreetype
+	CFILES += \
+		src/imgui/imgui_freetype.cpp
+endif
 
 ifeq ($(PROF), 1)
 	# To profile with google perftools:
