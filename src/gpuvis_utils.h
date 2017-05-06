@@ -107,6 +107,33 @@ public:
     util_umap< uint32_t, std::string > m_pool;
 };
 
+class FontInfo
+{
+public:
+    FontInfo() {}
+    ~FontInfo() {}
+
+    void load_font( CIniFile &inifile, const char *section, const char *defname, float defsize );
+    void render_font_options( bool m_use_freetype );
+
+protected:
+    void update_ini();
+
+public:
+    CIniFile *m_inifile = nullptr;
+    float m_size = 0.0f;
+    std::string m_filename;
+    std::string m_section;
+    std::string m_name;
+    ImFontConfig m_font_cfg;
+    int m_font_id = -1;
+
+    bool m_reset = false;
+    bool m_changed = false;
+    std::string m_input_filename_err;
+    char m_input_filename[ PATH_MAX ] = { 0 };
+};
+
 void logf_init();
 void logf_shutdown();
 void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
@@ -124,6 +151,7 @@ bool comp_val_to_abc( uint32_t val, uint32_t &a, uint32_t &b, uint32_t &c );
 uint32_t comp_abc_to_val( uint32_t a, uint32_t b, uint32_t c );
 
 float imgui_scale( float val );
+void imgui_set_scale( float val );
 bool imgui_key_pressed( ImGuiKey key );
 
 ImU32 imgui_col_from_hashval( uint32_t hashval );
@@ -190,7 +218,6 @@ public:
 bool imgui_push_smallfont();
 void imgui_pop_smallfont();
 
-void imgui_load_fonts();
 void imgui_ini_settings( CIniFile &inifile, bool save = false );
 
 class ColorPicker

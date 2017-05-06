@@ -400,6 +400,7 @@ public:
 
     void render( TraceLoader &loader );
     void render_options( TraceLoader &loader );
+    void render_font_options( TraceLoader &loader );
     void render_log( TraceLoader &loader );
     void render_console( TraceLoader &loader );
 
@@ -417,6 +418,7 @@ public:
     bool m_show_imgui_test_window = false;
     bool m_show_imgui_style_editor = false;
     bool m_show_imgui_metrics_editor = false;
+    bool m_show_font_window = false;
 };
 
 class GraphRows
@@ -687,7 +689,8 @@ enum : uint32_t
     OPT_GraphHeight,
     OPT_GraphHeightZoomed,
     OPT_EventListRowCount,
-
+    OPT_Scale,
+    OPT_UseFreetype,
     OPT_PresetMax
 };
 
@@ -717,6 +720,8 @@ public:
 
     void init();
     void shutdown();
+
+    void load_fonts();
 
 protected:
     state_t get_state();
@@ -788,7 +793,7 @@ public:
     {
         return m_options[ opt ].val;
     }
-    int get_optf( option_id_t opt )
+    float get_optf( option_id_t opt )
     {
         return m_options[ opt ].valf;
     }
@@ -805,4 +810,7 @@ public:
 
     std::vector< option_t > m_options;
     std::string m_event_filter_str;
+
+    FontInfo m_font_main;
+    FontInfo m_font_small;
 };

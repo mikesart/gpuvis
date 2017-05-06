@@ -462,6 +462,12 @@ void TraceLoader::init()
     m_options[ OPT_EventListRowCount ].opt_int( "Event List Size: %.0f", "eventlist_rows", 0, 0, 100 );
     m_options[ OPT_EventListRowCount ].hidden = true;
 
+    m_options[ OPT_Scale ].opt_float( "Font Scale: %.1f", "scale", 1.0f, 0.25f, 6.0f );
+    m_options[ OPT_Scale ].hidden = true;
+
+    m_options[ OPT_UseFreetype ].opt_bool( "Use Freetype", "use_freetype", false );
+    m_options[ OPT_UseFreetype ].hidden = true;
+
     for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
         const std::string desc = string_format( "Show drm_vblank_event crtc%d markers", i - OPT_RenderCrtc0 );
@@ -583,6 +589,18 @@ void TraceLoader::render()
             m_trace_windows_list.erase( m_trace_windows_list.begin() + i );
         }
     }
+}
+
+void TraceLoader::load_fonts()
+{
+    // Clear all font texture data, ttf data, glyphs, etc.
+    ImGui::GetIO().Fonts->Clear();
+
+    // Add main font
+    m_font_main.load_font( m_inifile, "$imgui_font_main$", "Proggy Clean (13)", 13.0f );
+
+    // Add small font
+    m_font_small.load_font( m_inifile, "$imgui_font_small$", "Proggy Tiny (10)", 10.0f );
 }
 
 /*
@@ -2147,9 +2165,12 @@ void TraceConsole::render_options( TraceLoader &loader )
     ImGui::Separator();
 
     {
-        // Align text to upcoming widgets
-        ImGui::AlignFirstTextHeightToWidgets();
-        ImGui::Text( "Imgui debug: " );
+        ImGui::Text( "Imgui Settings" );
+
+        ImGui::Indent();
+
+        if ( ImGui::Button( "Font Options" ) )
+            m_show_font_window ^= 1;
 
         ImGui::SameLine();
         if ( ImGui::Button( "Style Editor" ) )
@@ -2162,9 +2183,14 @@ void TraceConsole::render_options( TraceLoader &loader )
         ImGui::SameLine();
         if ( ImGui::Button( "Test Window" ) )
             m_show_imgui_test_window ^= 1;
+
+        ImGui::Unindent();
     }
 
     ImGui::Separator();
+
+    ImGui::Text( "Gpuvis Settings" );
+    ImGui::Indent();
 
     for ( size_t i = 0; i < loader.m_options.size(); i++ )
     {
@@ -2201,6 +2227,94 @@ void TraceConsole::render_options( TraceLoader &loader )
 
         ImGui::PopID();
     }
+
+    ImGui::Unindent();
+}
+
+void TraceConsole::render_font_options( TraceLoader &loader )
+{
+    TraceLoader::option_t &opt_scale = loader.m_options[ OPT_Scale ];
+    TraceLoader::option_t &opt_use_freetype = loader.m_options[ OPT_UseFreetype ];
+
+    static const char lorem_str[] =
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do"
+        "eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim"
+        "veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo"
+        "consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse"
+        "cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non"
+        "proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
+
+    ImGui::Indent();
+    ImGui::PushID( "font_options" );
+
+    if ( ImGui::TreeNodeEx( "Options", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        bool changed = false;
+
+#ifdef USE_FREETYPE
+        changed |= ImGui::CheckboxInt( opt_use_freetype.desc.c_str(), &opt_use_freetype.val );
+#endif
+
+        ImGui::PushItemWidth( imgui_scale( 150.0f ) );
+        changed |= ImGui::SliderFloat( "##slider_float", &opt_scale.valf,
+                                       opt_scale.valf_min, opt_scale.valf_max, opt_scale.desc.c_str() );
+        ImGui::PopItemWidth();
+
+        if ( ImGui::Button( "Reset to Defaults" ) )
+        {
+            loader.m_font_main.m_reset = true;
+            loader.m_font_small.m_reset = true;
+            changed = true;
+        }
+
+        if ( changed )
+        {
+            // Ping font change so this stuff will reload in main loop.
+            loader.m_font_main.m_changed = true;
+        }
+
+        ImGui::TreePop();
+    }
+
+    if ( ImGui::TreeNodeEx( "Main Font", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        const char *font_name = loader.m_font_main.m_name.c_str();
+
+        ImGui::TextWrapped( "%s: %s", multi_text_color::yellow.m_str( font_name ).c_str(), lorem_str );
+
+        loader.m_font_main.render_font_options( !!opt_use_freetype.val );
+        ImGui::TreePop();
+    }
+
+    if ( ImGui::TreeNodeEx( "Small Font", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        const char *font_name = loader.m_font_small.m_name.c_str();
+
+        ImGui::BeginChild( "small_font", ImVec2( 0, ImGui::GetTextLineHeightWithSpacing() * 4 ) );
+
+        imgui_push_smallfont();
+        ImGui::TextWrapped( "%s: %s", multi_text_color::yellow.m_str( font_name ).c_str(), lorem_str );
+        imgui_pop_smallfont();
+
+        ImGui::EndChild();
+
+        loader.m_font_small.render_font_options( !!opt_use_freetype.val );
+
+        ImGui::TreePop();
+    }
+
+    ImFontAtlas* atlas = ImGui::GetIO().Fonts;
+    if (ImGui::TreeNode( "Font atlas texture", "Atlas texture (%dx%d pixels)", atlas->TexWidth, atlas->TexHeight ) )
+    {
+        ImGui::Image( atlas->TexID,
+                      ImVec2( (float )atlas->TexWidth, ( float )atlas->TexHeight),
+                      ImVec2( 0, 0 ), ImVec2( 1, 1 ),
+                      ImColor( 255, 255, 255, 255 ), ImColor( 255, 255, 255, 128 ) );
+        ImGui::TreePop();
+    }
+
+    ImGui::PopID();
+    ImGui::Unindent();
 }
 
 void TraceConsole::render_log( TraceLoader &loader )
@@ -2400,6 +2514,15 @@ void TraceConsole::render( TraceLoader &loader )
     {
         ImGui::ShowMetricsWindow( &m_show_imgui_metrics_editor );
     }
+
+    if ( m_show_font_window )
+    {
+        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
+
+        ImGui::Begin( "Font Options", &m_show_font_window );
+        render_font_options( loader );
+        ImGui::End();
+    }
 }
 
 static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
@@ -2407,6 +2530,7 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
     static struct option long_opts[] =
     {
         { "fullscreen", no_argument, 0, 0 },
+        { "scale", required_argument, 0, 0 },
         { 0, 0, 0, 0 }
     };
 
@@ -2420,6 +2544,8 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
         case 0:
             if ( !strcasecmp( "fullscreen", long_opts[ opt_ind ].name ) )
                 loader.m_options[ OPT_Fullscreen ].val = true;
+            else if ( !strcasecmp( "scale", long_opts[ opt_ind ].name ) )
+                loader.m_options[ OPT_Scale ].valf = atof( ya_optarg );
             break;
         case 'i':
             loader.m_inputfiles.push_back( optarg );
@@ -2508,6 +2634,7 @@ int main( int argc, char **argv )
     int w = inifile.GetInt( "win_w", 1280 );
     int h = inifile.GetInt( "win_h", 1024 );
 
+    imgui_set_scale( loader.get_optf( OPT_Scale ) );
     imgui_ini_settings( inifile );
 
     console.init( &inifile );
@@ -2541,7 +2668,7 @@ int main( int argc, char **argv )
     // Setup imgui default text color
     multi_text_color::def.set( ImGui::GetColorVec4( ImGuiCol_Text ) );
 
-    imgui_load_fonts();
+    loader.load_fonts();
 
     // Main loop
     bool done = false;
@@ -2565,7 +2692,7 @@ int main( int argc, char **argv )
             if ( event.type == SDL_QUIT )
                 done = true;
         }
-        ImGui_ImplSdlGL3_NewFrame( window );
+        ImGui_ImplSdlGL3_NewFrame( window, &loader.m_options[ OPT_UseFreetype ].val );
 
         // Check for logf() calls from background threads.
         logf_update();
@@ -2598,6 +2725,15 @@ int main( int argc, char **argv )
             load_trace_file( loader, console, filename );
 
             loader.m_inputfiles.erase( loader.m_inputfiles.begin() );
+        }
+
+        if ( ( loader.m_font_main.m_changed || loader.m_font_small.m_changed ) &&
+             !ImGui::IsMouseDown( 0 ) )
+        {
+            imgui_set_scale( loader.get_optf( OPT_Scale ) );
+
+            ImGui_ImplSdlGL3_InvalidateDeviceObjects();
+            loader.load_fonts();
         }
     }
 

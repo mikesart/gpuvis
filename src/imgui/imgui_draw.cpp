@@ -16,6 +16,7 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_PLACEMENT_NEW
 #include "imgui_internal.h"
+#include "imgui_freetype.h"
 
 #include <stdio.h>      // vsnprintf, sscanf, printf
 #if !defined(alloca)
@@ -1047,6 +1048,8 @@ ImFontConfig::ImFontConfig()
     MergeMode = false;
     MergeGlyphCenterV = false;
     DstFont = NULL;
+    FreetypeFlags = ImGuiFreeType::ForceAutoHint;
+    Brighten = 0.0f;
     memset(Name, 0, sizeof(Name));
 }
 
@@ -1206,9 +1209,10 @@ ImFont* ImFontAtlas::AddFontDefault(const ImFontConfig* font_cfg_template)
         font_cfg.PixelSnapH = true;
     }
     if (font_cfg.Name[0] == '\0') strcpy(font_cfg.Name, "ProggyClean.ttf, 13px");
+    if (font_cfg.SizePixels < 1.0f ) font_cfg.SizePixels = 13.0f;
 
     const char* ttf_compressed_base85 = GetDefaultCompressedFontDataTTFBase85();
-    ImFont* font = AddFontFromMemoryCompressedBase85TTF(ttf_compressed_base85, 13.0f, &font_cfg, GetGlyphRangesDefault());
+    ImFont* font = AddFontFromMemoryCompressedBase85TTF(ttf_compressed_base85, font_cfg.SizePixels, &font_cfg, GetGlyphRangesDefault());
     return font;
 }
 
@@ -1457,6 +1461,19 @@ bool    ImFontAtlas::Build()
                 if (cfg.PixelSnapH)
                     glyph.XAdvance = (float)(int)(glyph.XAdvance + 0.5f);
                 dst_font->MetricsTotalSurface += (int)(glyph.X1 - glyph.X0 + 1.99f) * (int)(glyph.Y1 - glyph.Y0 + 1.99f); // +1 to account for average padding, +0.99 to round
+
+                if ( cfg.Brighten )
+                {
+                    float brighten = cfg.Brighten + 1.0f;
+
+                    for ( int y = pc.y0; y <= pc.y1; y++ )
+                    {
+                        unsigned char *dst = TexPixelsAlpha8 + y * TexWidth;
+
+                        for ( int x = pc.x0; x <= pc.x1; x++ )
+                            dst[ x ] = ImMin( 255, ( int )( dst[ x ] * brighten ) );
+                    }
+                }
             }
         }
         cfg.DstFont->BuildLookupTable();

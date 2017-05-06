@@ -28,6 +28,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <iterator>
 #include <cctype>
 #include <sstream>
 #include <unordered_map>
@@ -35,14 +36,60 @@
 #include <SDL.h>
 
 #include "imgui/imgui.h"
+#include "imgui/imgui_freetype.h"
 #include "gpuvis_macros.h"
 #include "gpuvis_utils.h"
 #include "stlini.h"
+
+#include "proggy_tiny.cpp"
+#include "Droid_Sans.cpp"
+#include "Roboto_Regular.cpp"
+#include "RobotoCondensed_Regular.cpp"
 
 static SDL_threadID g_main_tid = -1;
 static std::vector< char * > g_log;
 static std::vector< char * > g_thread_log;
 static SDL_mutex *g_mutex = nullptr;
+
+static float g_scale = 1.0f;
+
+enum font_id_t
+{
+    FontID_Unknown = -1,
+    FontID_ProggyTiny = 0,
+    FontID_ProggyClean,
+    FontID_RobotoRegular,
+    FontID_RobotoCondensed,
+    FontID_DroidSans,
+    FontID_TTFFile
+};
+struct font_info
+{
+    const char *name;
+    const void *ttf_data;
+    int ttf_size;
+} g_font_info[] =
+{
+    { "Proggy Tiny (10)", ProggyTiny_compressed_data, ProggyTiny_compressed_size },
+    { "Proggy Clean (13)", NULL, 0 },
+    { "Roboto Regular", Roboto_Regular_compressed_data, Roboto_Regular_compressed_size },
+    { "Roboto Condensed", RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size },
+    { "Droid Sans", Droid_Sans_compressed_data, Droid_Sans_compressed_size },
+};
+
+font_id_t get_font_id( const char *name, const char *filename )
+{
+    if ( filename && get_file_size( filename ) )
+        return FontID_TTFFile;
+
+    for ( size_t i = 0; i < ARRAY_SIZE( g_font_info ); i++ )
+    {
+        if ( !strcasecmp( name, g_font_info[ i ].name ) )
+            return ( font_id_t )i;
+    }
+
+    return FontID_Unknown;
+}
 
 /*
  * log routines
@@ -277,6 +324,16 @@ size_t get_file_size( const char *filename )
     return 0;
 }
 
+const char *get_path_filename( const char *filename )
+{
+    for ( const char *str = filename; *str; str++ )
+    {
+        if ( (*str == '/' || *str == '\\' ) && str[ 1 ] )
+            filename = str + 1;
+    }
+    return filename;
+}
+
 // Parse a "comp_[1-2].[0-3].[0-8]" string. Returns true on success.
 bool comp_str_parse( const char *comp, uint32_t &a, uint32_t &b, uint32_t &c )
 {
@@ -396,7 +453,11 @@ void imgui_pop_smallfont()
 
 float imgui_scale( float val )
 {
-    return val * ImGui::GetIO().FontGlobalScale;
+    return val * g_scale;
+}
+void imgui_set_scale( float val )
+{
+    g_scale = Clamp< float >( val, 0.25f, 6.0f );
 }
 
 bool imgui_key_pressed( ImGuiKey key )
@@ -404,35 +465,13 @@ bool imgui_key_pressed( ImGuiKey key )
     return ImGui::IsKeyPressed( ImGui::GetKeyIndex( key ) );
 }
 
-void imgui_load_fonts()
-{
-#include "proggy_tiny.cpp"
-// #include "RobotoCondensed_Regular.cpp"
-
-    ImGuiIO &io = ImGui::GetIO();
-
-    // Add default font
-    io.Fonts->AddFontDefault();
-
-    // Add Roboto Condensed Regular
-    // io.Fonts->AddFontFromMemoryCompressedTTF(
-    //    RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, 10.0f );
-
-    // Add ProggyTiny font
-    io.Fonts->AddFontFromMemoryCompressedTTF(
-        ProggyTiny_compressed_data, ProggyTiny_compressed_size, 10.0f );
-}
-
 void imgui_ini_settings( CIniFile &inifile, bool save )
 {
-    ImGuiIO &io = ImGui::GetIO();
     ImGuiStyle &style = ImGui::GetStyle();
     const char section[] = "$imgui_settings$";
 
     if ( save )
     {
-        inifile.PutFloat( "win_scale", io.FontGlobalScale, section );
-
         for ( int i = 0; i < ImGuiCol_COUNT; i++ )
         {
             const ImVec4 &col = style.Colors[ i ];
@@ -444,8 +483,6 @@ void imgui_ini_settings( CIniFile &inifile, bool save )
     else
     {
         ImVec4 defcol = { -1.0f, -1.0f, -1.0f, -1.0f };
-
-        io.FontGlobalScale = inifile.GetFloat( "win_scale", 1.0f, section );
 
         for ( int i = 0; i < ImGuiCol_COUNT; i++ )
         {
@@ -464,6 +501,256 @@ void imgui_ini_settings( CIniFile &inifile, bool save )
             }
         }
     }
+}
+
+void FontInfo::update_ini()
+{
+    const char *section = m_section.c_str();
+
+    m_inifile->PutStr( "name", m_name.c_str(), section );
+    m_inifile->PutStr( "filename", m_filename.c_str(), section );
+    m_inifile->PutFloat( "size", m_size / g_scale, section );
+    m_inifile->PutInt( "OverSampleH", m_font_cfg.OversampleH, section );
+    m_inifile->PutInt( "OverSampleV", m_font_cfg.OversampleV, section );
+    m_inifile->PutInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
+    m_inifile->PutFloat( "GlyphExtraSpacing", m_font_cfg.GlyphExtraSpacing.x, section );
+    m_inifile->PutInt( "FreetypeFlags", m_font_cfg.FreetypeFlags, section );
+    m_inifile->PutFloat( "Brighten", m_font_cfg.Brighten, section );
+}
+
+void FontInfo::load_font( CIniFile &inifile, const char *section, const char *defname, float defsize )
+{
+    m_section = section;
+    m_inifile = &inifile;
+    m_font_cfg = ImFontConfig();
+
+    if ( m_reset )
+    {
+        m_name = defname;
+        m_filename = "";
+        m_size = defsize;
+
+        m_reset = false;
+    }
+    else
+    {
+        m_name = inifile.GetStr( "name", defname, section );
+        m_filename = inifile.GetStr( "filename", "", section );
+        m_size = inifile.GetFloat( "size", defsize, section ) * g_scale;
+
+        m_font_cfg.OversampleH = inifile.GetInt( "OversampleH", m_font_cfg.OversampleH, section );
+        m_font_cfg.OversampleV = inifile.GetInt( "OversampleV", m_font_cfg.OversampleV, section );
+        m_font_cfg.PixelSnapH = !!inifile.GetInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
+        m_font_cfg.GlyphExtraSpacing.x = inifile.GetFloat( "GlyphExtraSpacing", m_font_cfg.GlyphExtraSpacing.x, section );
+        m_font_cfg.FreetypeFlags = inifile.GetInt( "FreetypeFlags", m_font_cfg.FreetypeFlags, section );
+        m_font_cfg.Brighten = inifile.GetFloat( "Brighten", m_font_cfg.Brighten, section );
+    }
+
+    m_font_id = get_font_id( m_name.c_str(), m_filename.c_str() );
+
+    if ( !m_filename.empty() )
+        strcpy_safe( m_input_filename, m_filename.c_str() );
+
+    m_input_filename_err = "";
+
+    ImGuiIO &io = ImGui::GetIO();
+    static const ImWchar ranges[] =
+    {
+        // Basic Latin + Latin Supplement
+        // https://en.wikipedia.org/wiki/Latin-1_Supplement_(Unicode_block)
+        // ISO 8859-1: 0080-00FF. Controls C1 (0080–009F) are not graphic.
+        0x0020, 0x007F,
+        0x00A0, 0x00FF,
+        0,
+    };
+    if ( m_font_id == FontID_TTFFile )
+    {
+        ImFont *font = io.Fonts->AddFontFromFileTTF( m_filename.c_str(), m_size, &m_font_cfg, &ranges[ 0 ] );
+
+        if ( font )
+        {
+            m_name = get_path_filename( m_filename.c_str() );
+        }
+        else
+        {
+            m_input_filename_err = string_format( "WARNING: AddFontFromFileTTF %s failed.\n", m_filename.c_str() );
+            m_font_id = get_font_id( m_name.c_str(), NULL );
+        }
+    }
+
+    if ( m_font_id != FontID_TTFFile )
+    {
+        if ( m_font_id == FontID_Unknown )
+            m_font_id = FontID_ProggyClean;
+
+        m_name = g_font_info[ m_font_id ].name;
+
+        if ( g_font_info[ m_font_id ].ttf_data )
+        {
+            io.Fonts->AddFontFromMemoryCompressedTTF(
+                        g_font_info[ m_font_id ].ttf_data,
+                        g_font_info[ m_font_id ].ttf_size,
+                        m_size, &m_font_cfg, &ranges[ 0 ] );
+        }
+        else
+        {
+            m_font_cfg.SizePixels = m_size;
+            io.Fonts->AddFontDefault( &m_font_cfg );
+        }
+    }
+
+    snprintf_safe( m_font_cfg.Name, "%s, %.1fpx", m_name.c_str(), m_size );
+
+    update_ini();
+
+    m_changed = false;
+}
+
+static bool listbox_get_fontname( void *unused, int i, const char **name )
+{
+    if ( ( i >= 0 ) && ( ( size_t )i < ARRAY_SIZE( g_font_info ) ) )
+    {
+        *name = g_font_info[ i ].name;
+        return true;
+    }
+
+    return false;
+}
+
+void FontInfo::render_font_options( bool m_use_freetype )
+{
+    bool changed = false;
+
+    ImGui::PushID( this );
+
+    {
+        ImGui::PushItemWidth( imgui_scale( 200.0f ) );
+
+        ImGui::Text( "%s", "Embedded Fonts:" );
+        ImGui::SameLine();
+
+        changed |= ImGui::ListBox("##font", &m_font_id, listbox_get_fontname,
+                                  g_font_info, ARRAY_SIZE( g_font_info ), ARRAY_SIZE( g_font_info ) );
+        if ( changed )
+        {
+            m_name = g_font_info[ m_font_id ].name;
+            m_filename.clear();
+        }
+
+        ImGui::PopItemWidth();
+    }
+
+    {
+        ImGui::PushItemWidth( imgui_scale( 400.0f ) );
+        ImGui::AlignFirstTextHeightToWidgets();
+        ImGui::Text( "TTF Filename:" );
+        ImGui::SameLine();
+
+        if ( ImGui::InputText( "##ttf_filename", m_input_filename, sizeof( m_input_filename ),
+                               ImGuiInputTextFlags_EnterReturnsTrue, 0 ) &&
+             m_input_filename[ 0 ] )
+        {
+            if ( !get_file_size( m_input_filename ) )
+            {
+                m_input_filename_err = string_format( "ERROR: %s not found.", m_input_filename );
+            }
+            else
+            {
+                m_filename = m_input_filename;
+                m_input_filename_err = "";
+                changed = true;
+            }
+        }
+
+        ImGui::PopItemWidth();
+
+        if ( !m_input_filename_err.empty() )
+            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_input_filename_err.c_str() );
+    }
+
+    {
+        ImGui::PushItemWidth( imgui_scale( 200.0f ) );
+
+        changed |= ImGui::SliderFloat( "##size", &m_size, 7, 64, "Size: %.1f" );
+
+        ImGui::SameLine();
+        changed |= ImGui::SliderFloat( "##extra_spacing", &m_font_cfg.GlyphExtraSpacing.x, 0, 4, "Extra Spacing: %.2f" );
+        if ( ImGui::IsItemHovered() )
+            ImGui::SetTooltip( "%s", "Extra spacing (in pixels) between glyphs." );
+
+        changed |= ImGui::SliderFloat( "##Brighten", &m_font_cfg.Brighten, 0, 4, "Brighten: %.2f" );
+
+        if ( !m_use_freetype )
+        {
+            ImGui::SameLine();
+            changed |= ImGui::SliderInt( "##oversample_h", &m_font_cfg.OversampleH, 1, 4, "OverSampleH: %.0f" );
+            if ( ImGui::IsItemHovered() )
+                ImGui::SetTooltip( "%s", "Rasterize at higher quality for sub-pixel positioning." );
+
+#if 0
+            // imgui doesn't currently do sub-pixel on Y axis.
+            ImGui::SameLine();
+            changed |= ImGui::SliderInt( "##oversample_v", &m_font_cfg.OversampleV, 1, 4, "OverSampleV: %.0f" );
+#endif
+        }
+
+        changed |= ImGui::Checkbox( "PixelSnapH", &m_font_cfg.PixelSnapH );
+        if ( ImGui::IsItemHovered() )
+            ImGui::SetTooltip( "%s", "Align every glyph to pixel boundary." );
+
+        if ( m_use_freetype )
+        {
+            static const struct
+            {
+                const char *name;
+                uint32_t flag;
+                const char *descr;
+            } s_FreeTypeFlags[] =
+            {
+                { "Disable hinting", ImGuiFreeType::DisableHinting,
+                        "Disable hinting.\nThis generally generates 'blurrier' bitmap glyphs when\n"
+                        "the glyph are rendered in any of the anti-aliased modes." },
+                { "Force auto-hint", ImGuiFreeType::ForceAutoHint,
+                        "Prefer auto-hinter over the font's native hinter." },
+                { "No auto-hint", ImGuiFreeType::NoAutoHint, "Disable auto-hinter." },
+                { "Light hinting", ImGuiFreeType::LightHinting,
+                        "A lighter hinting algorithm for gray-level modes.\nMany generated glyphs are fuzzier but"
+                        "better resemble their original shape.\nThis is achieved by snapping glyphs to the pixel grid"
+                        "only vertically (Y-axis),\nas is done by Microsoft's ClearType and Adobe's proprietary"
+                        "font renderer.\nThis preserves inter-glyph spacing in horizontal text." },
+                { "Mono hinting", ImGuiFreeType::MonoHinting,
+                        "Strong hinting algorithm that should be used for monochrome output." },
+                { "Bold", ImGuiFreeType::Bold, "Artificially embolden the font." },
+            };
+
+            for ( size_t i = 0; i < ARRAY_SIZE( s_FreeTypeFlags ); i++ )
+            {
+                bool val = !!( m_font_cfg.FreetypeFlags & s_FreeTypeFlags[ i ].flag );
+
+                if ( s_FreeTypeFlags[ i ].flag != ImGuiFreeType::LightHinting )
+                    ImGui::SameLine();
+
+                if ( ImGui::Checkbox( s_FreeTypeFlags[ i ].name, &val ) )
+                {
+                    m_font_cfg.FreetypeFlags ^= s_FreeTypeFlags[ i ].flag;
+                    changed = true;
+                }
+
+                if ( ImGui::IsItemHovered() )
+                    ImGui::SetTooltip( "%s", s_FreeTypeFlags[ i ].descr );
+            }
+        }
+
+        ImGui::PopItemWidth();
+    }
+
+    if ( changed )
+    {
+        update_ini();
+        m_changed = true;
+    }
+
+    ImGui::PopID();
 }
 
 bool ColorPicker::render( ImU32 *pcolor )

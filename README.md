@@ -40,11 +40,16 @@ Dear ImGui was developed by [Omar Cornut](http://www.miracleworld.net) and every
 
 Dear ImGui is licensed under the [MIT License](https://github.com/ocornut/imgui/blob/master/LICENSE)
 
+Uses [imgui_freetype](https://github.com/Vuhdo/imgui_freetype.git) by Vuhdo (Aleksei Skriabin)
+
 Embeds [ProggyClean.ttf and ProggyTiny.ttf](http://upperbounds.net) font by Tristan Grimmer (MIT license).
 
-Embeds [Roboto-Condensed.ttf](https://fonts.google.com/specimen/Roboto+Condensed) font by Christian Robertson (Apache License 2.0).
+Embeds [Roboto-Regular.ttf](https://fonts.google.com/specimen/Roboto) font by Christian Robertson (Apache License 2.0).
+Embeds [RobotoCondensed-Regular.ttf](https://fonts.google.com/specimen/Roboto+Condensed) font by Christian Robertson (Apache License 2.0).
 
-Embeds [stb_textedit.h, stb_truetype.h, stb_rectpack.h](https://github.com/nothings/stb/) by Sean Barrett (public domain).
+Embeds [DroidSans.ttf](http://www.google.com/fonts/specimen/Droid+Sans) font by Steve Matteson (Apache License 2.0).
+
+Uses [stb_textedit.h, stb_truetype.h, stb_rectpack.h](https://github.com/nothings/stb/) by Sean Barrett (public domain).
 
 trace-cmd is [GNU GPL v2](https://git.kernel.org/pub/scm/linux/kernel/git/rostedt/trace-cmd.git)
 
