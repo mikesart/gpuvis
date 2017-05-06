@@ -29,9 +29,6 @@ namespace {
 		/// This field gives the maximum horizontal cursor advance for all glyphs in the font.
 		float maxAdvanceWidth;
 
-		/// The number of glyphs available in the font face.
-		uint32_t glyphsCount;
-
 		//
 		const char* familyName;
 		const char* styleName;
@@ -117,6 +114,7 @@ namespace {
         FT_Library m_library;
         FT_Face    m_face;
 #endif
+        TTF_Font *m_font = nullptr;
 	};
 
 
@@ -129,6 +127,33 @@ namespace {
 
 	//
 	void FreeTypeFont::Init( const uint8_t* data, uint32_t dataSize, uint32_t faceIndex, uint32_t pixelHeight ) {
+        if ( !TTF_WasInit() )
+            TTF_Init();
+
+        SDL_RWops *src = SDL_RWFromConstMem( data, dataSize );
+        m_font = TTF_OpenFontIndexRW( src, 0, pixelHeight, faceIndex );
+
+        TTF_SetFontStyle( m_Font, TTF_STYLE_NORMAL );
+        TTF_SetFontHinting( m_font, TTF_HINTING_NONE );
+        TTF_SetFontOutline( m_font, 0 );
+        TTF_SetFontKerning( m_font, 0 );
+
+        // TTF_GlyphMetrics( m_font, ch, int *minx, int *maxx, int *miny, int *maxy, int *advance);
+
+        memset( &fontInfo, 0, sizeof( fontInfo ) );
+
+        //$$$ SetPixelHeight( pixelHeight );
+        fontInfo.pixelHeight = TTF_FontHeight( m_font );
+        fontInfo.ascender = TTF_FontAscent( m_font ); // Round26Dot6< float >( metrics.ascender );
+        fontInfo.descender = TTF_FontDescent( m_font ); //Round26Dot6< float >( metrics.descender );
+        fontInfo.lineSpacing = TTF_FontLineSkip( m_font ); // Round26Dot6< float >( metrics.height );
+        fontInfo.lineGap = Round26Dot6< float >( metrics.height - metrics.ascender + metrics.descender );
+        fontInfo.maxAdvanceWidth = Round26Dot6< float >( metrics.max_advance );
+
+        fontInfo.pixelHeight = pixelHeight;
+        fontInfo.familyName = TTF_FontFaceFamilyName( m_font );
+        fontInfo.styleName = TTF_FontFaceStyleName( m_font );
+
 #if 0
 		// TODO: substitute allocator
         FT_Error error = FT_Init_FreeType( &m_library );
@@ -153,6 +178,9 @@ namespace {
 
 	//
 	void FreeTypeFont::Shutdown() {
+        TTF_CloseFont( m_font );
+        m_font = NULL;
+
 #if 0
         if( m_face ) {
         FT_Done_Face( m_face );
