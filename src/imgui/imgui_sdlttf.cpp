@@ -17,6 +17,22 @@
 #define STB_RECT_PACK_IMPLEMENTATION
 #include "stb_rect_pack.h"
 
+// Hinting Font hinting is the use of mathematical instructions to adjust the
+// display of an outline font so that it lines up with a rasterized grid. At small
+// screen sizes, with or without antialiasing, hinting is critical for producing a
+// clear, legible text for human readers.
+//
+// Kerning Kerning is the process of spacing adjacent characters apart depending
+// on the actual two adjacent characters. This allows some characters to be closer
+// to each other than others. When kerning is not used, such as when using the
+// glyph metrics advance value, the characters will be spaced out at a constant
+// size that accomodates all pairs of adjacent characters. This would be the
+// maximum space between characters needed. There's currently no method to
+// retrieve the kerning for a pair of characters from SDL_ttf, However correct
+// kerning will be applied when a string of text is rendered instead of individual
+// glyphs.
+
+
 /// Font parameters and metrics.
 struct FontInfo
 {
@@ -24,15 +40,10 @@ struct FontInfo
     uint32_t pixelHeight;
 
     /// The pixel extents above the baseline in pixels (typically positive).
+    ///
     float ascender;
     /// The extents below the baseline in pixels (typically negative).
     float descender;
-
-    /// The baseline-to-baseline distance. Note that it usually is larger than the
-    /// sum of the ascender and descender taken as absolute values. There is also no
-    /// guarantee that no glyphs extend above or below subsequent baselines when
-    /// using this distance think of it as a value the designer of the font finds appropriate.
-    float lineSpacing;
 
     /// This field gives the maximum horizontal cursor advance for all glyphs in the font.
     float maxAdvanceWidth;
@@ -117,10 +128,6 @@ public:
 
 // private:
 //
-#if 0
-    FT_Library m_library;
-    FT_Face    m_face;
-#endif
     TTF_Font *m_font = nullptr;
 };
 
@@ -145,14 +152,30 @@ void FreeTypeFont::Init( const uint8_t *data, uint32_t dataSize, uint32_t faceIn
 
     memset( &fontInfo, 0, sizeof( fontInfo ) );
 
+    // Get the maximum pixel height of all glyphs of the loaded font. You may
+    //  use this height for rendering text as close together vertically as
+    //  possible, though adding at least one pixel height to it will space it so
+    //  they can't touch.
     fontInfo.pixelHeight = TTF_FontHeight( m_font );
+
+    // Get the recommended pixel height of a rendered line of text of the
+    //  loaded font. This is usually larger than the TTF_FontHeight of the font.
+    //$$$ fontInfo.pixelHeight = TTF_FontLineSkip( m_font );
+
+    // Get the maximum pixel ascent of all glyphs of the loaded font. This can
+    //  also be interpreted as the distance from the top of the font to the
+    //  baseline.
     fontInfo.ascender = TTF_FontAscent( m_font );
+    // Get the maximum pixel descent of all glyphs of the loaded font. This can
+    //  also be interpreted as the distance from the baseline to the bottom of
+    //  the font.
     fontInfo.descender = TTF_FontDescent( m_font );
-    fontInfo.lineSpacing = TTF_FontLineSkip( m_font );
 
     fontInfo.pixelHeight = pixelHeight;
     fontInfo.familyName = TTF_FontFaceFamilyName( m_font );
     fontInfo.styleName = TTF_FontFaceStyleName( m_font );
+
+    SDL_RWclose( src );
 }
 
 //
@@ -165,69 +188,42 @@ void FreeTypeFont::Shutdown()
 //
 bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBitmap &glyphBitmap, uint32_t flags )
 {
-#if 0
-            // load the glyph we are looking for
-            FT_Int32 LoadFlags = FT_LOAD_NO_BITMAP;
-            if( flags & ImGuiFreeType::DisableHinting )
-                    LoadFlags |= FT_LOAD_NO_HINTING;
-            if( flags & ImGuiFreeType::ForceAutoHint )
-                    LoadFlags |= FT_LOAD_FORCE_AUTOHINT;
-            if( flags & ImGuiFreeType::NoAutoHint )
-                    LoadFlags |= FT_LOAD_NO_AUTOHINT;
+    SDL_Color white = { 0xFF, 0xFF, 0xFF, 0 };
+    SDL_Color black = { 0x00, 0x00, 0x00, 0 };
 
-            if( flags & ImGuiFreeType::LightHinting )
-                    LoadFlags |= FT_LOAD_TARGET_LIGHT;
-            else if( flags & ImGuiFreeType::MonoHinting )
-                    LoadFlags |= FT_LOAD_TARGET_MONO;
-            else
-                    LoadFlags |= FT_LOAD_TARGET_NORMAL;
+    int minx, maxx, miny, maxy, advance;
+    SDL_Surface *glyph = TTF_RenderGlyph_Blended( m_font, ( Uint16 )codepoint, white );
 
-            uint32_t glyphIndex = FT_Get_Char_Index( m_face, codepoint );
-            FT_Error error = FT_Load_Glyph( m_face, glyphIndex, LoadFlags );
-            if( error )
-                    return false;
+    TTF_GlyphMetrics( m_font, ( Uint16 )codepoint, &minx, &maxx, &miny, &maxy, &advance );
 
-            FT_GlyphSlot slot = m_face->glyph;	// shortcut
+    glyphInfo.advanceX = advance;
+    glyphInfo.offsetX = minx;
+    glyphInfo.offsetY = -maxy;
+    glyphInfo.width = glyph->w; // maxx - minx;
+    glyphInfo.height = glyph->h; // maxy - miny;
 
-            // need an outline for this to work
-            IM_ASSERT( slot->format == FT_GLYPH_FORMAT_OUTLINE );
+    glyphBitmap.width = glyph->w;
+    glyphBitmap.height = glyph->h;
+    glyphBitmap.pitch = glyph->w;
 
-            if( flags & ImGuiFreeType::Oblique )
-                    FT_GlyphSlot_Oblique( slot );
+    IM_ASSERT( glyphBitmap.pitch <= GlyphBitmap::MaxWidth );
 
-            if( flags & ImGuiFreeType::Bold )
-                    FT_GlyphSlot_Embolden( slot );
+    if ( glyphBitmap.width > 0 )
+    {
+        uint8_t *dest = glyphBitmap.grayscale;
 
-            // retrieve the glyph
-            FT_Glyph glyphDesc;
-            error = FT_Get_Glyph( slot, &glyphDesc );
-            if( error != 0 )
-                    return false;
+        for ( int h = 0; h < glyph->h; h++ )
+        {
+            uint32_t *pixels = ( uint32_t * )( ( char * )glyph->pixels + h * glyph->pitch );
 
-            // rasterize
-            error = FT_Glyph_To_Bitmap( &glyphDesc, FT_RENDER_MODE_NORMAL, 0, 1 );
-            if( error != 0 )
-                    return false;
-            FT_BitmapGlyph freeTypeBitmap = ( FT_BitmapGlyph )glyphDesc;
+            for ( int w = 0; w < glyph->w; w++ )
+            {
+                *dest++ = ( uint8_t )( *pixels++ >> 24 );
+            }
+        }
+    }
 
-            //
-            glyphInfo.advanceX = Round26Dot6< float >( slot->advance.x );
-            glyphInfo.offsetX = ( float )freeTypeBitmap->left;
-            glyphInfo.offsetY = -( float )freeTypeBitmap->top;
-            glyphInfo.width = ( float )freeTypeBitmap->bitmap.width;
-            glyphInfo.height = ( float )freeTypeBitmap->bitmap.rows;
-            //
-            glyphBitmap.width = freeTypeBitmap->bitmap.width;
-            glyphBitmap.height = freeTypeBitmap->bitmap.rows;
-            glyphBitmap.pitch = ( uint32_t )freeTypeBitmap->bitmap.pitch;
-
-            IM_ASSERT( glyphBitmap.pitch <= GlyphBitmap::MaxWidth );
-            if( glyphBitmap.width > 0 )
-                    memcpy( glyphBitmap.grayscale, freeTypeBitmap->bitmap.buffer, glyphBitmap.pitch * glyphBitmap.height );
-
-            // cleanup
-            FT_Done_Glyph( glyphDesc );
-#endif
+    SDL_FreeSurface( glyph );
 
     return true;
 }
@@ -362,6 +358,7 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
 
                 GlyphInfo glyphInfo;
                 GlyphBitmap glyphBitmap;
+
                 fontFace.RasterizeGlyph( codepoint, glyphInfo, glyphBitmap, flags );
 
                 // blit to texture
