@@ -33,22 +33,20 @@
 // glyphs.
 
 
-/// Font parameters and metrics.
+// Font parameters and metrics.
 struct FontInfo
 {
-    /// Size this font was generated with.
+    // Size this font was generated with.
     uint32_t pixelHeight;
 
-    /// The pixel extents above the baseline in pixels (typically positive).
-    ///
+    // The pixel extents above the baseline in pixels (typically positive).
     float ascender;
-    /// The extents below the baseline in pixels (typically negative).
+    // The extents below the baseline in pixels (typically negative).
     float descender;
 
-    /// This field gives the maximum horizontal cursor advance for all glyphs in the font.
+    // This field gives the maximum horizontal cursor advance for all glyphs in the font.
     float maxAdvanceWidth;
 
-    //
     const char *familyName;
     const char *styleName;
 };
@@ -85,17 +83,17 @@ struct FontInfo
 //              |                                   |
 //              |------------- advanceX ----------->|
 
-/// A structure that describe a glyph.
+// A structure that describe a glyph.
 struct GlyphInfo
 {
-    float width;    /// Glyph's width in pixels.
-    float height;   /// Glyph's height in pixels.
-    float offsetX;  /// The distance from the origin ("pen position") to the left of the glyph.
-    float offsetY;  /// The distance from the origin to the top of the glyph. This is usually a value < 0.
-    float advanceX; /// The distance from the origin to the origin of the next glyph. This is usually a value > 0.
+    float width;    // Glyph's width in pixels.
+    float height;   // Glyph's height in pixels.
+    float offsetX;  // The distance from the origin ("pen position") to the left of the glyph.
+    float offsetY;  // The distance from the origin to the top of the glyph. This is usually a value < 0.
+    float advanceX; // The distance from the origin to the origin of the next glyph. This is usually a value > 0.
 };
 
-/// Rasterized glyph image (8-bit alpha coverage).
+// Rasterized glyph image (8-bit alpha coverage).
 struct GlyphBitmap
 {
     static const uint32_t MaxWidth = 256;
@@ -105,40 +103,29 @@ struct GlyphBitmap
     uint32_t width, height, pitch;
 };
 
-//
 //  SDL ttf glyph rasterizer.
-//
 class FreeTypeFont
 {
 public:
-    /// no ctor/dtor, explicitly call Init()/Shutdown()
+    // no ctor/dtor, explicitly call Init()/Shutdown()
 
-    /// Font descriptor of the current font.
+    // Font descriptor of the current font.
     FontInfo fontInfo;
 
-    /// Initialize from an external data buffer.
-    /// Doesn't copy data, and you must ensure it stays valid up to this object lifetime.
+    // Initialize from an external data buffer.
+    // Doesn't copy data, and you must ensure it stays valid up to this object lifetime.
     void Init( const uint8_t *data, uint32_t dataSize, uint32_t faceIndex, uint32_t pixelHeight );
 
-    /// Cleanup.
+    // Cleanup.
     void Shutdown();
 
-    /// Generate glyph image.
+    // Generate glyph image.
     bool RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBitmap &glyphBitmap, uint32_t flags );
 
-// private:
-//
+public:
     TTF_Font *m_font = nullptr;
 };
 
-//
-template < class OutputType, class FreeTypeFixed >
-OutputType Round26Dot6( FreeTypeFixed v )
-{
-    return ( OutputType )round( v / 64.0f );
-}
-
-//
 void FreeTypeFont::Init( const uint8_t *data, uint32_t dataSize, uint32_t faceIndex, uint32_t pixelHeight )
 {
     SDL_RWops *src = SDL_RWFromConstMem( data, dataSize );
@@ -166,6 +153,7 @@ void FreeTypeFont::Init( const uint8_t *data, uint32_t dataSize, uint32_t faceIn
     //  also be interpreted as the distance from the top of the font to the
     //  baseline.
     fontInfo.ascender = TTF_FontAscent( m_font );
+
     // Get the maximum pixel descent of all glyphs of the loaded font. This can
     //  also be interpreted as the distance from the baseline to the bottom of
     //  the font.
@@ -189,7 +177,6 @@ void FreeTypeFont::Shutdown()
 bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBitmap &glyphBitmap, uint32_t flags )
 {
     SDL_Color white = { 0xFF, 0xFF, 0xFF, 0 };
-    SDL_Color black = { 0x00, 0x00, 0x00, 0 };
 
     int minx, maxx, miny, maxy, advance;
     SDL_Surface *glyph = TTF_RenderGlyph_Blended( m_font, ( Uint16 )codepoint, white );
@@ -198,9 +185,9 @@ bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, Gly
 
     glyphInfo.advanceX = advance;
     glyphInfo.offsetX = minx;
-    glyphInfo.offsetY = -maxy;
-    glyphInfo.width = glyph->w; // maxx - minx;
-    glyphInfo.height = glyph->h; // maxy - miny;
+    glyphInfo.offsetY = -TTF_FontAscent( m_font );
+    glyphInfo.width = glyph->w;
+    glyphInfo.height = glyph->h;
 
     glyphBitmap.width = glyph->w;
     glyphBitmap.height = glyph->h;
