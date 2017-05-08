@@ -78,16 +78,6 @@ struct GlyphInfo
     float advanceX; // The distance from the origin to the origin of the next glyph. This is usually a value > 0.
 };
 
-// Rasterized glyph image (8-bit alpha coverage).
-struct GlyphBitmap
-{
-    static const uint32_t MaxWidth = 256;
-    static const uint32_t MaxHeight = 256;
-
-    uint8_t grayscale[ MaxWidth * MaxHeight ];
-    uint32_t width, height, pitch;
-};
-
 class SDLFont
 {
 public:
@@ -99,7 +89,7 @@ public:
     }
     int Init( const void *data, ImFontConfig &cfg, uint32_t pixelHeight );
 
-    bool RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBitmap &glyphBitmap, uint32_t flags );
+    SDL_Surface *RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, uint32_t flags );
 
 public:
     TTF_Font *m_font = nullptr;
@@ -180,19 +170,20 @@ int SDLFont::Init( const void *data, ImFontConfig &cfg, uint32_t pixelHeight )
     return total_glyphs;
 }
 
-bool SDLFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBitmap &glyphBitmap, uint32_t flags )
+SDL_Surface *SDLFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, uint32_t flags )
 {
     Uint16 ch = ( Uint16 )codepoint;
     int minx, maxx, miny, maxy, advance;
-    int ascent = TTF_FontAscent( m_font );
     SDL_Color white = { 0xFF, 0xFF, 0xFF, 0 };
+    SDL_Color black = { 0, 0, 0, 0 };
 
     if ( !TTF_GlyphIsProvided( m_font, ch ) )
         ch = '?';
 
     // The glyph is rendered without any padding or centering in the X
     // direction, and aligned normally in the Y direction.
-    SDL_Surface *glyph = TTF_RenderGlyph_Blended( m_font, ch, white );
+    int ascent = TTF_FontAscent( m_font );
+    SDL_Surface *glyph = TTF_RenderGlyph_Shaded( m_font, ch, white, black );
 
     TTF_GlyphMetrics( m_font, ch, &minx, &maxx, &miny, &maxy, &advance );
 
@@ -201,27 +192,6 @@ bool SDLFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBit
     glyphInfo.width = glyph->w;
     glyphInfo.height = glyph->h;
     glyphInfo.advanceX = advance;
-
-    glyphBitmap.width = glyph->w;
-    glyphBitmap.height = glyph->h;
-    glyphBitmap.pitch = glyph->w;
-
-    IM_ASSERT( glyphBitmap.pitch <= GlyphBitmap::MaxWidth );
-
-    if ( glyph->w > 0 )
-    {
-        uint8_t *dest = glyphBitmap.grayscale;
-
-        for ( int h = 0; h < glyph->h; h++ )
-        {
-            uint32_t *pixels = ( uint32_t * )( ( char * )glyph->pixels + h * glyph->pitch );
-
-            for ( int w = 0; w < glyph->w; w++ )
-            {
-                *dest++ = ( uint8_t )( *pixels++ >> 24 );
-            }
-        }
-    }
 
 #ifdef DEBUG_FONTS
     {
@@ -253,8 +223,7 @@ bool SDLFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBit
     }
 #endif
 
-    SDL_FreeSurface( glyph );
-    return true;
+    return glyph;
 }
 
 bool ImGuiSDLttf::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
@@ -385,44 +354,48 @@ bool ImGuiSDLttf::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
                     continue;
 
                 GlyphInfo glyphInfo;
-                GlyphBitmap glyphBitmap;
+                SDL_Surface *surf = sdlfont.RasterizeGlyph( codepoint, glyphInfo, flags );
 
-                sdlfont.RasterizeGlyph( codepoint, glyphInfo, glyphBitmap, flags );
-
-                // blit to texture
-                stbrp_rect rect;
-                rect.w = ( uint16_t )glyphBitmap.width + 1; // account for texture filtering
-                rect.h = ( uint16_t )glyphBitmap.height + 1;
-                stbrp_pack_rects( &context, &rect, 1 );
-
-                const uint8_t *src = glyphBitmap.grayscale;
-                uint8_t *dst = atlas->TexPixelsAlpha8 + rect.y * atlas->TexWidth + rect.x;
-                for ( uint32_t yy = 0; yy < glyphBitmap.height; ++yy )
+                if ( surf )
                 {
-                    memcpy( dst, src, glyphBitmap.width );
+                    stbrp_rect rect;
 
-                    src += glyphBitmap.pitch;
-                    dst += atlas->TexWidth;
+                    // +1 to account for texture filtering
+                    rect.w = ( uint16_t )surf->w + 1;
+                    rect.h = ( uint16_t )surf->h + 1;
+
+                    stbrp_pack_rects( &context, &rect, 1 );
+
+                    uint8_t *dst = atlas->TexPixelsAlpha8 + rect.y * atlas->TexWidth + rect.x;
+                    for ( int h = 0; h < surf->h; h++ )
+                    {
+                        uint8_t *pixels = ( uint8_t * )( ( char * )surf->pixels + h * surf->pitch );
+
+                        memcpy( dst, pixels, surf->w );
+                        dst += atlas->TexWidth;
+                    }
+
+                    SDL_FreeSurface( surf );
+
+                    dst_font->Glyphs.resize( dst_font->Glyphs.Size + 1 );
+                    ImFont::Glyph &glyph = dst_font->Glyphs.back();
+
+                    glyph.Codepoint = ( ImWchar )codepoint;
+                    glyph.X0 = glyphInfo.offsetX;
+                    glyph.Y0 = glyphInfo.offsetY;
+                    glyph.X1 = glyph.X0 + glyphInfo.width;
+                    glyph.Y1 = glyph.Y0 + glyphInfo.height;
+                    glyph.U0 = rect.x / ( float )atlas->TexWidth;
+                    glyph.V0 = rect.y / ( float )atlas->TexHeight;
+                    glyph.U1 = ( rect.x + glyphInfo.width ) / ( float )atlas->TexWidth;
+                    glyph.V1 = ( rect.y + glyphInfo.height ) / ( float )atlas->TexHeight;
+                    glyph.Y0 += ( float )( int )( dst_font->Ascent + off_y + 0.5f );
+                    glyph.Y1 += ( float )( int )( dst_font->Ascent + off_y + 0.5f );
+                    glyph.XAdvance = ( glyphInfo.advanceX + cfg.GlyphExtraSpacing.x ); // Bake spacing into XAdvance
+
+                    if ( cfg.PixelSnapH )
+                        glyph.XAdvance = ( float )( int )( glyph.XAdvance + 0.5f );
                 }
-
-                dst_font->Glyphs.resize( dst_font->Glyphs.Size + 1 );
-                ImFont::Glyph &glyph = dst_font->Glyphs.back();
-
-                glyph.Codepoint = ( ImWchar )codepoint;
-                glyph.X0 = glyphInfo.offsetX;
-                glyph.Y0 = glyphInfo.offsetY;
-                glyph.X1 = glyph.X0 + glyphInfo.width;
-                glyph.Y1 = glyph.Y0 + glyphInfo.height;
-                glyph.U0 = rect.x / ( float )atlas->TexWidth;
-                glyph.V0 = rect.y / ( float )atlas->TexHeight;
-                glyph.U1 = ( rect.x + glyphInfo.width ) / ( float )atlas->TexWidth;
-                glyph.V1 = ( rect.y + glyphInfo.height ) / ( float )atlas->TexHeight;
-                glyph.Y0 += ( float )( int )( dst_font->Ascent + off_y + 0.5f );
-                glyph.Y1 += ( float )( int )( dst_font->Ascent + off_y + 0.5f );
-                glyph.XAdvance = ( glyphInfo.advanceX + cfg.GlyphExtraSpacing.x ); // Bake spacing into XAdvance
-
-                if ( cfg.PixelSnapH )
-                    glyph.XAdvance = ( float )( int )( glyph.XAdvance + 0.5f );
             }
         }
 
