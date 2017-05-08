@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdint.h>
+#include <vector>
 
 #include "../SDL_ttf/SDL_ttfx.h"
 
@@ -87,12 +88,16 @@ struct GlyphBitmap
     uint32_t width, height, pitch;
 };
 
-//  SDL ttf glyph rasterizer.
-class SDLTtfFont
+class SDLFont
 {
 public:
+    SDLFont() {}
+    ~SDLFont()
+    {
+        TTF_CloseFont( m_font );
+        m_font = NULL;
+    }
     int Init( const void *data, ImFontConfig &cfg, uint32_t pixelHeight );
-    void Shutdown();
 
     bool RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBitmap &glyphBitmap, uint32_t flags );
 
@@ -109,10 +114,12 @@ public:
     float m_max_advance = 0.0f;
 };
 
-int SDLTtfFont::Init( const void *data, ImFontConfig &cfg, uint32_t pixelHeight )
+int SDLFont::Init( const void *data, ImFontConfig &cfg, uint32_t pixelHeight )
 {
-    int total_glyphs = 0;
     SDL_RWops *src = SDL_RWFromConstMem( data, cfg.FontDataSize );
+
+    if ( m_font )
+        TTF_CloseFont( m_font );
 
     m_font = TTF_OpenFontIndexRW( src, 1, pixelHeight, cfg.FontNo );
     if ( !m_font )
@@ -126,8 +133,11 @@ int SDLTtfFont::Init( const void *data, ImFontConfig &cfg, uint32_t pixelHeight 
     TTF_SetFontOutline( m_font, 0 );
     TTF_SetFontKerning( m_font, 0 );
 
+    int total_glyphs = 0;
     int miny_min = INT8_MAX;
     int maxy_max = INT8_MIN;
+
+    m_max_advance = 0.0f;
 
     for ( const ImWchar *in_range = cfg.GlyphRanges; in_range[ 0 ] && in_range[ 1 ]; in_range += 2 )
     {
@@ -138,14 +148,13 @@ int SDLTtfFont::Init( const void *data, ImFontConfig &cfg, uint32_t pixelHeight 
 
             if ( TTF_GlyphIsProvided( m_font, ( Uint16 )codepoint ) )
             {
-                int minx, maxx, miny, maxy, advance;
+                int miny, maxy, advance;
 
-                TTF_GlyphMetrics( m_font, ( Uint16 )codepoint, &minx, &maxx, &miny, &maxy, &advance );
-
-                m_max_advance = std::max< float >( m_max_advance, advance );
+                TTF_GlyphMetrics( m_font, ( Uint16 )codepoint, NULL, NULL, &miny, &maxy, &advance );
 
                 miny_min = std::min< int >( miny_min, miny );
                 maxy_max = std::max< int >( maxy_max, maxy );
+                m_max_advance = std::max< float >( m_max_advance, advance );
             }
         }
 
@@ -154,14 +163,14 @@ int SDLTtfFont::Init( const void *data, ImFontConfig &cfg, uint32_t pixelHeight 
 
 #ifdef DEBUG_FONTS
     printf( "FamilyName: %s\n", TTF_FontFaceFamilyName( m_font ) );
-    printf( "StyleName: %s\n", TTF_FontFaceStyleName( m_font ) );
-    printf( "pixelHeight Requested: %d\n", pixelHeight );
-    printf( "FontHeight: %d\n", TTF_FontHeight( m_font ) );
-    printf( "FontLineSkip: %d\n", TTF_FontLineSkip( m_font ) );
-    printf( "ascent: %d\n", TTF_FontAscent( m_font ) );
-    printf( "descent: %d\n", TTF_FontDescent( m_font ) );
-    printf( "maxy_max (ascent): %d\n", maxy_max );
-    printf( "miny_min (descent): %d\n", miny_min );
+    printf( "  StyleName: %s\n", TTF_FontFaceStyleName( m_font ) );
+    printf( "  pixelHeight Requested: %d\n", pixelHeight );
+    printf( "  FontHeight: %d\n", TTF_FontHeight( m_font ) );
+    printf( "  FontLineSkip: %d\n", TTF_FontLineSkip( m_font ) );
+    printf( "  ascent: %d\n", TTF_FontAscent( m_font ) );
+    printf( "  descent: %d\n", TTF_FontDescent( m_font ) );
+    printf( "  maxy_max (ascent): %d\n", maxy_max );
+    printf( "  miny_min (descent): %d\n", miny_min );
     printf( "\n" );
 #endif
 
@@ -171,13 +180,7 @@ int SDLTtfFont::Init( const void *data, ImFontConfig &cfg, uint32_t pixelHeight 
     return total_glyphs;
 }
 
-void SDLTtfFont::Shutdown()
-{
-    TTF_CloseFont( m_font );
-    m_font = NULL;
-}
-
-bool SDLTtfFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBitmap &glyphBitmap, uint32_t flags )
+bool SDLFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBitmap &glyphBitmap, uint32_t flags )
 {
     Uint16 ch = ( Uint16 )codepoint;
     int minx, maxx, miny, maxy, advance;
@@ -256,8 +259,6 @@ bool SDLTtfFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, Glyph
 
 bool ImGuiSDLttf::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
 {
-    IM_ASSERT( atlas->ConfigData.Size > 0 );
-
     if ( TTF_Init() == -1 )
     {
         SDL_LogError( SDL_LOG_CATEGORY_ERROR, "%s: TTF_Init() failed.\n", __FUNCTION__ );
@@ -269,15 +270,17 @@ bool ImGuiSDLttf::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
     atlas->TexUvWhitePixel = ImVec2( 0, 0 );
     atlas->ClearTexData();
 
+    IM_ASSERT( atlas->ConfigData.Size > 0 );
+
     int total_glyph_count = 0;
     ImVec2 maxGlyphSize = { 1.0f, 1.0f };
-    SDLTtfFont *tmp_array = ( SDLTtfFont * )ImGui::MemAlloc( ( size_t )atlas->ConfigData.Size * sizeof( SDLTtfFont ) );
+    std::vector< SDLFont > font_array( atlas->ConfigData.Size );
 
     // Initialize font information early (so we can error without any cleanup) + count glyphs
     for ( int input_i = 0; input_i < atlas->ConfigData.Size; input_i++ )
     {
         ImFontConfig &cfg = atlas->ConfigData[ input_i ];
-        SDLTtfFont &fontFace = tmp_array[ input_i ];
+        SDLFont &sdlfont = font_array[ input_i ];
 
         IM_ASSERT( cfg.DstFont &&
                    ( !cfg.DstFont->IsLoaded() || cfg.DstFont->ContainerAtlas == atlas ) );
@@ -287,22 +290,20 @@ bool ImGuiSDLttf::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
 
         for ( uint32_t pixelHeight = ( uint32_t )cfg.SizePixels; ; pixelHeight++ )
         {
-            int glyph_count = fontFace.Init( cfg.FontData, cfg, pixelHeight );
+            int glyph_count = sdlfont.Init( cfg.FontData, cfg, pixelHeight );
             if ( !glyph_count )
                 break;
 
-            float size = fontFace.m_ascent - fontFace.m_descent;
+            float size = sdlfont.m_ascent - sdlfont.m_descent;
             if ( size >= cfg.SizePixels )
             {
                 total_glyph_count += glyph_count;
                 break;
             }
-
-            fontFace.Shutdown();
         }
 
-        maxGlyphSize.x = ImMax( maxGlyphSize.x, fontFace.m_max_advance );
-        maxGlyphSize.y = ImMax( maxGlyphSize.y, fontFace.m_ascent - fontFace.m_descent );
+        maxGlyphSize.x = ImMax( maxGlyphSize.x, sdlfont.m_max_advance );
+        maxGlyphSize.y = ImMax( maxGlyphSize.y, sdlfont.m_ascent - sdlfont.m_descent );
     }
 
     // Start packing. We need a known width for the skyline algorithm. Using a cheap heuristic here to decide of width. User can override TexDesiredWidth if they wish.
@@ -337,24 +338,27 @@ bool ImGuiSDLttf::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
 
     stbrp_context context;
     stbrp_node *nodes = ( stbrp_node * )ImGui::MemAlloc( TotalRects * sizeof( stbrp_node ) );
-    stbrp_init_target( &context, atlas->TexWidth, atlas->TexHeight, nodes, TotalRects );
 
+    stbrp_init_target( &context, atlas->TexWidth, atlas->TexHeight, nodes, TotalRects );
     stbrp_pack_rects( &context, &extra_rects[ 0 ], extra_rects.Size );
+
     for ( int i = 0; i < extra_rects.Size; i++ )
+    {
         if ( extra_rects[ i ].was_packed )
             atlas->TexHeight = ImMax( atlas->TexHeight, extra_rects[ i ].y + extra_rects[ i ].h );
+    }
 
     // Create texture
     atlas->TexPixelsAlpha8 = ( unsigned char * )ImGui::MemAlloc( atlas->TexWidth * atlas->TexHeight );
     memset( atlas->TexPixelsAlpha8, 0, atlas->TexWidth * atlas->TexHeight );
 
-    // render characters, setup ImFont and glyphs for runtime
+    // Render characters, setup ImFont and glyphs for runtime
     for ( int input_i = 0; input_i < atlas->ConfigData.Size; input_i++ )
     {
         ImFontConfig &cfg = atlas->ConfigData[ input_i ];
-        SDLTtfFont &fontFace = tmp_array[ input_i ];
-        float ascent = fontFace.m_ascent;
-        float descent = fontFace.m_descent;
+        SDLFont &sdlfont = font_array[ input_i ];
+        float ascent = sdlfont.m_ascent;
+        float descent = sdlfont.m_descent;
         ImFont *dst_font = cfg.DstFont;
 
         if ( !cfg.MergeMode )
@@ -383,7 +387,7 @@ bool ImGuiSDLttf::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
                 GlyphInfo glyphInfo;
                 GlyphBitmap glyphBitmap;
 
-                fontFace.RasterizeGlyph( codepoint, glyphInfo, glyphBitmap, flags );
+                sdlfont.RasterizeGlyph( codepoint, glyphInfo, glyphBitmap, flags );
 
                 // blit to texture
                 stbrp_rect rect;
@@ -427,13 +431,11 @@ bool ImGuiSDLttf::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
 
     // Cleanup temporaries
     ImGui::MemFree( nodes );
-    for ( int n = 0; n < atlas->ConfigData.Size; ++n )
-        tmp_array[ n ].Shutdown();
-
-    ImGui::MemFree( tmp_array );
 
     // Render into our custom data block
     atlas->RenderCustomTexData( 1, &extra_rects );
+
+    font_array.clear();
 
     TTF_Quit();
     return true;
