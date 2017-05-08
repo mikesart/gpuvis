@@ -36,13 +36,10 @@
 // Font parameters and metrics.
 struct FontInfo
 {
-    // Size this font was generated with.
-    uint32_t pixelHeight;
-
     // The pixel extents above the baseline in pixels (typically positive).
-    float ascender;
+    float ascent;
     // The extents below the baseline in pixels (typically negative).
-    float descender;
+    float descent;
 
     // This field gives the maximum horizontal cursor advance for all glyphs in the font.
     float maxAdvanceWidth;
@@ -130,7 +127,7 @@ void FreeTypeFont::Init( const uint8_t *data, uint32_t dataSize, uint32_t faceIn
 {
     SDL_RWops *src = SDL_RWFromConstMem( data, dataSize );
 
-    m_font = TTF_OpenFontIndexRW( src, 0, pixelHeight, faceIndex );
+    m_font = TTF_OpenFontIndexRW( src, 1, pixelHeight, faceIndex );
 
     TTF_SetFontStyle( m_font, TTF_STYLE_NORMAL );
     TTF_SetFontHinting( m_font, TTF_HINTING_NONE );
@@ -139,59 +136,90 @@ void FreeTypeFont::Init( const uint8_t *data, uint32_t dataSize, uint32_t faceIn
 
     memset( &fontInfo, 0, sizeof( fontInfo ) );
 
+    fontInfo.familyName = TTF_FontFaceFamilyName( m_font );
+    fontInfo.styleName = TTF_FontFaceStyleName( m_font );
+
+    printf( "FamilyName: %s\nStyleName: %s\n", fontInfo.familyName, fontInfo.styleName );
+    printf( "pixelHeight Requested: %d\n", pixelHeight );
+
     // Get the maximum pixel height of all glyphs of the loaded font. You may
     //  use this height for rendering text as close together vertically as
     //  possible, though adding at least one pixel height to it will space it so
     //  they can't touch.
-    fontInfo.pixelHeight = TTF_FontHeight( m_font );
+    printf( "FontHeight: %d\n", TTF_FontHeight( m_font ) );
 
     // Get the recommended pixel height of a rendered line of text of the
     //  loaded font. This is usually larger than the TTF_FontHeight of the font.
-    //$$$ fontInfo.pixelHeight = TTF_FontLineSkip( m_font );
+    printf( "FontLineSkip: %d\n", TTF_FontLineSkip( m_font ) );
 
     // Get the maximum pixel ascent of all glyphs of the loaded font. This can
     //  also be interpreted as the distance from the top of the font to the
     //  baseline.
-    fontInfo.ascender = TTF_FontAscent( m_font );
+    fontInfo.ascent = TTF_FontAscent( m_font );
+    printf( "ascent: %d\n", TTF_FontAscent( m_font ) );
 
     // Get the maximum pixel descent of all glyphs of the loaded font. This can
     //  also be interpreted as the distance from the baseline to the bottom of
     //  the font.
-    fontInfo.descender = TTF_FontDescent( m_font );
+    fontInfo.descent = TTF_FontDescent( m_font );
+    printf( "descent: %d\n", TTF_FontDescent( m_font ) );
 
-    fontInfo.pixelHeight = pixelHeight;
-    fontInfo.familyName = TTF_FontFaceFamilyName( m_font );
-    fontInfo.styleName = TTF_FontFaceStyleName( m_font );
-
-    SDL_RWclose( src );
+    printf( "\n" );
 }
 
-//
 void FreeTypeFont::Shutdown()
 {
     TTF_CloseFont( m_font );
     m_font = NULL;
 }
 
-//
 bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBitmap &glyphBitmap, uint32_t flags )
 {
+    int minx, maxx, miny, maxy, advance;
     SDL_Color white = { 0xFF, 0xFF, 0xFF, 0 };
 
-    int minx, maxx, miny, maxy, advance;
+    // The glyph is rendered without any padding or centering in the X
+    // direction, and aligned normally in the Y direction.
     SDL_Surface *glyph = TTF_RenderGlyph_Blended( m_font, ( Uint16 )codepoint, white );
 
     TTF_GlyphMetrics( m_font, ( Uint16 )codepoint, &minx, &maxx, &miny, &maxy, &advance );
 
-    glyphInfo.advanceX = advance;
+    int ascent = TTF_FontAscent( m_font );
+    int descent = TTF_FontDescent( m_font );
+    int height = TTF_FontHeight( m_font );
+    int pixelheight = TTF_FontHeight( m_font );
+
     glyphInfo.offsetX = minx;
-    glyphInfo.offsetY = -TTF_FontAscent( m_font );
+    glyphInfo.offsetY = -( fontInfo.ascent );
     glyphInfo.width = glyph->w;
     glyphInfo.height = glyph->h;
+    glyphInfo.advanceX = advance;
 
     glyphBitmap.width = glyph->w;
     glyphBitmap.height = glyph->h;
     glyphBitmap.pitch = glyph->w;
+
+    if ( codepoint == 'Y' || codepoint == 'y' )
+    {
+        printf( "codepoint: %c\n", codepoint );
+        printf( "  ascent: %d\n", ascent );
+        printf( "  descent: %d\n", descent );
+        printf( "  height: %d\n", height );
+        printf( "  pixelheight: %d\n", pixelheight );
+
+        printf( "  minx: %d\n", minx );
+        printf( "  maxx: %d\n", maxx );
+        printf( "  miny: %d\n", miny );
+        printf( "  maxy: %d\n", maxy );
+        printf( "  advance: %d\n", advance );
+
+        printf( "  glyph->h: %d\n", glyph->h );
+        printf( "  glyph->w: %d\n", glyph->w );
+        printf( "  glyph->pitch: %d\n", glyph->pitch );
+
+        printf( "\n" );
+        fflush( stdout );
+    }
 
     IM_ASSERT( glyphBitmap.pitch <= GlyphBitmap::MaxWidth );
 
@@ -265,7 +293,7 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
         }
 
         maxGlyphSize.x = ImMax( maxGlyphSize.x, fontFace.fontInfo.maxAdvanceWidth );
-        maxGlyphSize.y = ImMax( maxGlyphSize.y, fontFace.fontInfo.ascender - fontFace.fontInfo.descender );
+        maxGlyphSize.y = ImMax( maxGlyphSize.y, fontFace.fontInfo.ascent - fontFace.fontInfo.descent );
     }
 
     // Start packing. We need a known width for the skyline algorithm. Using a cheap heuristic here to decide of width. User can override TexDesiredWidth if they wish.
@@ -318,8 +346,8 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
         FreeTypeFont &fontFace = tmp_array[ input_i ];
         ImFont *dst_font = cfg.DstFont;
 
-        float ascent = fontFace.fontInfo.ascender;
-        float descent = fontFace.fontInfo.descender;
+        float ascent = fontFace.fontInfo.ascent;
+        float descent = fontFace.fontInfo.descent;
         if ( !cfg.MergeMode )
         {
             dst_font->ContainerAtlas = atlas;

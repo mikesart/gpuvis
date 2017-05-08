@@ -137,7 +137,10 @@ namespace {
 		error = FT_Select_Charmap( m_face, FT_ENCODING_UNICODE );
 		IM_ASSERT( error == 0 );
 
-		memset( &fontInfo, 0, sizeof( fontInfo ) );
+        printf( "FamilyName: %s\nStyleName: %s\n", m_face->family_name, m_face->style_name );
+        printf( "pixelHeight Requested: %d\n", pixelHeight );
+
+        memset( &fontInfo, 0, sizeof( fontInfo ) );
 		SetPixelHeight( pixelHeight );
 
 		// fill up the font info
@@ -183,7 +186,11 @@ namespace {
 		fontInfo.lineSpacing = Round26Dot6< float >( metrics.height );
 		fontInfo.lineGap = Round26Dot6< float >( metrics.height - metrics.ascender + metrics.descender );
 		fontInfo.maxAdvanceWidth = Round26Dot6< float >( metrics.max_advance );
-	}
+
+        printf( "ascender: %.2f\n", fontInfo.ascender );
+        printf( "descender: %.2f\n", fontInfo.descender );
+        printf( "lineSpacing: %.2f\n", fontInfo.lineSpacing );
+    }
 
 
 	//

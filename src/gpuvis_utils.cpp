@@ -434,9 +434,9 @@ void imgui_load_fonts()
 
     ImFontConfig font_cfg = ImFontConfig();
 
-    font_cfg.OversampleH = 3;
-    font_cfg.OversampleV = 1;
-    font_cfg.PixelSnapH = true;
+    font_cfg.OversampleH = 1; //3;
+    font_cfg.OversampleV = 1; //1;
+    font_cfg.PixelSnapH = false; //true;
 
     // Add Roboto Condensed Regular
     io.Fonts->AddFontFromMemoryCompressedTTF(

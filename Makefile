@@ -72,9 +72,12 @@ CFILES = \
 	src/trace-cmd/trace-read.cpp
 
 ifeq ($(USE_SDLTTF), 1)
+	CFLAGS += -I/usr/include/freetype2
     CFLAGS += -DUSE_SDLTTF
-    LIBS += -lSDL2_ttf
+    # LIBS += -L/home/mikesart/dev/SDL_ttf/.libs -lSDL2_ttf
+	LIBS += -lfreetype
     CFILES += src/imgui/imgui_sdlttf.cpp
+    CFILES += src/SDL_ttf/SDL_ttf.c
 else ifeq ($(USE_FREETYPE), 1)
 	CFLAGS += -DUSE_FREETYPE -I/usr/include/freetype2
 	LIBS += -lfreetype
