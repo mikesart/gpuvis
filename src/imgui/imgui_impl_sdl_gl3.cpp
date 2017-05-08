@@ -182,8 +182,8 @@ void ImGui_ImplSdlGL3_CreateFontsTexture()
     unsigned char* pixels;
     int width, height;
 
-    unsigned int flags = ImGuiFreeType::ForceAutoHint;
-    ImGuiFreeType::BuildFontAtlas(io.Fonts, flags);
+    unsigned int flags = ImGuiSDLttf::ForceAutoHint;
+    ImGuiSDLttf::BuildFontAtlas(io.Fonts, flags);
 
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);   // Load as RGBA 32-bits for OpenGL3 demo because it is more likely to be compatible with user's existing shader.
 
