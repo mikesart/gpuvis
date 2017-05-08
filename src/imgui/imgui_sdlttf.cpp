@@ -181,13 +181,17 @@ int FreeTypeFont::Init( FreeTypeFont &fontFace, const void *data, ImFontConfig &
             if ( cfg.MergeMode && dst_font->FindGlyph( ( ImWchar )codepoint ) )
                 continue;
 
-            int minx, maxx, miny, maxy, advance;
-            TTF_GlyphMetrics( fontFace.m_font, ( Uint16 )codepoint, &minx, &maxx, &miny, &maxy, &advance, NULL );
+            if ( TTF_GlyphIsProvided( m_font, ( Uint16 )codepoint ) )
+            {
+                int minx, maxx, miny, maxy, advance;
 
-            fontFace.fontInfo.maxAdvanceWidth = std::max< float >( fontFace.fontInfo.maxAdvanceWidth, advance );
+                TTF_GlyphMetrics( fontFace.m_font, ( Uint16 )codepoint, &minx, &maxx, &miny, &maxy, &advance, NULL );
 
-            miny_min = std::min< int >( miny_min, miny );
-            maxy_max = std::max< int >( maxy_max, maxy );
+                fontFace.fontInfo.maxAdvanceWidth = std::max< float >( fontFace.fontInfo.maxAdvanceWidth, advance );
+
+                miny_min = std::min< int >( miny_min, miny );
+                maxy_max = std::max< int >( maxy_max, maxy );
+            }
         }
 
         // Count glyphs
@@ -214,6 +218,9 @@ bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, Gly
     int minx, maxx, miny, maxy, advance, top;
     SDL_Color white = { 0xFF, 0xFF, 0xFF, 0 };
 
+    if ( !TTF_GlyphIsProvided( m_font, ( Uint16 )codepoint ) )
+        codepoint = '?';
+
     // The glyph is rendered without any padding or centering in the X
     // direction, and aligned normally in the Y direction.
     SDL_Surface *glyph = TTF_RenderGlyph_Blended( m_font, ( Uint16 )codepoint, white );
@@ -221,11 +228,12 @@ bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, Gly
     TTF_GlyphMetrics( m_font, ( Uint16 )codepoint, &minx, &maxx, &miny, &maxy, &advance, &top );
 
     int ascent = TTF_FontAscent( m_font );
+    int descent = TTF_FontDescent( m_font );
     int height = TTF_FontHeight( m_font );
     int pixelheight = TTF_FontHeight( m_font );
 
     glyphInfo.offsetX = minx;
-    glyphInfo.offsetY = -ascent; //-fontInfo.ascent;
+    glyphInfo.offsetY = -ascent;
     glyphInfo.width = glyph->w;
     glyphInfo.height = glyph->h;
     glyphInfo.advanceX = advance;
@@ -244,18 +252,11 @@ bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, Gly
 
             for ( int w = 0; w < glyph->w; w++ )
             {
-#if 0
-                if ( *pixels == 0xffffff )
-                    *pixels = 0xffff00ff;
-#endif
                 *dest++ = ( uint8_t )( *pixels++ >> 24 );
             }
         }
     }
 
-
-//    if ( ( codepoint >= 'a' && codepoint <= 'z' ) ||
-//         ( codepoint >= 'A' && codepoint <= 'Z' ) )
     {
 #if 0
         char outname[64];
@@ -263,20 +264,22 @@ bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, Gly
         SDL_SaveBMP( glyph, outname );
 #endif
 
-        printf( "%c:", codepoint );
+        printf( "%u:", codepoint );
         printf( "  top: %d", top );
         printf( "  h: %d", height );
         printf( "  pixelh: %d", pixelheight );
+        printf( "  ascent: %d (%d)", ascent, maxy - miny );
+        printf( "  descent: %d", descent );
 
         printf( "  minx: %d", minx );
         printf( "  maxx: %d", maxx );
         printf( "  miny: %d", miny );
         printf( "  maxy: %d", maxy );
-        printf( "  advance: %d", advance );
+        printf( "  adv: %d", advance );
 
-        printf( "  glyph->h: %d", glyph->h );
-        printf( "  glyph->w: %d", glyph->w );
-        printf( "  glyph->pitch: %d\n", glyph->pitch );
+        printf( "  glyph h: %d", glyph->h );
+        printf( "  w: %d", glyph->w );
+        printf( "  pitch: %d\n", glyph->pitch );
         fflush( stdout );
     }
 
@@ -380,10 +383,10 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
     {
         ImFontConfig &cfg = atlas->ConfigData[ input_i ];
         FreeTypeFont &fontFace = tmp_array[ input_i ];
-        ImFont *dst_font = cfg.DstFont;
-
         float ascent = fontFace.fontInfo.ascent;
         float descent = fontFace.fontInfo.descent;
+        ImFont *dst_font = cfg.DstFont;
+
         if ( !cfg.MergeMode )
         {
             dst_font->ContainerAtlas = atlas;

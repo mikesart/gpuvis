@@ -415,7 +415,7 @@ public:
     size_t m_log_size = ( size_t )-1;
     bool m_quit = false;
     bool m_show_imgui_test_window = false;
-    bool m_show_imgui_style_editor = false;
+    bool m_show_imgui_style_editor = true;
     bool m_show_imgui_metrics_editor = false;
 };
 

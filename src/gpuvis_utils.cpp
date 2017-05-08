@@ -413,7 +413,7 @@ void imgui_load_fonts()
 
     static const ImWchar ranges[] =
     {
-        0x0020, 0x007F, // Basic Latin + Latin Supplement
+        0x0020, 0x00FF, // Basic Latin + Latin Supplement
         0,
     };
 
@@ -440,7 +440,7 @@ void imgui_load_fonts()
 
     // Add Roboto Condensed Regular
     io.Fonts->AddFontFromMemoryCompressedTTF(
-                RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, 24.0f, &font_cfg, &ranges[ 0 ] );
+                RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, 11.0f, &font_cfg, &ranges[ 0 ] );
 
 //    #include "proggy_tiny.cpp"
 

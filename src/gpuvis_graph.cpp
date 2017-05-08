@@ -2036,7 +2036,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 ) + "ms";
     }
 
-    if ( m_graph.ts_marker_a != INT64_MIN )
+    if ( m_graph.ts_marker_a != INT64_MAX )
         time_buf += "\nMarker A: " + ts_to_timestr( m_graph.ts_marker_a - mouse_ts, 0, 2 ) + "ms";
 
     m_graph.hovered_eventid = INVALID_ID;
