@@ -44,10 +44,10 @@ VERBOSE ?= 0
 SDL2FLAGS=$(shell sdl2-config --cflags)
 SDL2LIBS=$(shell sdl2-config --static-libs)
 WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wsuggest-attribute=format $(WSHADOW) -Wno-unused-parameter -Wno-missing-field-initializers
-CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 $(SDL2FLAGS)
+CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 $(SDL2FLAGS) -I/usr/include/freetype2
 CXXFLAGS = -fno-rtti -Woverloaded-virtual
 LDFLAGS = -march=native -gdwarf-4 -g2 -Wl,--build-id=sha1
-LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lstdc++ $(SDL2LIBS)
+LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lfreetype -lstdc++ $(SDL2LIBS)
 
 # https://gcc.gnu.org/onlinedocs/libstdc++/manual/profile_mode.html#manual.ext.profile_mode.intro
 # To resolve addresses from libstdcxx-profile.conf.out: addr2line -C -f -e _debug/gpuvis 0x42cc6a 0x43630a 0x46654d
@@ -69,20 +69,9 @@ CFILES = \
 	src/trace-cmd/event-parse.c \
 	src/trace-cmd/trace-seq.c \
 	src/trace-cmd/kbuffer-parse.c \
-	src/trace-cmd/trace-read.cpp
-
-ifeq ($(USE_SDLTTF), 1)
-	CFLAGS += -I/usr/include/freetype2
-    CFLAGS += -DUSE_SDLTTF
-    # LIBS += -L/home/mikesart/dev/SDL_ttf/.libs -lSDL2_ttf
-	LIBS += -lfreetype
-    CFILES += src/imgui/imgui_sdlttf.cpp
-    CFILES += src/SDL_ttf/SDL_ttf.c
-else ifeq ($(USE_FREETYPE), 1)
-	CFLAGS += -DUSE_FREETYPE -I/usr/include/freetype2
-	LIBS += -lfreetype
-    CFILES += src/imgui/imgui_freetype.cpp
-endif
+	src/trace-cmd/trace-read.cpp \
+	src/imgui/imgui_sdlttf.cpp \
+	src/SDL_ttf/SDL_ttfx.c
 
 ifeq ($(PROF), 1)
 	# To profile with google perftools:

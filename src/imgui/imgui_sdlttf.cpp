@@ -2,7 +2,7 @@
 #include <math.h>
 #include <stdint.h>
 
-#include "../SDL_ttf/SDL_ttf.h"
+#include "../SDL_ttf/SDL_ttfx.h"
 
 #ifdef __GNUC__
 #pragma GCC diagnostic ignored "-Wunused-function"

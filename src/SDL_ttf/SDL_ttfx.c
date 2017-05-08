@@ -33,7 +33,7 @@
 
 #include "SDL.h"
 #include "SDL_endian.h"
-#include "SDL_ttf.h"
+#include "SDL_ttfx.h"
 
 /* FIXME: Right now we assume the gray-scale renderer Freetype is using
    supports 256 shades of gray, but we should instead key off of num_grays
@@ -47,6 +47,10 @@
 #define CACHED_METRICS  0x10
 #define CACHED_BITMAP   0x01
 #define CACHED_PIXMAP   0x02
+
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
 
 /* Cached glyph information */
 typedef struct cached_glyph {
@@ -143,6 +147,7 @@ static int TTF_underline_top_row(TTF_Font *font)
     return font->ascent - font->underline_offset - 1;
 }
 
+#ifdef DEBUG_FONTS
 /* Gets the top row of the underline. for a given glyph. The outline
    is taken into account.
    Need to update row according to height difference between font and glyph:
@@ -152,6 +157,7 @@ static int TTF_Glyph_underline_top_row(TTF_Font *font, c_glyph *glyph)
 {
     return glyph->maxy - font->underline_offset - 1;
 }
+#endif
 
 /* Gets the bottom row of the underline. The outline
    is taken into account.
@@ -167,6 +173,7 @@ static int TTF_underline_bottom_row(TTF_Font *font)
     return row;
 }
 
+#ifdef DEBUG_FONTS
 /* Gets the bottom row of the underline. for a given glyph. The outline
    is taken into account.
    Need to update row according to height difference between font and glyph:
@@ -176,6 +183,7 @@ static int TTF_Glyph_underline_bottom_row(TTF_Font *font, c_glyph *glyph)
 {
     return TTF_underline_bottom_row(font) - font->ascent + glyph->maxy;
 }
+#endif
 
 /* Gets the top row of the strikethrough. The outline
    is taken into account.
@@ -187,6 +195,7 @@ static int TTF_strikethrough_top_row(TTF_Font *font)
     return font->height / 2;
 }
 
+#ifdef DEBUG_FONTS
 /* Gets the top row of the strikethrough for a given glyph. The outline
    is taken into account.
    Need to update row according to height difference between font and glyph:
@@ -196,6 +205,7 @@ static int TTF_Glyph_strikethrough_top_row(TTF_Font *font, c_glyph *glyph)
 {
     return TTF_strikethrough_top_row(font) - font->ascent + glyph->maxy;
 }
+#endif
 
 static void TTF_initLineMectrics(const TTF_Font *font, const SDL_Surface *textbuf, const int row, Uint8 **pdst, int *pheight)
 {
@@ -1015,7 +1025,7 @@ static Uint32 UTF8_getch(const char **src, size_t *srclen)
 {
     const Uint8 *p = *(const Uint8**)src;
     size_t left = 0;
-    SDL_bool overlong = SDL_FALSE;
+    // SDL_bool overlong = SDL_FALSE;
     SDL_bool underflow = SDL_FALSE;
     Uint32 ch = UNKNOWN_UNICODE;
 
@@ -1025,7 +1035,7 @@ static Uint32 UTF8_getch(const char **src, size_t *srclen)
     if (p[0] >= 0xFC) {
         if ((p[0] & 0xFE) == 0xFC) {
             if (p[0] == 0xFC && (p[1] & 0xFC) == 0x80) {
-                overlong = SDL_TRUE;
+                // overlong = SDL_TRUE;
             }
             ch = (Uint32) (p[0] & 0x01);
             left = 5;
@@ -1033,7 +1043,7 @@ static Uint32 UTF8_getch(const char **src, size_t *srclen)
     } else if (p[0] >= 0xF8) {
         if ((p[0] & 0xFC) == 0xF8) {
             if (p[0] == 0xF8 && (p[1] & 0xF8) == 0x80) {
-                overlong = SDL_TRUE;
+                // overlong = SDL_TRUE;
             }
             ch = (Uint32) (p[0] & 0x03);
             left = 4;
@@ -1041,7 +1051,7 @@ static Uint32 UTF8_getch(const char **src, size_t *srclen)
     } else if (p[0] >= 0xF0) {
         if ((p[0] & 0xF8) == 0xF0) {
             if (p[0] == 0xF0 && (p[1] & 0xF0) == 0x80) {
-                overlong = SDL_TRUE;
+                // overlong = SDL_TRUE;
             }
             ch = (Uint32) (p[0] & 0x07);
             left = 3;
@@ -1049,7 +1059,7 @@ static Uint32 UTF8_getch(const char **src, size_t *srclen)
     } else if (p[0] >= 0xE0) {
         if ((p[0] & 0xF0) == 0xE0) {
             if (p[0] == 0xE0 && (p[1] & 0xE0) == 0x80) {
-                overlong = SDL_TRUE;
+                // overlong = SDL_TRUE;
             }
             ch = (Uint32) (p[0] & 0x0F);
             left = 2;
@@ -1057,7 +1067,7 @@ static Uint32 UTF8_getch(const char **src, size_t *srclen)
     } else if (p[0] >= 0xC0) {
         if ((p[0] & 0xE0) == 0xC0) {
             if ((p[0] & 0xDE) == 0xC0) {
-                overlong = SDL_TRUE;
+                // overlong = SDL_TRUE;
             }
             ch = (Uint32) (p[0] & 0x1F);
             left = 1;
@@ -1936,7 +1946,6 @@ SDL_Surface *TTF_RenderUTF8_Blended_Wrapped(TTF_Font *font,
     if ( wrapLength > 0 && *text ) {
         const char *wrapDelims = " \t\r\n";
         int w, h;
-        int line = 0;
         char *spot, *tok, *next_tok, *end;
         char delim;
         size_t str_len = SDL_strlen(text);
