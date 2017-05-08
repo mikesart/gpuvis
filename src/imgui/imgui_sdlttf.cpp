@@ -140,7 +140,7 @@ int SDLTtfFont::Init( const void *data, ImFontConfig &cfg, uint32_t pixelHeight 
             {
                 int minx, maxx, miny, maxy, advance;
 
-                TTF_GlyphMetrics( m_font, ( Uint16 )codepoint, &minx, &maxx, &miny, &maxy, &advance, NULL );
+                TTF_GlyphMetrics( m_font, ( Uint16 )codepoint, &minx, &maxx, &miny, &maxy, &advance );
 
                 m_max_advance = std::max< float >( m_max_advance, advance );
 
@@ -180,9 +180,9 @@ void SDLTtfFont::Shutdown()
 bool SDLTtfFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBitmap &glyphBitmap, uint32_t flags )
 {
     Uint16 ch = ( Uint16 )codepoint;
+    int minx, maxx, miny, maxy, advance;
     int ascent = TTF_FontAscent( m_font );
     SDL_Color white = { 0xFF, 0xFF, 0xFF, 0 };
-    int minx, maxx, miny, maxy, advance, top;
 
     if ( !TTF_GlyphIsProvided( m_font, ch ) )
         ch = '?';
@@ -191,7 +191,7 @@ bool SDLTtfFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, Glyph
     // direction, and aligned normally in the Y direction.
     SDL_Surface *glyph = TTF_RenderGlyph_Blended( m_font, ch, white );
 
-    TTF_GlyphMetrics( m_font, ch, &minx, &maxx, &miny, &maxy, &advance, &top );
+    TTF_GlyphMetrics( m_font, ch, &minx, &maxx, &miny, &maxy, &advance );
 
     glyphInfo.offsetX = minx;
     glyphInfo.offsetY = -ascent;
@@ -232,7 +232,6 @@ bool SDLTtfFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, Glyph
         SDL_SaveBMP( glyph, outname );
 #endif
         printf( "%u:", ch );
-        printf( "  top: %d", top );
         printf( "  h: %d", height );
         printf( "  pixelh: %d", pixelheight );
         printf( "  ascent: %d (%d)", ascent, maxy - miny );

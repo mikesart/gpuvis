@@ -153,7 +153,7 @@ extern DECLSPEC int SDLCALL TTF_GlyphIsProvided(const TTF_Font *font, Uint16 ch)
  */
 extern DECLSPEC int SDLCALL TTF_GlyphMetrics(TTF_Font *font, Uint16 ch,
                      int *minx, int *maxx,
-                     int *miny, int *maxy, int *advance, int *top);
+                                     int *miny, int *maxy, int *advance);
 
 /* Get the dimensions of a rendered string of text */
 extern DECLSPEC int SDLCALL TTF_SizeText(TTF_Font *font, const char *text, int *w, int *h);
