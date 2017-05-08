@@ -306,9 +306,9 @@ bool ImGuiSDLttf::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
     atlas->TexHeight = ImUpperPowerOfTwo( atlas->TexHeight );
 
     stbrp_context context;
-    stbrp_node *nodes = ( stbrp_node * )ImGui::MemAlloc( TotalRects * sizeof( stbrp_node ) );
+    std::vector< stbrp_node > nodes( TotalRects );
 
-    stbrp_init_target( &context, atlas->TexWidth, atlas->TexHeight, nodes, TotalRects );
+    stbrp_init_target( &context, atlas->TexWidth, atlas->TexHeight, &nodes[ 0 ], TotalRects );
     stbrp_pack_rects( &context, &extra_rects[ 0 ], extra_rects.Size );
 
     for ( int i = 0; i < extra_rects.Size; i++ )
@@ -401,9 +401,6 @@ bool ImGuiSDLttf::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
 
         cfg.DstFont->BuildLookupTable();
     }
-
-    // Cleanup temporaries
-    ImGui::MemFree( nodes );
 
     // Render into our custom data block
     atlas->RenderCustomTexData( 1, &extra_rects );
