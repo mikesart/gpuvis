@@ -2,7 +2,7 @@
 #include <math.h>
 #include <stdint.h>
 
-#include <SDL_ttf.h>
+#include "../SDL_ttf/SDL_ttf.h"
 
 #ifdef __GNUC__
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -38,6 +38,7 @@ struct FontInfo
 {
     // The pixel extents above the baseline in pixels (typically positive).
     float ascent;
+
     // The extents below the baseline in pixels (typically negative).
     float descent;
 
@@ -104,14 +105,12 @@ struct GlyphBitmap
 class FreeTypeFont
 {
 public:
-    // no ctor/dtor, explicitly call Init()/Shutdown()
-
     // Font descriptor of the current font.
     FontInfo fontInfo;
 
     // Initialize from an external data buffer.
     // Doesn't copy data, and you must ensure it stays valid up to this object lifetime.
-    void Init( const uint8_t *data, uint32_t dataSize, uint32_t faceIndex, uint32_t pixelHeight );
+    int Init( FreeTypeFont &fontFace, const void *data, ImFontConfig &cfg, uint32_t pixelHeight );
 
     // Cleanup.
     void Shutdown();
@@ -123,8 +122,12 @@ public:
     TTF_Font *m_font = nullptr;
 };
 
-void FreeTypeFont::Init( const uint8_t *data, uint32_t dataSize, uint32_t faceIndex, uint32_t pixelHeight )
+int FreeTypeFont::Init( FreeTypeFont &fontFace, const void *data, ImFontConfig &cfg, uint32_t pixelHeight )
 {
+    int total_glyphs  = 0;
+    uint32_t dataSize = ( uint32_t )cfg.FontDataSize;
+    uint32_t faceIndex = cfg.FontNo;
+
     SDL_RWops *src = SDL_RWFromConstMem( data, dataSize );
 
     m_font = TTF_OpenFontIndexRW( src, 1, pixelHeight, faceIndex );
@@ -132,7 +135,7 @@ void FreeTypeFont::Init( const uint8_t *data, uint32_t dataSize, uint32_t faceIn
     TTF_SetFontStyle( m_font, TTF_STYLE_NORMAL );
     TTF_SetFontHinting( m_font, TTF_HINTING_NONE );
     TTF_SetFontOutline( m_font, 0 );
-    TTF_SetFontKerning( m_font, 1 );
+    TTF_SetFontKerning( m_font, 0 );
 
     memset( &fontInfo, 0, sizeof( fontInfo ) );
 
@@ -165,6 +168,39 @@ void FreeTypeFont::Init( const uint8_t *data, uint32_t dataSize, uint32_t faceIn
     printf( "descent: %d\n", TTF_FontDescent( m_font ) );
 
     printf( "\n" );
+
+    int miny_min = INT8_MAX;
+    int maxy_max = INT8_MIN;
+
+    for ( const ImWchar *in_range = cfg.GlyphRanges; in_range[ 0 ] && in_range[ 1 ]; in_range += 2 )
+    {
+        ImFont *dst_font = cfg.DstFont;
+
+        for ( uint32_t codepoint = in_range[ 0 ]; codepoint <= in_range[ 1 ]; ++codepoint )
+        {
+            if ( cfg.MergeMode && dst_font->FindGlyph( ( ImWchar )codepoint ) )
+                continue;
+
+            int minx, maxx, miny, maxy, advance;
+            TTF_GlyphMetrics( fontFace.m_font, ( Uint16 )codepoint, &minx, &maxx, &miny, &maxy, &advance, NULL );
+
+            fontFace.fontInfo.maxAdvanceWidth = std::max< float >( fontFace.fontInfo.maxAdvanceWidth, advance );
+
+            miny_min = std::min< int >( miny_min, miny );
+            maxy_max = std::max< int >( maxy_max, maxy );
+        }
+
+        // Count glyphs
+        total_glyphs  += ( in_range[ 1 ] - in_range[ 0 ] ) + 1;
+    }
+
+    printf( "maxy_max (ascent): %d\n", maxy_max );
+    printf( "miny_min (descent): %d\n", miny_min );
+
+    fontFace.fontInfo.ascent = maxy_max;
+    fontFace.fontInfo.descent = miny_min;
+
+    return total_glyphs;
 }
 
 void FreeTypeFont::Shutdown()
@@ -175,22 +211,21 @@ void FreeTypeFont::Shutdown()
 
 bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBitmap &glyphBitmap, uint32_t flags )
 {
-    int minx, maxx, miny, maxy, advance;
+    int minx, maxx, miny, maxy, advance, top;
     SDL_Color white = { 0xFF, 0xFF, 0xFF, 0 };
 
     // The glyph is rendered without any padding or centering in the X
     // direction, and aligned normally in the Y direction.
     SDL_Surface *glyph = TTF_RenderGlyph_Blended( m_font, ( Uint16 )codepoint, white );
 
-    TTF_GlyphMetrics( m_font, ( Uint16 )codepoint, &minx, &maxx, &miny, &maxy, &advance );
+    TTF_GlyphMetrics( m_font, ( Uint16 )codepoint, &minx, &maxx, &miny, &maxy, &advance, &top );
 
     int ascent = TTF_FontAscent( m_font );
-    int descent = TTF_FontDescent( m_font );
     int height = TTF_FontHeight( m_font );
     int pixelheight = TTF_FontHeight( m_font );
 
     glyphInfo.offsetX = minx;
-    glyphInfo.offsetY = -( fontInfo.ascent );
+    glyphInfo.offsetY = -ascent; //-fontInfo.ascent;
     glyphInfo.width = glyph->w;
     glyphInfo.height = glyph->h;
     glyphInfo.advanceX = advance;
@@ -198,30 +233,6 @@ bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, Gly
     glyphBitmap.width = glyph->w;
     glyphBitmap.height = glyph->h;
     glyphBitmap.pitch = glyph->w;
-
-    if ( codepoint == 'Y' || codepoint == 'y' )
-    {
-        printf( "codepoint: %c\n", codepoint );
-        printf( "  ascent: %d\n", ascent );
-        printf( "  descent: %d\n", descent );
-        printf( "  height: %d\n", height );
-        printf( "  pixelheight: %d\n", pixelheight );
-
-        printf( "  minx: %d\n", minx );
-        printf( "  maxx: %d\n", maxx );
-        printf( "  miny: %d\n", miny );
-        printf( "  maxy: %d\n", maxy );
-        printf( "  advance: %d\n", advance );
-
-        printf( "  glyph->h: %d\n", glyph->h );
-        printf( "  glyph->w: %d\n", glyph->w );
-        printf( "  glyph->pitch: %d\n", glyph->pitch );
-
-        printf( "\n" );
-        fflush( stdout );
-    }
-
-    IM_ASSERT( glyphBitmap.pitch <= GlyphBitmap::MaxWidth );
 
     if ( glyphBitmap.width > 0 )
     {
@@ -233,10 +244,43 @@ bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, Gly
 
             for ( int w = 0; w < glyph->w; w++ )
             {
+#if 0
+                if ( *pixels == 0xffffff )
+                    *pixels = 0xffff00ff;
+#endif
                 *dest++ = ( uint8_t )( *pixels++ >> 24 );
             }
         }
     }
+
+
+//    if ( ( codepoint >= 'a' && codepoint <= 'z' ) ||
+//         ( codepoint >= 'A' && codepoint <= 'Z' ) )
+    {
+#if 0
+        char outname[64];
+        sprintf( outname, "%s-glyph-%u.bmp", fontInfo.familyName, codepoint );
+        SDL_SaveBMP( glyph, outname );
+#endif
+
+        printf( "%c:", codepoint );
+        printf( "  top: %d", top );
+        printf( "  h: %d", height );
+        printf( "  pixelh: %d", pixelheight );
+
+        printf( "  minx: %d", minx );
+        printf( "  maxx: %d", maxx );
+        printf( "  miny: %d", miny );
+        printf( "  maxy: %d", maxy );
+        printf( "  advance: %d", advance );
+
+        printf( "  glyph->h: %d", glyph->h );
+        printf( "  glyph->w: %d", glyph->w );
+        printf( "  glyph->pitch: %d\n", glyph->pitch );
+        fflush( stdout );
+    }
+
+    IM_ASSERT( glyphBitmap.pitch <= GlyphBitmap::MaxWidth );
 
     SDL_FreeSurface( glyph );
 
@@ -259,37 +303,29 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
 
     // Initialize font information early (so we can error without any cleanup) + count glyphs
     int total_glyph_count = 0;
-    int total_glyph_range_count = 0;
     for ( int input_i = 0; input_i < atlas->ConfigData.Size; input_i++ )
     {
         ImFontConfig &cfg = atlas->ConfigData[ input_i ];
         FreeTypeFont &fontFace = tmp_array[ input_i ];
 
-        IM_ASSERT( cfg.DstFont && ( !cfg.DstFont->IsLoaded() || cfg.DstFont->ContainerAtlas == atlas ) );
+        IM_ASSERT( cfg.DstFont &&
+                   ( !cfg.DstFont->IsLoaded() || cfg.DstFont->ContainerAtlas == atlas ) );
 
         if ( !cfg.GlyphRanges )
             cfg.GlyphRanges = atlas->GetGlyphRangesDefault();
 
-        fontFace.Init( ( uint8_t * )cfg.FontData, ( uint32_t )cfg.FontDataSize, cfg.FontNo, ( uint32_t )cfg.SizePixels );
-
-        for ( const ImWchar *in_range = cfg.GlyphRanges; in_range[ 0 ] && in_range[ 1 ]; in_range += 2 )
+        for ( uint32_t pixelHeight = ( uint32_t )cfg.SizePixels; ; pixelHeight++ )
         {
-            ImFont *dst_font = cfg.DstFont;
+            int glyph_count = fontFace.Init( fontFace, cfg.FontData, cfg, pixelHeight );
+            float size = fontFace.fontInfo.ascent - fontFace.fontInfo.descent;
 
-            for ( uint32_t codepoint = in_range[ 0 ]; codepoint <= in_range[ 1 ]; ++codepoint )
+            if ( size >= cfg.SizePixels )
             {
-                if ( cfg.MergeMode && dst_font->FindGlyph( ( ImWchar )codepoint ) )
-                    continue;
-
-                int minx, maxx, miny, maxy, advance;
-                TTF_GlyphMetrics( fontFace.m_font, ( Uint16 )codepoint, &minx, &maxx, &miny, &maxy, &advance );
-
-                fontFace.fontInfo.maxAdvanceWidth = std::max< float >( fontFace.fontInfo.maxAdvanceWidth, advance );
+                total_glyph_count += glyph_count;
+                break;
             }
 
-            // Count glyphs
-            total_glyph_count += ( in_range[ 1 ] - in_range[ 0 ] ) + 1;
-            total_glyph_range_count++;
+            fontFace.Shutdown();
         }
 
         maxGlyphSize.x = ImMax( maxGlyphSize.x, fontFace.fontInfo.maxAdvanceWidth );

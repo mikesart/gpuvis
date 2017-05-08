@@ -60,6 +60,7 @@ typedef struct cached_glyph {
     int maxy;
     int yoffset;
     int advance;
+    int top;
     Uint16 cached;
 } c_glyph;
 
@@ -632,6 +633,7 @@ static FT_Error Load_Glyph( TTF_Font* font, Uint16 ch, c_glyph* cached, int want
             cached->miny = cached->maxy - FT_CEIL(metrics->height);
             cached->yoffset = font->ascent - cached->maxy;
             cached->advance = FT_CEIL(metrics->horiAdvance);
+            cached->top = 0;
         } else {
             /* Get the bounding box for non-scalable format.
              * Again, freetype2 fills in many of the font metrics
@@ -645,6 +647,7 @@ static FT_Error Load_Glyph( TTF_Font* font, Uint16 ch, c_glyph* cached, int want
             cached->miny = cached->maxy - FT_CEIL(face->available_sizes[font->font_size_family].height);
             cached->yoffset = 0;
             cached->advance = FT_CEIL(metrics->horiAdvance);
+            cached->top = 0;
         }
 
         /* Adjust for bold and italic text */
@@ -703,6 +706,13 @@ static FT_Error Load_Glyph( TTF_Font* font, Uint16 ch, c_glyph* cached, int want
             }
             src = &glyph->bitmap;
         }
+
+        {
+            FT_BitmapGlyph freeTypeBitmap = ( FT_BitmapGlyph )src;
+
+            cached->top = freeTypeBitmap->top;
+        }
+
         /* Copy over information to cache */
         if ( mono ) {
             dst = &cached->bitmap;
@@ -1145,11 +1155,12 @@ int TTF_GlyphIsProvided(const TTF_Font *font, Uint16 ch)
 }
 
 int TTF_GlyphMetrics(TTF_Font *font, Uint16 ch,
-                     int* minx, int* maxx, int* miny, int* maxy, int* advance)
+                     int* minx, int* maxx, int* miny, int* maxy, int* advance, int *top)
 {
     FT_Error error;
+    int want = top ? (CACHED_BITMAP | CACHED_METRICS) : CACHED_METRICS;
 
-    error = Find_Glyph(font, ch, CACHED_METRICS);
+    error = Find_Glyph(font, ch, want);
     if ( error ) {
         TTF_SetFTError("Couldn't find glyph", error);
         return -1;
@@ -1175,6 +1186,9 @@ int TTF_GlyphMetrics(TTF_Font *font, Uint16 ch,
         if ( TTF_HANDLE_STYLE_BOLD(font) ) {
             *advance += font->glyph_overhang;
         }
+    }
+    if ( top ) {
+        *top = font->current->top;
     }
     return 0;
 }
