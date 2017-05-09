@@ -124,6 +124,7 @@ bool comp_val_to_abc( uint32_t val, uint32_t &a, uint32_t &b, uint32_t &c );
 uint32_t comp_abc_to_val( uint32_t a, uint32_t b, uint32_t c );
 
 float imgui_scale( float val );
+void imgui_set_scale( float val );
 bool imgui_key_pressed( ImGuiKey key );
 
 ImU32 imgui_col_from_hashval( uint32_t hashval );

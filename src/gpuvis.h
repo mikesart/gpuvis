@@ -400,6 +400,7 @@ public:
 
     void render( TraceLoader &loader );
     void render_options( TraceLoader &loader );
+    void render_font_options( TraceLoader &loader );
     void render_log( TraceLoader &loader );
     void render_console( TraceLoader &loader );
 
@@ -687,6 +688,8 @@ enum : uint32_t
     OPT_GraphHeight,
     OPT_GraphHeightZoomed,
     OPT_EventListRowCount,
+    OPT_Scale,
+    OPT_UseSDLFonts,
 
     OPT_PresetMax
 };
@@ -788,7 +791,7 @@ public:
     {
         return m_options[ opt ].val;
     }
-    int get_optf( option_id_t opt )
+    float get_optf( option_id_t opt )
     {
         return m_options[ opt ].valf;
     }

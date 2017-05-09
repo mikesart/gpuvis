@@ -400,6 +400,10 @@ float imgui_scale( float val )
 {
     return val * g_scale;
 }
+void imgui_set_scale( float val )
+{
+    g_scale = Clamp< float >( val, 0.25f, 6.0f );
+}
 
 bool imgui_key_pressed( ImGuiKey key )
 {
@@ -502,6 +506,8 @@ void imgui_load_fonts( CIniFile &inifile )
 {
     FontInfo fontinfo;
 
+    ImGui::GetIO().Fonts->Clear();
+
     // Add main font first
     fontinfo.Init( inifile, "$imgui_font_main$", "Proggy", 13.0f );
     fontinfo.LoadFont( inifile );
@@ -518,8 +524,6 @@ void imgui_ini_settings( CIniFile &inifile, bool save )
 
     if ( save )
     {
-        inifile.PutFloat( "scale", g_scale );
-
         for ( int i = 0; i < ImGuiCol_COUNT; i++ )
         {
             const ImVec4 &col = style.Colors[ i ];
@@ -531,9 +535,6 @@ void imgui_ini_settings( CIniFile &inifile, bool save )
     else
     {
         ImVec4 defcol = { -1.0f, -1.0f, -1.0f, -1.0f };
-
-        g_scale = inifile.GetFloat( "scale", 1.0f );
-        g_scale = Clamp< float >( g_scale, 0.25f, 6.0f );
 
         for ( int i = 0; i < ImGuiCol_COUNT; i++ )
         {

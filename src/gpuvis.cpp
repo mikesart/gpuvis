@@ -462,6 +462,12 @@ void TraceLoader::init()
     m_options[ OPT_EventListRowCount ].opt_int( "Event List Size: %.0f", "eventlist_rows", 0, 0, 100 );
     m_options[ OPT_EventListRowCount ].hidden = true;
 
+    m_options[ OPT_Scale ].opt_float( "Scale: %.1f", "scale", 1.0f, 0.25f, 6.0f );
+    m_options[ OPT_Scale ].hidden = true;
+
+    m_options[ OPT_UseSDLFonts ].opt_bool( "Use SDL Fonts", "use_sdl_fonts", false );
+    m_options[ OPT_UseSDLFonts ].hidden = true;
+
     for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
         const std::string desc = string_format( "Show drm_vblank_event crtc%d markers", i - OPT_RenderCrtc0 );
@@ -2203,6 +2209,27 @@ void TraceConsole::render_options( TraceLoader &loader )
     }
 }
 
+void TraceConsole::render_font_options( TraceLoader &loader )
+{
+    TraceLoader::option_t &opt_scale = loader.m_options[ OPT_Scale ];
+    TraceLoader::option_t &opt_use_sdl_fonts = loader.m_options[ OPT_UseSDLFonts ];
+
+    ImGui::PushItemWidth( 200.0f );
+    ImGui::SliderFloat( "##slider_float", &opt_scale.valf, opt_scale.valf_min, opt_scale.valf_max, opt_scale.desc.c_str() );
+    ImGui::PopItemWidth();
+
+    ImGui::CheckboxInt( opt_use_sdl_fonts.desc.c_str(), &opt_use_sdl_fonts.val );
+
+#if 0
+    Name: Proggy, Proggy Tiny, Roboto Condensed
+    Filename
+    Size
+    OverSampleH
+    OverSampleV
+    PixelSnapH
+#endif
+}
+
 void TraceConsole::render_log( TraceLoader &loader )
 {
     ImGui::Text( "Log Filter:" );
@@ -2370,6 +2397,9 @@ void TraceConsole::render_console( TraceLoader &loader )
     if ( ImGui::CollapsingHeader( "Options", ImGuiTreeNodeFlags_DefaultOpen ) )
         render_options( loader );
 
+    if ( ImGui::CollapsingHeader( "Font Options", ImGuiTreeNodeFlags_DefaultOpen ) )
+        render_font_options( loader );
+
     if ( ImGui::CollapsingHeader( "Log", ImGuiTreeNodeFlags_DefaultOpen ) )
         render_log( loader );
 
@@ -2423,9 +2453,9 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
             if ( !strcasecmp( "fullscreen", long_opts[ opt_ind ].name ) )
                 loader.m_options[ OPT_Fullscreen ].val = true;
             else if ( !strcasecmp( "use_sdl_fonts", long_opts[ opt_ind ].name ) )
-                loader.m_inifile.PutInt( "use_sdl_fonts", atoi( ya_optarg ) );
+                loader.m_options[ OPT_UseSDLFonts ].val = !!atoi( ya_optarg );
             else if ( !strcasecmp( "scale", long_opts[ opt_ind ].name ) )
-                loader.m_inifile.PutFloat( "scale", atof( ya_optarg ) );
+                loader.m_options[ OPT_Scale ].valf = atof( ya_optarg );
             break;
         case 'i':
             loader.m_inputfiles.push_back( optarg );
@@ -2514,6 +2544,7 @@ int main( int argc, char **argv )
     int w = inifile.GetInt( "win_w", 1280 );
     int h = inifile.GetInt( "win_h", 1024 );
 
+    imgui_set_scale( loader.get_optf( OPT_Scale ) );
     imgui_ini_settings( inifile );
 
     console.init( &inifile );
@@ -2604,6 +2635,25 @@ int main( int argc, char **argv )
             load_trace_file( loader, console, filename );
 
             loader.m_inputfiles.erase( loader.m_inputfiles.begin() );
+        }
+
+        bool reload_fonts = false;
+
+        if ( inifile.GetInt( "use_sdl_fonts", 0 ) != loader.get_opt( OPT_UseSDLFonts ) )
+            reload_fonts = true;
+        else if ( ( loader.get_optf( OPT_Scale ) != imgui_scale( 1.0f ) ) && !ImGui::IsMouseDown( 0 ) )
+            reload_fonts = true;
+
+        if ( reload_fonts )
+        {
+            inifile.PutInt( "use_sdl_fonts", loader.get_opt( OPT_UseSDLFonts ) );
+
+            ImGui_ImplSdlGL3_InvalidateDeviceObjects();
+
+            imgui_set_scale( loader.get_optf( OPT_Scale ) );
+            imgui_load_fonts( inifile );
+
+            loader.m_options[ OPT_UseSDLFonts ].val = inifile.GetInt( "use_sdl_fonts", 0 );
         }
     }
 
