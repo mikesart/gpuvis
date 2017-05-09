@@ -107,6 +107,23 @@ public:
     util_umap< uint32_t, std::string > m_pool;
 };
 
+class FontInfo
+{
+public:
+    FontInfo() {}
+    ~FontInfo() {}
+
+    void Init( CIniFile &inifile, const char *section, const char *defname, float defsize );
+    void LoadFont( CIniFile &inifile );
+
+public:
+    float m_size;
+    std::string m_filename;
+    std::string m_section;
+    std::string m_name;
+    ImFontConfig m_font_cfg;
+};
+
 void logf_init();
 void logf_shutdown();
 void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
@@ -191,7 +208,6 @@ public:
 bool imgui_push_smallfont();
 void imgui_pop_smallfont();
 
-void imgui_load_fonts( CIniFile &infile );
 void imgui_ini_settings( CIniFile &inifile, bool save = false );
 
 class ColorPicker

@@ -721,6 +721,8 @@ public:
     void init();
     void shutdown();
 
+    void load_fonts();
+
 protected:
     state_t get_state();
     void set_state( state_t state );
@@ -808,4 +810,7 @@ public:
 
     std::vector< option_t > m_options;
     std::string m_event_filter_str;
+
+    FontInfo m_font_main;
+    FontInfo m_font_small;
 };

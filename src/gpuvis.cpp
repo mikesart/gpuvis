@@ -591,6 +591,20 @@ void TraceLoader::render()
     }
 }
 
+void TraceLoader::load_fonts()
+{
+    // Clear all font texture data, ttf data, glyphs, etc.
+    ImGui::GetIO().Fonts->Clear();
+
+    // Add main font
+    m_font_main.Init( m_inifile, "$imgui_font_main$", "Proggy", 13.0f );
+    m_font_main.LoadFont( m_inifile );
+
+    // Add small font
+    m_font_small.Init( m_inifile, "$imgui_font_small$", "Proggy Tiny", 10.0f );
+    m_font_small.LoadFont( m_inifile );
+}
+
 /*
  * GraphRows
  */
@@ -2578,7 +2592,7 @@ int main( int argc, char **argv )
     // Setup imgui default text color
     multi_text_color::def.set( ImGui::GetColorVec4( ImGuiCol_Text ) );
 
-    imgui_load_fonts( inifile );
+    loader.load_fonts();
 
     // Main loop
     bool done = false;
@@ -2648,10 +2662,10 @@ int main( int argc, char **argv )
         {
             inifile.PutInt( "use_sdl_fonts", loader.get_opt( OPT_UseSDLFonts ) );
 
-            ImGui_ImplSdlGL3_InvalidateDeviceObjects();
-
             imgui_set_scale( loader.get_optf( OPT_Scale ) );
-            imgui_load_fonts( inifile );
+
+            ImGui_ImplSdlGL3_InvalidateDeviceObjects();
+            loader.load_fonts();
 
             loader.m_options[ OPT_UseSDLFonts ].val = inifile.GetInt( "use_sdl_fonts", 0 );
         }

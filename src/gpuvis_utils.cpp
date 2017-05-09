@@ -39,6 +39,9 @@
 #include "gpuvis_utils.h"
 #include "stlini.h"
 
+#include "proggy_tiny.cpp"
+#include "RobotoCondensed_Regular.cpp"
+
 static SDL_threadID g_main_tid = -1;
 static std::vector< char * > g_log;
 static std::vector< char * > g_thread_log;
@@ -410,25 +413,43 @@ bool imgui_key_pressed( ImGuiKey key )
     return ImGui::IsKeyPressed( ImGui::GetKeyIndex( key ) );
 }
 
-#include "proggy_tiny.cpp"
-#include "RobotoCondensed_Regular.cpp"
-
-class FontInfo
+void imgui_ini_settings( CIniFile &inifile, bool save )
 {
-public:
-    FontInfo() {}
-    ~FontInfo() {}
+    ImGuiStyle &style = ImGui::GetStyle();
+    const char section[] = "$imgui_settings$";
 
-    void Init( CIniFile &inifile, const char *section, const char *defname, float defsize );
-    void LoadFont( CIniFile &inifile );
+    if ( save )
+    {
+        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
+        {
+            const ImVec4 &col = style.Colors[ i ];
+            const char *name = ImGui::GetStyleColName( i );
 
-public:
-    float m_size;
-    std::string m_filename;
-    std::string m_section;
-    std::string m_name;
-    ImFontConfig m_font_cfg;
-};
+            inifile.PutVec4( name, col, section );
+        }
+    }
+    else
+    {
+        ImVec4 defcol = { -1.0f, -1.0f, -1.0f, -1.0f };
+
+        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
+        {
+            const char *name = ImGui::GetStyleColName( i );
+
+            ImVec4 col = inifile.GetVec4( name, defcol, section );
+            if ( col.w == -1.0f )
+            {
+                // Default to no alpha for our windows...
+                if ( i == ImGuiCol_WindowBg )
+                    ImGui::GetStyle().Colors[ i ].w = 1.0f;
+            }
+            else
+            {
+                style.Colors[ i ] = col;
+            }
+        }
+    }
+}
 
 void FontInfo::Init( CIniFile &inifile, const char *section, const char *defname, float defsize )
 {
@@ -500,59 +521,6 @@ void FontInfo::LoadFont( CIniFile &inifile )
     inifile.PutInt( "OverSampleH", m_font_cfg.OversampleH, section );
     inifile.PutInt( "OverSampleV", m_font_cfg.OversampleV, section );
     inifile.PutInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
-}
-
-void imgui_load_fonts( CIniFile &inifile )
-{
-    FontInfo fontinfo;
-
-    ImGui::GetIO().Fonts->Clear();
-
-    // Add main font first
-    fontinfo.Init( inifile, "$imgui_font_main$", "Proggy", 13.0f );
-    fontinfo.LoadFont( inifile );
-
-    // Add small font second
-    fontinfo.Init( inifile, "$imgui_font_small$", "Proggy Tiny", 10.0f );
-    fontinfo.LoadFont( inifile );
-}
-
-void imgui_ini_settings( CIniFile &inifile, bool save )
-{
-    ImGuiStyle &style = ImGui::GetStyle();
-    const char section[] = "$imgui_settings$";
-
-    if ( save )
-    {
-        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
-        {
-            const ImVec4 &col = style.Colors[ i ];
-            const char *name = ImGui::GetStyleColName( i );
-
-            inifile.PutVec4( name, col, section );
-        }
-    }
-    else
-    {
-        ImVec4 defcol = { -1.0f, -1.0f, -1.0f, -1.0f };
-
-        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
-        {
-            const char *name = ImGui::GetStyleColName( i );
-
-            ImVec4 col = inifile.GetVec4( name, defcol, section );
-            if ( col.w == -1.0f )
-            {
-                // Default to no alpha for our windows...
-                if ( i == ImGuiCol_WindowBg )
-                    ImGui::GetStyle().Colors[ i ].w = 1.0f;
-            }
-            else
-            {
-                style.Colors[ i ] = col;
-            }
-        }
-    }
 }
 
 bool ColorPicker::render( ImU32 *pcolor )
