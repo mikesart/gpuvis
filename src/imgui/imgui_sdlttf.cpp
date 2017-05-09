@@ -6,6 +6,7 @@
 
 #include "imgui.h"
 #include "imgui_sdlttf.h"
+#include "../gpuvis_macros.h"
 
 #ifdef __GNUC__
 // For warnings in src/imgui/stb_rect_pack.h
@@ -183,15 +184,27 @@ SDL_Surface *SDLFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, 
     // The glyph is rendered without any padding or centering in the X
     // direction, and aligned normally in the Y direction.
     int ascent = TTF_FontAscent( m_font );
-    SDL_Surface *glyph = TTF_RenderGlyph_Shaded( m_font, ch, white, black );
+    SDL_Surface *surf = TTF_RenderGlyph_Shaded( m_font, ch, white, black );
 
     TTF_GlyphMetrics( m_font, ch, &minx, &maxx, &miny, &maxy, &advance );
 
     glyphInfo.offsetX = minx;
     glyphInfo.offsetY = -ascent;
-    glyphInfo.width = glyph->w;
-    glyphInfo.height = glyph->h;
-    glyphInfo.advanceX = advance;
+    glyphInfo.width = surf->w;
+    glyphInfo.height = surf->h;
+    glyphInfo.advanceX = advance + 0.5f;
+
+#if 0
+    for ( int h = 0; h < surf->h; h++ )
+    {
+        uint8_t *pixels = ( uint8_t * )( ( char * )surf->pixels + h * surf->pitch );
+
+        for ( int w = 0; w < surf->w; w++ )
+        {
+            pixels[ w ] = std::min< uint32_t >( pixels[ w ] + pixels[ w ] * 2 / 10, 255 );
+        }
+    }
+#endif
 
 #ifdef DEBUG_FONTS
     {
@@ -201,8 +214,11 @@ SDL_Surface *SDLFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, 
 
 #if DEBUG_FONTS == 2
         char outname[64];
-        sprintf( outname, "%s-glyph-%u.bmp", m_familyName, ch );
-        SDL_SaveBMP( glyph, outname );
+        if ( isalnum( ch ) )
+            snprintf_safe( outname, "%s-glyph-%c.bmp", TTF_FontFaceFamilyName( m_font ), ch );
+        else
+            snprintf_safe( outname, "%s-glyph-%u.bmp", TTF_FontFaceFamilyName( m_font ), ch );
+        SDL_SaveBMP( surf, outname );
 #endif
         printf( "%u:", ch );
         printf( "  h: %d", height );
@@ -216,14 +232,14 @@ SDL_Surface *SDLFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, 
         printf( "  maxy: %d", maxy );
         printf( "  adv: %d", advance );
 
-        printf( "  glyph h: %d", glyph->h );
-        printf( "  w: %d", glyph->w );
-        printf( "  pitch: %d\n", glyph->pitch );
+        printf( "  glyph h: %d", surf->h );
+        printf( "  w: %d", surf->w );
+        printf( "  pitch: %d\n", surf->pitch );
         fflush( stdout );
     }
 #endif
 
-    return glyph;
+    return surf;
 }
 
 bool ImGuiSDLttf::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
@@ -257,19 +273,7 @@ bool ImGuiSDLttf::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
         if ( !cfg.GlyphRanges )
             cfg.GlyphRanges = atlas->GetGlyphRangesDefault();
 
-        for ( uint32_t pixelHeight = ( uint32_t )cfg.SizePixels; ; pixelHeight++ )
-        {
-            int glyph_count = sdlfont.Init( cfg.FontData, cfg, pixelHeight );
-            if ( !glyph_count )
-                break;
-
-            float size = sdlfont.m_ascent - sdlfont.m_descent;
-            if ( size >= cfg.SizePixels )
-            {
-                total_glyph_count += glyph_count;
-                break;
-            }
-        }
+        total_glyph_count += sdlfont.Init( cfg.FontData, cfg, cfg.SizePixels );
 
         maxGlyphSize.x = ImMax( maxGlyphSize.x, sdlfont.m_max_advance );
         maxGlyphSize.y = ImMax( maxGlyphSize.y, sdlfont.m_ascent - sdlfont.m_descent );
@@ -372,6 +376,14 @@ bool ImGuiSDLttf::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
                         uint8_t *pixels = ( uint8_t * )( ( char * )surf->pixels + h * surf->pitch );
 
                         memcpy( dst, pixels, surf->w );
+#if 0
+                        if ( h == 0 || h == surf->h - 1 )
+                            memset( dst, 0x40, surf->w );
+
+                        dst[ 0 ] = std::min< uint32_t >( dst[ 0 ] + 40, 255 );
+                        dst[ surf->w - 1 ] = std::min< uint32_t >( dst[ surf->w - 1 ] + 40, 255 );
+#endif
+
                         dst += atlas->TexWidth;
                     }
 
