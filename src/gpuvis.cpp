@@ -2541,7 +2541,7 @@ int main( int argc, char **argv )
     // Setup imgui default text color
     multi_text_color::def.set( ImGui::GetColorVec4( ImGuiCol_Text ) );
 
-    imgui_load_fonts();
+    imgui_load_fonts( inifile );
 
     // Main loop
     bool done = false;
@@ -2565,7 +2565,7 @@ int main( int argc, char **argv )
             if ( event.type == SDL_QUIT )
                 done = true;
         }
-        ImGui_ImplSdlGL3_NewFrame( window );
+        ImGui_ImplSdlGL3_NewFrame( window, inifile );
 
         // Check for logf() calls from background threads.
         logf_update();

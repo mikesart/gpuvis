@@ -15,6 +15,7 @@
 #include "../GL/gl3w.h"    // This example is using gl3w to access OpenGL functions (because it is small). You may use glew/glad/glLoadGen/etc. whatever already works for you.
 
 #include "imgui_sdlttf.h"
+#include "../stlini.h"
 
 // Data
 static double       g_Time = 0.0f;
@@ -175,17 +176,23 @@ bool ImGui_ImplSdlGL3_ProcessEvent(SDL_Event* event)
     return false;
 }
 
-void ImGui_ImplSdlGL3_CreateFontsTexture()
+void ImGui_ImplSdlGL3_CreateFontsTexture(CIniFile &inifile)
 {
     // Build texture atlas
     ImGuiIO& io = ImGui::GetIO();
     unsigned char* pixels;
     int width, height;
+    int use_sdl_fonts = inifile.GetInt( "use_sdl_fonts", 0 );
 
-    unsigned int flags = ImGuiSDLttf::ForceAutoHint;
-    ImGuiSDLttf::BuildFontAtlas(io.Fonts, flags);
+    if ( use_sdl_fonts )
+    {
+        unsigned int flags = ImGuiSDLttf::ForceAutoHint;
+        ImGuiSDLttf::BuildFontAtlas(io.Fonts, flags);
+    }
+    inifile.PutInt( "use_sdl_fonts", use_sdl_fonts );
 
-    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);   // Load as RGBA 32-bits for OpenGL3 demo because it is more likely to be compatible with user's existing shader.
+    // Load as RGBA 32-bits for OpenGL3 demo because it is more likely to be compatible with user's existing shader.
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 
     // Upload texture to graphics system
     GLint last_texture;
@@ -202,9 +209,36 @@ void ImGui_ImplSdlGL3_CreateFontsTexture()
 
     // Restore state
     glBindTexture(GL_TEXTURE_2D, last_texture);
+
+#ifdef DEBUG_FONTS
+    SDL_Surface *surf = SDL_CreateRGBSurface( SDL_SWSURFACE, io.Fonts->TexWidth, io.Fonts->TexHeight, 8, 0, 0, 0, 0 );
+    if ( surf )
+    {
+        const unsigned char *src = io.Fonts->TexPixelsAlpha8;
+        SDL_Palette *palette = surf->format->palette;
+
+        for ( int index = 0; index < 256; index++ )
+        {
+            palette->colors[ index ].r = index;
+            palette->colors[ index ].g = index;
+            palette->colors[ index ].b = index;
+        }
+
+        for ( int h = 0; h < surf->h; h++ )
+        {
+            uint8_t *dst = ( uint8_t * )( ( char * )surf->pixels + h * surf->pitch );
+
+            memcpy( dst, src, surf->w );
+            src += surf->w;
+        }
+        SDL_SaveBMP( surf, "TexPixelsAlpha8.bmp" );
+
+        SDL_FreeSurface( surf );
+    }
+#endif
 }
 
-bool ImGui_ImplSdlGL3_CreateDeviceObjects()
+bool ImGui_ImplSdlGL3_CreateDeviceObjects(CIniFile &inifile)
 {
     // Backup GL state
     GLint last_texture, last_array_buffer, last_vertex_array;
@@ -271,7 +305,7 @@ bool ImGui_ImplSdlGL3_CreateDeviceObjects()
     glVertexAttribPointer(g_AttribLocationColor, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ImDrawVert), (GLvoid*)OFFSETOF(ImDrawVert, col));
 #undef OFFSETOF
 
-    ImGui_ImplSdlGL3_CreateFontsTexture();
+    ImGui_ImplSdlGL3_CreateFontsTexture(inifile);
 
     // Restore modified GL state
     glBindTexture(GL_TEXTURE_2D, last_texture);
@@ -353,10 +387,10 @@ void ImGui_ImplSdlGL3_Shutdown()
     ImGui::Shutdown();
 }
 
-void ImGui_ImplSdlGL3_NewFrame(SDL_Window* window)
+void ImGui_ImplSdlGL3_NewFrame(SDL_Window* window, CIniFile &inifile)
 {
     if (!g_FontTexture)
-        ImGui_ImplSdlGL3_CreateDeviceObjects();
+        ImGui_ImplSdlGL3_CreateDeviceObjects(inifile);
 
     ImGuiIO& io = ImGui::GetIO();
 
