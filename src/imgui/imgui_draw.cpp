@@ -1206,9 +1206,10 @@ ImFont* ImFontAtlas::AddFontDefault(const ImFontConfig* font_cfg_template)
         font_cfg.PixelSnapH = true;
     }
     if (font_cfg.Name[0] == '\0') strcpy(font_cfg.Name, "ProggyClean.ttf, 13px");
+    if (font_cfg.SizePixels < 1.0f ) font_cfg.SizePixels = 13.0f;
 
     const char* ttf_compressed_base85 = GetDefaultCompressedFontDataTTFBase85();
-    ImFont* font = AddFontFromMemoryCompressedBase85TTF(ttf_compressed_base85, 13.0f, &font_cfg, GetGlyphRangesDefault());
+    ImFont* font = AddFontFromMemoryCompressedBase85TTF(ttf_compressed_base85, font_cfg.SizePixels, &font_cfg, GetGlyphRangesDefault());
     return font;
 }
 
@@ -1726,6 +1727,8 @@ void    ImFont::Clear()
     ContainerAtlas = NULL;
     Ascent = Descent = 0.0f;
     MetricsTotalSurface = 0;
+    //$ mikesart
+    PixelSnapStartPosH = true;
 }
 
 void ImFont::BuildLookupTable()
@@ -2024,8 +2027,12 @@ void ImFont::RenderChar(ImDrawList* draw_list, float size, ImVec2 pos, ImU32 col
     if (const Glyph* glyph = FindGlyph(c))
     {
         float scale = (size >= 0.0f) ? (size / FontSize) : 1.0f;
-        pos.x = (float)(int)pos.x + DisplayOffset.x;
+
+        if ( PixelSnapStartPosH )
+            pos.x = (float)(int)pos.x;
+        pos.x += DisplayOffset.x;
         pos.y = (float)(int)pos.y + DisplayOffset.y;
+
         ImVec2 pos_tl(pos.x + glyph->X0 * scale, pos.y + glyph->Y0 * scale);
         ImVec2 pos_br(pos.x + glyph->X1 * scale, pos.y + glyph->Y1 * scale);
         draw_list->PrimReserve(6, 4);
@@ -2039,8 +2046,11 @@ void ImFont::RenderText(ImDrawList* draw_list, float size, ImVec2 pos, ImU32 col
         text_end = text_begin + strlen(text_begin); // ImGui functions generally already provides a valid text_end, so this is merely to handle direct calls.
 
     // Align to be pixel perfect
-    pos.x = (float)(int)pos.x + DisplayOffset.x;
+    if ( PixelSnapStartPosH )
+        pos.x = (float)(int)pos.x;
+    pos.x += DisplayOffset.x;
     pos.y = (float)(int)pos.y + DisplayOffset.y;
+
     float x = pos.x;
     float y = pos.y;
     if (y > clip_rect.w)

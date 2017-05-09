@@ -1438,6 +1438,7 @@ struct ImFont
     const Glyph*                FallbackGlyph;      // == FindGlyph(FontFallbackChar)
     float                       FallbackXAdvance;   // == FallbackGlyph->XAdvance
     ImWchar                     FallbackChar;       // = '?'        // Replacement glyph if one isn't found. Only set via SetFallbackChar()
+    bool                        PixelSnapStartPosH; // true
 
     // Members: Cold ~18/26 bytes
     short                       ConfigDataCount;    // ~ 1          // Number of ImFontConfig involved in creating this font. Bigger than 1 when merging multiple font sources into one ImFont.
