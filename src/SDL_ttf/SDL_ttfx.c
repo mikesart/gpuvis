@@ -351,6 +351,14 @@ int TTF_Init( void )
             TTF_SetFTError("Couldn't init FreeType engine", error);
             status = -1;
         }
+#if 0
+        else
+        {
+            // https://www.freetype.org/freetype2/docs/reference/ft2-auto_hinter.html#warping
+            FT_Bool warping = 1;
+            FT_Property_Set( library, "autofitter", "warping", &warping );
+        }
+#endif
     }
     if ( status == 0 ) {
         ++TTF_initialized;
@@ -374,6 +382,10 @@ static unsigned long RWread(
     }
     return (unsigned long)SDL_RWread( src, buffer, 1, (int)count );
 }
+
+#if 0
+#include "freetype/ftautoh.h"
+#endif
 
 TTF_Font* TTF_OpenFontIndexRW( SDL_RWops *src, int freesrc, int ptsize, long index )
 {
@@ -466,9 +478,6 @@ TTF_Font* TTF_OpenFontIndexRW( SDL_RWops *src, int freesrc, int ptsize, long ind
     /* Make sure that our font face is scalable (global metrics) */
     if ( FT_IS_SCALABLE(face) ) {
 #if 0
-        //$ TODO mikesart: FT_Set_Char_Size does a FT_SIZE_REQUEST_TYPE_NOMINAL request
-        // which may give us a font size that isn't close to what we asked for.
-
         /* Set the character size and use default DPI (72) */
         error = FT_Set_Char_Size( font->face, 0, ptsize * 64, 0, 0 );
 #else
@@ -479,6 +488,15 @@ TTF_Font* TTF_OpenFontIndexRW( SDL_RWops *src, int freesrc, int ptsize, long ind
         req.horiResolution = 0;
         req.vertResolution = 0;
         error = FT_Request_Size( font->face, &req );
+
+#if 0
+        // https://www.freetype.org/freetype2/docs/reference/ft2-auto_hinter.html#increase-x-height
+        FT_Prop_IncreaseXHeight prop;
+        prop.face  = face;
+        prop.limit = 20;
+        FT_Property_Set( library, "autofitter", "increase-x-height", &prop );
+#endif
+
 #endif
         if ( error ) {
             TTF_SetFTError( "Couldn't set font size", error );
@@ -622,7 +640,7 @@ static FT_Error Load_Glyph( TTF_Font* font, Uint16 ch, c_glyph* cached, int want
     if ( ! cached->index ) {
         cached->index = FT_Get_Char_Index( face, ch );
     }
-    error = FT_Load_Glyph( face, cached->index, FT_LOAD_DEFAULT | font->hinting);
+    error = FT_Load_Glyph( face, cached->index, FT_LOAD_DEFAULT | font->hinting );
     if ( error ) {
         return error;
     }
@@ -699,7 +717,7 @@ static FT_Error Load_Glyph( TTF_Font* font, Uint16 ch, c_glyph* cached, int want
             FT_Glyph_Stroke( &bitmap_glyph, stroker, 1 /* delete the original glyph */ );
             FT_Stroker_Done( stroker );
             /* Render the glyph */
-            error = FT_Glyph_To_Bitmap( &bitmap_glyph, mono ? ft_render_mode_mono : ft_render_mode_normal, 0, 1 );
+            error = FT_Glyph_To_Bitmap( &bitmap_glyph, mono ? FT_RENDER_MODE_MONO : FT_RENDER_MODE_NORMAL, 0, 1 );
             if ( error ) {
                 FT_Done_Glyph( bitmap_glyph );
                 return error;
@@ -707,7 +725,7 @@ static FT_Error Load_Glyph( TTF_Font* font, Uint16 ch, c_glyph* cached, int want
             src = &((FT_BitmapGlyph)bitmap_glyph)->bitmap;
         } else {
             /* Render the glyph */
-            error = FT_Render_Glyph( glyph, mono ? ft_render_mode_mono : ft_render_mode_normal );
+            error = FT_Render_Glyph( glyph, mono ? FT_RENDER_MODE_MONO : FT_RENDER_MODE_NORMAL );
             if ( error ) {
                 return error;
             }
@@ -723,7 +741,7 @@ static FT_Error Load_Glyph( TTF_Font* font, Uint16 ch, c_glyph* cached, int want
 
         /* FT_Render_Glyph() and .fon fonts always generate a
          * two-color (black and white) glyphslot surface, even
-         * when rendered in ft_render_mode_normal. */
+         * when rendered in FT_RENDER_MODE_NORMAL. */
         /* FT_IS_SCALABLE() means that the font is in outline format,
          * but does not imply that outline is rendered as 8-bit
          * grayscale, because embedded bitmap/graymap is preferred
