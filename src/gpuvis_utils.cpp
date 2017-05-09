@@ -404,13 +404,44 @@ bool imgui_key_pressed( ImGuiKey key )
     return ImGui::IsKeyPressed( ImGui::GetKeyIndex( key ) );
 }
 
-void imgui_load_fonts()
-{
 #include "proggy_tiny.cpp"
 #include "RobotoCondensed_Regular.cpp"
 
+class FontInfo
+{
+public:
+    FontInfo() {}
+    ~FontInfo() {}
+
+    void Init( CIniFile &inifile, const char *section, const char *defname, float defsize );
+    void LoadFont( CIniFile &inifile );
+
+public:
+    float m_size;
+    std::string m_filename;
+    std::string m_section;
+    std::string m_name;
+    ImFontConfig m_font_cfg;
+};
+
+void FontInfo::Init( CIniFile &inifile, const char *section, const char *defname, float defsize )
+{
+    m_section = section;
+
+    m_name = inifile.GetStr( "name", defname, section );
+    m_size = inifile.GetFloat( "size", defsize, section );
+    m_filename = inifile.GetStr( "filename", "", section );
+
+    m_font_cfg = ImFontConfig();
+    m_font_cfg.OversampleH = inifile.GetInt( "OversampleH", 1, section );
+    m_font_cfg.OversampleV = inifile.GetInt( "OversampleV", 1, section );
+    m_font_cfg.PixelSnapH = !!inifile.GetInt( "PixelSnapH", 0, section );
+}
+
+void FontInfo::LoadFont( CIniFile &inifile )
+{
+    ImFont *font = NULL;
     ImGuiIO &io = ImGui::GetIO();
-    ImFontConfig font_cfg = ImFontConfig();
     static const ImWchar ranges[] =
     {
         // Basic Latin + Latin Supplement
@@ -421,24 +452,61 @@ void imgui_load_fonts()
         0,
     };
 
-    font_cfg.OversampleH = 1; // 3;
-    font_cfg.OversampleV = 1; // 1;
-    font_cfg.PixelSnapH = false; // true;
+    if ( !m_filename.empty() )
+    {
+        font = io.Fonts->AddFontFromFileTTF( m_filename.c_str(), m_size, &m_font_cfg, &ranges[ 0 ] );
+        if ( !font )
+            logf( "WARNING: AddFontFromFileTTF %s failed.\n", m_filename.c_str() );
+    }
 
-    // Add default font
-    io.Fonts->AddFontDefault();
+    if ( !font )
+    {
+        if ( strcasestr( m_name.c_str(), "roboto" ) )
+        {
+            snprintf_safe( m_font_cfg.Name, "Roboto Condensed, %.1fpx", m_size );
 
-    // Add Roboto Condensed Regular
-    strcpy_safe( font_cfg.Name, "Roboto Condensed, 11px" );
-    io.Fonts->AddFontFromMemoryCompressedTTF(
-                RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, 11.0f,
-                &font_cfg, &ranges[ 0 ] );
+            io.Fonts->AddFontFromMemoryCompressedTTF(
+                        RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, m_size,
+                        &m_font_cfg, &ranges[ 0 ] );
+        }
+        else if ( strcasestr( m_name.c_str(), "proggy tiny" ) )
+        {
+            snprintf_safe( m_font_cfg.Name, "Proggy Tiny, %.1fpx", m_size );
 
-    // Add ProggyTiny font
-    strcpy_safe( font_cfg.Name, "Proggy Tiny, 10px" );
-    io.Fonts->AddFontFromMemoryCompressedTTF(
-                ProggyTiny_compressed_data, ProggyTiny_compressed_size, 10.0f,
-                &font_cfg, &ranges[ 0 ] );
+            io.Fonts->AddFontFromMemoryCompressedTTF(
+                        ProggyTiny_compressed_data, ProggyTiny_compressed_size, m_size,
+                        &m_font_cfg, &ranges[ 0 ] );
+        }
+        else
+        {
+            snprintf_safe( m_font_cfg.Name, "Proggy, %.1fpx", m_size );
+
+            m_font_cfg.SizePixels = m_size;
+            io.Fonts->AddFontDefault( &m_font_cfg );
+        }
+    }
+
+    const char *section = m_section.c_str();
+
+    inifile.PutStr( "name", m_name.c_str(), section );
+    inifile.PutStr( "filename", m_filename.c_str(), section );
+    inifile.PutFloat( "size", m_size, section );
+    inifile.PutInt( "OverSampleH", m_font_cfg.OversampleH, section );
+    inifile.PutInt( "OverSampleV", m_font_cfg.OversampleV, section );
+    inifile.PutInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
+}
+
+void imgui_load_fonts( CIniFile &inifile )
+{
+    FontInfo fontinfo;
+
+    // Add main font first
+    fontinfo.Init( inifile, "$imgui_font_main$", "Proggy", 13.0f );
+    fontinfo.LoadFont( inifile );
+
+    // Add small font second
+    fontinfo.Init( inifile, "$imgui_font_small$", "Proggy Tiny", 10.0f );
+    fontinfo.LoadFont( inifile );
 }
 
 void imgui_ini_settings( CIniFile &inifile, bool save )

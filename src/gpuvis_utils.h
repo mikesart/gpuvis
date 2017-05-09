@@ -190,7 +190,7 @@ public:
 bool imgui_push_smallfont();
 void imgui_pop_smallfont();
 
-void imgui_load_fonts();
+void imgui_load_fonts( CIniFile &infile );
 void imgui_ini_settings( CIniFile &inifile, bool save = false );
 
 class ColorPicker
