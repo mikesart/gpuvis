@@ -2265,11 +2265,11 @@ void TraceConsole::render_font_options( TraceLoader &loader )
         const char *font_name = loader.m_font_main.m_name.c_str();
 
         ImGui::BeginChild( "small_font", ImVec2( 0, ImGui::GetTextLineHeightWithSpacing() * 4 ) );
+
         imgui_push_smallfont();
-
         ImGui::TextWrapped( "%s: %s", multi_text_color::yellow.m_str( font_name ).c_str(), lorem_str );
-
         imgui_pop_smallfont();
+
         ImGui::EndChild();
 
         loader.m_font_small.render_options();
