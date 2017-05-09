@@ -44,6 +44,8 @@ static std::vector< char * > g_log;
 static std::vector< char * > g_thread_log;
 static SDL_mutex *g_mutex = nullptr;
 
+static float g_scale = 1.0f;
+
 /*
  * log routines
  */
@@ -396,7 +398,7 @@ void imgui_pop_smallfont()
 
 float imgui_scale( float val )
 {
-    return val * ImGui::GetIO().FontGlobalScale;
+    return val * g_scale;
 }
 
 bool imgui_key_pressed( ImGuiKey key )
@@ -429,7 +431,7 @@ void FontInfo::Init( CIniFile &inifile, const char *section, const char *defname
     m_section = section;
 
     m_name = inifile.GetStr( "name", defname, section );
-    m_size = inifile.GetFloat( "size", defsize, section );
+    m_size = inifile.GetFloat( "size", defsize, section ) * g_scale;
     m_filename = inifile.GetStr( "filename", "", section );
 
     m_font_cfg = ImFontConfig();
@@ -490,7 +492,7 @@ void FontInfo::LoadFont( CIniFile &inifile )
 
     inifile.PutStr( "name", m_name.c_str(), section );
     inifile.PutStr( "filename", m_filename.c_str(), section );
-    inifile.PutFloat( "size", m_size, section );
+    inifile.PutFloat( "size", m_size / g_scale, section );
     inifile.PutInt( "OverSampleH", m_font_cfg.OversampleH, section );
     inifile.PutInt( "OverSampleV", m_font_cfg.OversampleV, section );
     inifile.PutInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
@@ -511,13 +513,12 @@ void imgui_load_fonts( CIniFile &inifile )
 
 void imgui_ini_settings( CIniFile &inifile, bool save )
 {
-    ImGuiIO &io = ImGui::GetIO();
     ImGuiStyle &style = ImGui::GetStyle();
     const char section[] = "$imgui_settings$";
 
     if ( save )
     {
-        inifile.PutFloat( "scale", io.FontGlobalScale );
+        inifile.PutFloat( "scale", g_scale );
 
         for ( int i = 0; i < ImGuiCol_COUNT; i++ )
         {
@@ -531,7 +532,8 @@ void imgui_ini_settings( CIniFile &inifile, bool save )
     {
         ImVec4 defcol = { -1.0f, -1.0f, -1.0f, -1.0f };
 
-        io.FontGlobalScale = inifile.GetFloat( "scale", 1.0f );
+        g_scale = inifile.GetFloat( "scale", 1.0f );
+        g_scale = Clamp< float >( g_scale, 0.25f, 6.0f );
 
         for ( int i = 0; i < ImGuiCol_COUNT; i++ )
         {
