@@ -597,12 +597,12 @@ void TraceLoader::load_fonts()
     ImGui::GetIO().Fonts->Clear();
 
     // Add main font
-    m_font_main.Init( m_inifile, "$imgui_font_main$", "Proggy", 13.0f );
-    m_font_main.LoadFont( m_inifile );
+    m_font_main.init( m_inifile, "$imgui_font_main$", "Proggy", 13.0f );
+    m_font_main.load_font( m_inifile );
 
     // Add small font
-    m_font_small.Init( m_inifile, "$imgui_font_small$", "Proggy Tiny", 10.0f );
-    m_font_small.LoadFont( m_inifile );
+    m_font_small.init( m_inifile, "$imgui_font_small$", "Proggy Tiny", 10.0f );
+    m_font_small.load_font( m_inifile );
 }
 
 /*
@@ -2228,20 +2228,57 @@ void TraceConsole::render_font_options( TraceLoader &loader )
     TraceLoader::option_t &opt_scale = loader.m_options[ OPT_Scale ];
     TraceLoader::option_t &opt_use_sdl_fonts = loader.m_options[ OPT_UseSDLFonts ];
 
-    ImGui::PushItemWidth( 200.0f );
-    ImGui::SliderFloat( "##slider_float", &opt_scale.valf, opt_scale.valf_min, opt_scale.valf_max, opt_scale.desc.c_str() );
-    ImGui::PopItemWidth();
+    static const char lorem_str[] =
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do"
+        "eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim"
+        "veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo"
+        "consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse"
+        "cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non"
+        "proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
 
-    ImGui::CheckboxInt( opt_use_sdl_fonts.desc.c_str(), &opt_use_sdl_fonts.val );
+    ImGui::Indent();
+    ImGui::PushID( "font_options" );
 
-#if 0
-    Name: Proggy, Proggy Tiny, Roboto Condensed
-    Filename
-    Size
-    OverSampleH
-    OverSampleV
-    PixelSnapH
-#endif
+    if ( ImGui::TreeNodeEx( "Options", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        ImGui::PushItemWidth( imgui_scale( 150.0f ) );
+        ImGui::SliderFloat( "##slider_float", &opt_scale.valf, opt_scale.valf_min, opt_scale.valf_max, opt_scale.desc.c_str() );
+        ImGui::PopItemWidth();
+
+        ImGui::CheckboxInt( opt_use_sdl_fonts.desc.c_str(), &opt_use_sdl_fonts.val );
+
+        ImGui::TreePop();
+    }
+
+    if ( ImGui::TreeNodeEx( "Main Font", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        const char *font_name = loader.m_font_main.m_name.c_str();
+
+        ImGui::TextWrapped( "%s: %s", multi_text_color::yellow.m_str( font_name ).c_str(), lorem_str );
+
+        loader.m_font_main.render_options();
+        ImGui::TreePop();
+    }
+
+    if ( ImGui::TreeNodeEx( "Small Font", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        const char *font_name = loader.m_font_main.m_name.c_str();
+
+        ImGui::BeginChild( "small_font", ImVec2( 0, ImGui::GetTextLineHeightWithSpacing() * 4 ) );
+        imgui_push_smallfont();
+
+        ImGui::TextWrapped( "%s: %s", multi_text_color::yellow.m_str( font_name ).c_str(), lorem_str );
+
+        imgui_pop_smallfont();
+        ImGui::EndChild();
+
+        loader.m_font_small.render_options();
+
+        ImGui::TreePop();
+    }
+
+    ImGui::PopID();
+    ImGui::Unindent();
 }
 
 void TraceConsole::render_log( TraceLoader &loader )
@@ -2411,7 +2448,7 @@ void TraceConsole::render_console( TraceLoader &loader )
     if ( ImGui::CollapsingHeader( "Options", ImGuiTreeNodeFlags_DefaultOpen ) )
         render_options( loader );
 
-    if ( ImGui::CollapsingHeader( "Font Options", ImGuiTreeNodeFlags_DefaultOpen ) )
+    if ( ImGui::CollapsingHeader( "Fonts", 0 ) )
         render_font_options( loader );
 
     if ( ImGui::CollapsingHeader( "Log", ImGuiTreeNodeFlags_DefaultOpen ) )

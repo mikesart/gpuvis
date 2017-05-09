@@ -113,8 +113,10 @@ public:
     FontInfo() {}
     ~FontInfo() {}
 
-    void Init( CIniFile &inifile, const char *section, const char *defname, float defsize );
-    void LoadFont( CIniFile &inifile );
+    void init( CIniFile &inifile, const char *section, const char *defname, float defsize );
+    void load_font( CIniFile &inifile );
+
+    void render_options();
 
 public:
     float m_size;

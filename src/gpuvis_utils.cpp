@@ -451,7 +451,7 @@ void imgui_ini_settings( CIniFile &inifile, bool save )
     }
 }
 
-void FontInfo::Init( CIniFile &inifile, const char *section, const char *defname, float defsize )
+void FontInfo::init( CIniFile &inifile, const char *section, const char *defname, float defsize )
 {
     m_section = section;
 
@@ -465,7 +465,7 @@ void FontInfo::Init( CIniFile &inifile, const char *section, const char *defname
     m_font_cfg.PixelSnapH = !!inifile.GetInt( "PixelSnapH", 0, section );
 }
 
-void FontInfo::LoadFont( CIniFile &inifile )
+void FontInfo::load_font( CIniFile &inifile )
 {
     ImFont *font = NULL;
     ImGuiIO &io = ImGui::GetIO();
@@ -521,6 +521,44 @@ void FontInfo::LoadFont( CIniFile &inifile )
     inifile.PutInt( "OverSampleH", m_font_cfg.OversampleH, section );
     inifile.PutInt( "OverSampleV", m_font_cfg.OversampleV, section );
     inifile.PutInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
+}
+
+void FontInfo::render_options()
+{
+    static const char *fonts[] = { "Proggy Clean", "Proggy Tiny", "Roboto Condensed", "TTF File" };
+
+    ImGui::PushID( this );
+
+    // m_name;
+    // m_size;
+    // m_filename;
+    static int listbox_item_current = 1;
+    static char filename[ PATH_MAX ];
+
+    ImGui::PushItemWidth( imgui_scale( 200.0f ) );
+    ImGui::ListBox( "listbox\n(single select)", &listbox_item_current, fonts, ARRAY_SIZE( fonts ), 4 );
+    ImGui::PopItemWidth();
+
+    if ( listbox_item_current == 3 )
+    {
+        ImGui::PushItemWidth( imgui_scale( 350.0f ) );
+
+        ImGui::AlignFirstTextHeightToWidgets();
+        ImGui::Text( "Filename:" );
+        ImGui::SameLine();
+        if ( ImGui::InputText( "##ttf_filename", filename, sizeof( filename ), ImGuiInputTextFlags_EnterReturnsTrue, 0 ) )
+            printf( "blah\n" );
+
+        ImGui::PopItemWidth();
+    }
+
+    ImGui::PushItemWidth( imgui_scale( 150.0f ) );
+    ImGui::SliderInt( "##oversample_h", &m_font_cfg.OversampleH, 1, 4, "OverSampleH: %.0f" );
+    ImGui::SliderInt( "##oversample_v", &m_font_cfg.OversampleV, 1, 4, "OverSampleV: %.0f" );
+    ImGui::PopItemWidth();
+    ImGui::Checkbox( "PixelSnapH", &m_font_cfg.PixelSnapH );
+
+    ImGui::PopID();
 }
 
 bool ColorPicker::render( ImU32 *pcolor )
