@@ -2407,6 +2407,8 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
     static struct option long_opts[] =
     {
         { "fullscreen", no_argument, 0, 0 },
+        { "use_sdl_fonts", optional_argument, 0, 0 },
+        { "scale", required_argument, 0, 0 },
         { 0, 0, 0, 0 }
     };
 
@@ -2420,6 +2422,10 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
         case 0:
             if ( !strcasecmp( "fullscreen", long_opts[ opt_ind ].name ) )
                 loader.m_options[ OPT_Fullscreen ].val = true;
+            else if ( !strcasecmp( "use_sdl_fonts", long_opts[ opt_ind ].name ) )
+                loader.m_inifile.PutInt( "use_sdl_fonts", atoi( ya_optarg ) );
+            else if ( !strcasecmp( "scale", long_opts[ opt_ind ].name ) )
+                loader.m_inifile.PutFloat( "win_scale", atof( ya_optarg ), "$imgui_settings$" );
             break;
         case 'i':
             loader.m_inputfiles.push_back( optarg );
