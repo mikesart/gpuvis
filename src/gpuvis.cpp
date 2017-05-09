@@ -2425,7 +2425,7 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
             else if ( !strcasecmp( "use_sdl_fonts", long_opts[ opt_ind ].name ) )
                 loader.m_inifile.PutInt( "use_sdl_fonts", atoi( ya_optarg ) );
             else if ( !strcasecmp( "scale", long_opts[ opt_ind ].name ) )
-                loader.m_inifile.PutFloat( "win_scale", atof( ya_optarg ), "$imgui_settings$" );
+                loader.m_inifile.PutFloat( "scale", atof( ya_optarg ) );
             break;
         case 'i':
             loader.m_inputfiles.push_back( optarg );

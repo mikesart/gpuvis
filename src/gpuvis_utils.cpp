@@ -517,7 +517,7 @@ void imgui_ini_settings( CIniFile &inifile, bool save )
 
     if ( save )
     {
-        inifile.PutFloat( "win_scale", io.FontGlobalScale, section );
+        inifile.PutFloat( "scale", io.FontGlobalScale );
 
         for ( int i = 0; i < ImGuiCol_COUNT; i++ )
         {
@@ -531,7 +531,7 @@ void imgui_ini_settings( CIniFile &inifile, bool save )
     {
         ImVec4 defcol = { -1.0f, -1.0f, -1.0f, -1.0f };
 
-        io.FontGlobalScale = inifile.GetFloat( "win_scale", 1.0f, section );
+        io.FontGlobalScale = inifile.GetFloat( "scale", 1.0f );
 
         for ( int i = 0; i < ImGuiCol_COUNT; i++ )
         {
