@@ -1471,7 +1471,7 @@ bool    ImFontAtlas::Build()
                         unsigned char *dst = TexPixelsAlpha8 + y * TexWidth;
 
                         for ( int x = pc.x0; x <= pc.x1; x++ )
-                            dst[ x ] = std::min< uint32_t >( 255, dst[ x ] * brighten );
+                            dst[ x ] = ImMin( 255, ( int )( dst[ x ] * brighten ) );
                     }
                 }
             }
