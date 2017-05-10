@@ -205,14 +205,12 @@ bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, Gly
 
     FT_BitmapGlyph freeTypeBitmap = ( FT_BitmapGlyph )glyphDesc;
 
-    //
     glyphInfo.advanceX = slot->advance.x * ( 1.0f / 64.0f );
     glyphInfo.offsetX = ( float )freeTypeBitmap->left;
     glyphInfo.offsetY = -( float )freeTypeBitmap->top;
     glyphInfo.width = ( float )freeTypeBitmap->bitmap.width;
     glyphInfo.height = ( float )freeTypeBitmap->bitmap.rows;
 
-    //
     glyphBitmap.width = freeTypeBitmap->bitmap.width;
     glyphBitmap.height = freeTypeBitmap->bitmap.rows;
     glyphBitmap.pitch = ( uint32_t )freeTypeBitmap->bitmap.pitch;
@@ -333,6 +331,7 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
 
                 GlyphInfo glyphInfo;
                 GlyphBitmap glyphBitmap;
+
                 fontFace.RasterizeGlyph( codepoint, glyphInfo, glyphBitmap, flags );
 
                 // blit to texture

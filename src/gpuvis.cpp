@@ -2269,15 +2269,10 @@ void TraceConsole::render_font_options( TraceLoader &loader )
                 {
                     changed = true;
 
-                    if ( ( i != OPT_FreetypeBold ) && ( i != OPT_FreetypeOblique ) )
-                    {
-                        // Uncheck all the hinting options other than this one
-                        for ( uint32_t j = OPT_FreetypeDisableHinting; j <= OPT_FreetypeMonoHinting; j++ )
-                        {
-                            if ( i != j )
-                                loader.m_options[ j ].val = 0;
-                        }
-                    }
+                    if ( i == OPT_FreetypeLightHinting )
+                        loader.m_options[ OPT_FreetypeMonoHinting ].val = 0;
+                    else if ( i == OPT_FreetypeMonoHinting )
+                        loader.m_options[ OPT_FreetypeLightHinting ].val = 0;
                 }
                 ImGui::PopID();
             }
