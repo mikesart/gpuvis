@@ -2258,6 +2258,13 @@ void TraceConsole::render_font_options( TraceLoader &loader )
                                        opt_scale.valf_min, opt_scale.valf_max, opt_scale.desc.c_str() );
         ImGui::PopItemWidth();
 
+        if ( ImGui::Button( "Reset to Defaults" ) )
+        {
+            loader.m_font_main.m_reset = true;
+            loader.m_font_small.m_reset = true;
+            changed = true;
+        }
+
         if ( changed )
         {
             imgui_set_scale( loader.get_optf( OPT_Scale ) );

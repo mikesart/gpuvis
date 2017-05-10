@@ -471,18 +471,29 @@ void FontInfo::load_font( CIniFile &inifile, const char *section, const char *de
 {
     m_section = section;
     m_inifile = &inifile;
-
-    m_name = inifile.GetStr( "name", defname, section );
-    m_filename = inifile.GetStr( "filename", "", section );
-    m_size = inifile.GetFloat( "size", defsize, section ) * g_scale;
-
     m_font_cfg = ImFontConfig();
-    m_font_cfg.OversampleH = inifile.GetInt( "OversampleH", m_font_cfg.OversampleH, section );
-    m_font_cfg.OversampleV = inifile.GetInt( "OversampleV", m_font_cfg.OversampleV, section );
-    m_font_cfg.PixelSnapH = !!inifile.GetInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
-    m_font_cfg.GlyphExtraSpacing.x = inifile.GetFloat( "GlyphExtraSpacing", m_font_cfg.GlyphExtraSpacing.x, section );
-    m_font_cfg.FreetypeFlags = inifile.GetInt( "FreetypeFlags", m_font_cfg.FreetypeFlags, section );
-    m_font_cfg.Brighten = inifile.GetFloat( "Brighten", m_font_cfg.Brighten, section );
+
+    if ( m_reset )
+    {
+        m_name = defname;
+        m_filename = "";
+        m_size = defsize;
+
+        m_reset = false;
+    }
+    else
+    {
+        m_name = inifile.GetStr( "name", defname, section );
+        m_filename = inifile.GetStr( "filename", "", section );
+        m_size = inifile.GetFloat( "size", defsize, section ) * g_scale;
+
+        m_font_cfg.OversampleH = inifile.GetInt( "OversampleH", m_font_cfg.OversampleH, section );
+        m_font_cfg.OversampleV = inifile.GetInt( "OversampleV", m_font_cfg.OversampleV, section );
+        m_font_cfg.PixelSnapH = !!inifile.GetInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
+        m_font_cfg.GlyphExtraSpacing.x = inifile.GetFloat( "GlyphExtraSpacing", m_font_cfg.GlyphExtraSpacing.x, section );
+        m_font_cfg.FreetypeFlags = inifile.GetInt( "FreetypeFlags", m_font_cfg.FreetypeFlags, section );
+        m_font_cfg.Brighten = inifile.GetFloat( "Brighten", m_font_cfg.Brighten, section );
+    }
 
     m_font_type = get_type();
 

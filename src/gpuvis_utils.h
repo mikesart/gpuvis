@@ -138,6 +138,7 @@ public:
     ImFontConfig m_font_cfg;
     int m_font_type = TYPE_None;
 
+    bool m_reset = false;
     bool m_changed = false;
     std::string m_input_filename_err;
     char m_input_filename[ PATH_MAX ] = { 0 };
