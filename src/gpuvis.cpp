@@ -462,7 +462,7 @@ void TraceLoader::init()
     m_options[ OPT_EventListRowCount ].opt_int( "Event List Size: %.0f", "eventlist_rows", 0, 0, 100 );
     m_options[ OPT_EventListRowCount ].hidden = true;
 
-    m_options[ OPT_Scale ].opt_float( "Scale: %.1f", "scale", 1.0f, 0.25f, 6.0f );
+    m_options[ OPT_Scale ].opt_float( "Font Scale: %.1f", "scale", 1.0f, 0.25f, 6.0f );
     m_options[ OPT_Scale ].hidden = true;
 
     m_options[ OPT_UseFreetype ].opt_bool( "Use Freetype", "use_freetype", false );
@@ -2165,9 +2165,12 @@ void TraceConsole::render_options( TraceLoader &loader )
     ImGui::Separator();
 
     {
-        // Align text to upcoming widgets
-        ImGui::AlignFirstTextHeightToWidgets();
-        ImGui::Text( "Imgui debug: " );
+        ImGui::Text( "Imgui Settings" );
+
+        ImGui::Indent();
+
+        if ( ImGui::Button( "Font Options" ) )
+            m_show_font_window ^= 1;
 
         ImGui::SameLine();
         if ( ImGui::Button( "Style Editor" ) )
@@ -2180,9 +2183,14 @@ void TraceConsole::render_options( TraceLoader &loader )
         ImGui::SameLine();
         if ( ImGui::Button( "Test Window" ) )
             m_show_imgui_test_window ^= 1;
+
+        ImGui::Unindent();
     }
 
     ImGui::Separator();
+
+    ImGui::Text( "Gpuvis Settings" );
+    ImGui::Indent();
 
     for ( size_t i = 0; i < loader.m_options.size(); i++ )
     {
@@ -2219,6 +2227,8 @@ void TraceConsole::render_options( TraceLoader &loader )
 
         ImGui::PopID();
     }
+
+    ImGui::Unindent();
 }
 
 void TraceConsole::render_font_options( TraceLoader &loader )
@@ -2468,9 +2478,6 @@ void TraceConsole::render_console( TraceLoader &loader )
     if ( ImGui::CollapsingHeader( "Options", ImGuiTreeNodeFlags_DefaultOpen ) )
         render_options( loader );
 
-    if ( ImGui::CollapsingHeader( "Fonts", 0 ) )
-        render_font_options( loader );
-
     if ( ImGui::CollapsingHeader( "Log", ImGuiTreeNodeFlags_DefaultOpen ) )
         render_log( loader );
 
@@ -2500,6 +2507,15 @@ void TraceConsole::render( TraceLoader &loader )
     if ( m_show_imgui_metrics_editor )
     {
         ImGui::ShowMetricsWindow( &m_show_imgui_metrics_editor );
+    }
+
+    if ( m_show_font_window )
+    {
+        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
+
+        ImGui::Begin( "Font Options", &m_show_font_window );
+        render_font_options( loader );
+        ImGui::End();
     }
 }
 

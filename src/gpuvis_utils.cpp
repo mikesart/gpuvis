@@ -563,8 +563,8 @@ void FontInfo::render_font_options( bool m_use_freetype )
 {
     static const char *fonts[] =
     {
-        "Proggy Clean",
-        "Proggy Tiny",
+        "Proggy Clean (13)",
+        "Proggy Tiny (10)",
         "Roboto Condensed"
     };
     bool changed = false;
