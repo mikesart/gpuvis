@@ -1,6 +1,8 @@
 #include <ft2build.h>
 #include <math.h>
 #include <stdint.h>
+#include <vector>
+
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 #include FT_SYNTHESIS_H
@@ -78,12 +80,21 @@ struct GlyphBitmap
 class FreeTypeFont
 {
 public:
+    FreeTypeFont() {}
+    ~FreeTypeFont()
+    {
+        if ( m_face )
+        {
+            FT_Done_Face( m_face );
+            m_face = nullptr;
+            FT_Done_FreeType( m_library );
+            m_library = nullptr;
+        }
+    }
+
     // Initialize from an external data buffer.
     // Doesn't copy data, and you must ensure it stays valid up to this object lifetime.
     void Init( ImFontConfig &cfg );
-
-    // Cleanup.
-    void Shutdown();
 
     // Generate glyph image.
     bool RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBitmap &glyphBitmap, uint32_t flags );
@@ -96,9 +107,8 @@ public:
     // This field gives the maximum horizontal cursor advance for all glyphs in the font.
     float m_maxAdvanceWidth;
 
-    //
-    FT_Library m_library;
-    FT_Face m_face;
+    FT_Library m_library = nullptr;
+    FT_Face m_face = nullptr;
 };
 
 //
@@ -149,22 +159,11 @@ void FreeTypeFont::Init( ImFontConfig &cfg )
 }
 
 //
-void FreeTypeFont::Shutdown()
-{
-    if ( m_face )
-    {
-        FT_Done_Face( m_face );
-        m_face = nullptr;
-        FT_Done_FreeType( m_library );
-        m_library = nullptr;
-    }
-}
-
-//
 bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBitmap &glyphBitmap, uint32_t flags )
 {
     // load the glyph we are looking for
     FT_Int32 LoadFlags = FT_LOAD_NO_BITMAP;
+
     if ( flags & ImGuiFreeType::DisableHinting )
         LoadFlags |= FT_LOAD_NO_HINTING;
     if ( flags & ImGuiFreeType::ForceAutoHint )
@@ -213,6 +212,7 @@ bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, Gly
     glyphInfo.offsetY = -( float )freeTypeBitmap->top;
     glyphInfo.width = ( float )freeTypeBitmap->bitmap.width;
     glyphInfo.height = ( float )freeTypeBitmap->bitmap.rows;
+
     //
     glyphBitmap.width = freeTypeBitmap->bitmap.width;
     glyphBitmap.height = freeTypeBitmap->bitmap.rows;
@@ -237,7 +237,7 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
     atlas->TexUvWhitePixel = ImVec2( 0, 0 );
     atlas->ClearTexData();
 
-    FreeTypeFont *tmp_array = ( FreeTypeFont * )ImGui::MemAlloc( ( size_t )atlas->ConfigData.Size * sizeof( FreeTypeFont ) );
+    std::vector< FreeTypeFont > fonts( atlas->ConfigData.Size );
 
     ImVec2 maxGlyphSize = { 1.0f, 1.0f };
 
@@ -246,7 +246,7 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
     for ( int input_i = 0; input_i < atlas->ConfigData.Size; input_i++ )
     {
         ImFontConfig &cfg = atlas->ConfigData[ input_i ];
-        FreeTypeFont &fontFace = tmp_array[ input_i ];
+        FreeTypeFont &fontFace = fonts[ input_i ];
 
         IM_ASSERT( cfg.DstFont && ( !cfg.DstFont->IsLoaded() || cfg.DstFont->ContainerAtlas == atlas ) );
 
@@ -299,7 +299,7 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
     for ( int input_i = 0; input_i < atlas->ConfigData.Size; input_i++ )
     {
         ImFontConfig &cfg = atlas->ConfigData[ input_i ];
-        FreeTypeFont &fontFace = tmp_array[ input_i ];
+        FreeTypeFont &fontFace = fonts[ input_i ];
         ImFont *dst_font = cfg.DstFont;
 
         float ascent = fontFace.m_ascender;
@@ -369,9 +369,6 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
 
     // Cleanup temporaries
     ImGui::MemFree( nodes );
-    for ( int n = 0; n < atlas->ConfigData.Size; ++n )
-        tmp_array[ n ].Shutdown();
-    ImGui::MemFree( tmp_array );
 
     // Render into our custom data block
     atlas->RenderCustomTexData( 1, &extra_rects );
