@@ -53,8 +53,6 @@ LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lfreetype -lstdc++ $(SDL2LIBS)
 # To resolve addresses from libstdcxx-profile.conf.out: addr2line -C -f -e _debug/gpuvis 0x42cc6a 0x43630a 0x46654d
 # CFLAGS += -D_GLIBCXX_PROFILE -D_GLIBCXX_PROFILE_CONTAINERS
 
-CFLAGS += -DDEBUG_FONTS=1
-
 CFILES = \
 	src/gpuvis.cpp \
 	src/gpuvis_graph.cpp \
@@ -72,8 +70,7 @@ CFILES = \
 	src/trace-cmd/trace-seq.c \
 	src/trace-cmd/kbuffer-parse.c \
 	src/trace-cmd/trace-read.cpp \
-	src/imgui/imgui_sdlttf.cpp \
-	src/SDL_ttf/SDL_ttfx.c
+	src/imgui/imgui_freetype.cpp
 
 ifeq ($(PROF), 1)
 	# To profile with google perftools:

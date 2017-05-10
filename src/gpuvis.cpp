@@ -465,8 +465,8 @@ void TraceLoader::init()
     m_options[ OPT_Scale ].opt_float( "Scale: %.1f", "scale", 1.0f, 0.25f, 6.0f );
     m_options[ OPT_Scale ].hidden = true;
 
-    m_options[ OPT_UseSDLFonts ].opt_bool( "Use SDL Fonts", "use_sdl_fonts", false );
-    m_options[ OPT_UseSDLFonts ].hidden = true;
+    m_options[ OPT_UseFreetype ].opt_bool( "Use Freetype", "use_freetype", false );
+    m_options[ OPT_UseFreetype ].hidden = true;
 
     for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
@@ -2224,7 +2224,7 @@ void TraceConsole::render_options( TraceLoader &loader )
 void TraceConsole::render_font_options( TraceLoader &loader )
 {
     TraceLoader::option_t &opt_scale = loader.m_options[ OPT_Scale ];
-    TraceLoader::option_t &opt_use_sdl_fonts = loader.m_options[ OPT_UseSDLFonts ];
+    TraceLoader::option_t &opt_use_sdl_fonts = loader.m_options[ OPT_UseFreetype ];
 
     static const char lorem_str[] =
         "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do"
@@ -2486,7 +2486,7 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
     static struct option long_opts[] =
     {
         { "fullscreen", no_argument, 0, 0 },
-        { "use_sdl_fonts", optional_argument, 0, 0 },
+        { "use_freetype", optional_argument, 0, 0 },
         { "scale", required_argument, 0, 0 },
         { 0, 0, 0, 0 }
     };
@@ -2501,8 +2501,8 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
         case 0:
             if ( !strcasecmp( "fullscreen", long_opts[ opt_ind ].name ) )
                 loader.m_options[ OPT_Fullscreen ].val = true;
-            else if ( !strcasecmp( "use_sdl_fonts", long_opts[ opt_ind ].name ) )
-                loader.m_options[ OPT_UseSDLFonts ].val = !!atoi( ya_optarg );
+            else if ( !strcasecmp( "use_freetype", long_opts[ opt_ind ].name ) )
+                loader.m_options[ OPT_UseFreetype ].val = !!atoi( ya_optarg );
             else if ( !strcasecmp( "scale", long_opts[ opt_ind ].name ) )
                 loader.m_options[ OPT_Scale ].valf = atof( ya_optarg );
             break;
@@ -2688,7 +2688,7 @@ int main( int argc, char **argv )
 
         bool reload_fonts = false;
 
-        if ( inifile.GetInt( "use_sdl_fonts", 0 ) != loader.get_opt( OPT_UseSDLFonts ) )
+        if ( inifile.GetInt( "use_freetype", 0 ) != loader.get_opt( OPT_UseFreetype ) )
             reload_fonts = true;
         else if ( ( loader.get_optf( OPT_Scale ) != imgui_scale( 1.0f ) ) && !ImGui::IsMouseDown( 0 ) )
             reload_fonts = true;
@@ -2697,14 +2697,14 @@ int main( int argc, char **argv )
 
         if ( reload_fonts )
         {
-            inifile.PutInt( "use_sdl_fonts", loader.get_opt( OPT_UseSDLFonts ) );
+            inifile.PutInt( "use_freetype", loader.get_opt( OPT_UseFreetype ) );
 
             imgui_set_scale( loader.get_optf( OPT_Scale ) );
 
             ImGui_ImplSdlGL3_InvalidateDeviceObjects();
             loader.load_fonts();
 
-            loader.m_options[ OPT_UseSDLFonts ].val = inifile.GetInt( "use_sdl_fonts", 0 );
+            loader.m_options[ OPT_UseFreetype ].val = inifile.GetInt( "use_freetype", 0 );
         }
     }
 

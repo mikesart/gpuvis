@@ -14,7 +14,7 @@
 #include <SDL_syswm.h>
 #include "../GL/gl3w.h"    // This example is using gl3w to access OpenGL functions (because it is small). You may use glew/glad/glLoadGen/etc. whatever already works for you.
 
-#include "imgui_sdlttf.h"
+#include "imgui_freetype.h"
 #include "../stlini.h"
 
 // Data
@@ -182,14 +182,14 @@ void ImGui_ImplSdlGL3_CreateFontsTexture(CIniFile &inifile)
     ImGuiIO& io = ImGui::GetIO();
     unsigned char* pixels;
     int width, height;
-    int use_sdl_fonts = inifile.GetInt( "use_sdl_fonts", 0 );
+    int use_freetype = inifile.GetInt( "use_freetype", 0 );
 
-    if ( use_sdl_fonts )
+    if ( use_freetype )
     {
-        unsigned int flags = ImGuiSDLttf::ForceAutoHint;
-        ImGuiSDLttf::BuildFontAtlas(io.Fonts, flags);
+        unsigned int flags = ImGuiFreeType::ForceAutoHint;
+        ImGuiFreeType::BuildFontAtlas(io.Fonts, flags);
     }
-    inifile.PutInt( "use_sdl_fonts", use_sdl_fonts );
+    inifile.PutInt( "use_freetype", use_freetype );
 
     // Load as RGBA 32-bits for OpenGL3 demo because it is more likely to be compatible with user's existing shader.
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);

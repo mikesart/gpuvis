@@ -689,7 +689,7 @@ enum : uint32_t
     OPT_GraphHeightZoomed,
     OPT_EventListRowCount,
     OPT_Scale,
-    OPT_UseSDLFonts,
+    OPT_UseFreetype,
 
     OPT_PresetMax
 };
