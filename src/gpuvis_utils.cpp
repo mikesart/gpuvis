@@ -451,23 +451,39 @@ void imgui_ini_settings( CIniFile &inifile, bool save )
     }
 }
 
-void FontInfo::init( CIniFile &inifile, const char *section, const char *defname, float defsize )
+void FontInfo::update_ini()
 {
-    m_section = section;
+    const char *section = m_section.c_str();
 
-    m_name = inifile.GetStr( "name", defname, section );
-    m_size = inifile.GetFloat( "size", defsize, section ) * g_scale;
-    m_filename = inifile.GetStr( "filename", "", section );
-
-    m_font_cfg = ImFontConfig();
-    m_font_cfg.OversampleH = inifile.GetInt( "OversampleH", 1, section );
-    m_font_cfg.OversampleV = inifile.GetInt( "OversampleV", 1, section );
-    m_font_cfg.PixelSnapH = !!inifile.GetInt( "PixelSnapH", 0, section );
+    m_inifile->PutStr( "name", m_name.c_str(), section );
+    m_inifile->PutStr( "filename", m_filename.c_str(), section );
+    m_inifile->PutFloat( "size", m_size / g_scale, section );
+    m_inifile->PutInt( "OverSampleH", m_font_cfg.OversampleH, section );
+    m_inifile->PutInt( "OverSampleV", m_font_cfg.OversampleV, section );
+    m_inifile->PutInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
 }
 
-void FontInfo::load_font( CIniFile &inifile )
+void FontInfo::load_font( CIniFile &inifile, const char *section, const char *defname, float defsize )
 {
-    ImFont *font = NULL;
+    m_section = section;
+    m_inifile = &inifile;
+
+    m_name = inifile.GetStr( "name", defname, section );
+    m_filename = inifile.GetStr( "filename", "", section );
+    m_size = inifile.GetFloat( "size", defsize, section ) * g_scale;
+
+    m_font_cfg = ImFontConfig();
+    m_font_cfg.OversampleH = inifile.GetInt( "OversampleH", m_font_cfg.OversampleH, section );
+    m_font_cfg.OversampleV = inifile.GetInt( "OversampleV", m_font_cfg.OversampleV, section );
+    m_font_cfg.PixelSnapH = !!inifile.GetInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
+
+    m_font_type = get_type();
+
+    if ( !m_filename.empty() )
+        strcpy_safe( m_input_filename, m_filename.c_str() );
+
+    m_input_filename_err = "";
+
     ImGuiIO &io = ImGui::GetIO();
     static const ImWchar ranges[] =
     {
@@ -478,85 +494,137 @@ void FontInfo::load_font( CIniFile &inifile )
         0x00A0, 0x00FF,
         0,
     };
-
-    if ( !m_filename.empty() )
+    if ( m_font_type == TYPE_TTFFile )
     {
-        font = io.Fonts->AddFontFromFileTTF( m_filename.c_str(), m_size, &m_font_cfg, &ranges[ 0 ] );
+        ImFont *font = io.Fonts->AddFontFromFileTTF( m_filename.c_str(), m_size, &m_font_cfg, &ranges[ 0 ] );
+
         if ( !font )
-            logf( "WARNING: AddFontFromFileTTF %s failed.\n", m_filename.c_str() );
-    }
-
-    if ( !font )
-    {
-        if ( strcasestr( m_name.c_str(), "roboto" ) )
         {
-            snprintf_safe( m_font_cfg.Name, "Roboto Condensed, %.1fpx", m_size );
-
-            io.Fonts->AddFontFromMemoryCompressedTTF(
-                        RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, m_size,
-                        &m_font_cfg, &ranges[ 0 ] );
-        }
-        else if ( strcasestr( m_name.c_str(), "proggy tiny" ) )
-        {
-            snprintf_safe( m_font_cfg.Name, "Proggy Tiny, %.1fpx", m_size );
-
-            io.Fonts->AddFontFromMemoryCompressedTTF(
-                        ProggyTiny_compressed_data, ProggyTiny_compressed_size, m_size,
-                        &m_font_cfg, &ranges[ 0 ] );
+            m_input_filename_err = string_format( "WARNING: AddFontFromFileTTF %s failed.\n", m_filename.c_str() );
+            m_font_type = get_type( false );
         }
         else
         {
-            snprintf_safe( m_font_cfg.Name, "Proggy, %.1fpx", m_size );
-
-            m_font_cfg.SizePixels = m_size;
-            io.Fonts->AddFontDefault( &m_font_cfg );
+            m_name = m_font_cfg.Name;
         }
     }
 
-    const char *section = m_section.c_str();
+    if ( m_font_type == TYPE_RobotoCondensed )
+    {
+        m_name = "Roboto Condensed";
 
-    inifile.PutStr( "name", m_name.c_str(), section );
-    inifile.PutStr( "filename", m_filename.c_str(), section );
-    inifile.PutFloat( "size", m_size / g_scale, section );
-    inifile.PutInt( "OverSampleH", m_font_cfg.OversampleH, section );
-    inifile.PutInt( "OverSampleV", m_font_cfg.OversampleV, section );
-    inifile.PutInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
+        io.Fonts->AddFontFromMemoryCompressedTTF(
+                    RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, m_size,
+                    &m_font_cfg, &ranges[ 0 ] );
+    }
+    else if ( m_font_type == TYPE_ProggyTiny )
+    {
+        m_name = "Proggy Tiny";
+
+        io.Fonts->AddFontFromMemoryCompressedTTF(
+                    ProggyTiny_compressed_data, ProggyTiny_compressed_size, m_size,
+                    &m_font_cfg, &ranges[ 0 ] );
+    }
+    else
+    {
+        m_name = "Proggy Clean";
+
+        m_font_cfg.SizePixels = m_size;
+        io.Fonts->AddFontDefault( &m_font_cfg );
+    }
+
+    snprintf_safe( m_font_cfg.Name, "%s, %.1fpx", m_name.c_str(), m_size );
+
+    update_ini();
+
+    m_changed = false;
 }
 
-void FontInfo::render_options()
+FontInfo::font_type_t FontInfo::get_type( bool check_filename )
 {
-    static const char *fonts[] = { "Proggy Clean", "Proggy Tiny", "Roboto Condensed", "TTF File" };
+    if ( check_filename && !m_filename.empty() && get_file_size( m_filename.c_str() ) )
+        return TYPE_TTFFile;
+    else if ( strcasestr( m_name.c_str(), "roboto" ) )
+        return TYPE_RobotoCondensed;
+    else if ( strcasestr( m_name.c_str(), "proggy tiny" ) )
+        return TYPE_ProggyTiny;
+
+    return TYPE_ProggyClean;
+}
+
+void FontInfo::render_options( bool m_use_sdl_fonts )
+{
+    static const char *fonts[] =
+    {
+        "Proggy Clean",
+        "Proggy Tiny",
+        "Roboto Condensed"
+    };
+    bool changed = false;
 
     ImGui::PushID( this );
 
-    // m_name;
-    // m_size;
-    // m_filename;
-    static int listbox_item_current = 1;
-    static char filename[ PATH_MAX ];
+    {
+        ImGui::PushItemWidth( imgui_scale( 200.0f ) );
 
-    ImGui::PushItemWidth( imgui_scale( 200.0f ) );
-    ImGui::ListBox( "listbox\n(single select)", &listbox_item_current, fonts, ARRAY_SIZE( fonts ), 4 );
-    ImGui::PopItemWidth();
+        changed |= ImGui::ListBox( "Font", &m_font_type, fonts, ARRAY_SIZE( fonts ), ARRAY_SIZE( fonts ) );
+        if ( changed )
+        {
+            m_name = fonts[ m_font_type ];
+            m_filename.clear();
+        }
 
-    if ( listbox_item_current == 3 )
+        ImGui::PopItemWidth();
+    }
+
     {
         ImGui::PushItemWidth( imgui_scale( 350.0f ) );
 
         ImGui::AlignFirstTextHeightToWidgets();
         ImGui::Text( "Filename:" );
         ImGui::SameLine();
-        if ( ImGui::InputText( "##ttf_filename", filename, sizeof( filename ), ImGuiInputTextFlags_EnterReturnsTrue, 0 ) )
-            printf( "blah\n" );
+        if ( ImGui::InputText( "##ttf_filename", m_input_filename, sizeof( m_input_filename ),
+                               ImGuiInputTextFlags_EnterReturnsTrue, 0 ) &&
+             m_input_filename[ 0 ] )
+        {
+            if ( !get_file_size( m_input_filename ) )
+            {
+                m_input_filename_err = string_format( "ERROR: %s not found.", m_input_filename );
+            }
+            else
+            {
+                m_filename = m_input_filename;
+                m_input_filename_err = "";
+                changed = true;
+            }
+        }
+
+        ImGui::PopItemWidth();
+
+        if ( !m_input_filename_err.empty() )
+            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_input_filename_err.c_str() );
+    }
+
+    {
+        ImGui::PushItemWidth( imgui_scale( 150.0f ) );
+
+        changed |= ImGui::SliderFloat( "##size", &m_size, 7, 64, "Size: %.1f" );
+
+        if ( !m_use_sdl_fonts )
+        {
+            changed |= ImGui::SliderInt( "##oversample_h", &m_font_cfg.OversampleH, 1, 4, "OverSampleH: %.0f" );
+            changed |= ImGui::SliderInt( "##oversample_v", &m_font_cfg.OversampleV, 1, 4, "OverSampleV: %.0f" );
+            changed |= ImGui::Checkbox( "PixelSnapH", &m_font_cfg.PixelSnapH );
+        }
 
         ImGui::PopItemWidth();
     }
 
-    ImGui::PushItemWidth( imgui_scale( 150.0f ) );
-    ImGui::SliderInt( "##oversample_h", &m_font_cfg.OversampleH, 1, 4, "OverSampleH: %.0f" );
-    ImGui::SliderInt( "##oversample_v", &m_font_cfg.OversampleV, 1, 4, "OverSampleV: %.0f" );
-    ImGui::PopItemWidth();
-    ImGui::Checkbox( "PixelSnapH", &m_font_cfg.PixelSnapH );
+    if ( changed )
+    {
+        update_ini();
+        m_changed = true;
+    }
 
     ImGui::PopID();
 }

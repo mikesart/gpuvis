@@ -597,12 +597,10 @@ void TraceLoader::load_fonts()
     ImGui::GetIO().Fonts->Clear();
 
     // Add main font
-    m_font_main.init( m_inifile, "$imgui_font_main$", "Proggy", 13.0f );
-    m_font_main.load_font( m_inifile );
+    m_font_main.load_font( m_inifile, "$imgui_font_main$", "Proggy", 13.0f );
 
     // Add small font
-    m_font_small.init( m_inifile, "$imgui_font_small$", "Proggy Tiny", 10.0f );
-    m_font_small.load_font( m_inifile );
+    m_font_small.load_font( m_inifile, "$imgui_font_small$", "Proggy Tiny", 10.0f );
 }
 
 /*
@@ -2256,7 +2254,7 @@ void TraceConsole::render_font_options( TraceLoader &loader )
 
         ImGui::TextWrapped( "%s: %s", multi_text_color::yellow.m_str( font_name ).c_str(), lorem_str );
 
-        loader.m_font_main.render_options();
+        loader.m_font_main.render_options( !!opt_use_sdl_fonts.val );
         ImGui::TreePop();
     }
 
@@ -2272,7 +2270,7 @@ void TraceConsole::render_font_options( TraceLoader &loader )
 
         ImGui::EndChild();
 
-        loader.m_font_small.render_options();
+        loader.m_font_small.render_options( !!opt_use_sdl_fonts.val );
 
         ImGui::TreePop();
     }
@@ -2693,6 +2691,8 @@ int main( int argc, char **argv )
         if ( inifile.GetInt( "use_sdl_fonts", 0 ) != loader.get_opt( OPT_UseSDLFonts ) )
             reload_fonts = true;
         else if ( ( loader.get_optf( OPT_Scale ) != imgui_scale( 1.0f ) ) && !ImGui::IsMouseDown( 0 ) )
+            reload_fonts = true;
+        else if ( loader.m_font_main.m_changed || loader.m_font_small.m_changed )
             reload_fonts = true;
 
         if ( reload_fonts )

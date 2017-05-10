@@ -113,17 +113,34 @@ public:
     FontInfo() {}
     ~FontInfo() {}
 
-    void init( CIniFile &inifile, const char *section, const char *defname, float defsize );
-    void load_font( CIniFile &inifile );
+    void load_font( CIniFile &inifile, const char *section, const char *defname, float defsize );
+    void render_options( bool m_use_sdl_fonts );
 
-    void render_options();
+    enum font_type_t
+    {
+        TYPE_None = -1,
+        TYPE_ProggyClean = 0,
+        TYPE_ProggyTiny,
+        TYPE_RobotoCondensed,
+        TYPE_TTFFile
+    };
+    font_type_t get_type( bool check_filename = true );
+
+protected:
+    void update_ini();
 
 public:
-    float m_size;
+    CIniFile *m_inifile = nullptr;
+    float m_size = 0.0f;
     std::string m_filename;
     std::string m_section;
     std::string m_name;
     ImFontConfig m_font_cfg;
+    int m_font_type = TYPE_None;
+
+    bool m_changed = false;
+    std::string m_input_filename_err;
+    char m_input_filename[ PATH_MAX ] = { 0 };
 };
 
 void logf_init();
