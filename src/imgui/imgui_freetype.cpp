@@ -351,12 +351,10 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas )
                     }
                     else
                     {
-                        for ( uint32_t xx = 0; xx < glyphBitmap.width; ++xx )
-                        {
-                            uint32_t val = src[ xx ];
+                        float brighten = cfg.Brighten + 1.0f;
 
-                            dst[ xx ] = std::min< uint32_t >( 255, val + val * cfg.Brighten );
-                        }
+                        for ( uint32_t xx = 0; xx < glyphBitmap.width; ++xx )
+                            dst[ xx ] = std::min< uint32_t >( 255, src[ xx ] * brighten );
                     }
 
                     src += glyphBitmap.pitch;

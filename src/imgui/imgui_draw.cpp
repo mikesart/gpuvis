@@ -1461,6 +1461,19 @@ bool    ImFontAtlas::Build()
                 if (cfg.PixelSnapH)
                     glyph.XAdvance = (float)(int)(glyph.XAdvance + 0.5f);
                 dst_font->MetricsTotalSurface += (int)(glyph.X1 - glyph.X0 + 1.99f) * (int)(glyph.Y1 - glyph.Y0 + 1.99f); // +1 to account for average padding, +0.99 to round
+
+                if ( cfg.Brighten )
+                {
+                    float brighten = cfg.Brighten + 1.0f;
+
+                    for ( int y = pc.y0; y <= pc.y1; y++ )
+                    {
+                        unsigned char *dst = TexPixelsAlpha8 + y * TexWidth;
+
+                        for ( int x = pc.x0; x <= pc.x1; x++ )
+                            dst[ x ] = std::min< uint32_t >( 255, dst[ x ] * brighten );
+                    }
+                }
             }
         }
         cfg.DstFont->BuildLookupTable();
