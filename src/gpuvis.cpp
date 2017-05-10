@@ -2531,7 +2531,6 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
     static struct option long_opts[] =
     {
         { "fullscreen", no_argument, 0, 0 },
-        { "use_freetype", optional_argument, 0, 0 },
         { "scale", required_argument, 0, 0 },
         { 0, 0, 0, 0 }
     };
@@ -2546,8 +2545,6 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
         case 0:
             if ( !strcasecmp( "fullscreen", long_opts[ opt_ind ].name ) )
                 loader.m_options[ OPT_Fullscreen ].val = true;
-            else if ( !strcasecmp( "use_freetype", long_opts[ opt_ind ].name ) )
-                loader.m_options[ OPT_UseFreetype ].val = !!atoi( ya_optarg );
             else if ( !strcasecmp( "scale", long_opts[ opt_ind ].name ) )
                 loader.m_options[ OPT_Scale ].valf = atof( ya_optarg );
             break;
@@ -2736,6 +2733,7 @@ int main( int argc, char **argv )
             ImGui_ImplSdlGL3_InvalidateDeviceObjects();
             loader.load_fonts();
 
+            // If freetype failed the ini setting would be updated, so make sure we're in sync
             loader.m_options[ OPT_UseFreetype ].val = inifile.GetInt( "use_freetype", 0 );
         }
     }
