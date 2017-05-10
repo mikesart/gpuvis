@@ -473,7 +473,8 @@ void TraceLoader::init()
     m_options[ OPT_FreetypeMonoHinting ].opt_bool( "Mono hinting", "freetype_mono_hinting", false );
     m_options[ OPT_FreetypeBold ].opt_bool( "Bold", "freetype_bold", false );
     m_options[ OPT_FreetypeOblique ].opt_bool( "Oblique", "freetype_oblique", false );
-    for ( uint32_t i = OPT_UseFreetype; i <= OPT_FreetypeOblique; i++ )
+    m_options[ OPT_FreetypeBrighten ].opt_float( "Brighten: %.2f", "freetype_brighten", 0, 0, 1 );
+    for ( uint32_t i = OPT_UseFreetype; i <= OPT_FreetypeBrighten; i++ )
         m_options[ i ].hidden = true;
 
     for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
@@ -2277,6 +2278,11 @@ void TraceConsole::render_font_options( TraceLoader &loader )
                 ImGui::PopID();
             }
 
+            ImGui::PushItemWidth( imgui_scale( 150.0f ) );
+            TraceLoader::option_t &opt = loader.m_options[ OPT_FreetypeBrighten ];
+            changed |= ImGui::SliderFloat( "##brighten", &opt.valf, opt.valf_min, opt.valf_max, opt.desc.c_str() );
+            ImGui::PopItemWidth();
+
             ImGui::Unindent();
         }
 
@@ -2285,6 +2291,7 @@ void TraceConsole::render_font_options( TraceLoader &loader )
         if ( changed )
         {
             imgui_set_scale( loader.get_optf( OPT_Scale ) );
+            loader.m_inifile.PutFloat( "freetype_brighten", loader.m_options[ OPT_FreetypeBrighten ].valf );
 
             for ( uint32_t i = OPT_UseFreetype; i <= OPT_FreetypeOblique; i++ )
             {

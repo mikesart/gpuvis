@@ -699,6 +699,7 @@ enum : uint32_t
     OPT_FreetypeMonoHinting,
     OPT_FreetypeBold,
     OPT_FreetypeOblique,
+    OPT_FreetypeBrighten,
 
     OPT_PresetMax
 };

@@ -225,7 +225,7 @@ bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, Gly
     return true;
 }
 
-bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
+bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags, float brighten )
 {
     IM_ASSERT( atlas->ConfigData.Size > 0 );
 
@@ -345,7 +345,20 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
                 uint8_t *dst = atlas->TexPixelsAlpha8 + rect.y * atlas->TexWidth + rect.x;
                 for ( uint32_t yy = 0; yy < glyphBitmap.height; ++yy )
                 {
-                    memcpy( dst, src, glyphBitmap.width );
+                    if ( brighten == 0.0f )
+                    {
+                        memcpy( dst, src, glyphBitmap.width );
+                    }
+                    else
+                    {
+                        for ( uint32_t xx = 0; xx < glyphBitmap.width; ++xx )
+                        {
+                            uint32_t val = src[ xx ];
+
+                            dst[ xx ] = std::min< uint32_t >( 255, val + val * brighten );
+                        }
+                    }
+
                     src += glyphBitmap.pitch;
                     dst += atlas->TexWidth;
                 }

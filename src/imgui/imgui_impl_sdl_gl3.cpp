@@ -186,6 +186,7 @@ void ImGui_ImplSdlGL3_CreateFontsTexture(CIniFile &inifile)
     if ( inifile.GetInt( "use_freetype", 0 ) )
     {
         unsigned int flags = 0;
+        float brighten = inifile.GetFloat( "freetype_brighten", 0.0f );
 
         if ( inifile.GetInt( "freetype_disable_hinting", 0 ) )
             flags |= ImGuiFreeType::DisableHinting;
@@ -204,7 +205,7 @@ void ImGui_ImplSdlGL3_CreateFontsTexture(CIniFile &inifile)
         if ( inifile.GetInt( "freetype_oblique", 0 ) )
             flags |= ImGuiFreeType::Oblique;
 
-        if ( !ImGuiFreeType::BuildFontAtlas(io.Fonts, flags) )
+        if ( !ImGuiFreeType::BuildFontAtlas( io.Fonts, flags, brighten ) )
             inifile.PutInt( "use_freetype", 0 );
     }
 

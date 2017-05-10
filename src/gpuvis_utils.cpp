@@ -461,6 +461,7 @@ void FontInfo::update_ini()
     m_inifile->PutInt( "OverSampleH", m_font_cfg.OversampleH, section );
     m_inifile->PutInt( "OverSampleV", m_font_cfg.OversampleV, section );
     m_inifile->PutInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
+    m_inifile->PutFloat( "GlyphExtraSpacing", m_font_cfg.GlyphExtraSpacing.x, section );
 }
 
 void FontInfo::load_font( CIniFile &inifile, const char *section, const char *defname, float defsize )
@@ -476,6 +477,7 @@ void FontInfo::load_font( CIniFile &inifile, const char *section, const char *de
     m_font_cfg.OversampleH = inifile.GetInt( "OversampleH", m_font_cfg.OversampleH, section );
     m_font_cfg.OversampleV = inifile.GetInt( "OversampleV", m_font_cfg.OversampleV, section );
     m_font_cfg.PixelSnapH = !!inifile.GetInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
+    m_font_cfg.GlyphExtraSpacing.x = inifile.GetFloat( "GlyphExtraSpacing", m_font_cfg.GlyphExtraSpacing.x, section );
 
     m_font_type = get_type();
 
@@ -609,10 +611,10 @@ void FontInfo::render_options( bool m_use_sdl_fonts )
     }
 
     {
-        ImGui::PushItemWidth( imgui_scale( 150.0f ) );
+        ImGui::PushItemWidth( imgui_scale( 200.0f ) );
 
         changed |= ImGui::SliderFloat( "##size", &m_size, 7, 64, "Size: %.1f" );
-
+        changed |= ImGui::SliderFloat( "##extra_spacing", &m_font_cfg.GlyphExtraSpacing.x, 0, 4, "Extra Spacing: %.2f" );
         if ( !m_use_sdl_fonts )
         {
             changed |= ImGui::SliderInt( "##oversample_h", &m_font_cfg.OversampleH, 1, 4, "OverSampleH: %.0f" );
