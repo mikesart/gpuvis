@@ -617,8 +617,8 @@ void FontInfo::render_options( bool m_use_sdl_fonts )
         {
             changed |= ImGui::SliderInt( "##oversample_h", &m_font_cfg.OversampleH, 1, 4, "OverSampleH: %.0f" );
             changed |= ImGui::SliderInt( "##oversample_v", &m_font_cfg.OversampleV, 1, 4, "OverSampleV: %.0f" );
-            changed |= ImGui::Checkbox( "PixelSnapH", &m_font_cfg.PixelSnapH );
         }
+        changed |= ImGui::Checkbox( "PixelSnapH", &m_font_cfg.PixelSnapH );
 
         ImGui::PopItemWidth();
     }

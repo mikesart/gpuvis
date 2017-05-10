@@ -55,6 +55,10 @@
 //              |                                   |
 //              |------------- advanceX ----------->|
 
+// From SDL_ttf: Handy routines for converting from fixed point
+#define FT_FLOOR( X ) ( ( X & -64 ) / 64 )
+#define FT_CEIL( X )  ( ( ( X + 63 ) & -64 ) / 64 )
+
 // A structure that describe a glyph.
 struct GlyphInfo
 {
@@ -70,6 +74,7 @@ struct GlyphBitmap
 {
     static const uint32_t MaxWidth = 256;
     static const uint32_t MaxHeight = 256;
+
     uint8_t grayscale[ MaxWidth * MaxHeight ];
     uint32_t width, height, pitch;
 };
@@ -81,16 +86,7 @@ class FreeTypeFont
 {
 public:
     FreeTypeFont() {}
-    ~FreeTypeFont()
-    {
-        if ( m_face )
-        {
-            FT_Done_Face( m_face );
-            m_face = nullptr;
-            FT_Done_FreeType( m_library );
-            m_library = nullptr;
-        }
-    }
+    ~FreeTypeFont();
 
     // Initialize from an external data buffer.
     // Doesn't copy data, and you must ensure it stays valid up to this object lifetime.
@@ -111,20 +107,23 @@ public:
     FT_Face m_face = nullptr;
 };
 
-//
-template < class OutputType, class FreeTypeFixed >
-OutputType Round26Dot6( FreeTypeFixed v )
+FreeTypeFont::~FreeTypeFont()
 {
-    return ( OutputType )round( v / 64.0f );
+    if ( m_face )
+    {
+        FT_Done_Face( m_face );
+        m_face = nullptr;
+        FT_Done_FreeType( m_library );
+        m_library = nullptr;
+    }
 }
 
-//
 void FreeTypeFont::Init( ImFontConfig &cfg )
 {
-    const FT_Byte *data = ( const FT_Byte * )cfg.FontData;
-    int dataSize = cfg.FontDataSize;
     uint32_t faceIndex = cfg.FontNo;
     float pixelHeight  = cfg.SizePixels;
+    int dataSize = cfg.FontDataSize;
+    const FT_Byte *data = ( const FT_Byte * )cfg.FontData;
 
     // TODO: substitute allocator
     FT_Error error = FT_Init_FreeType( &m_library );
@@ -153,12 +152,11 @@ void FreeTypeFont::Init( ImFontConfig &cfg )
     // update font info
     FT_Size_Metrics metrics = m_face->size->metrics;
 
-    m_ascender = Round26Dot6< float >( metrics.ascender );
-    m_descender = Round26Dot6< float >( metrics.descender );
-    m_maxAdvanceWidth = Round26Dot6< float >( metrics.max_advance );
+    m_ascender = FT_CEIL( metrics.ascender );
+    m_descender = FT_CEIL( metrics.descender );
+    m_maxAdvanceWidth = FT_CEIL( metrics.max_advance );
 }
 
-//
 bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, GlyphBitmap &glyphBitmap, uint32_t flags )
 {
     // load the glyph we are looking for
@@ -204,10 +202,11 @@ bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo, Gly
     error = FT_Glyph_To_Bitmap( &glyphDesc, FT_RENDER_MODE_NORMAL, 0, 1 );
     if ( error != 0 )
         return false;
+
     FT_BitmapGlyph freeTypeBitmap = ( FT_BitmapGlyph )glyphDesc;
 
     //
-    glyphInfo.advanceX = Round26Dot6< float >( slot->advance.x );
+    glyphInfo.advanceX = slot->advance.x * ( 1.0f / 64.0f );
     glyphInfo.offsetX = ( float )freeTypeBitmap->left;
     glyphInfo.offsetY = -( float )freeTypeBitmap->top;
     glyphInfo.width = ( float )freeTypeBitmap->bitmap.width;
@@ -279,17 +278,21 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
     // Probably no one will notice.
     float MinRectsPerRow = ceilf( ( atlas->TexWidth / ( maxGlyphSize.x + 1.0f ) ) );
     float MinRectsPerColumn = ceilf( TotalRects / MinRectsPerRow );
+
     atlas->TexHeight = ( int )( MinRectsPerColumn * ( maxGlyphSize.y + 1.0f ) );
     atlas->TexHeight = ImUpperPowerOfTwo( atlas->TexHeight );
 
     stbrp_context context;
-    stbrp_node *nodes = ( stbrp_node * )ImGui::MemAlloc( TotalRects * sizeof( stbrp_node ) );
-    stbrp_init_target( &context, atlas->TexWidth, atlas->TexHeight, nodes, TotalRects );
+    std::vector< stbrp_node > nodes( TotalRects );
+
+    stbrp_init_target( &context, atlas->TexWidth, atlas->TexHeight, &nodes[ 0 ], TotalRects );
 
     stbrp_pack_rects( &context, &extra_rects[ 0 ], extra_rects.Size );
     for ( int i = 0; i < extra_rects.Size; i++ )
+    {
         if ( extra_rects[ i ].was_packed )
             atlas->TexHeight = ImMax( atlas->TexHeight, extra_rects[ i ].y + extra_rects[ i ].h );
+    }
 
     // Create texture
     atlas->TexPixelsAlpha8 = ( unsigned char * )ImGui::MemAlloc( atlas->TexWidth * atlas->TexHeight );
@@ -304,6 +307,7 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
 
         float ascent = fontFace.m_ascender;
         float descent = fontFace.m_descender;
+
         if ( !cfg.MergeMode )
         {
             dst_font->ContainerAtlas = atlas;
@@ -315,6 +319,7 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
             dst_font->Glyphs.resize( 0 );
         }
         dst_font->ConfigDataCount++;
+
         float off_y = ( cfg.MergeMode && cfg.MergeGlyphCenterV ) ? ( ascent - dst_font->Ascent ) * 0.5f : 0.0f;
 
         dst_font->FallbackGlyph = NULL; // Always clear fallback so FindGlyph can return NULL. It will be set again in BuildLookupTable()
@@ -323,7 +328,6 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
         {
             for ( uint32_t codepoint = in_range[ 0 ]; codepoint <= in_range[ 1 ]; ++codepoint )
             {
-
                 if ( cfg.MergeMode && dst_font->FindGlyph( ( unsigned short )codepoint ) )
                     continue;
 
@@ -335,7 +339,9 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
                 stbrp_rect rect;
                 rect.w = ( uint16_t )glyphBitmap.width + 1; // account for texture filtering
                 rect.h = ( uint16_t )glyphBitmap.height + 1;
+
                 stbrp_pack_rects( &context, &rect, 1 );
+
                 const uint8_t *src = glyphBitmap.grayscale;
                 uint8_t *dst = atlas->TexPixelsAlpha8 + rect.y * atlas->TexWidth + rect.x;
                 for ( uint32_t yy = 0; yy < glyphBitmap.height; ++yy )
@@ -347,6 +353,7 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
 
                 dst_font->Glyphs.resize( dst_font->Glyphs.Size + 1 );
                 ImFont::Glyph &glyph = dst_font->Glyphs.back();
+
                 glyph.Codepoint = ( ImWchar )codepoint;
                 glyph.X0 = glyphInfo.offsetX;
                 glyph.Y0 = glyphInfo.offsetY;
@@ -364,11 +371,9 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags )
                     glyph.XAdvance = ( float )( int )( glyph.XAdvance + 0.5f );
             }
         }
+
         cfg.DstFont->BuildLookupTable();
     }
-
-    // Cleanup temporaries
-    ImGui::MemFree( nodes );
 
     // Render into our custom data block
     atlas->RenderCustomTexData( 1, &extra_rects );
