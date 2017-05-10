@@ -45,5 +45,5 @@ namespace ImGuiFreeType
     };
 
     //
-    IMGUI_API bool BuildFontAtlas( ImFontAtlas *atlas, unsigned int flags, float brighten );
+    IMGUI_API bool BuildFontAtlas( ImFontAtlas *atlas );
 }

@@ -35,6 +35,7 @@
 #include <SDL.h>
 
 #include "imgui/imgui.h"
+#include "imgui/imgui_freetype.h"
 #include "gpuvis_macros.h"
 #include "gpuvis_utils.h"
 #include "stlini.h"
@@ -462,6 +463,8 @@ void FontInfo::update_ini()
     m_inifile->PutInt( "OverSampleV", m_font_cfg.OversampleV, section );
     m_inifile->PutInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
     m_inifile->PutFloat( "GlyphExtraSpacing", m_font_cfg.GlyphExtraSpacing.x, section );
+    m_inifile->PutInt( "FreetypeFlags", m_font_cfg.FreetypeFlags, section );
+    m_inifile->PutFloat( "Brighten", m_font_cfg.Brighten, section );
 }
 
 void FontInfo::load_font( CIniFile &inifile, const char *section, const char *defname, float defsize )
@@ -478,6 +481,8 @@ void FontInfo::load_font( CIniFile &inifile, const char *section, const char *de
     m_font_cfg.OversampleV = inifile.GetInt( "OversampleV", m_font_cfg.OversampleV, section );
     m_font_cfg.PixelSnapH = !!inifile.GetInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
     m_font_cfg.GlyphExtraSpacing.x = inifile.GetFloat( "GlyphExtraSpacing", m_font_cfg.GlyphExtraSpacing.x, section );
+    m_font_cfg.FreetypeFlags = inifile.GetInt( "FreetypeFlags", m_font_cfg.FreetypeFlags, section );
+    m_font_cfg.Brighten = inifile.GetFloat( "Brighten", m_font_cfg.Brighten, section );
 
     m_font_type = get_type();
 
@@ -554,7 +559,7 @@ FontInfo::font_type_t FontInfo::get_type( bool check_filename )
     return TYPE_ProggyClean;
 }
 
-void FontInfo::render_options( bool m_use_sdl_fonts )
+void FontInfo::render_font_options( bool m_use_freetype )
 {
     static const char *fonts[] =
     {
@@ -614,13 +619,74 @@ void FontInfo::render_options( bool m_use_sdl_fonts )
         ImGui::PushItemWidth( imgui_scale( 200.0f ) );
 
         changed |= ImGui::SliderFloat( "##size", &m_size, 7, 64, "Size: %.1f" );
+
+        ImGui::SameLine();
         changed |= ImGui::SliderFloat( "##extra_spacing", &m_font_cfg.GlyphExtraSpacing.x, 0, 4, "Extra Spacing: %.2f" );
-        if ( !m_use_sdl_fonts )
+        if ( ImGui::IsItemHovered() )
+            ImGui::SetTooltip( "%s", "Extra spacing (in pixels) between glyphs." );
+
+        changed |= ImGui::SliderFloat( "##Brighten", &m_font_cfg.Brighten, 0, 4, "Brighten: %.2f" );
+
+        if ( !m_use_freetype )
         {
+            ImGui::SameLine();
             changed |= ImGui::SliderInt( "##oversample_h", &m_font_cfg.OversampleH, 1, 4, "OverSampleH: %.0f" );
+            if ( ImGui::IsItemHovered() )
+                ImGui::SetTooltip( "%s", "Rasterize at higher quality for sub-pixel positioning." );
+
+#if 0
+            // imgui doesn't currently do sub-pixel on Y axis.
+            ImGui::SameLine();
             changed |= ImGui::SliderInt( "##oversample_v", &m_font_cfg.OversampleV, 1, 4, "OverSampleV: %.0f" );
+#endif
         }
+
         changed |= ImGui::Checkbox( "PixelSnapH", &m_font_cfg.PixelSnapH );
+        if ( ImGui::IsItemHovered() )
+            ImGui::SetTooltip( "%s", "Align every glyph to pixel boundary." );
+
+        if ( m_use_freetype )
+        {
+            static const struct
+            {
+                const char *name;
+                uint32_t flag;
+                const char *descr;
+            } s_FreeTypeFlags[] =
+            {
+                { "Disable hinting", ImGuiFreeType::DisableHinting,
+                        "Disable hinting.\nThis generally generates 'blurrier' bitmap glyphs when\n"
+                        "the glyph are rendered in any of the anti-aliased modes." },
+                { "Force auto-hint", ImGuiFreeType::ForceAutoHint,
+                        "Prefer auto-hinter over the font's native hinter." },
+                { "No auto-hint", ImGuiFreeType::NoAutoHint, "Disable auto-hinter." },
+                { "Light hinting", ImGuiFreeType::LightHinting,
+                        "A lighter hinting algorithm for gray-level modes.\nMany generated glyphs are fuzzier but"
+                        "better resemble their original shape.\nThis is achieved by snapping glyphs to the pixel grid"
+                        "only vertically (Y-axis),\nas is done by Microsoft's ClearType and Adobe's proprietary"
+                        "font renderer.\nThis preserves inter-glyph spacing in horizontal text." },
+                { "Mono hinting", ImGuiFreeType::MonoHinting,
+                        "Strong hinting algorithm that should be used for monochrome output." },
+                { "Bold", ImGuiFreeType::Bold, "Artificially embolden the font." },
+            };
+
+            for ( size_t i = 0; i < ARRAY_SIZE( s_FreeTypeFlags ); i++ )
+            {
+                bool val = m_font_cfg.FreetypeFlags & s_FreeTypeFlags[ i ].flag;
+
+                if ( s_FreeTypeFlags[ i ].flag != ImGuiFreeType::LightHinting )
+                    ImGui::SameLine();
+
+                if ( ImGui::Checkbox( s_FreeTypeFlags[ i ].name, &val ) )
+                {
+                    m_font_cfg.FreetypeFlags ^= s_FreeTypeFlags[ i ].flag;
+                    changed = true;
+                }
+
+                if ( ImGui::IsItemHovered() )
+                    ImGui::SetTooltip( "%s", s_FreeTypeFlags[ i ].descr );
+            }
+        }
 
         ImGui::PopItemWidth();
     }

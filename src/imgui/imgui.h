@@ -1350,6 +1350,9 @@ struct ImFontConfig
     bool            MergeMode;                  // false    // Merge into previous ImFont, so you can combine multiple inputs font into one ImFont (e.g. ASCII font + icons + Japanese glyphs).
     bool            MergeGlyphCenterV;          // false    // When merging (multiple ImFontInput for one ImFont), vertically center new glyphs instead of aligning their baseline
 
+    unsigned int    FreetypeFlags;              // ImGuiFreeType::RasterizationFlags
+    float           Brighten;
+
     // [Internal]
     char            Name[32];                               // Name (strictly for debugging)
     ImFont*         DstFont;

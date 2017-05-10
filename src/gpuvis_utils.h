@@ -114,7 +114,7 @@ public:
     ~FontInfo() {}
 
     void load_font( CIniFile &inifile, const char *section, const char *defname, float defsize );
-    void render_options( bool m_use_sdl_fonts );
+    void render_font_options( bool m_use_freetype );
 
     enum font_type_t
     {

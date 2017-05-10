@@ -16,6 +16,7 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_PLACEMENT_NEW
 #include "imgui_internal.h"
+#include "imgui_freetype.h"
 
 #include <stdio.h>      // vsnprintf, sscanf, printf
 #if !defined(alloca)
@@ -1047,6 +1048,8 @@ ImFontConfig::ImFontConfig()
     MergeMode = false;
     MergeGlyphCenterV = false;
     DstFont = NULL;
+    FreetypeFlags = ImGuiFreeType::ForceAutoHint;
+    Brighten = 0.0f;
     memset(Name, 0, sizeof(Name));
 }
 

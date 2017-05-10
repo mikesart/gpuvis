@@ -416,7 +416,7 @@ public:
     size_t m_log_size = ( size_t )-1;
     bool m_quit = false;
     bool m_show_imgui_test_window = false;
-    bool m_show_imgui_style_editor = true;
+    bool m_show_imgui_style_editor = false;
     bool m_show_imgui_metrics_editor = false;
 };
 
@@ -689,18 +689,7 @@ enum : uint32_t
     OPT_GraphHeightZoomed,
     OPT_EventListRowCount,
     OPT_Scale,
-
-    // Freetype options
     OPT_UseFreetype,
-    OPT_FreetypeDisableHinting,
-    OPT_FreetypeForceAutoHint,
-    OPT_FreetypeNoAutoHint,
-    OPT_FreetypeLightHinting,
-    OPT_FreetypeMonoHinting,
-    OPT_FreetypeBold,
-    OPT_FreetypeOblique,
-    OPT_FreetypeBrighten,
-
     OPT_PresetMax
 };
 
