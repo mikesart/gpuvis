@@ -567,7 +567,10 @@ void FontInfo::render_options( bool m_use_sdl_fonts )
     {
         ImGui::PushItemWidth( imgui_scale( 200.0f ) );
 
-        changed |= ImGui::ListBox( "Font", &m_font_type, fonts, ARRAY_SIZE( fonts ), ARRAY_SIZE( fonts ) );
+        ImGui::Text( "%s", "Embedded Fonts:" );
+        ImGui::SameLine();
+
+        changed |= ImGui::ListBox( "##font", &m_font_type, fonts, ARRAY_SIZE( fonts ), ARRAY_SIZE( fonts ) );
         if ( changed )
         {
             m_name = fonts[ m_font_type ];
@@ -578,11 +581,11 @@ void FontInfo::render_options( bool m_use_sdl_fonts )
     }
 
     {
-        ImGui::PushItemWidth( imgui_scale( 350.0f ) );
-
+        ImGui::PushItemWidth( imgui_scale( 400.0f ) );
         ImGui::AlignFirstTextHeightToWidgets();
-        ImGui::Text( "Filename:" );
+        ImGui::Text( "TTF Filename:" );
         ImGui::SameLine();
+
         if ( ImGui::InputText( "##ttf_filename", m_input_filename, sizeof( m_input_filename ),
                                ImGuiInputTextFlags_EnterReturnsTrue, 0 ) &&
              m_input_filename[ 0 ] )

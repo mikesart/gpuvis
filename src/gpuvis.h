@@ -689,7 +689,16 @@ enum : uint32_t
     OPT_GraphHeightZoomed,
     OPT_EventListRowCount,
     OPT_Scale,
+
+    // Freetype options
     OPT_UseFreetype,
+    OPT_FreetypeDisableHinting,
+    OPT_FreetypeForceAutoHint,
+    OPT_FreetypeNoAutoHint,
+    OPT_FreetypeLightHinting,
+    OPT_FreetypeMonoHinting,
+    OPT_FreetypeBold,
+    OPT_FreetypeOblique,
 
     OPT_PresetMax
 };

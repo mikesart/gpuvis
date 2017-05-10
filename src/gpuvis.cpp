@@ -466,7 +466,15 @@ void TraceLoader::init()
     m_options[ OPT_Scale ].hidden = true;
 
     m_options[ OPT_UseFreetype ].opt_bool( "Use Freetype", "use_freetype", false );
-    m_options[ OPT_UseFreetype ].hidden = true;
+    m_options[ OPT_FreetypeDisableHinting ].opt_bool( "Disable hinting", "freetype_disable_hinting", false );
+    m_options[ OPT_FreetypeForceAutoHint ].opt_bool( "Force auto-hinting", "freetype_force_autohint", true );
+    m_options[ OPT_FreetypeNoAutoHint ].opt_bool( "No auto-hinting", "freetype_no_autohint", false );
+    m_options[ OPT_FreetypeLightHinting ].opt_bool( "Light hinting", "freetype_light_hinting", false );
+    m_options[ OPT_FreetypeMonoHinting ].opt_bool( "Mono hinting", "freetype_mono_hinting", false );
+    m_options[ OPT_FreetypeBold ].opt_bool( "Bold", "freetype_bold", false );
+    m_options[ OPT_FreetypeOblique ].opt_bool( "Oblique", "freetype_oblique", false );
+    for ( uint32_t i = OPT_UseFreetype; i <= OPT_FreetypeOblique; i++ )
+        m_options[ i ].hidden = true;
 
     for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
@@ -2224,7 +2232,7 @@ void TraceConsole::render_options( TraceLoader &loader )
 void TraceConsole::render_font_options( TraceLoader &loader )
 {
     TraceLoader::option_t &opt_scale = loader.m_options[ OPT_Scale ];
-    TraceLoader::option_t &opt_use_sdl_fonts = loader.m_options[ OPT_UseFreetype ];
+    TraceLoader::option_t &opt_use_freetype = loader.m_options[ OPT_UseFreetype ];
 
     static const char lorem_str[] =
         "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do"
@@ -2239,13 +2247,60 @@ void TraceConsole::render_font_options( TraceLoader &loader )
 
     if ( ImGui::TreeNodeEx( "Options", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
+        bool changed = false;
+
         ImGui::PushItemWidth( imgui_scale( 150.0f ) );
-        ImGui::SliderFloat( "##slider_float", &opt_scale.valf, opt_scale.valf_min, opt_scale.valf_max, opt_scale.desc.c_str() );
+        changed |= ImGui::SliderFloat( "##slider_float", &opt_scale.valf,
+                                       opt_scale.valf_min, opt_scale.valf_max, opt_scale.desc.c_str() );
         ImGui::PopItemWidth();
 
-        ImGui::CheckboxInt( opt_use_sdl_fonts.desc.c_str(), &opt_use_sdl_fonts.val );
+        changed |= ImGui::CheckboxInt( opt_use_freetype.desc.c_str(), &opt_use_freetype.val );
+
+        if ( opt_use_freetype.val )
+        {
+            ImGui::Indent();
+
+            for ( uint32_t i = OPT_FreetypeDisableHinting; i <= OPT_FreetypeOblique; i++ )
+            {
+                TraceLoader::option_t &opt = loader.m_options[ i ];
+
+                ImGui::PushID( ( int )i );
+                if ( ImGui::CheckboxInt( opt.desc.c_str(), &opt.val ) )
+                {
+                    changed = true;
+
+                    if ( ( i != OPT_FreetypeBold ) && ( i != OPT_FreetypeOblique ) )
+                    {
+                        // Uncheck all the hinting options other than this one
+                        for ( uint32_t j = OPT_FreetypeDisableHinting; j <= OPT_FreetypeMonoHinting; j++ )
+                        {
+                            if ( i != j )
+                                loader.m_options[ j ].val = 0;
+                        }
+                    }
+                }
+                ImGui::PopID();
+            }
+
+            ImGui::Unindent();
+        }
 
         ImGui::TreePop();
+
+        if ( changed )
+        {
+            imgui_set_scale( loader.get_optf( OPT_Scale ) );
+
+            for ( uint32_t i = OPT_UseFreetype; i <= OPT_FreetypeOblique; i++ )
+            {
+                TraceLoader::option_t &opt = loader.m_options[ i ];
+
+                loader.m_inifile.PutInt( opt.inikey.c_str(), opt.val );
+            }
+
+            // Ping font change so this stuff will reload in main loop.
+            loader.m_font_main.m_changed = true;
+        }
     }
 
     if ( ImGui::TreeNodeEx( "Main Font", ImGuiTreeNodeFlags_DefaultOpen ) )
@@ -2254,13 +2309,13 @@ void TraceConsole::render_font_options( TraceLoader &loader )
 
         ImGui::TextWrapped( "%s: %s", multi_text_color::yellow.m_str( font_name ).c_str(), lorem_str );
 
-        loader.m_font_main.render_options( !!opt_use_sdl_fonts.val );
+        loader.m_font_main.render_options( !!opt_use_freetype.val );
         ImGui::TreePop();
     }
 
     if ( ImGui::TreeNodeEx( "Small Font", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        const char *font_name = loader.m_font_main.m_name.c_str();
+        const char *font_name = loader.m_font_small.m_name.c_str();
 
         ImGui::BeginChild( "small_font", ImVec2( 0, ImGui::GetTextLineHeightWithSpacing() * 4 ) );
 
@@ -2270,7 +2325,7 @@ void TraceConsole::render_font_options( TraceLoader &loader )
 
         ImGui::EndChild();
 
-        loader.m_font_small.render_options( !!opt_use_sdl_fonts.val );
+        loader.m_font_small.render_options( !!opt_use_freetype.val );
 
         ImGui::TreePop();
     }
@@ -2686,21 +2741,8 @@ int main( int argc, char **argv )
             loader.m_inputfiles.erase( loader.m_inputfiles.begin() );
         }
 
-        bool reload_fonts = false;
-
-        if ( inifile.GetInt( "use_freetype", 0 ) != loader.get_opt( OPT_UseFreetype ) )
-            reload_fonts = true;
-        else if ( ( loader.get_optf( OPT_Scale ) != imgui_scale( 1.0f ) ) && !ImGui::IsMouseDown( 0 ) )
-            reload_fonts = true;
-        else if ( loader.m_font_main.m_changed || loader.m_font_small.m_changed )
-            reload_fonts = true;
-
-        if ( reload_fonts )
+        if ( loader.m_font_main.m_changed || loader.m_font_small.m_changed )
         {
-            inifile.PutInt( "use_freetype", loader.get_opt( OPT_UseFreetype ) );
-
-            imgui_set_scale( loader.get_optf( OPT_Scale ) );
-
             ImGui_ImplSdlGL3_InvalidateDeviceObjects();
             loader.load_fonts();
 

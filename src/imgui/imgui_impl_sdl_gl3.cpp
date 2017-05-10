@@ -182,14 +182,31 @@ void ImGui_ImplSdlGL3_CreateFontsTexture(CIniFile &inifile)
     ImGuiIO& io = ImGui::GetIO();
     unsigned char* pixels;
     int width, height;
-    int use_freetype = inifile.GetInt( "use_freetype", 0 );
 
-    if ( use_freetype )
+    if ( inifile.GetInt( "use_freetype", 0 ) )
     {
-        unsigned int flags = ImGuiFreeType::ForceAutoHint;
-        ImGuiFreeType::BuildFontAtlas(io.Fonts, flags);
+        unsigned int flags = 0;
+
+        if ( inifile.GetInt( "freetype_disable_hinting", 0 ) )
+            flags |= ImGuiFreeType::DisableHinting;
+        else if ( inifile.GetInt( "freetype_force_autohint", 1 ) )
+            flags |= ImGuiFreeType::ForceAutoHint;
+        else if ( inifile.GetInt( "freetype_no_autohint", 0 ) )
+            flags |= ImGuiFreeType::NoAutoHint;
+        else if ( inifile.GetInt( "freetype_light_hinting", 0 ) )
+            flags |= ImGuiFreeType::LightHinting;
+        else if ( inifile.GetInt( "freetype_mono_hinting", 0 ) )
+            flags |= ImGuiFreeType::MonoHinting;
+
+        if ( inifile.GetInt( "freetype_bold", 0 ) )
+            flags |= ImGuiFreeType::Bold;
+
+        if ( inifile.GetInt( "freetype_oblique", 0 ) )
+            flags |= ImGuiFreeType::Oblique;
+
+        if ( !ImGuiFreeType::BuildFontAtlas(io.Fonts, flags) )
+            inifile.PutInt( "use_freetype", 0 );
     }
-    inifile.PutInt( "use_freetype", use_freetype );
 
     // Load as RGBA 32-bits for OpenGL3 demo because it is more likely to be compatible with user's existing shader.
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
