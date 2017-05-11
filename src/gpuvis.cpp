@@ -597,10 +597,10 @@ void TraceLoader::load_fonts()
     ImGui::GetIO().Fonts->Clear();
 
     // Add main font
-    m_font_main.load_font( m_inifile, "$imgui_font_main$", "Proggy", 13.0f );
+    m_font_main.load_font( m_inifile, "$imgui_font_main$", "Proggy Clean (13)", 13.0f );
 
     // Add small font
-    m_font_small.load_font( m_inifile, "$imgui_font_small$", "Proggy Tiny", 10.0f );
+    m_font_small.load_font( m_inifile, "$imgui_font_small$", "Proggy Tiny (10)", 10.0f );
 }
 
 /*
@@ -2251,7 +2251,11 @@ void TraceConsole::render_font_options( TraceLoader &loader )
     {
         bool changed = false;
 
-        changed |= ImGui::CheckboxInt( opt_use_freetype.desc.c_str(), &opt_use_freetype.val );
+        if ( ImGui::CheckboxInt( opt_use_freetype.desc.c_str(), &opt_use_freetype.val ) )
+        {
+            loader.m_inifile.PutInt( opt_use_freetype.inikey.c_str(), opt_use_freetype.val );
+            changed = true;
+        }
 
         ImGui::PushItemWidth( imgui_scale( 150.0f ) );
         changed |= ImGui::SliderFloat( "##slider_float", &opt_scale.valf,
@@ -2267,9 +2271,6 @@ void TraceConsole::render_font_options( TraceLoader &loader )
 
         if ( changed )
         {
-            imgui_set_scale( loader.get_optf( OPT_Scale ) );
-            loader.m_inifile.PutInt( opt_use_freetype.inikey.c_str(), opt_use_freetype.val );
-
             // Ping font change so this stuff will reload in main loop.
             loader.m_font_main.m_changed = true;
         }
@@ -2728,8 +2729,11 @@ int main( int argc, char **argv )
             loader.m_inputfiles.erase( loader.m_inputfiles.begin() );
         }
 
-        if ( loader.m_font_main.m_changed || loader.m_font_small.m_changed )
+        if ( ( loader.m_font_main.m_changed || loader.m_font_small.m_changed ) &&
+             !ImGui::IsMouseDown( 0 ) )
         {
+            imgui_set_scale( loader.get_optf( OPT_Scale ) );
+
             ImGui_ImplSdlGL3_InvalidateDeviceObjects();
             loader.load_fonts();
 

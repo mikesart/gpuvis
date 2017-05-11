@@ -52,6 +52,44 @@ static SDL_mutex *g_mutex = nullptr;
 
 static float g_scale = 1.0f;
 
+enum font_id_t
+{
+    FontID_Unknown = -1,
+    FontID_ProggyTiny = 0,
+    FontID_ProggyClean,
+    FontID_RobotoRegular,
+    FontID_RobotoCondensed,
+    FontID_DroidSans,
+    FontID_TTFFile
+};
+struct font_info
+{
+    const char *name;
+    const void *ttf_data;
+    int ttf_size;
+} g_font_info[] =
+{
+    { "Proggy Tiny (10)", ProggyTiny_compressed_data, ProggyTiny_compressed_size },
+    { "Proggy Clean (13)", NULL, 0 },
+    { "Roboto Regular", Roboto_Regular_compressed_data, Roboto_Regular_compressed_size },
+    { "Roboto Condensed", RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size },
+    { "Droid Sans", Droid_Sans_compressed_data, Droid_Sans_compressed_size },
+};
+
+font_id_t get_font_id( const char *name, const char *filename )
+{
+    if ( filename && get_file_size( filename ) )
+        return FontID_TTFFile;
+
+    for ( size_t i = 0; i < ARRAY_SIZE( g_font_info ); i++ )
+    {
+        if ( !strcasecmp( name, g_font_info[ i ].name ) )
+            return ( font_id_t )i;
+    }
+
+    return FontID_Unknown;
+}
+
 /*
  * log routines
  */
@@ -497,7 +535,9 @@ void FontInfo::load_font( CIniFile &inifile, const char *section, const char *de
         m_font_cfg.Brighten = inifile.GetFloat( "Brighten", m_font_cfg.Brighten, section );
     }
 
-    m_font_type = get_type();
+    m_font_id = get_font_id( m_name.c_str(), m_filename.c_str() );
+    if ( m_font_id == FontID_Unknown )
+        m_font_id = FontID_ProggyClean;
 
     if ( !m_filename.empty() )
         strcpy_safe( m_input_filename, m_filename.c_str() );
@@ -514,14 +554,14 @@ void FontInfo::load_font( CIniFile &inifile, const char *section, const char *de
         0x00A0, 0x00FF,
         0,
     };
-    if ( m_font_type == TYPE_TTFFile )
+    if ( m_font_id == FontID_TTFFile )
     {
         ImFont *font = io.Fonts->AddFontFromFileTTF( m_filename.c_str(), m_size, &m_font_cfg, &ranges[ 0 ] );
 
         if ( !font )
         {
             m_input_filename_err = string_format( "WARNING: AddFontFromFileTTF %s failed.\n", m_filename.c_str() );
-            m_font_type = get_type( false );
+            m_font_id = get_font_id( m_name.c_str(), NULL );
         }
         else
         {
@@ -536,44 +576,19 @@ void FontInfo::load_font( CIniFile &inifile, const char *section, const char *de
         }
     }
 
-    if ( m_font_type != TYPE_TTFFile )
+    if ( m_font_id != FontID_TTFFile )
     {
-        if ( m_font_type == TYPE_RobotoRegular )
-        {
-            m_name = "Roboto Regular";
+        m_name = g_font_info[ m_font_id ].name;
 
-            io.Fonts->AddFontFromMemoryCompressedTTF(
-                        Roboto_Regular_compressed_data, Roboto_Regular_compressed_size, m_size,
-                        &m_font_cfg, &ranges[ 0 ] );
-        }
-        else if ( m_font_type == TYPE_RobotoCondensed )
+        if ( g_font_info[ m_font_id ].ttf_data )
         {
-            m_name = "Roboto Condensed";
-
             io.Fonts->AddFontFromMemoryCompressedTTF(
-                        RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, m_size,
-                        &m_font_cfg, &ranges[ 0 ] );
-        }
-        else if ( m_font_type == TYPE_DroidSans )
-        {
-            m_name = "Droid Sans";
-
-            io.Fonts->AddFontFromMemoryCompressedTTF(
-                        Droid_Sans_compressed_data, Droid_Sans_compressed_size, m_size,
-                        &m_font_cfg, &ranges[ 0 ] );
-        }
-        else if ( m_font_type == TYPE_ProggyTiny )
-        {
-            m_name = "Proggy Tiny";
-
-            io.Fonts->AddFontFromMemoryCompressedTTF(
-                        ProggyTiny_compressed_data, ProggyTiny_compressed_size, m_size,
-                        &m_font_cfg, &ranges[ 0 ] );
+                        g_font_info[ m_font_id ].ttf_data,
+                        g_font_info[ m_font_id ].ttf_size,
+                        m_size, &m_font_cfg, &ranges[ 0 ] );
         }
         else
         {
-            m_name = "Proggy Clean";
-
             m_font_cfg.SizePixels = m_size;
             io.Fonts->AddFontDefault( &m_font_cfg );
         }
@@ -586,34 +601,19 @@ void FontInfo::load_font( CIniFile &inifile, const char *section, const char *de
     m_changed = false;
 }
 
-FontInfo::font_type_t FontInfo::get_type( bool check_filename )
+static bool listbox_get_fontname( void *unused, int i, const char **name )
 {
-    if ( check_filename && !m_filename.empty() && get_file_size( m_filename.c_str() ) )
-        return TYPE_TTFFile;
-    else if ( strcasestr( m_name.c_str(), "roboto condensed" ) )
-        return TYPE_RobotoCondensed;
-    else if ( strcasestr( m_name.c_str(), "roboto regular" ) )
-        return TYPE_RobotoRegular;
-    else if ( strcasestr( m_name.c_str(), "proggy tiny" ) )
-        return TYPE_ProggyTiny;
-    else if ( strcasestr( m_name.c_str(), "proggy clean" ) )
-        return TYPE_ProggyClean;
-    else if ( strcasestr( m_name.c_str(), "droid sans" ) )
-        return TYPE_DroidSans;
+    if ( ( i >= 0 ) && ( ( size_t )i < ARRAY_SIZE( g_font_info ) ) )
+    {
+        *name = g_font_info[ i ].name;
+        return true;
+    }
 
-    return TYPE_Unknown;
+    return false;
 }
 
 void FontInfo::render_font_options( bool m_use_freetype )
 {
-    static const char *fonts[] =
-    {
-        "Proggy Clean (13)",
-        "Proggy Tiny (10)",
-        "Roboto Regular",
-        "Roboto Condensed",
-        "Droid Sans"
-    };
     bool changed = false;
 
     ImGui::PushID( this );
@@ -624,10 +624,11 @@ void FontInfo::render_font_options( bool m_use_freetype )
         ImGui::Text( "%s", "Embedded Fonts:" );
         ImGui::SameLine();
 
-        changed |= ImGui::ListBox( "##font", &m_font_type, fonts, ARRAY_SIZE( fonts ), ARRAY_SIZE( fonts ) );
+        changed |= ImGui::ListBox("##font", &m_font_id, listbox_get_fontname,
+                                  g_font_info, ARRAY_SIZE( g_font_info ), ARRAY_SIZE( g_font_info ) );
         if ( changed )
         {
-            m_name = fonts[ m_font_type ];
+            m_name = g_font_info[ m_font_id ].name;
             m_filename.clear();
         }
 

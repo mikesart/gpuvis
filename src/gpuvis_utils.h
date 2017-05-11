@@ -116,18 +116,6 @@ public:
     void load_font( CIniFile &inifile, const char *section, const char *defname, float defsize );
     void render_font_options( bool m_use_freetype );
 
-    enum font_type_t
-    {
-        TYPE_Unknown = -1,
-        TYPE_ProggyClean = 0,
-        TYPE_ProggyTiny,
-        TYPE_RobotoRegular,
-        TYPE_RobotoCondensed,
-        TYPE_DroidSans,
-        TYPE_TTFFile
-    };
-    font_type_t get_type( bool check_filename = true );
-
 protected:
     void update_ini();
 
@@ -138,7 +126,7 @@ public:
     std::string m_section;
     std::string m_name;
     ImFontConfig m_font_cfg;
-    int m_font_type = TYPE_Unknown;
+    int m_font_id = -1;
 
     bool m_reset = false;
     bool m_changed = false;
