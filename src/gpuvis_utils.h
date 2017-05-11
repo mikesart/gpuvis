@@ -118,9 +118,10 @@ public:
 
     enum font_type_t
     {
-        TYPE_None = -1,
+        TYPE_Unknown = -1,
         TYPE_ProggyClean = 0,
         TYPE_ProggyTiny,
+        TYPE_RobotoRegular,
         TYPE_RobotoCondensed,
         TYPE_TTFFile
     };
@@ -136,7 +137,7 @@ public:
     std::string m_section;
     std::string m_name;
     ImFontConfig m_font_cfg;
-    int m_font_type = TYPE_None;
+    int m_font_type = TYPE_Unknown;
 
     bool m_reset = false;
     bool m_changed = false;

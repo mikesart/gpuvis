@@ -41,6 +41,7 @@
 #include "stlini.h"
 
 #include "proggy_tiny.cpp"
+#include "Roboto_Regular.cpp"
 #include "RobotoCondensed_Regular.cpp"
 
 static SDL_threadID g_main_tid = -1;
@@ -536,7 +537,15 @@ void FontInfo::load_font( CIniFile &inifile, const char *section, const char *de
 
     if ( m_font_type != TYPE_TTFFile )
     {
-        if ( m_font_type == TYPE_RobotoCondensed )
+        if ( m_font_type == TYPE_RobotoRegular )
+        {
+            m_name = "Roboto Regular";
+
+            io.Fonts->AddFontFromMemoryCompressedTTF(
+                        Roboto_Regular_compressed_data, Roboto_Regular_compressed_size, m_size,
+                        &m_font_cfg, &ranges[ 0 ] );
+        }
+        else if ( m_font_type == TYPE_RobotoCondensed )
         {
             m_name = "Roboto Condensed";
 
@@ -572,12 +581,16 @@ FontInfo::font_type_t FontInfo::get_type( bool check_filename )
 {
     if ( check_filename && !m_filename.empty() && get_file_size( m_filename.c_str() ) )
         return TYPE_TTFFile;
-    else if ( strcasestr( m_name.c_str(), "roboto" ) )
+    else if ( strcasestr( m_name.c_str(), "roboto condensed" ) )
         return TYPE_RobotoCondensed;
+    else if ( strcasestr( m_name.c_str(), "roboto regular" ) )
+        return TYPE_RobotoRegular;
     else if ( strcasestr( m_name.c_str(), "proggy tiny" ) )
         return TYPE_ProggyTiny;
+    else if ( strcasestr( m_name.c_str(), "proggy clean" ) )
+        return TYPE_ProggyClean;
 
-    return TYPE_ProggyClean;
+    return TYPE_Unknown;
 }
 
 void FontInfo::render_font_options( bool m_use_freetype )
@@ -586,6 +599,7 @@ void FontInfo::render_font_options( bool m_use_freetype )
     {
         "Proggy Clean (13)",
         "Proggy Tiny (10)",
+        "Roboto Regular",
         "Roboto Condensed"
     };
     bool changed = false;
