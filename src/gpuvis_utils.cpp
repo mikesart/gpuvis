@@ -41,6 +41,7 @@
 #include "stlini.h"
 
 #include "proggy_tiny.cpp"
+#include "Droid_Sans.cpp"
 #include "Roboto_Regular.cpp"
 #include "RobotoCondensed_Regular.cpp"
 
@@ -553,6 +554,14 @@ void FontInfo::load_font( CIniFile &inifile, const char *section, const char *de
                         RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, m_size,
                         &m_font_cfg, &ranges[ 0 ] );
         }
+        else if ( m_font_type == TYPE_DroidSans )
+        {
+            m_name = "Droid Sans";
+
+            io.Fonts->AddFontFromMemoryCompressedTTF(
+                        Droid_Sans_compressed_data, Droid_Sans_compressed_size, m_size,
+                        &m_font_cfg, &ranges[ 0 ] );
+        }
         else if ( m_font_type == TYPE_ProggyTiny )
         {
             m_name = "Proggy Tiny";
@@ -589,6 +598,8 @@ FontInfo::font_type_t FontInfo::get_type( bool check_filename )
         return TYPE_ProggyTiny;
     else if ( strcasestr( m_name.c_str(), "proggy clean" ) )
         return TYPE_ProggyClean;
+    else if ( strcasestr( m_name.c_str(), "droid sans" ) )
+        return TYPE_DroidSans;
 
     return TYPE_Unknown;
 }
@@ -600,7 +611,8 @@ void FontInfo::render_font_options( bool m_use_freetype )
         "Proggy Clean (13)",
         "Proggy Tiny (10)",
         "Roboto Regular",
-        "Roboto Condensed"
+        "Roboto Condensed",
+        "Droid Sans"
     };
     bool changed = false;
 

@@ -123,6 +123,7 @@ public:
         TYPE_ProggyTiny,
         TYPE_RobotoRegular,
         TYPE_RobotoCondensed,
+        TYPE_DroidSans,
         TYPE_TTFFile
     };
     font_type_t get_type( bool check_filename = true );

@@ -45,6 +45,8 @@ Embeds [ProggyClean.ttf and ProggyTiny.ttf](http://upperbounds.net) font by Tris
 Embeds [Roboto-Regular.ttf](https://fonts.google.com/specimen/Roboto) font by Christian Robertson (Apache License 2.0).
 Embeds [RobotoCondensed-Regular.ttf](https://fonts.google.com/specimen/Roboto+Condensed) font by Christian Robertson (Apache License 2.0).
 
+Embeds [DroidSans.ttf](http://www.google.com/fonts/specimen/Droid+Sans) font by Steve Matteson (Apache License 2.0).
+
 Uses [stb_textedit.h, stb_truetype.h, stb_rectpack.h](https://github.com/nothings/stb/) by Sean Barrett (public domain).
 
 trace-cmd is [GNU GPL v2](https://git.kernel.org/pub/scm/linux/kernel/git/rostedt/trace-cmd.git)
