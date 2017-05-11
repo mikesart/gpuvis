@@ -523,32 +523,42 @@ void FontInfo::load_font( CIniFile &inifile, const char *section, const char *de
         }
         else
         {
-            m_name = m_font_cfg.Name;
+            const char *filename = m_filename.c_str();
+
+            for ( const char *str = m_filename.c_str(); *str; str++ )
+            {
+                if ( (*str == '/' || *str == '\\' ) && str[ 1 ] )
+                    filename = str + 1;
+            }
+            m_name = filename;
         }
     }
 
-    if ( m_font_type == TYPE_RobotoCondensed )
+    if ( m_font_type != TYPE_TTFFile )
     {
-        m_name = "Roboto Condensed";
+        if ( m_font_type == TYPE_RobotoCondensed )
+        {
+            m_name = "Roboto Condensed";
 
-        io.Fonts->AddFontFromMemoryCompressedTTF(
-                    RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, m_size,
-                    &m_font_cfg, &ranges[ 0 ] );
-    }
-    else if ( m_font_type == TYPE_ProggyTiny )
-    {
-        m_name = "Proggy Tiny";
+            io.Fonts->AddFontFromMemoryCompressedTTF(
+                        RobotoCondensed_Regular_compressed_data, RobotoCondensed_Regular_compressed_size, m_size,
+                        &m_font_cfg, &ranges[ 0 ] );
+        }
+        else if ( m_font_type == TYPE_ProggyTiny )
+        {
+            m_name = "Proggy Tiny";
 
-        io.Fonts->AddFontFromMemoryCompressedTTF(
-                    ProggyTiny_compressed_data, ProggyTiny_compressed_size, m_size,
-                    &m_font_cfg, &ranges[ 0 ] );
-    }
-    else
-    {
-        m_name = "Proggy Clean";
+            io.Fonts->AddFontFromMemoryCompressedTTF(
+                        ProggyTiny_compressed_data, ProggyTiny_compressed_size, m_size,
+                        &m_font_cfg, &ranges[ 0 ] );
+        }
+        else
+        {
+            m_name = "Proggy Clean";
 
-        m_font_cfg.SizePixels = m_size;
-        io.Fonts->AddFontDefault( &m_font_cfg );
+            m_font_cfg.SizePixels = m_size;
+            io.Fonts->AddFontDefault( &m_font_cfg );
+        }
     }
 
     snprintf_safe( m_font_cfg.Name, "%s, %.1fpx", m_name.c_str(), m_size );
