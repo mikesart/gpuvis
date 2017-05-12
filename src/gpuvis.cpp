@@ -721,6 +721,11 @@ void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
     if ( ( plocs = trace_events.get_locs( "sdma1", &type ) ) )
         m_graph_rows_list.push_back( { type, plocs->size(), "sdma1", false } );
 
+    if ( ( plocs = trace_events.get_locs( "sdma0 hw", &type ) ) )
+        m_graph_rows_list.push_back( { type, plocs->size(), "sdma0 hw", false } );
+    if ( ( plocs = trace_events.get_locs( "sdma1 hw", &type ) ) )
+        m_graph_rows_list.push_back( { type, plocs->size(), "sdma1 hw", false } );
+
     if ( ( plocs = trace_events.get_locs( "print", &type ) ) )
         m_graph_rows_list.push_back( { type, plocs->size(), "print", false } );
 
