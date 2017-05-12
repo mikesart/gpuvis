@@ -248,20 +248,25 @@ void FreeTypeFont::BlitGlyph( uint8_t *dst, uint32_t dst_pitch, float brighten )
     uint8_t *src = m_glyph_bitmap->bitmap.buffer;
     uint32_t src_pitch = m_glyph_bitmap->bitmap.pitch;
 
-    for ( uint32_t y = 0; y < h; y++ )
+    if ( brighten == 1.0f )
     {
-        if ( brighten == 1.0f )
+        for ( uint32_t y = 0; y < h; y++ )
         {
             memcpy( dst, src, w );
+            src += src_pitch;
+            dst += dst_pitch;
         }
-        else
+    }
+    else
+    {
+        for ( uint32_t y = 0; y < h; y++ )
         {
             for ( uint32_t x = 0; x < w; x++ )
                 dst[ x ] = std::min< uint32_t >( 255, src[ x ] * brighten );
-        }
 
-        src += src_pitch;
-        dst += dst_pitch;
+            src += src_pitch;
+            dst += dst_pitch;
+        }
     }
 }
 
