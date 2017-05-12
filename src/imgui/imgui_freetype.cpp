@@ -63,45 +63,32 @@
 #define FT_FLOOR( X ) ( ( X & -64 ) / 64 )
 #define FT_CEIL( X )  ( ( ( X + 63 ) & -64 ) / 64 )
 
-// Rasterized glyph image (8-bit alpha coverage).
-struct GlyphBitmap
-{
-    static const uint32_t MaxWidth = 256;
-    static const uint32_t MaxHeight = 256;
-
-    uint32_t width;
-    uint32_t height;
-    uint32_t pitch;
-    uint8_t grayscale[ MaxWidth * MaxHeight ];
-};
-
-// A structure that describe a glyph.
+// Glyph information
 struct GlyphInfo
 {
-    float width;    // Glyph's width in pixels.
-    float height;   // Glyph's height in pixels.
     float offsetX;  // The distance from the origin ("pen position") to the left of the glyph.
     float offsetY;  // The distance from the origin to the top of the glyph. This is usually a value < 0.
     float advanceX; // The distance from the origin to the origin of the next glyph. This is usually a value > 0.
 
-    GlyphBitmap bmp;
+    uint32_t width;    // Glyph's width in pixels.
+    uint32_t height;   // Glyph's height in pixels.
 };
 
-//
-//  FreeType glyph rasterizer.
-//
+//  FreeType glyph rasterizer
 class FreeTypeFont
 {
 public:
     FreeTypeFont() {}
     ~FreeTypeFont();
 
-    // Initialize from an external data buffer.
-    // Doesn't copy data, and you must ensure it stays valid up to this object lifetime.
+    // Initialize from imgui font config struct.
     void Init( ImFontConfig &cfg );
 
-    // Generate glyph image.
-    bool RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo );
+    // Generate glyph image and get glyph information.
+    bool GetGlyphInfo( uint32_t codepoint, GlyphInfo &glyphInfo );
+
+    // Blit glyph bitmap (from last call to GetGlyphInfo) to dest.
+    void BlitGlyph( uint8_t *dst, uint32_t dst_pitch, float brighten );
 
 public:
     // The pixel extents above the baseline in pixels (typically positive).
@@ -113,7 +100,10 @@ public:
 
     bool m_bold;
     bool m_oblique;
-    FT_Int32 m_LoadFlags;
+    FT_Int32 m_LoadGlyphFlags;
+
+    FT_Glyph m_glyph = nullptr;
+    FT_BitmapGlyph m_glyph_bitmap = nullptr;
 
     FT_Library m_library = nullptr;
     FT_Face m_face = nullptr;
@@ -121,6 +111,10 @@ public:
 
 FreeTypeFont::~FreeTypeFont()
 {
+    FT_Done_Glyph( m_glyph );
+    m_glyph = NULL;
+    m_glyph_bitmap = NULL;
+
     if ( m_face )
     {
         FT_Done_Face( m_face );
@@ -135,11 +129,10 @@ void FreeTypeFont::Init( ImFontConfig &cfg )
 {
     int faceIndex = cfg.FontNo;
     float pixelHeight  = cfg.SizePixels;
+    unsigned int flags = cfg.FreetypeFlags;
     int dataSize = cfg.FontDataSize;
     const FT_Byte *data = ( const FT_Byte * )cfg.FontData;
-    unsigned int flags = cfg.FreetypeFlags;
 
-    // TODO: substitute allocator
     FT_Error error = FT_Init_FreeType( &m_library );
     IM_ASSERT( error == 0 );
 
@@ -170,35 +163,38 @@ void FreeTypeFont::Init( ImFontConfig &cfg )
     m_descender = FT_CEIL( metrics.descender );
     m_maxAdvanceWidth = FT_CEIL( metrics.max_advance );
 
-    m_LoadFlags = FT_LOAD_NO_BITMAP;
+    m_LoadGlyphFlags = FT_LOAD_NO_BITMAP;
 
     if ( flags & ImGuiFreeType::DisableHinting )
-        m_LoadFlags |= FT_LOAD_NO_HINTING;
+        m_LoadGlyphFlags |= FT_LOAD_NO_HINTING;
     if ( flags & ImGuiFreeType::ForceAutoHint )
-        m_LoadFlags |= FT_LOAD_FORCE_AUTOHINT;
+        m_LoadGlyphFlags |= FT_LOAD_FORCE_AUTOHINT;
     if ( flags & ImGuiFreeType::NoAutoHint )
-        m_LoadFlags |= FT_LOAD_NO_AUTOHINT;
+        m_LoadGlyphFlags |= FT_LOAD_NO_AUTOHINT;
 
     if ( flags & ImGuiFreeType::LightHinting )
-        m_LoadFlags |= FT_LOAD_TARGET_LIGHT;
+        m_LoadGlyphFlags |= FT_LOAD_TARGET_LIGHT;
     else if ( flags & ImGuiFreeType::MonoHinting )
-        m_LoadFlags |= FT_LOAD_TARGET_MONO;
+        m_LoadGlyphFlags |= FT_LOAD_TARGET_MONO;
     else
-        m_LoadFlags |= FT_LOAD_TARGET_NORMAL;
+        m_LoadGlyphFlags |= FT_LOAD_TARGET_NORMAL;
 
     m_oblique = !!( flags & ImGuiFreeType::Oblique );
     m_bold = !!( flags & ImGuiFreeType::Bold );
 }
 
-bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo )
+bool FreeTypeFont::GetGlyphInfo( uint32_t codepoint, GlyphInfo &glyphInfo )
 {
+    bool ret = false;
     uint32_t glyphIndex = FT_Get_Char_Index( m_face, codepoint );
 
-    glyphInfo.bmp.width = 0;
-    glyphInfo.bmp.height = 0;
-    glyphInfo.bmp.pitch = 0;
+    memset( &glyphInfo, 0, sizeof( glyphInfo ) );
 
-    FT_Error error = FT_Load_Glyph( m_face, glyphIndex, m_LoadFlags );
+    FT_Done_Glyph( m_glyph );
+    m_glyph = NULL;
+    m_glyph_bitmap = NULL;
+
+    FT_Error error = FT_Load_Glyph( m_face, glyphIndex, m_LoadGlyphFlags );
     if ( error )
         return false;
 
@@ -214,36 +210,59 @@ bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo )
         FT_GlyphSlot_Embolden( slot );
 
     // retrieve the glyph
-    FT_Glyph glyphDesc;
-    error = FT_Get_Glyph( slot, &glyphDesc );
-    if ( error != 0 )
-        return false;
+    error = FT_Get_Glyph( slot, &m_glyph );
+    if ( !error )
+    {
+        FT_Bool destroy = true;
+        FT_Vector *origin = NULL;
 
-    // rasterize
-    error = FT_Glyph_To_Bitmap( &glyphDesc, FT_RENDER_MODE_NORMAL, 0, 1 );
-    if ( error != 0 )
-        return false;
+        error = FT_Glyph_To_Bitmap( &m_glyph, FT_RENDER_MODE_NORMAL, origin, destroy );
+        if ( !error )
+        {
+            m_glyph_bitmap = ( FT_BitmapGlyph )m_glyph;
 
-    FT_BitmapGlyph freeTypeBitmap = ( FT_BitmapGlyph )glyphDesc;
+            glyphInfo.advanceX = slot->advance.x * ( 1.0f / 64.0f );
+            glyphInfo.offsetX = m_glyph_bitmap->left;
+            glyphInfo.offsetY = -m_glyph_bitmap->top;
 
-    glyphInfo.advanceX = slot->advance.x * ( 1.0f / 64.0f );
-    glyphInfo.offsetX = freeTypeBitmap->left;
-    glyphInfo.offsetY = -freeTypeBitmap->top;
-    glyphInfo.width = freeTypeBitmap->bitmap.width;
-    glyphInfo.height = freeTypeBitmap->bitmap.rows;
+            if ( m_glyph_bitmap->bitmap.buffer )
+            {
+                glyphInfo.width = m_glyph_bitmap->bitmap.width;
+                glyphInfo.height = m_glyph_bitmap->bitmap.rows;
+            }
 
-    glyphInfo.bmp.width = freeTypeBitmap->bitmap.width;
-    glyphInfo.bmp.height = freeTypeBitmap->bitmap.rows;
-    glyphInfo.bmp.pitch = freeTypeBitmap->bitmap.pitch;
+            ret = true;
+        }
+    }
 
-    IM_ASSERT( glyphInfo.bmp.pitch <= GlyphBitmap::MaxWidth );
-    if ( freeTypeBitmap->bitmap.width && freeTypeBitmap->bitmap.buffer )
-        memcpy( glyphInfo.bmp.grayscale, freeTypeBitmap->bitmap.buffer, glyphInfo.bmp.pitch * glyphInfo.bmp.height );
+    return ret;
+}
 
-    // cleanup
-    FT_Done_Glyph( glyphDesc );
+void FreeTypeFont::BlitGlyph( uint8_t *dst, uint32_t dst_pitch, float brighten )
+{
+    if ( !m_glyph_bitmap )
+        return;
 
-    return true;
+    uint32_t w = m_glyph_bitmap->bitmap.width;
+    uint32_t h = m_glyph_bitmap->bitmap.rows;
+    uint8_t *src = m_glyph_bitmap->bitmap.buffer;
+    uint32_t src_pitch = m_glyph_bitmap->bitmap.pitch;
+
+    for ( uint32_t y = 0; y < h; y++ )
+    {
+        if ( brighten == 1.0f )
+        {
+            memcpy( dst, src, w );
+        }
+        else
+        {
+            for ( uint32_t x = 0; x < w; x++ )
+                dst[ x ] = std::min< uint32_t >( 255, src[ x ] * brighten );
+        }
+
+        src += src_pitch;
+        dst += dst_pitch;
+    }
 }
 
 bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas )
@@ -267,14 +286,15 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas )
 
         IM_ASSERT( cfg.DstFont && ( !cfg.DstFont->IsLoaded() || cfg.DstFont->ContainerAtlas == atlas ) );
 
+        if ( !cfg.GlyphRanges )
+            cfg.GlyphRanges = atlas->GetGlyphRangesDefault();
+
         fontFace.Init( cfg );
+
         maxGlyphSize.x = ImMax( maxGlyphSize.x, fontFace.m_maxAdvanceWidth );
         maxGlyphSize.y = ImMax( maxGlyphSize.y, fontFace.m_ascender - fontFace.m_descender );
 
         // Count glyphs
-        if ( !cfg.GlyphRanges )
-            cfg.GlyphRanges = atlas->GetGlyphRangesDefault();
-
         for ( const ImWchar *in_range = cfg.GlyphRanges; in_range[ 0 ] && in_range[ 1 ]; in_range += 2 )
             total_glyph_count += ( in_range[ 1 ] - in_range[ 0 ] ) + 1;
     }
@@ -329,8 +349,6 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas )
     memset( atlas->TexPixelsAlpha8, 0, atlas->TexWidth * atlas->TexHeight );
 
     // render characters, setup ImFont and glyphs for runtime
-    GlyphInfo glyphInfo;
-
     for ( int input_i = 0; input_i < atlas->ConfigData.Size; input_i++ )
     {
         ImFontConfig &cfg = atlas->ConfigData[ input_i ];
@@ -364,33 +382,21 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas )
                 if ( cfg.MergeMode && dst_font->FindGlyph( ( unsigned short )codepoint ) )
                     continue;
 
-                fontFace.RasterizeGlyph( codepoint, glyphInfo );
+                GlyphInfo glyphInfo;
+                fontFace.GetGlyphInfo( codepoint, glyphInfo );
 
                 // blit to texture
                 stbrp_rect rect;
-                rect.w = ( uint16_t )glyphInfo.bmp.width + 1; // account for texture filtering
-                rect.h = ( uint16_t )glyphInfo.bmp.height + 1;
+                rect.w = ( uint16_t )glyphInfo.width + 1; // account for texture filtering;
+                rect.h = ( uint16_t )glyphInfo.height + 1;
 
                 stbrp_pack_rects( &context, &rect, 1 );
 
-                const uint8_t *src = glyphInfo.bmp.grayscale;
-                uint8_t *dst = atlas->TexPixelsAlpha8 + rect.y * atlas->TexWidth + rect.x;
-                for ( uint32_t yy = 0; yy < glyphInfo.bmp.height; ++yy )
+                if ( glyphInfo.height )
                 {
-                    if ( cfg.Brighten == 0.0f )
-                    {
-                        memcpy( dst, src, glyphInfo.bmp.width );
-                    }
-                    else
-                    {
-                        float brighten = cfg.Brighten + 1.0f;
+                    uint8_t *dst = atlas->TexPixelsAlpha8 + rect.y * atlas->TexWidth + rect.x;
 
-                        for ( uint32_t xx = 0; xx < glyphInfo.bmp.width; ++xx )
-                            dst[ xx ] = std::min< uint32_t >( 255, src[ xx ] * brighten );
-                    }
-
-                    src += glyphInfo.bmp.pitch;
-                    dst += atlas->TexWidth;
+                    fontFace.BlitGlyph( dst, atlas->TexWidth, cfg.Brighten + 1.0f );
                 }
 
                 dst_font->Glyphs.resize( dst_font->Glyphs.Size + 1 );
