@@ -191,6 +191,9 @@ public:
     float row_h;
     float visible_graph_height;
     float total_graph_height;
+
+    float minval = FLT_MAX;
+    float maxval = FLT_MIN;
 };
 
 static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
@@ -801,25 +804,6 @@ bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
                     m_plotdata.push_back( { event.ts, event.id, valf } );
                 }
             }
-
-            float minval = m_minval;
-            float maxval = m_maxval;
-
-            if ( minval == maxval )
-            {
-                minval--;
-                maxval++;
-            }
-            else
-            {
-                // Pad graph by a bit so values aren't hitting edges of graph row.
-                float pad = .15f * ( maxval - minval );
-                minval -= pad;
-                maxval += pad;
-            }
-
-            for ( plotdata_t &data : m_plotdata )
-                data.valf_norm = ( data.valf - minval ) / ( maxval - minval );
         }
     }
 
@@ -844,6 +828,8 @@ uint32_t GraphPlot::find_ts_index( int64_t ts0 )
 
 uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
 {
+    float minval = FLT_MAX;
+    float maxval = FLT_MIN;
     std::vector< ImVec2 > points;
     const char *row_name = gi.prinfo_cur->row_name.c_str();
     GraphPlot &plot = m_trace_events.get_plot( row_name );
@@ -859,9 +845,18 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
     {
         GraphPlot::plotdata_t &data = plot.m_plotdata[ idx ];
         float x = gi.ts_to_screenx( data.ts );
-        float y = gi.y + gi.h * ( 1.0f - data.valf_norm );
+        float y = data.valf;
+
+        if ( x <= 0.0f )
+        {
+            minval = y;
+            maxval = y;
+        }
 
         points.push_back( ImVec2( x, y ) );
+
+        minval = std::min< float >( minval, y );
+        maxval = std::max< float >( maxval, y );
 
         // Check if we're mouse hovering this event
         if ( gi.mouse_over )
@@ -873,9 +868,22 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
 
     if ( points.size() )
     {
-        bool anti_aliased = true;
         bool closed = false;
         float thickness = 2.0f;
+        bool anti_aliased = true;
+
+        gi.minval = minval;
+        gi.maxval = maxval;
+
+        float pad = 0.15f * ( maxval - minval );
+        if ( !pad )
+            pad = 1.0f;
+        minval -= pad;
+        maxval += pad;
+
+        float rcpdenom = gi.h / ( maxval - minval );
+        for ( ImVec2 &pt : points )
+            pt.y = gi.y + ( maxval - pt.y ) * rcpdenom;
 
         ImGui::GetWindowDrawList()->AddPolyline( points.data(), points.size(),
                                                  plot.m_color_line, closed, thickness, anti_aliased );
@@ -1268,7 +1276,15 @@ void TraceWin::graph_render_row( graph_info_t &gi )
     imgui_draw_text( gi.x, gi.y, label.c_str(),
                      col_get( col_RowLabel ) );
 
-    if ( num_events )
+    if ( gi.minval <= gi.maxval )
+    {
+        label = string_format( "min:%.2f max:%.2f", gi.minval, gi.maxval );
+        imgui_draw_text( gi.x, gi.y + ImGui::GetTextLineHeight(), label.c_str(),
+                         col_get( col_RowLabel ) );
+        gi.minval = FLT_MAX;
+        gi.maxval = FLT_MIN;
+    }
+    else if ( num_events )
     {
         label = string_format( "%u events", num_events );
         imgui_draw_text( gi.x, gi.y + ImGui::GetTextLineHeight(), label.c_str(),

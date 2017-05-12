@@ -209,7 +209,6 @@ public:
         int64_t ts;
         uint32_t eventid;
         float valf;
-        float valf_norm;
     };
     std::vector< plotdata_t > m_plotdata;
 
