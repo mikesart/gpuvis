@@ -323,6 +323,16 @@ size_t get_file_size( const char *filename )
     return 0;
 }
 
+const char *get_path_filename( const char *filename )
+{
+    for ( const char *str = filename; *str; str++ )
+    {
+        if ( (*str == '/' || *str == '\\' ) && str[ 1 ] )
+            filename = str + 1;
+    }
+    return filename;
+}
+
 // Parse a "comp_[1-2].[0-3].[0-8]" string. Returns true on success.
 bool comp_str_parse( const char *comp, uint32_t &a, uint32_t &b, uint32_t &c )
 {
@@ -558,21 +568,14 @@ void FontInfo::load_font( CIniFile &inifile, const char *section, const char *de
     {
         ImFont *font = io.Fonts->AddFontFromFileTTF( m_filename.c_str(), m_size, &m_font_cfg, &ranges[ 0 ] );
 
-        if ( !font )
+        if ( font )
         {
-            m_input_filename_err = string_format( "WARNING: AddFontFromFileTTF %s failed.\n", m_filename.c_str() );
-            m_font_id = get_font_id( m_name.c_str(), NULL );
+            m_name = get_path_filename( m_filename.c_str() );
         }
         else
         {
-            const char *filename = m_filename.c_str();
-
-            for ( const char *str = m_filename.c_str(); *str; str++ )
-            {
-                if ( (*str == '/' || *str == '\\' ) && str[ 1 ] )
-                    filename = str + 1;
-            }
-            m_name = filename;
+            m_input_filename_err = string_format( "WARNING: AddFontFromFileTTF %s failed.\n", m_filename.c_str() );
+            m_font_id = get_font_id( m_name.c_str(), NULL );
         }
     }
 
