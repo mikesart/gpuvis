@@ -725,7 +725,7 @@ void FontInfo::render_font_options( bool m_use_freetype )
 
             for ( size_t i = 0; i < ARRAY_SIZE( s_FreeTypeFlags ); i++ )
             {
-                bool val = m_font_cfg.FreetypeFlags & s_FreeTypeFlags[ i ].flag;
+                bool val = !!( m_font_cfg.FreetypeFlags & s_FreeTypeFlags[ i ].flag );
 
                 if ( s_FreeTypeFlags[ i ].flag != ImGuiFreeType::LightHinting )
                     ImGui::SameLine();
