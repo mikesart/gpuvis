@@ -194,6 +194,10 @@ bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo )
 {
     uint32_t glyphIndex = FT_Get_Char_Index( m_face, codepoint );
 
+    glyphInfo.bmp.width = 0;
+    glyphInfo.bmp.height = 0;
+    glyphInfo.bmp.pitch = 0;
+
     FT_Error error = FT_Load_Glyph( m_face, glyphIndex, m_LoadFlags );
     if ( error )
         return false;
@@ -233,7 +237,7 @@ bool FreeTypeFont::RasterizeGlyph( uint32_t codepoint, GlyphInfo &glyphInfo )
     glyphInfo.bmp.pitch = freeTypeBitmap->bitmap.pitch;
 
     IM_ASSERT( glyphInfo.bmp.pitch <= GlyphBitmap::MaxWidth );
-    if ( glyphInfo.bmp.width > 0 )
+    if ( freeTypeBitmap->bitmap.width && freeTypeBitmap->bitmap.buffer )
         memcpy( glyphInfo.bmp.grayscale, freeTypeBitmap->bitmap.buffer, glyphInfo.bmp.pitch * glyphInfo.bmp.height );
 
     // cleanup

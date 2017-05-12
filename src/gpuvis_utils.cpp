@@ -546,8 +546,6 @@ void FontInfo::load_font( CIniFile &inifile, const char *section, const char *de
     }
 
     m_font_id = get_font_id( m_name.c_str(), m_filename.c_str() );
-    if ( m_font_id == FontID_Unknown )
-        m_font_id = FontID_ProggyClean;
 
     if ( !m_filename.empty() )
         strcpy_safe( m_input_filename, m_filename.c_str() );
@@ -581,6 +579,9 @@ void FontInfo::load_font( CIniFile &inifile, const char *section, const char *de
 
     if ( m_font_id != FontID_TTFFile )
     {
+        if ( m_font_id == FontID_Unknown )
+            m_font_id = FontID_ProggyClean;
+
         m_name = g_font_info[ m_font_id ].name;
 
         if ( g_font_info[ m_font_id ].ttf_data )
