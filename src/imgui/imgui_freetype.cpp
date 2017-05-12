@@ -299,8 +299,11 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas )
             total_glyph_count += ( in_range[ 1 ] - in_range[ 0 ] ) + 1;
     }
 
-    // Start packing. We need a known width for the skyline algorithm. Using a cheap heuristic here to decide of width. User can override TexDesiredWidth if they wish.
-    // After packing is done, width shouldn't matter much, but some API/GPU have texture size limitations and increasing width can decrease height.
+    // Start packing. We need a known width for the skyline algorithm. Using a
+    //   cheap heuristic here to decide of width. User can override
+    //   TexDesiredWidth if they wish.
+    // After packing is done, width shouldn't matter much, but some API/GPU
+    //   have texture size limitations and increasing width can decrease height.
     if ( atlas->TexDesiredWidth > 0 )
         atlas->TexWidth = atlas->TexDesiredWidth;
     else if ( total_glyph_count > 4000 )
