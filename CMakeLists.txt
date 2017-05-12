@@ -27,11 +27,13 @@ set( CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake )
 include( "cmake/ucm.cmake" )
 
 find_package( SDL2 REQUIRED )
+find_package( Freetype REQUIRED )
 
 ucm_set_runtime( STATIC )
 
 ucm_add_flags( -O0 -DDEBUG CONFIG Debug )
 ucm_add_flags( -O2 -DNDEBUG CONFIG Release )
+ucm_add_flags( -DUSE_FREETYPE )
 
 if ( CMAKE_COMPILER_IS_GNUCC )
     ucm_add_flags( CXX -std=c++11 )
@@ -41,7 +43,7 @@ if ( WIN32 )
     ucm_add_flags( -D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4244 /wd4090 /wd4018 )
 
     LINK_LIBRARIES( shlwapi opengl32 )
-elseif (UNIX)
+elseif ( UNIX )
     LINK_LIBRARIES( dl )
 endif()
 
@@ -60,6 +62,7 @@ set ( SRC_LIST
     src/imgui/imgui.cpp
     src/imgui/imgui_demo.cpp
     src/imgui/imgui_draw.cpp
+    src/imgui/imgui_freetype.cpp
     src/GL/gl3w.c
     src/trace-cmd/event-parse.c
     src/trace-cmd/trace-seq.c
@@ -68,9 +71,8 @@ set ( SRC_LIST
     )
 
 include_directories(
+    ${FREETYPE_INCLUDE_DIRS}
     ${SDL2_INCLUDE_DIR}
-    ${SQLITE3_INCLUDE}
-    ${WINRESOURCE_DIR}
     ${CMAKE_CURRENT_LIST_DIR}/src
     )
 
@@ -80,4 +82,5 @@ target_link_libraries(
     ${PROJECT_NAME}
     ${LIBRARY_LIST}
     ${SDL2_LIBRARY}
+    ${FREETYPE_LIBRARIES}
     )
