@@ -20,6 +20,8 @@ cmake_minimum_required( VERSION 2.8 FATAL_ERROR )
 
 project( "gpuvis" )
 
+option(USE_FREETYPE "USE_FREETYPE" ON)
+
 set( CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake )
 
 # bring in useful cmake macros
@@ -27,13 +29,16 @@ set( CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake )
 include( "cmake/ucm.cmake" )
 
 find_package( SDL2 REQUIRED )
-find_package( Freetype REQUIRED )
+
+if ( USE_FREETYPE )
+    find_package( Freetype REQUIRED )
+    ucm_add_flags( -DUSE_FREETYPE )
+endif()
 
 ucm_set_runtime( STATIC )
 
 ucm_add_flags( -O0 -DDEBUG CONFIG Debug )
 ucm_add_flags( -O2 -DNDEBUG CONFIG Release )
-ucm_add_flags( -DUSE_FREETYPE )
 
 if ( CMAKE_COMPILER_IS_GNUCC )
     ucm_add_flags( CXX -std=c++11 )
