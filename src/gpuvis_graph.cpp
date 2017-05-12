@@ -802,14 +802,24 @@ bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
                 }
             }
 
-            if ( m_minval == m_maxval )
+            float minval = m_minval;
+            float maxval = m_maxval;
+
+            if ( minval == maxval )
             {
-                m_minval--;
-                m_maxval++;
+                minval--;
+                maxval++;
+            }
+            else
+            {
+                // Pad graph by a bit so values aren't hitting edges of graph row.
+                float pad = .15f * ( maxval - minval );
+                minval -= pad;
+                maxval += pad;
             }
 
             for ( plotdata_t &data : m_plotdata )
-                data.valf_norm = ( data.valf - m_minval ) / ( m_maxval - m_minval );
+                data.valf_norm = ( data.valf - minval ) / ( maxval - minval );
         }
     }
 
