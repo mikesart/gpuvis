@@ -44,6 +44,9 @@ namespace ImGuiFreeType
         Oblique = ( 1 << 11 ), // Should we slant the font, emulating italic style?
     };
 
-    //
+#ifdef USE_FREETYPE
     IMGUI_API bool BuildFontAtlas( ImFontAtlas *atlas );
+#else
+    inline bool BuildFontAtlas( ImFontAtlas *atlas ) { return false; }
+#endif
 }

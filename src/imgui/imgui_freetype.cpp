@@ -2,6 +2,8 @@
  * From:
  *   https://github.com/Vuhdo/imgui_freetype.git
  */
+#ifdef USE_FREETYPE
+
 #include <ft2build.h>
 #include <math.h>
 #include <stdint.h>
@@ -436,3 +438,5 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas )
 
     return true;
 }
+
+#endif // USE_FREETYPE

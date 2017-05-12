@@ -2251,11 +2251,9 @@ void TraceConsole::render_font_options( TraceLoader &loader )
     {
         bool changed = false;
 
-        if ( ImGui::CheckboxInt( opt_use_freetype.desc.c_str(), &opt_use_freetype.val ) )
-        {
-            loader.m_inifile.PutInt( opt_use_freetype.inikey.c_str(), opt_use_freetype.val );
-            changed = true;
-        }
+#ifdef USE_FREETYPE
+        changed |= ImGui::CheckboxInt( opt_use_freetype.desc.c_str(), &opt_use_freetype.val );
+#endif
 
         ImGui::PushItemWidth( imgui_scale( 150.0f ) );
         changed |= ImGui::SliderFloat( "##slider_float", &opt_scale.valf,
@@ -2694,7 +2692,7 @@ int main( int argc, char **argv )
             if ( event.type == SDL_QUIT )
                 done = true;
         }
-        ImGui_ImplSdlGL3_NewFrame( window, inifile );
+        ImGui_ImplSdlGL3_NewFrame( window, &loader.m_options[ OPT_UseFreetype ].val );
 
         // Check for logf() calls from background threads.
         logf_update();
@@ -2736,9 +2734,6 @@ int main( int argc, char **argv )
 
             ImGui_ImplSdlGL3_InvalidateDeviceObjects();
             loader.load_fonts();
-
-            // If freetype failed the ini setting would be updated, so make sure we're in sync
-            loader.m_options[ OPT_UseFreetype ].val = inifile.GetInt( "use_freetype", 0 );
         }
     }
 

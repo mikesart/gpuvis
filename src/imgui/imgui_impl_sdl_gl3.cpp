@@ -15,7 +15,6 @@
 #include "../GL/gl3w.h"    // This example is using gl3w to access OpenGL functions (because it is small). You may use glew/glad/glLoadGen/etc. whatever already works for you.
 
 #include "imgui_freetype.h"
-#include "../stlini.h"
 
 // Data
 static double       g_Time = 0.0f;
@@ -176,17 +175,17 @@ bool ImGui_ImplSdlGL3_ProcessEvent(SDL_Event* event)
     return false;
 }
 
-void ImGui_ImplSdlGL3_CreateFontsTexture(CIniFile &inifile)
+void ImGui_ImplSdlGL3_CreateFontsTexture(int *use_freetype)
 {
     // Build texture atlas
     ImGuiIO& io = ImGui::GetIO();
     unsigned char* pixels;
     int width, height;
 
-    if ( inifile.GetInt( "use_freetype", 0 ) )
+    if ( use_freetype && *use_freetype )
     {
         if ( !ImGuiFreeType::BuildFontAtlas( io.Fonts ) )
-            inifile.PutInt( "use_freetype", 0 );
+            *use_freetype = 0;
     }
 
     // Load as RGBA 32-bits for OpenGL3 demo because it is more likely to be compatible with user's existing shader.
@@ -236,7 +235,7 @@ void ImGui_ImplSdlGL3_CreateFontsTexture(CIniFile &inifile)
 #endif
 }
 
-bool ImGui_ImplSdlGL3_CreateDeviceObjects(CIniFile &inifile)
+bool ImGui_ImplSdlGL3_CreateDeviceObjects(int *use_freetype)
 {
     // Backup GL state
     GLint last_texture, last_array_buffer, last_vertex_array;
@@ -303,7 +302,7 @@ bool ImGui_ImplSdlGL3_CreateDeviceObjects(CIniFile &inifile)
     glVertexAttribPointer(g_AttribLocationColor, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ImDrawVert), (GLvoid*)OFFSETOF(ImDrawVert, col));
 #undef OFFSETOF
 
-    ImGui_ImplSdlGL3_CreateFontsTexture(inifile);
+    ImGui_ImplSdlGL3_CreateFontsTexture(use_freetype);
 
     // Restore modified GL state
     glBindTexture(GL_TEXTURE_2D, last_texture);
@@ -385,10 +384,10 @@ void ImGui_ImplSdlGL3_Shutdown()
     ImGui::Shutdown();
 }
 
-void ImGui_ImplSdlGL3_NewFrame(SDL_Window* window, CIniFile &inifile)
+void ImGui_ImplSdlGL3_NewFrame(SDL_Window* window, int *use_freetype)
 {
     if (!g_FontTexture)
-        ImGui_ImplSdlGL3_CreateDeviceObjects(inifile);
+        ImGui_ImplSdlGL3_CreateDeviceObjects(use_freetype);
 
     ImGuiIO& io = ImGui::GetIO();
 
