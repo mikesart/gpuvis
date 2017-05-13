@@ -2402,11 +2402,13 @@ void TraceConsole::render_console( TraceLoader &loader )
 {
     ImGui::SetNextWindowSize( ImVec2( 600, 800 ), ImGuiSetCond_FirstUseEver );
 
-    if ( !ImGui::Begin( "gpuvis console" ) )
+    if ( !ImGui::Begin( "gpuvis console", NULL, ImGuiWindowFlags_MenuBar ) )
     {
         ImGui::End();
         return;
     }
+
+    render_menu( loader );
 
     ImGui::Text( "%.2f ms/frame (%.1f FPS)",
                  1000.0f / ImGui::GetIO().Framerate,
@@ -2486,13 +2488,35 @@ void TraceConsole::render_console( TraceLoader &loader )
         ImGui::Separator();
     }
 
-    if ( ImGui::CollapsingHeader( "Options", ImGuiTreeNodeFlags_DefaultOpen ) )
-        render_options( loader );
+    //if ( ImGui::CollapsingHeader( "Options", ImGuiTreeNodeFlags_DefaultOpen ) )
+    //    render_options( loader );
 
     if ( ImGui::CollapsingHeader( "Log", ImGuiTreeNodeFlags_DefaultOpen ) )
         render_log( loader );
 
     ImGui::End();
+}
+
+void TraceConsole::render_menu( TraceLoader& loader )
+{
+    if ( !ImGui::BeginMenuBar() )
+        return;
+    if ( ImGui::BeginMenu( "File" ) )
+    {
+        if ( ImGui::MenuItem( "Quit" ) )
+        {
+            SDL_Event event;
+            event.type = SDL_QUIT;
+            SDL_PushEvent( &event );
+        }
+        ImGui::EndMenu();
+    }
+    if ( ImGui::BeginMenu( "Options") )
+    {
+        render_options( loader );
+        ImGui::EndMenu();
+    }
+    ImGui::EndMenuBar();
 }
 
 void TraceConsole::render( TraceLoader &loader )
