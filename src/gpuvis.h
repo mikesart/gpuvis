@@ -402,6 +402,7 @@ public:
     void render_font_options( TraceLoader &loader );
     void render_log( TraceLoader &loader );
     void render_console( TraceLoader &loader );
+    void render_menu( TraceLoader& loader );
 
 public:
     ImGuiTextFilter m_filter;
