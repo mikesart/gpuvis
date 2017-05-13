@@ -2665,6 +2665,7 @@ int main( int argc, char **argv )
 
     imgui_set_scale( loader.get_optf( OPT_Scale ) );
     imgui_ini_settings( inifile );
+    imgui_set_custom_style( true, 0.9f );
 
     console.init( &inifile );
 

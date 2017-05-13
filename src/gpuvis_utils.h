@@ -154,6 +154,8 @@ float imgui_scale( float val );
 void imgui_set_scale( float val );
 bool imgui_key_pressed( ImGuiKey key );
 
+void imgui_set_custom_style( bool dark, float alpha );
+
 ImU32 imgui_col_from_hashval( uint32_t hashval );
 ImU32 imgui_hsv( float h, float s, float v, float a );
 ImVec4 imgui_u32_to_vec4( ImU32 col );
