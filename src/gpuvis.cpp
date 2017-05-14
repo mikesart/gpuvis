@@ -2252,7 +2252,6 @@ void TraceConsole::render_font_options( TraceLoader &loader )
     ImGui::Indent();
     ImGui::PushID( "font_options" );
 
-    if ( ImGui::TreeNodeEx( "Options", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
         bool changed = false;
 
@@ -2277,8 +2276,6 @@ void TraceConsole::render_font_options( TraceLoader &loader )
             // Ping font change so this stuff will reload in main loop.
             loader.m_font_main.m_changed = true;
         }
-
-        ImGui::TreePop();
     }
 
     if ( ImGui::TreeNodeEx( "Main Font", ImGuiTreeNodeFlags_DefaultOpen ) )
