@@ -198,6 +198,9 @@ void TraceLoader::cancel_load_file()
 
 bool TraceLoader::load_file( const char *filename )
 {
+    if ( filename != m_trace_file )
+        strcpy_safe( m_trace_file, filename );
+
     if ( is_loading() )
     {
         logf( "[Error] %s failed, currently loading %s.", __func__, m_filename.c_str() );
@@ -456,7 +459,6 @@ void TraceLoader::init( int argc, char **argv )
 
     m_options[ OPT_ShowEventList ].opt_bool( "Show Event List", "show_event_list", true );
     m_options[ OPT_SyncEventListToGraph ].opt_bool( "Sync Event List to graph mouse location", "sync_eventlist_to_graph", true );
-    m_options[ OPT_ShowColorPicker ].opt_bool( "Show graph color picker", "show_color_picker", false );
 
     m_options[ OPT_GraphHeight ].opt_float( "Graph Size: %.1f", "graph_height", 0, 0, 1 );
     m_options[ OPT_GraphHeightZoomed ].opt_float( "Zoomed Graph Size: %.1f", "graph_height_zoomed", 0, 0, 1 );
@@ -505,8 +507,6 @@ void TraceLoader::init( int argc, char **argv )
         else
             opt.val = m_inifile.GetInt( opt.inikey.c_str(), opt.val );
     }
-
-    m_clear_color = m_inifile.GetVec4( "clearcolor", ImColor( 114, 144, 154 ) );
 
     ImGuiIO &io = ImGui::GetIO();
     m_imguiwindow_entries = m_inifile.GetSectionEntries( "$imguiwindows$" );
@@ -609,8 +609,6 @@ void TraceLoader::shutdown()
             m_inifile.PutInt( opt.inikey.c_str(), opt.val );
     }
 
-    m_inifile.PutVec4( "clearcolor", m_clear_color );
-
     col_shutdown( m_inifile );
 
 #if 0
@@ -694,6 +692,15 @@ void TraceLoader::render()
 
         ImGui::Begin( "Font Options", &m_show_font_window );
         render_font_options();
+        ImGui::End();
+    }
+
+    if ( m_show_color_picker )
+    {
+        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
+
+        ImGui::Begin( "Color Picker", &m_show_color_picker );
+        render_color_picker();
         ImGui::End();
     }
 }
@@ -1063,52 +1070,6 @@ int TraceWin::timestr_to_eventid( const char *buf, int64_t tsoffset )
     int64_t ts = timestr_to_ts( buf, tsoffset );
 
     return ts_to_eventid( ts );
-}
-
-void TraceWin::color_picker_render()
-{
-    if ( !m_loader.get_opt( OPT_ShowColorPicker ) )
-        return;
-
-    if ( !ImGui::CollapsingHeader( "Color Picker", ImGuiTreeNodeFlags_DefaultOpen ) )
-        return;
-
-    if ( ImGui::BeginColumns( "color_picker", 2, 0 ) )
-        ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
-
-    /*
-     * Column 1: draw our graph items and their colors
-     */
-    float w = imgui_scale( 32.0f );
-    float text_h = ImGui::GetTextLineHeight();
-
-    for ( int i = col_1Event; i < col_Max; i++ )
-    {
-        bool selected = i == m_selected_color;
-        ImVec2 pos = ImGui::GetCursorScreenPos();
-        ImU32 col = col_get( ( colors_t )i );
-        const char *name = col_get_name( ( colors_t )i );
-
-        ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + w, pos.y + text_h ), col );
-
-        ImGui::Indent( imgui_scale( 40.0f ) );
-        if ( ImGui::Selectable( name, selected, 0 ) )
-            m_selected_color = i;
-        ImGui::Unindent( imgui_scale( 40.0f ) );
-    }
-    ImGui::NextColumn();
-
-    /*
-     * Column 2: Draw our color picker
-     */
-    ImU32 color;
-    if ( m_colorpicker.render( &color ) )
-    {
-        col_set( ( colors_t )m_selected_color, color );
-    }
-    ImGui::NextColumn();
-
-    ImGui::EndColumns();
 }
 
 const char *filter_get_key_func( StrPool *strpool, const char *name, size_t len )
@@ -1640,10 +1601,6 @@ bool TraceWin::render()
             strcpy_safe( m_graph.time_length_buf, ts_to_timestr( m_graph.length_ts, 0, 4 ) );
 
         graph_render_process();
-
-        ImGui::Indent();
-        color_picker_render();
-        ImGui::Unindent();
     }
 
     ImGuiTreeNodeFlags eventslist_flags = m_loader.get_opt( OPT_ShowEventList) ?
@@ -2247,14 +2204,6 @@ void TraceWin::events_list_render( CIniFile &inifile )
 
 void TraceLoader::render_menu_options()
 {
-    // Align text to upcoming widgets
-    ImGui::AlignFirstTextHeightToWidgets();
-    ImGui::Text( "Clear Color:" );
-    ImGui::SameLine();
-    ImGui::ColorEdit3( "", ( float * )&m_clear_color );
-
-    ImGui::Separator();
-
     {
         ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", "Windows" );
         ImGui::Indent();
@@ -2270,6 +2219,14 @@ void TraceLoader::render_menu_options()
             ImGui::SetWindowFocus( "Font Options" );
             m_show_font_window = true;
         }
+
+        if ( ImGui::MenuItem( "Gpuvis Color Picker" ) )
+        {
+            ImGui::SetWindowFocus( "Color Picker" );
+            m_show_color_picker = true;
+        }
+
+        ImGui::Separator();
 
         if ( ImGui::MenuItem( "ImGui Style Editor" ) )
         {
@@ -2418,6 +2375,47 @@ void TraceLoader::render_font_options()
     ImGui::PopID();
     ImGui::Unindent();
 }
+
+void TraceLoader::render_color_picker()
+{
+    if ( ImGui::BeginColumns( "color_picker", 2, 0 ) )
+        ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
+
+    /*
+     * Column 1: draw our graph items and their colors
+     */
+    float w = imgui_scale( 32.0f );
+    float text_h = ImGui::GetTextLineHeight();
+
+    for ( int i = col_1Event; i < col_Max; i++ )
+    {
+        bool selected = i == m_selected_color;
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImU32 col = col_get( ( colors_t )i );
+        const char *name = col_get_name( ( colors_t )i );
+
+        ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + w, pos.y + text_h ), col );
+
+        ImGui::Indent( imgui_scale( 40.0f ) );
+        if ( ImGui::Selectable( name, selected, 0 ) )
+            m_selected_color = i;
+        ImGui::Unindent( imgui_scale( 40.0f ) );
+    }
+    ImGui::NextColumn();
+
+    /*
+     * Column 2: Draw our color picker
+     */
+    ImU32 color;
+    if ( m_colorpicker.render( &color ) )
+    {
+        col_set( ( colors_t )m_selected_color, color );
+    }
+    ImGui::NextColumn();
+
+    ImGui::EndColumns();
+}
+
 
 void TraceLoader::render_log()
 {
@@ -2653,13 +2651,6 @@ void TraceLoader::parse_cmdline( int argc, char **argv )
     }
 }
 
-static bool load_trace_file( TraceLoader &loader, const char *filename )
-{
-    strcpy_safe( loader.m_trace_file, filename );
-
-    return loader.load_file( filename );
-}
-
 #if SDL_VERSIONNUM( SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL ) < SDL_VERSIONNUM( 2, 0, 5 )
 int SDL_GetWindowBordersSize( SDL_Window *window, int *top, int *left, int *bottom, int *right )
 {
@@ -2699,6 +2690,7 @@ int main( int argc, char **argv )
         return -1;
     }
 
+    // Initialize logging system
     logf_init();
 
     TraceLoader loader;
@@ -2744,6 +2736,7 @@ int main( int argc, char **argv )
     // Setup imgui default text color
     multi_text_color::def.set( ImGui::GetColorVec4( ImGuiCol_Text ) );
 
+    // Load our fonts
     loader.load_fonts();
 
     // Main loop
@@ -2776,17 +2769,19 @@ int main( int argc, char **argv )
         // Render trace windows
         loader.render();
 
-        // Rendering
-        const ImVec4 &color = loader.m_clear_color;
-        const ImVec2 &size = ImGui::GetIO().DisplaySize;
+        {
+            // ImGui Rendering
+            const ImVec4 color = ( ImColor )col_get( col_ClearColor );
+            const ImVec2 &size = ImGui::GetIO().DisplaySize;
 
-        glViewport( 0, 0, ( int )size.x, ( int )size.y );
-        glClearColor( color.x, color.y, color.z, color.w );
-        glClear( GL_COLOR_BUFFER_BIT );
+            glViewport( 0, 0, ( int )size.x, ( int )size.y );
+            glClearColor( color.x, color.y, color.z, color.w );
+            glClear( GL_COLOR_BUFFER_BIT );
 
-        ImGui::Render();
+            ImGui::Render();
 
-        SDL_GL_SwapWindow( window );
+            SDL_GL_SwapWindow( window );
+        }
 
         if ( loader.m_quit )
             break;
@@ -2795,7 +2790,7 @@ int main( int argc, char **argv )
         {
             const char *filename = loader.m_inputfiles[ 0 ].c_str();
 
-            load_trace_file( loader, filename );
+            loader.load_file( filename );
 
             loader.m_inputfiles.erase( loader.m_inputfiles.begin() );
         }

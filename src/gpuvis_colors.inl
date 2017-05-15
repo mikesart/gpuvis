@@ -48,3 +48,5 @@ _XTAG( BarHwQueue, IM_COL32( 0xff, 0, 0xff, 80 ) )
 _XTAG( BarHwRunning, IM_COL32( 0xff, 0, 0, 80 ) )
 _XTAG( BarSelRect, IM_COL32( 0, 0, 0xff, 255 ) )
 _XTAG( BarText, IM_COL32( 0xff, 0xff, 0xff, 255 ) )
+
+_XTAG( ClearColor, IM_COL32( 114, 144, 154, 255 ) )

@@ -524,9 +524,6 @@ public:
     // trace loader
     TraceLoader &m_loader;
 
-    int m_selected_color = 0;
-    ColorPicker m_colorpicker;
-
     // Ftrace print event id to display create plot dialog
     uint32_t m_create_plot_eventid = INVALID_ID;
     CreatePlotDlg m_create_plot_dlg;
@@ -642,7 +639,6 @@ enum : uint32_t
     OPT_Fullscreen,
     OPT_ShowEventList,
     OPT_SyncEventListToGraph,
-    OPT_ShowColorPicker,
     OPT_RenderCrtc0,
     OPT_RenderCrtc1,
     OPT_RenderCrtc2,
@@ -689,6 +685,7 @@ public:
     void render_console();
     void render_log();
     void render_font_options();
+    void render_color_picker();
 
     void init( int argc, char **argv );
     void shutdown();
@@ -813,6 +810,9 @@ public:
     ImVec4 m_clear_color;
     std::vector< INIEntry > m_imguiwindow_entries;
 
+    int m_selected_color = 0;
+    ColorPicker m_colorpicker;
+
     size_t m_log_size = ( size_t )-1;
     bool m_quit = false;
     bool m_show_gpuvis_console = true;
@@ -820,4 +820,5 @@ public:
     bool m_show_imgui_style_editor = false;
     bool m_show_imgui_metrics_editor = false;
     bool m_show_font_window = false;
+    bool m_show_color_picker = false;
 };
