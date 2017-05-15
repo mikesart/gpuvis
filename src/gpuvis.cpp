@@ -2241,13 +2241,13 @@ void TraceLoader::render_menu_options()
             m_show_gpuvis_console = true;
         }
 
-        if ( ImGui::MenuItem( "Gpuvis Font Options" ) )
+        if ( ImGui::MenuItem( "Font Options" ) )
         {
             ImGui::SetWindowFocus( "Font Options" );
             m_show_font_window = true;
         }
 
-        if ( ImGui::MenuItem( "Gpuvis Color Configuration" ) )
+        if ( ImGui::MenuItem( "Color Configuration" ) )
         {
             ImGui::SetWindowFocus( "Color Configuration" );
             m_show_color_picker = true;
@@ -2423,32 +2423,43 @@ void TraceLoader::render_color_picker()
     /*
      * Column 1: draw our graph items and their colors
      */
-    float w = imgui_scale( 32.0f );
-    float text_h = ImGui::GetTextLineHeight();
-
-    for ( int i = col_1Event; i < col_Max; i++ )
     {
-        bool selected = i == m_selected_color;
-        ImVec2 pos = ImGui::GetCursorScreenPos();
-        ImU32 col = col_get( ( colors_t )i );
-        const char *name = col_get_name( ( colors_t )i );
+        ImGui::BeginChild( "color_list" );
 
-        ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + w, pos.y + text_h ), col );
+        float w = imgui_scale( 32.0f );
+        float text_h = ImGui::GetTextLineHeight();
 
-        ImGui::Indent( imgui_scale( 40.0f ) );
-        if ( ImGui::Selectable( name, selected, 0 ) )
-            m_selected_color = i;
-        ImGui::Unindent( imgui_scale( 40.0f ) );
+        for ( int i = col_1Event; i < col_Max; i++ )
+        {
+            bool selected = i == m_selected_color;
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+            ImU32 col = col_get( ( colors_t )i );
+            const char *name = col_get_name( ( colors_t )i );
+
+            ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + w, pos.y + text_h ), col );
+
+            ImGui::Indent( imgui_scale( 40.0f ) );
+            if ( ImGui::Selectable( name, selected, 0 ) )
+                m_selected_color = i;
+            ImGui::Unindent( imgui_scale( 40.0f ) );
+        }
+
+        ImGui::EndChild();
     }
     ImGui::NextColumn();
 
     /*
      * Column 2: Draw our color picker
      */
-    ImU32 color;
-    if ( m_colorpicker.render( &color ) )
     {
-        col_set( ( colors_t )m_selected_color, color );
+        ImU32 color;
+
+        const char *name = col_get_name( ( colors_t )m_selected_color );
+        ImGui::Text( "Set color for %s", multi_text_color::yellow.m_str( name ).c_str() );
+        ImGui::NewLine();
+
+        if ( m_colorpicker.render( &color ) )
+            col_set( ( colors_t )m_selected_color, color );
     }
     ImGui::NextColumn();
 
