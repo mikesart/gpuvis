@@ -474,8 +474,13 @@ void TraceLoader::init( int argc, char **argv )
 
     m_options[ OPT_DarkTheme ].opt_bool( "Dark Theme", "dark_theme", true );
     m_options[ OPT_DarkTheme ].hidden = true;
-    m_options[ OPT_ThemeAlpha ].opt_float( "Theme Alpha: %.1f", "theme_alpha", 1.0f, 0.1f, 1.0f );
+    m_options[ OPT_ThemeAlpha ].opt_float( "Theme Alpha: %.2f", "theme_alpha", 1.0f, 0.1f, 1.0f );
     m_options[ OPT_ThemeAlpha ].hidden = true;
+
+    m_options[ OPT_ColorLabelAlpha ].opt_float( "Color Label Alpha: %.2f", "colorlabel_alpha", 1.0f, 0.0f, 1.0f );
+    m_options[ OPT_ColorLabelAlpha ].hidden = true;
+    m_options[ OPT_ColorLabelSat ].opt_float( "Color Label Sat: %.2f", "colorlabel_sat", 0.9f, 0.0f, 1.0f );
+    m_options[ OPT_ColorLabelSat ].hidden = true;
 
     for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
@@ -581,6 +586,35 @@ option_id_t TraceLoader::add_option_graph_rowsize( const char *name, int defval 
     m_options.push_back( opt );
 
     return ( option_id_t )( m_options.size() - 1 );
+}
+
+bool TraceLoader::imgui_opt( option_id_t optid, float w )
+{
+    bool changed = false;
+    option_t &opt = m_options[ optid ];
+
+    ImGui::PushID( optid );
+
+    if ( opt.type == OPT_Float )
+    {
+        ImGui::PushItemWidth( imgui_scale( w ) );
+        changed |= ImGui::SliderFloat( "##opt_float", &opt.valf, opt.valf_min, opt.valf_max, opt.desc.c_str() );
+        ImGui::PopItemWidth();
+    }
+    else if ( opt.type == OPT_Int )
+    {
+        ImGui::PushItemWidth( imgui_scale( w ) );
+        changed |= ImGui::SliderInt( "##opt_int", &opt.val, opt.val_min, opt.val_max, opt.desc.c_str() );
+        ImGui::PopItemWidth();
+    }
+    else
+    {
+        changed |= ImGui::CheckboxInt( opt.desc.c_str(), &opt.val );
+    }
+
+    ImGui::PopID();
+
+    return changed;
 }
 
 int TraceLoader::get_opt( option_id_t opt )
@@ -1345,7 +1379,6 @@ void TraceEvents::calculate_event_print_info()
         {
             // Throw all unrecognized events on line 0
             event.graph_row_id = 0;
-            event.color = IM_COL32( 0xff, 0, 0, 0xff );
         }
         else
         {
@@ -1357,27 +1390,38 @@ void TraceEvents::calculate_event_print_info()
                 *prow_id = row_id++;
 
             event.graph_row_id = *prow_id;
-            event.color = imgui_col_from_hashval( hashval );
         }
 
         // Add cached print info for this event
-        m_print_buf_info.get_val( event.id, { buf } );
+        m_print_buf_info.get_val( event.id, { buf, buf_end } );
     }
 
     m_rect_size_max_x = -1.0f;
 }
 
-void TraceEvents::update_event_print_info_rects()
+void TraceEvents::update_event_print_info_rects( float label_sat, float label_alpha )
 {
     m_rect_size_max_x = -1.0f;
 
     for ( auto &entry : m_print_buf_info.m_map )
     {
+        trace_event_t &event = m_events[ entry.first ];
         event_print_info_t &print_info = entry.second;
 
         print_info.rect_size = ImGui::CalcTextSize( print_info.buf );
 
         m_rect_size_max_x = std::max< float >( print_info.rect_size.x, m_rect_size_max_x );
+
+        if ( !print_info.buf_end )
+        {
+            event.color = IM_COL32( 0xff, 0, 0, label_alpha * 255 );
+        }
+        else
+        {
+            uint32_t hashval = fnv_hashstr32( print_info.buf, print_info.buf_end - print_info.buf );
+
+            event.color = imgui_col_from_hashval( hashval, label_sat, label_alpha );
+        }
     }
 }
 
@@ -2319,33 +2363,13 @@ void TraceLoader::render_menu_options()
         if ( opt.hidden )
             continue;
 
-        if ( ( i >= OPT_RenderCrtc0 ) &&
-             ( i <= OPT_RenderCrtc9 ) )
+        if ( ( i >= OPT_RenderCrtc0 ) && ( i <= OPT_RenderCrtc9 ) )
         {
             if ( i - OPT_RenderCrtc0 > m_crtc_max )
                 continue;
         }
 
-        ImGui::PushID( i );
-
-        if ( opt.type == OPT_Bool )
-        {
-            ImGui::CheckboxInt( opt.desc.c_str(), &opt.val );
-        }
-        else if ( opt.type == OPT_Int )
-        {
-            ImGui::PushItemWidth( imgui_scale( 200.0f ) );
-            ImGui::SliderInt( "##slider_int", &opt.val, opt.val_min, opt.val_max, opt.desc.c_str() );
-            ImGui::PopItemWidth();
-        }
-        else
-        {
-            ImGui::PushItemWidth( imgui_scale( 200.0f ) );
-            ImGui::SliderFloat( "##slider_float", &opt.valf, opt.valf_min, opt.valf_max, opt.desc.c_str() );
-            ImGui::PopItemWidth();
-        }
-
-        ImGui::PopID();
+        imgui_opt( i );
     }
 
     ImGui::Unindent();
@@ -2353,9 +2377,6 @@ void TraceLoader::render_menu_options()
 
 void TraceLoader::render_font_options()
 {
-    option_t &opt_scale = m_options[ OPT_Scale ];
-    option_t &opt_use_freetype = m_options[ OPT_UseFreetype ];
-
     static const char lorem_str[] =
         "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do"
         "eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim"
@@ -2371,13 +2392,10 @@ void TraceLoader::render_font_options()
         bool changed = false;
 
 #ifdef USE_FREETYPE
-        changed |= ImGui::CheckboxInt( opt_use_freetype.desc.c_str(), &opt_use_freetype.val );
+        changed |= imgui_opt( OPT_UseFreetype );
 #endif
 
-        ImGui::PushItemWidth( imgui_scale( 150.0f ) );
-        changed |= ImGui::SliderFloat( "##slider_float", &opt_scale.valf,
-                                       opt_scale.valf_min, opt_scale.valf_max, opt_scale.desc.c_str() );
-        ImGui::PopItemWidth();
+        changed |= imgui_opt( OPT_Scale );
 
         if ( ImGui::Button( "Reset to Defaults" ) )
         {
@@ -2399,7 +2417,7 @@ void TraceLoader::render_font_options()
 
         ImGui::TextWrapped( "%s: %s", multi_text_color::yellow.m_str( font_name ).c_str(), lorem_str );
 
-        m_font_main.render_font_options( !!opt_use_freetype.val );
+        m_font_main.render_font_options( !!m_options[ OPT_UseFreetype ].val );
         ImGui::TreePop();
     }
 
@@ -2415,7 +2433,7 @@ void TraceLoader::render_font_options()
 
         ImGui::EndChild();
 
-        m_font_small.render_font_options( !!opt_use_freetype.val );
+        m_font_small.render_font_options( !!m_options[ OPT_UseFreetype ].val );
 
         ImGui::TreePop();
     }
@@ -2436,23 +2454,32 @@ void TraceLoader::render_font_options()
 
 void TraceLoader::render_color_picker()
 {
-    option_t &opt_darktheme = m_options[ OPT_DarkTheme ];
-    option_t &opt_themealpha = m_options[ OPT_ThemeAlpha ];
+    bool changed = imgui_opt( OPT_DarkTheme );
 
-    bool changed = ImGui::CheckboxInt( opt_darktheme.desc.c_str(), &opt_darktheme.val );
+    changed |= imgui_opt( OPT_ThemeAlpha );
 
-    ImGui::PushItemWidth( imgui_scale( 150.0f ) );
-    changed |= ImGui::SliderFloat( "##theme_alpha", &opt_themealpha.valf,
-                                   opt_themealpha.valf_min, opt_themealpha.valf_max, opt_themealpha.desc.c_str() );
-    ImGui::PopItemWidth();
+    {
+        bool sat_changed = imgui_opt( OPT_ColorLabelSat );
+        ImGui::SameLine();
+        bool alpha_changed = imgui_opt( OPT_ColorLabelAlpha );
+
+        if ( sat_changed || alpha_changed )
+        {
+            for ( TraceEvents *trace_event : m_trace_events_list )
+                trace_event->m_rect_size_max_x = -1.0f;
+            changed = true;
+        }
+    }
 
     if ( ImGui::Button( "Reset to Defaults" ) )
     {
         for ( int i = 0; i < col_Max; i++ )
             Cols::set( ( colors_t )i, Cols::s_colordata[ i ].defcolor );
 
-        opt_darktheme.val = true;
-        opt_themealpha.valf = 1.0f;
+        m_options[ OPT_DarkTheme ].val = true;
+        m_options[ OPT_ThemeAlpha ].valf = 1.0f;
+        m_options[ OPT_ColorLabelSat ].valf = 0.9f;
+        m_options[ OPT_ColorLabelAlpha ].valf = 1.0f;
         changed = true;
     }
 

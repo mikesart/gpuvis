@@ -156,7 +156,7 @@ bool imgui_key_pressed( ImGuiKey key );
 
 void imgui_set_custom_style( bool dark, float alpha );
 
-ImU32 imgui_col_from_hashval( uint32_t hashval );
+ImU32 imgui_col_from_hashval( uint32_t hashval, float sat = 0.9f, float alpha = 1.0f );
 ImU32 imgui_hsv( float h, float s, float v, float a );
 ImU32 imgui_col_complement( ImU32 col );
 ImU32 imgui_vec4_to_u32( const ImVec4 &vec );

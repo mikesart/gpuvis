@@ -958,7 +958,11 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     row_draw_info.resize( row_count + 1 );
 
     if ( m_trace_events.m_rect_size_max_x == -1.0f )
-        m_trace_events.update_event_print_info_rects();
+    {
+        m_trace_events.update_event_print_info_rects(
+                    m_loader.get_optf( OPT_ColorLabelSat ),
+                    m_loader.get_optf( OPT_ColorLabelAlpha ) );
+    }
 
     // We need to start drawing to the left of 0 for timeline_labels
     int64_t ts = timeline_labels ? gi.screenx_to_ts( gi.x - m_trace_events.m_rect_size_max_x ) : gi.ts0;
@@ -1962,35 +1966,13 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         if ( opt.hidden )
             continue;
 
-        if ( ( i >= OPT_RenderCrtc0 ) &&
-             ( i <= OPT_RenderCrtc9 ) )
+        if ( ( i >= OPT_RenderCrtc0 ) && ( i <= OPT_RenderCrtc9 ) )
         {
             if ( i - OPT_RenderCrtc0 > m_loader.m_crtc_max )
                 continue;
         }
 
-        ImGui::PushID( i );
-
-        if ( opt.type == OPT_Bool )
-        {
-            bool val = !!opt.val;
-            if ( ImGui::MenuItem( opt.desc.c_str(), "", &val ) )
-                opt.val = val;
-        }
-        else if ( opt.type == OPT_Int )
-        {
-            ImGui::PushItemWidth( imgui_scale( 200.0f ) );
-            ImGui::SliderInt( "##slider_int", &opt.val, opt.val_min, opt.val_max, opt.desc.c_str() );
-            ImGui::PopItemWidth();
-        }
-        else
-        {
-            ImGui::PushItemWidth( imgui_scale( 200.0f ) );
-            ImGui::SliderFloat( "##slider_float", &opt.valf, opt.valf_min, opt.valf_max, opt.desc.c_str() );
-            ImGui::PopItemWidth();
-        }
-
-        ImGui::PopID();
+        m_loader.imgui_opt( i );
     }
 
     ImGui::EndPopup();

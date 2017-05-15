@@ -326,7 +326,7 @@ public:
 
     void calculate_event_durations();
     void calculate_event_print_info();
-    void update_event_print_info_rects();
+    void update_event_print_info_rects( float label_sat, float label_alpha );
 
     enum loc_type_t
     {
@@ -377,6 +377,7 @@ public:
     struct event_print_info_t
     {
         const char *buf;
+        const char *buf_end;
         ImVec2 rect_size;
     };
     util_umap< uint32_t, event_print_info_t > m_print_buf_info;
@@ -656,6 +657,8 @@ enum : uint32_t
     OPT_UseFreetype,
     OPT_DarkTheme,
     OPT_ThemeAlpha,
+    OPT_ColorLabelAlpha,
+    OPT_ColorLabelSat,
     OPT_PresetMax
 };
 
@@ -740,6 +743,8 @@ public:
     float get_optf( option_id_t opt );
     int get_opt_crtc( int crtc );
     option_id_t add_option_graph_rowsize( const char *name, int defval = 4 );
+
+    bool imgui_opt( option_id_t optid, float w = 200.0f );
 
 protected:
     void render_menu_options();

@@ -385,12 +385,12 @@ std::string comp_str_create_val( uint32_t val )
                 comp_str_create_abc( a, b, c ) : "";
 }
 
-ImU32 imgui_col_from_hashval( uint32_t hashval )
+ImU32 imgui_col_from_hashval( uint32_t hashval, float sat, float alpha )
 {
     float h = ( hashval & 0xffffff ) / 16777215.0f;
     float v = ( hashval >> 24 ) / ( 2.0f * 255.0f ) + 0.5f;
 
-    return imgui_hsv( h, .9f, v, 1.0f );
+    return imgui_hsv( h, sat, v, alpha );
 }
 
 ImU32 imgui_hsv( float h, float s, float v, float a )
