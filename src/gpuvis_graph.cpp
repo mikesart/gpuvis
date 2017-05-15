@@ -39,19 +39,52 @@
 #include "gpuvis.h"
 
 /*
-  TODO mikesart: Check if entire rows are clipped when drawing...
+  **** TODO list... ****
+
+  Check if entire rows are clipped when drawing...
 
   Add ability to zoom compute, sdma, print, etc.
     Basically, zoom hovered row...
 
   Configurable hotkeys?
 
-  Move Options menu item to traces window
-
-  Move Font Options, Style Editor, etc to be menu items
-
   From DanG:
     * Add Browse button to load a trace file
+
+  From Pierre-Loup:
+    * However the print timeline label background size doesn't seem to obey
+    the font size changing dynamically, but seems fine if you restart the
+    tool. Not a huge deal.
+
+    * Graph scale logic looks pretty nice too. One thing I notice when zooming
+    out is that things become very noisy because of the vblank bars. I'm
+    changing their colors so they're not fullbright, which helps, but can
+    they be changed to be in the background of other rendering past a
+    certain zoom threshold? You want them in the foreground when pretty
+    close, but in the background if there's more than ~50 on screen probably?
+
+    * Can I change the color of the automatic print color labels somewhere? I
+    assume it's in code rather than in the editor. They look great as unique
+    colors, I just want to try desaturating them a little bit. In general I
+    want to try bringing down the brightness of all the fullbright colors a
+    little bit, and change the full black backgrounds to be more of a dark gray.
+
+    * Also for the row titles like "0) gfx\n5648 events", can you change them
+    so they're always drawn last (right now vblank and selection rects seem
+    drawn over them), and also add a translucent dark backdrop around them
+    to bring the contrast up so they stay legible if the info behind them is
+    noisy?
+
+    * Since I find myself zooming in and out a lot to situate myself in the
+    larger trace and analyze parts of it, I'm thinking one of the next big
+    challenges is going to find a way to have a little stripe at the top and
+    bottom that somehow displays the whole trace and efficiently shows where
+    you are in there. I have _no_ idea what data to surface there to show
+    you the trace "at a glance". I'm going to guess that it'll vary a lot
+    from one usecase to another, so maybe the answer is to be able to 'pin'
+    a graph row of any type, which would then stay like 10x zoomed out
+    compared to your real zoom level, and shows you where you are in there
+    in the middle? Does that make any sense?
 */
 
 /*
