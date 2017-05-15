@@ -2418,7 +2418,7 @@ void TraceLoader::render_color_picker()
     if ( ImGui::Button( "Reset to Defaults" ) )
     {
         for ( int i = 0; i < col_Max; i++ )
-            Cols::s_colordata[ i ].color = Cols::s_colordata[ i ].defcolor;
+            Cols::set( ( colors_t )i, Cols::s_colordata[ i ].defcolor );
 
         opt_darktheme.val = true;
         opt_themealpha.valf = 1.0f;
@@ -2428,7 +2428,7 @@ void TraceLoader::render_color_picker()
     ImGui::Separator();
 
     if ( ImGui::BeginColumns( "color_picker", 2, 0 ) )
-        ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
+        ImGui::SetColumnWidth( 0, imgui_scale( 250.0f ) );
 
     /*
      * Column 1: draw our graph items and their colors
@@ -2439,9 +2439,9 @@ void TraceLoader::render_color_picker()
         float w = imgui_scale( 32.0f );
         float text_h = ImGui::GetTextLineHeight();
 
-        for ( int i = col_1Event; i < col_Max; i++ )
+        for ( int i = 0; i < col_Max; i++ )
         {
-            bool selected = i == m_selected_color;
+            bool selected = ( i == m_selected_color );
             ImVec2 pos = ImGui::GetCursorScreenPos();
             ImU32 col = Cols::get( ( colors_t )i );
             const char *name = Cols::get_name( ( colors_t )i );
@@ -2465,16 +2465,26 @@ void TraceLoader::render_color_picker()
         ImU32 color;
 
         const char *name = Cols::get_name( ( colors_t )m_selected_color );
-        ImGui::Text( "Set color for %s", multi_text_color::yellow.m_str( name ).c_str() );
+
+        imgui_text_bg( name, ImGui::GetColorVec4( ImGuiCol_Header ) );
+
         ImGui::NewLine();
 
         if ( m_colorpicker.render( &color ) )
         {
             Cols::set( ( colors_t )m_selected_color, color );
 
-            if ( ( m_selected_color >= col_ImGui_Text ) && ( m_selected_color < col_ImGui_ModalWindowDarkening ) )
+            if ( ( m_selected_color >= col_ImGui_Text ) && ( m_selected_color <= col_ImGui_ModalWindowDarkening ) )
                 changed = true;
         }
+
+        ImGui::NewLine();
+        if ( ImGui::Button( "Reset to Default" ) )
+        {
+            Cols::set( ( colors_t )m_selected_color, Cols::s_colordata[ m_selected_color ].defcolor );
+            changed = true;
+        }
+
     }
     ImGui::NextColumn();
 
