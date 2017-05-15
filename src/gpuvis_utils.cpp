@@ -924,7 +924,10 @@ void Cols::shutdown( CIniFile &inifile )
         {
             const char *key = s_colordata[ i ].name;
 
-            inifile.PutUint64( key, s_colordata[ i ].color, "$imgui_colors$" );
+            if ( Cols::is_default( ( colors_t )i ) )
+                inifile.PutStr( key, "", "$imgui_colors$" );
+            else
+                inifile.PutUint64( key, s_colordata[ i ].color, "$imgui_colors$" );
         }
     }
 }
