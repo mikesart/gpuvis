@@ -264,7 +264,7 @@ public:
     {
         const char *name;
         ImU32 color;
-        ImU32 defcolor;
+        const ImU32 defcolor;
         bool modified;
     };
     static colordata_t s_colordata[ col_Max ];

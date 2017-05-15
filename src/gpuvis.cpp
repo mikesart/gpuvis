@@ -2415,6 +2415,16 @@ void TraceLoader::render_color_picker()
                                    opt_themealpha.valf_min, opt_themealpha.valf_max, opt_themealpha.desc.c_str() );
     ImGui::PopItemWidth();
 
+    if ( ImGui::Button( "Reset to Defaults" ) )
+    {
+        for ( int i = 0; i < col_Max; i++ )
+            Cols::s_colordata[ i ].color = Cols::s_colordata[ i ].defcolor;
+
+        opt_darktheme.val = true;
+        opt_themealpha.valf = 1.0f;
+        changed = true;
+    }
+
     ImGui::Separator();
 
     if ( ImGui::BeginColumns( "color_picker", 2, 0 ) )
