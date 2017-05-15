@@ -636,7 +636,6 @@ enum : uint32_t
     OPT_TimelineRenderUserSpace,
     OPT_PrintTimelineLabels,
     OPT_GraphOnlyFiltered,
-    OPT_Fullscreen,
     OPT_ShowEventList,
     OPT_SyncEventListToGraph,
     OPT_RenderCrtc0,

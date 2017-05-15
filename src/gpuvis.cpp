@@ -446,8 +446,6 @@ void TraceLoader::init( int argc, char **argv )
 
     m_options.resize( OPT_PresetMax );
 
-    m_options[ OPT_Fullscreen ].opt_bool( "Fullscreen Trace Window", "fullscreen", false );
-
     m_options[ OPT_TimelineZoomGfx ].opt_bool( "Zoom gfx timeline (Ctrl+Shift+Z)", "zoom_gfx_timeline", false );
     m_options[ OPT_TimelineLabels ].opt_bool( "Show gfx timeline labels", "timeline_gfx_labels", true );
     m_options[ OPT_TimelineEvents ].opt_bool( "Show gfx timeline events", "timeline_gfx_events", true );
@@ -631,30 +629,33 @@ void TraceLoader::shutdown()
 
 void TraceLoader::render()
 {
-    if ( get_opt( OPT_Fullscreen ) && !m_trace_windows_list.empty() )
+    if ( !m_trace_windows_list.empty() )
     {
-        ImGuiIO &io = ImGui::GetIO();
-        float w = io.DisplaySize.x;
-        float h = io.DisplaySize.y;
+        float y = 0;
+        float w = ImGui::GetIO().DisplaySize.x;
+        float h = ImGui::GetIO().DisplaySize.y / m_trace_windows_list.size();
 
-        ImGui::SetNextWindowPosCenter();
-        ImGui::SetNextWindowSizeConstraints( ImVec2( w, h ), ImVec2( w, h ) );
-    }
-
-    for ( int i = m_trace_windows_list.size() - 1; i >= 0; i-- )
-    {
-        TraceWin *win = m_trace_windows_list[ i ];
-
-        if ( win->m_open )
+        for ( int i = ( int )m_trace_windows_list.size() - 1; i >= 0; i-- )
         {
-            ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
+            TraceWin *win = m_trace_windows_list[ i ];
+
+            if ( !win->m_open )
+            {
+                // Prune closed windows
+                delete win;
+                m_trace_windows_list.erase( m_trace_windows_list.begin() + i );
+            }
+        }
+
+        for ( size_t i = 0; i < m_trace_windows_list.size(); i++ )
+        {
+            TraceWin *win = m_trace_windows_list[ i ];
+
+            ImGui::SetNextWindowPos( ImVec2( 0, y ), ImGuiSetCond_Always );
+            ImGui::SetNextWindowSizeConstraints( ImVec2( w, h ), ImVec2( w, h ) );
 
             win->render();
-        }
-        if ( !win->m_open )
-        {
-            delete win;
-            m_trace_windows_list.erase( m_trace_windows_list.begin() + i );
+            y += h;
         }
     }
 
@@ -2618,7 +2619,6 @@ void TraceLoader::parse_cmdline( int argc, char **argv )
 {
     static struct option long_opts[] =
     {
-        { "fullscreen", no_argument, 0, 0 },
         { "scale", required_argument, 0, 0 },
         { 0, 0, 0, 0 }
     };
@@ -2631,9 +2631,7 @@ void TraceLoader::parse_cmdline( int argc, char **argv )
         switch ( c )
         {
         case 0:
-            if ( !strcasecmp( "fullscreen", long_opts[ opt_ind ].name ) )
-                m_options[ OPT_Fullscreen ].val = true;
-            else if ( !strcasecmp( "scale", long_opts[ opt_ind ].name ) )
+            if ( !strcasecmp( "scale", long_opts[ opt_ind ].name ) )
                 m_options[ OPT_Scale ].valf = atof( ya_optarg );
             break;
         case 'i':
