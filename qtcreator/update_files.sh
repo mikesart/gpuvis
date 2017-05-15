@@ -14,6 +14,7 @@ if [[ ! -f ${PROJNAME}.creator ]]; then echo -e "[General]\n" > ${PROJNAME}.crea
 DEFINES=$(cat <<'END_HEREDOC'
 #define __LINUX__ 1
 #define _GNU_SOURCE 1
+#define USE_FREETYPE 1
 END_HEREDOC
 )
 echo "${DEFINES}" > ${PROJNAME}.config
