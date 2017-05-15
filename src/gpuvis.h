@@ -388,39 +388,6 @@ public:
     SDL_atomic_t m_eventsloaded = { 0 };
 };
 
-struct TraceConsole
-{
-public:
-    TraceConsole() {}
-    ~TraceConsole() {}
-
-    void init( class CIniFile *inifile );
-    void shutdown( class CIniFile *inifile );
-
-    void render( TraceLoader &loader );
-    void render_options( TraceLoader &loader );
-    void render_font_options( TraceLoader &loader );
-    void render_log( TraceLoader &loader );
-    void render_console( TraceLoader &loader );
-    void render_menu( TraceLoader& loader );
-
-public:
-    ImGuiTextFilter m_filter;
-    std::string m_inputbuf;
-    std::vector< std::string > m_log;
-
-    char m_trace_file[ PATH_MAX ] = { 0 };
-
-    ImVec4 m_clear_color;
-
-    size_t m_log_size = ( size_t )-1;
-    bool m_quit = false;
-    bool m_show_imgui_test_window = false;
-    bool m_show_imgui_style_editor = false;
-    bool m_show_imgui_metrics_editor = false;
-    bool m_show_font_window = false;
-};
-
 class GraphRows
 {
 public:
@@ -706,7 +673,7 @@ public:
     };
 
 public:
-    TraceLoader( CIniFile &inifile ) : m_inifile( inifile ) {}
+    TraceLoader() {}
     ~TraceLoader() {}
 
     bool load_file( const char *filename );
@@ -717,13 +684,36 @@ public:
     void close_event_file( TraceEvents *trace_events, bool close_file  );
 
     void render();
+    void render_menu();
+    void render_menu_options();
+    void render_console();
+    void render_log();
+    void render_font_options();
 
-    void init();
+    void init( int argc, char **argv );
     void shutdown();
 
     void load_fonts();
 
+    void get_window_pos( int &x, int &y, int &w, int &h )
+    {
+        x = m_inifile.GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
+        y = m_inifile.GetInt( "win_y", SDL_WINDOWPOS_CENTERED );
+        w = m_inifile.GetInt( "win_w", 1280 );
+        h = m_inifile.GetInt( "win_h", 1024 );
+    }
+
+    void save_window_pos( int x, int y, int w, int h )
+    {
+        m_inifile.PutInt( "win_x", x );
+        m_inifile.PutInt( "win_y", y );
+        m_inifile.PutInt( "win_w", w );
+        m_inifile.PutInt( "win_h", h );
+    }
+
 protected:
+    void parse_cmdline( int argc, char **argv );
+
     state_t get_state();
     void set_state( state_t state );
 
@@ -733,7 +723,7 @@ protected:
     int init_new_event( trace_event_t &event, const trace_info_t &info );
 
 public:
-    CIniFile &m_inifile;
+    CIniFile m_inifile;
     std::string m_filename;
     SDL_atomic_t m_state = { 0 };
     SDL_Thread *m_thread = nullptr;
@@ -813,4 +803,21 @@ public:
 
     FontInfo m_font_main;
     FontInfo m_font_small;
+
+    ImGuiTextFilter m_filter;
+    std::string m_inputbuf;
+    std::vector< std::string > m_log;
+
+    char m_trace_file[ PATH_MAX ] = { 0 };
+
+    ImVec4 m_clear_color;
+    std::vector< INIEntry > m_imguiwindow_entries;
+
+    size_t m_log_size = ( size_t )-1;
+    bool m_quit = false;
+    bool m_show_gpuvis_console = true;
+    bool m_show_imgui_test_window = false;
+    bool m_show_imgui_style_editor = false;
+    bool m_show_imgui_metrics_editor = false;
+    bool m_show_font_window = false;
 };

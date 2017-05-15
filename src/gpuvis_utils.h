@@ -220,8 +220,6 @@ public:
 bool imgui_push_smallfont();
 void imgui_pop_smallfont();
 
-void imgui_ini_settings( CIniFile &inifile, bool save = false );
-
 class ColorPicker
 {
 public:

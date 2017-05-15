@@ -41,6 +41,15 @@
 /*
   TODO mikesart: Check if entire rows are clipped when drawing...
 
+  Add ability to zoom compute, sdma, print, etc.
+    Basically, zoom hovered row...
+
+  Configurable hotkeys?
+
+  Move Options menu item to traces window
+
+  Move Font Options, Style Editor, etc to be menu items
+
   From DanG:
     * Add Browse button to load a trace file
 */

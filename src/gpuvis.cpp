@@ -435,8 +435,12 @@ int SDLCALL TraceLoader::thread_func( void *data )
     return 0;
 }
 
-void TraceLoader::init()
+void TraceLoader::init( int argc, char **argv )
 {
+    m_inifile.Open( "gpuvis", "gpuvis.ini" );
+
+    col_init( m_inifile );
+
     m_options.resize( OPT_PresetMax );
 
     m_options[ OPT_Fullscreen ].opt_bool( "Fullscreen Trace Window", "fullscreen", false );
@@ -501,6 +505,51 @@ void TraceLoader::init()
         else
             opt.val = m_inifile.GetInt( opt.inikey.c_str(), opt.val );
     }
+
+    m_clear_color = m_inifile.GetVec4( "clearcolor", ImColor( 114, 144, 154 ) );
+
+    ImGuiIO &io = ImGui::GetIO();
+    m_imguiwindow_entries = m_inifile.GetSectionEntries( "$imguiwindows$" );
+    io.IniLoadSettingCB = std::bind( imgui_ini_load_settings_cb, &m_imguiwindow_entries, _1, _2 );
+    io.IniSaveSettingCB = std::bind( imgui_ini_save_settings_cb, &m_inifile, _1, _2 );
+
+    parse_cmdline( argc, argv );
+
+#if 0
+    {
+        ImGuiStyle &style = ImGui::GetStyle();
+        const char section[] = "$imgui_settings$";
+
+        ImVec4 defcol = { -1.0f, -1.0f, -1.0f, -1.0f };
+
+        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
+        {
+            const char *name = ImGui::GetStyleColName( i );
+
+            ImVec4 col = m_inifile.GetVec4( name, defcol, section );
+            if ( col.w == -1.0f )
+            {
+                // Default to no alpha for our windows...
+                if ( i == ImGuiCol_WindowBg )
+                    ImGui::GetStyle().Colors[ i ].w = 1.0f;
+            }
+            else
+            {
+                style.Colors[ i ] = col;
+            }
+        }
+    }
+#endif
+
+    logf( "Welcome to gpuvis\n" );
+
+    logf( "graph shortcuts:" );
+    logf( "  shift+click+drag: zoom to selection" );
+    logf( "  ctrl+click+drag: select area to see time" );
+    logf( "  click+drag: pan graph" );
+    logf( "  alt key: hide all graph labels");
+
+    strcpy_safe( m_trace_file, "trace.dat" );
 }
 
 option_id_t TraceLoader::add_option_graph_rowsize( const char *name, int defval )
@@ -559,6 +608,27 @@ void TraceLoader::shutdown()
         else
             m_inifile.PutInt( opt.inikey.c_str(), opt.val );
     }
+
+    m_inifile.PutVec4( "clearcolor", m_clear_color );
+
+    col_shutdown( m_inifile );
+
+#if 0
+    {
+        ImGuiStyle &style = ImGui::GetStyle();
+        const char section[] = "$imgui_settings$";
+
+        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
+        {
+            const ImVec4 &col = style.Colors[ i ];
+            const char *name = ImGui::GetStyleColName( i );
+
+            m_inifile.PutVec4( name, col, section );
+        }
+    }
+#endif
+
+    m_inifile.Close();
 }
 
 void TraceLoader::render()
@@ -588,6 +658,43 @@ void TraceLoader::render()
             delete win;
             m_trace_windows_list.erase( m_trace_windows_list.begin() + i );
         }
+    }
+
+    if ( m_show_gpuvis_console )
+    {
+        ImGui::SetNextWindowSize( ImVec2( 600, 800 ), ImGuiSetCond_FirstUseEver );
+
+        render_console();
+    }
+
+    if ( m_show_imgui_test_window )
+    {
+        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
+
+        ImGui::ShowTestWindow( &m_show_imgui_test_window );
+    }
+
+    if ( m_show_imgui_style_editor )
+    {
+        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
+
+        ImGui::Begin( "Style Editor", &m_show_imgui_style_editor );
+        ImGui::ShowStyleEditor();
+        ImGui::End();
+    }
+
+    if ( m_show_imgui_metrics_editor )
+    {
+        ImGui::ShowMetricsWindow( &m_show_imgui_metrics_editor );
+    }
+
+    if ( m_show_font_window )
+    {
+        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
+
+        ImGui::Begin( "Font Options", &m_show_font_window );
+        render_font_options();
+        ImGui::End();
     }
 }
 
@@ -1466,7 +1573,9 @@ bool TraceWin::render()
         return true;
     }
 
-    ImGui::Begin( m_title.c_str(), &m_open );
+    ImGui::Begin( m_title.c_str(), &m_open, ImGuiWindowFlags_MenuBar );
+
+    m_loader.render_menu();
 
     if ( ImGui::CollapsingHeader( "Trace Info" ) )
         trace_render_info();
@@ -2136,30 +2245,7 @@ void TraceWin::events_list_render( CIniFile &inifile )
     imgui_pop_smallfont();
 }
 
-/*
- * TraceConsole
- */
-void TraceConsole::init( CIniFile *inifile )
-{
-    m_clear_color = inifile->GetVec4( "clearcolor", ImColor( 114, 144, 154 ) );
-
-    logf( "Welcome to gpuvis\n" );
-
-    logf( "graph shortcuts:" );
-    logf( "  shift+click+drag: zoom to selection" );
-    logf( "  ctrl+click+drag: select area to see time" );
-    logf( "  click+drag: pan graph" );
-    logf( "  alt key: hide all graph labels");
-
-    strcpy_safe( m_trace_file, "trace.dat" );
-}
-
-void TraceConsole::shutdown( CIniFile *inifile )
-{
-    inifile->PutVec4( "clearcolor", m_clear_color );
-}
-
-void TraceConsole::render_options( TraceLoader &loader )
+void TraceLoader::render_menu_options()
 {
     // Align text to upcoming widgets
     ImGui::AlignFirstTextHeightToWidgets();
@@ -2170,36 +2256,50 @@ void TraceConsole::render_options( TraceLoader &loader )
     ImGui::Separator();
 
     {
-        ImGui::Text( "Imgui Settings" );
-
+        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", "Windows" );
         ImGui::Indent();
 
-        if ( ImGui::Button( "Font Options" ) )
-            m_show_font_window ^= 1;
+        if ( ImGui::MenuItem( "Gpuvis Console" ) )
+        {
+            ImGui::SetWindowFocus( "Gpuvis Console" );
+            m_show_gpuvis_console = true;
+        }
 
-        ImGui::SameLine();
-        if ( ImGui::Button( "Style Editor" ) )
-            m_show_imgui_style_editor ^= 1;
+        if ( ImGui::MenuItem( "Gpuvis Font Options" ) )
+        {
+            ImGui::SetWindowFocus( "Font Options" );
+            m_show_font_window = true;
+        }
 
-        ImGui::SameLine();
-        if ( ImGui::Button( "Metrics" ) )
-            m_show_imgui_metrics_editor ^= 1;
+        if ( ImGui::MenuItem( "ImGui Style Editor" ) )
+        {
+            ImGui::SetWindowFocus( "Style Editor" );
+            m_show_imgui_style_editor = true;
+        }
 
-        ImGui::SameLine();
-        if ( ImGui::Button( "Test Window" ) )
-            m_show_imgui_test_window ^= 1;
+        if ( ImGui::MenuItem( "ImGui Metrics" ) )
+        {
+            ImGui::SetWindowFocus( "ImGui Metrics" );
+            m_show_imgui_metrics_editor = true;
+        }
+
+        if ( ImGui::MenuItem( "ImGui Test Window" ) )
+        {
+            ImGui::SetWindowFocus( "ImGui Demo" );
+            m_show_imgui_test_window = true;
+        }
 
         ImGui::Unindent();
     }
 
     ImGui::Separator();
 
-    ImGui::Text( "Gpuvis Settings" );
+    ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", "Gpuvis Settings" );
     ImGui::Indent();
 
-    for ( size_t i = 0; i < loader.m_options.size(); i++ )
+    for ( size_t i = 0; i < m_options.size(); i++ )
     {
-        TraceLoader::option_t &opt = loader.m_options[ i ];
+        TraceLoader::option_t &opt = m_options[ i ];
 
         if ( opt.hidden )
             continue;
@@ -2207,7 +2307,7 @@ void TraceConsole::render_options( TraceLoader &loader )
         if ( ( i >= OPT_RenderCrtc0 ) &&
              ( i <= OPT_RenderCrtc9 ) )
         {
-            if ( i - OPT_RenderCrtc0 > loader.m_crtc_max )
+            if ( i - OPT_RenderCrtc0 > m_crtc_max )
                 continue;
         }
 
@@ -2236,10 +2336,10 @@ void TraceConsole::render_options( TraceLoader &loader )
     ImGui::Unindent();
 }
 
-void TraceConsole::render_font_options( TraceLoader &loader )
+void TraceLoader::render_font_options()
 {
-    TraceLoader::option_t &opt_scale = loader.m_options[ OPT_Scale ];
-    TraceLoader::option_t &opt_use_freetype = loader.m_options[ OPT_UseFreetype ];
+    TraceLoader::option_t &opt_scale = m_options[ OPT_Scale ];
+    TraceLoader::option_t &opt_use_freetype = m_options[ OPT_UseFreetype ];
 
     static const char lorem_str[] =
         "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do"
@@ -2266,31 +2366,31 @@ void TraceConsole::render_font_options( TraceLoader &loader )
 
         if ( ImGui::Button( "Reset to Defaults" ) )
         {
-            loader.m_font_main.m_reset = true;
-            loader.m_font_small.m_reset = true;
+            m_font_main.m_reset = true;
+            m_font_small.m_reset = true;
             changed = true;
         }
 
         if ( changed )
         {
             // Ping font change so this stuff will reload in main loop.
-            loader.m_font_main.m_changed = true;
+            m_font_main.m_changed = true;
         }
     }
 
     if ( ImGui::TreeNodeEx( "Main Font", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        const char *font_name = loader.m_font_main.m_name.c_str();
+        const char *font_name = m_font_main.m_name.c_str();
 
         ImGui::TextWrapped( "%s: %s", multi_text_color::yellow.m_str( font_name ).c_str(), lorem_str );
 
-        loader.m_font_main.render_font_options( !!opt_use_freetype.val );
+        m_font_main.render_font_options( !!opt_use_freetype.val );
         ImGui::TreePop();
     }
 
     if ( ImGui::TreeNodeEx( "Small Font", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        const char *font_name = loader.m_font_small.m_name.c_str();
+        const char *font_name = m_font_small.m_name.c_str();
 
         ImGui::BeginChild( "small_font", ImVec2( 0, ImGui::GetTextLineHeightWithSpacing() * 4 ) );
 
@@ -2300,7 +2400,7 @@ void TraceConsole::render_font_options( TraceLoader &loader )
 
         ImGui::EndChild();
 
-        loader.m_font_small.render_font_options( !!opt_use_freetype.val );
+        m_font_small.render_font_options( !!opt_use_freetype.val );
 
         ImGui::TreePop();
     }
@@ -2319,7 +2419,7 @@ void TraceConsole::render_font_options( TraceLoader &loader )
     ImGui::Unindent();
 }
 
-void TraceConsole::render_log( TraceLoader &loader )
+void TraceLoader::render_log()
 {
     ImGui::Text( "Log Filter:" );
     ImGui::SameLine();
@@ -2395,24 +2495,22 @@ void TraceConsole::render_log( TraceLoader &loader )
     }
 }
 
-void TraceConsole::render_console( TraceLoader &loader )
+void TraceLoader::render_console()
 {
-    ImGui::SetNextWindowSize( ImVec2( 600, 800 ), ImGuiSetCond_FirstUseEver );
-
-    if ( !ImGui::Begin( "gpuvis console", NULL, ImGuiWindowFlags_MenuBar ) )
+    if ( !ImGui::Begin( "Gpuvis Console", &m_show_gpuvis_console, ImGuiWindowFlags_MenuBar ) )
     {
         ImGui::End();
         return;
     }
 
-    render_menu( loader );
+    render_menu();
 
     ImGui::Text( "%.2f ms/frame (%.1f FPS)",
                  1000.0f / ImGui::GetIO().Framerate,
                  ImGui::GetIO().Framerate );
     if ( ImGui::CollapsingHeader( "Trace File", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        bool is_loading = loader.is_loading();
+        bool is_trace_loading = is_loading();
 
         // Align text to upcoming widgets
         ImGui::AlignFirstTextHeightToWidgets();
@@ -2423,7 +2521,7 @@ void TraceConsole::render_console( TraceLoader &loader )
         ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue;
 
         const char *button_text;
-        if ( is_loading )
+        if ( is_trace_loading )
         {
             ImGui::PushStyleColor( ImGuiCol_Text, text_disabled );
 
@@ -2440,13 +2538,13 @@ void TraceConsole::render_console( TraceLoader &loader )
         ImGui::SameLine();
         do_load |= ImGui::Button( button_text, ImVec2( 0, 0 ) );
 
-        if ( is_loading )
+        if ( is_trace_loading )
         {
             ImGui::PopStyleColor();
         }
         else if ( do_load )
         {
-            loader.load_file( m_trace_file );
+            load_file( m_trace_file );
         }
     }
 
@@ -2456,9 +2554,9 @@ void TraceConsole::render_console( TraceLoader &loader )
 
         ImGui::Separator();
 
-        for ( size_t i = 0; i < loader.m_trace_events_list.size(); i++ )
+        for ( size_t i = 0; i < m_trace_events_list.size(); i++ )
         {
-            TraceEvents *events = loader.m_trace_events_list[ i ];
+            TraceEvents *events = m_trace_events_list[ i ];
             int eventsloaded = SDL_AtomicGet( &events->m_eventsloaded );
 
             if ( !eventsloaded )
@@ -2467,15 +2565,15 @@ void TraceConsole::render_console( TraceLoader &loader )
                 ImGui::NextColumn();
 
                 if ( ImGui::SmallButton( string_format( "Events##%lu", i ).c_str() ) )
-                    loader.new_event_window( events );
+                    new_event_window( events );
 
                 ImGui::SameLine();
                 if ( ImGui::SmallButton( string_format( "Close Windows##%lu", i ).c_str() ) )
-                    loader.close_event_file( events, false );
+                    close_event_file( events, false );
 
                 ImGui::SameLine();
                 if ( ImGui::SmallButton( string_format( "Free##%lu", i ).c_str() ) )
-                    loader.close_event_file( events, true );
+                    close_event_file( events, true );
 
                 ImGui::NextColumn();
             }
@@ -2485,73 +2583,40 @@ void TraceConsole::render_console( TraceLoader &loader )
         ImGui::Separator();
     }
 
-    //if ( ImGui::CollapsingHeader( "Options", ImGuiTreeNodeFlags_DefaultOpen ) )
-    //    render_options( loader );
-
     if ( ImGui::CollapsingHeader( "Log", ImGuiTreeNodeFlags_DefaultOpen ) )
-        render_log( loader );
+        render_log();
 
     ImGui::End();
 }
 
-void TraceConsole::render_menu( TraceLoader& loader )
+void TraceLoader::render_menu()
 {
     if ( !ImGui::BeginMenuBar() )
         return;
+
     if ( ImGui::BeginMenu( "File" ) )
     {
         if ( ImGui::MenuItem( "Quit" ) )
         {
             SDL_Event event;
+
             event.type = SDL_QUIT;
             SDL_PushEvent( &event );
         }
+
         ImGui::EndMenu();
     }
+
     if ( ImGui::BeginMenu( "Options") )
     {
-        render_options( loader );
+        render_menu_options();
         ImGui::EndMenu();
     }
+
     ImGui::EndMenuBar();
 }
 
-void TraceConsole::render( TraceLoader &loader )
-{
-    render_console( loader );
-
-    if ( m_show_imgui_test_window )
-    {
-        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
-
-        ImGui::ShowTestWindow( &m_show_imgui_test_window );
-    }
-
-    if ( m_show_imgui_style_editor )
-    {
-        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
-
-        ImGui::Begin( "Style Editor", &m_show_imgui_style_editor );
-        ImGui::ShowStyleEditor();
-        ImGui::End();
-    }
-
-    if ( m_show_imgui_metrics_editor )
-    {
-        ImGui::ShowMetricsWindow( &m_show_imgui_metrics_editor );
-    }
-
-    if ( m_show_font_window )
-    {
-        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
-
-        ImGui::Begin( "Font Options", &m_show_font_window );
-        render_font_options( loader );
-        ImGui::End();
-    }
-}
-
-static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
+void TraceLoader::parse_cmdline( int argc, char **argv )
 {
     static struct option long_opts[] =
     {
@@ -2569,12 +2634,12 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
         {
         case 0:
             if ( !strcasecmp( "fullscreen", long_opts[ opt_ind ].name ) )
-                loader.m_options[ OPT_Fullscreen ].val = true;
+                m_options[ OPT_Fullscreen ].val = true;
             else if ( !strcasecmp( "scale", long_opts[ opt_ind ].name ) )
-                loader.m_options[ OPT_Scale ].valf = atof( ya_optarg );
+                m_options[ OPT_Scale ].valf = atof( ya_optarg );
             break;
         case 'i':
-            loader.m_inputfiles.push_back( optarg );
+            m_inputfiles.push_back( optarg );
             break;
 
         default:
@@ -2584,13 +2649,13 @@ static void parse_cmdline( TraceLoader &loader, int argc, char **argv )
 
     for ( ; optind < argc; optind++ )
     {
-        loader.m_inputfiles.push_back( argv[ optind ] );
+        m_inputfiles.push_back( argv[ optind ] );
     }
 }
 
-static bool load_trace_file( TraceLoader &loader, TraceConsole &console, const char *filename )
+static bool load_trace_file( TraceLoader &loader, const char *filename )
 {
-    strcpy_safe( console.m_trace_file, filename );
+    strcpy_safe( loader.m_trace_file, filename );
 
     return loader.load_file( filename );
 }
@@ -2627,44 +2692,26 @@ static void sdl_setwindow_icon( SDL_Window *window )
 
 int main( int argc, char **argv )
 {
-    CIniFile inifile;
-    TraceConsole console;
-    TraceLoader loader( inifile );
-    SDL_Window *window = NULL;
-
-    // Setup SDL
-    if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_TIMER ) != 0 )
+    // Initialize SDL
+    if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_TIMER ) )
     {
         fprintf( stderr, "Error. SDL_Init failed: %s\n", SDL_GetError() );
         return -1;
     }
-    SDL_Cursor *cursor_sizens = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENS );
-    SDL_Cursor *cursor_default = SDL_GetDefaultCursor();
 
     logf_init();
 
-    inifile.Open( "gpuvis", "gpuvis.ini" );
+    TraceLoader loader;
+    SDL_Window *window = NULL;
+    SDL_Cursor *cursor_sizens = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENS );
+    SDL_Cursor *cursor_default = SDL_GetDefaultCursor();
 
-    col_init( inifile );
-    loader.init();
-
-    parse_cmdline( loader, argc, argv );
-
-    ImGuiIO &io = ImGui::GetIO();
-    std::vector< INIEntry > entries = inifile.GetSectionEntries( "$imguiwindows$" );
-    io.IniLoadSettingCB = std::bind( imgui_ini_load_settings_cb, &entries, _1, _2 );
-    io.IniSaveSettingCB = std::bind( imgui_ini_save_settings_cb, &inifile, _1, _2 );
-
-    int x = inifile.GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
-    int y = inifile.GetInt( "win_y", SDL_WINDOWPOS_CENTERED );
-    int w = inifile.GetInt( "win_w", 1280 );
-    int h = inifile.GetInt( "win_h", 1024 );
+    loader.init( argc, argv );
 
     imgui_set_scale( loader.get_optf( OPT_Scale ) );
-    imgui_ini_settings( inifile );
-    imgui_set_custom_style( true, 0.9f );
 
-    console.init( &inifile );
+    // Set imgui colors: dark with no alpha
+    imgui_set_custom_style( true, 1.0f );
 
     // Setup window
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG );
@@ -2678,6 +2725,8 @@ int main( int argc, char **argv )
     SDL_DisplayMode current;
     SDL_GetCurrentDisplayMode( 0, &current );
 
+    int x, y, w, h;
+    loader.get_window_pos( x, y, w, h );
     window = SDL_CreateWindow( "GPUVis", x, y, w, h,
                                SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE );
     sdl_setwindow_icon( window );
@@ -2724,14 +2773,11 @@ int main( int argc, char **argv )
         // Check for logf() calls from background threads.
         logf_update();
 
-        // Render console / options window
-        console.render( loader );
-
         // Render trace windows
         loader.render();
 
         // Rendering
-        const ImVec4 &color = console.m_clear_color;
+        const ImVec4 &color = loader.m_clear_color;
         const ImVec2 &size = ImGui::GetIO().DisplaySize;
 
         glViewport( 0, 0, ( int )size.x, ( int )size.y );
@@ -2742,14 +2788,14 @@ int main( int argc, char **argv )
 
         SDL_GL_SwapWindow( window );
 
-        if ( console.m_quit )
+        if ( loader.m_quit )
             break;
 
         if ( !loader.m_inputfiles.empty() && !loader.is_loading() )
         {
             const char *filename = loader.m_inputfiles[ 0 ].c_str();
 
-            load_trace_file( loader, console, filename );
+            load_trace_file( loader, filename );
 
             loader.m_inputfiles.erase( loader.m_inputfiles.begin() );
         }
@@ -2764,26 +2810,20 @@ int main( int argc, char **argv )
         }
     }
 
-    // Write main window position / size to ini file.
-    int top, left, bottom, right;
+    {
+        // Write main window position / size to ini file.
+        int top, left, bottom, right;
 
-    SDL_GetWindowBordersSize( window, &top, &left, &bottom, &right );
-    SDL_GetWindowPosition( window, &x, &y );
-    SDL_GetWindowSize( window, &w, &h );
-    inifile.PutInt( "win_x", x - left );
-    inifile.PutInt( "win_y", y - top );
-    inifile.PutInt( "win_w", w );
-    inifile.PutInt( "win_h", h );
+        SDL_GetWindowBordersSize( window, &top, &left, &bottom, &right );
+        SDL_GetWindowPosition( window, &x, &y );
+        SDL_GetWindowSize( window, &w, &h );
 
-    imgui_ini_settings( inifile, true );
+        loader.save_window_pos( x - left, y - top, w, h );
+    }
 
-    // Shut down our trace loader
+    // Shut down trace loader
     loader.shutdown();
 
-    // Shut down our console / option window
-    console.shutdown( &inifile );
-
-    col_shutdown( inifile );
     logf_clear();
 
     // Cleanup
@@ -2796,7 +2836,5 @@ int main( int argc, char **argv )
     SDL_GL_DeleteContext( glcontext );
     SDL_DestroyWindow( window );
     SDL_Quit();
-
-    inifile.Close();
     return 0;
 }
