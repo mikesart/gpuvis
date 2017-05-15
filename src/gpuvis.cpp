@@ -472,6 +472,11 @@ void TraceLoader::init( int argc, char **argv )
     m_options[ OPT_UseFreetype ].opt_bool( "Use Freetype", "use_freetype", false );
     m_options[ OPT_UseFreetype ].hidden = true;
 
+    m_options[ OPT_DarkTheme ].opt_bool( "Dark Theme", "dark_theme", true );
+    m_options[ OPT_DarkTheme ].hidden = true;
+    m_options[ OPT_ThemeAlpha ].opt_float( "Theme Alpha: %.1f", "theme_alpha", 1.0f, 0.1f, 1.0f );
+    m_options[ OPT_ThemeAlpha ].hidden = true;
+
     for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
         const std::string desc = string_format( "Show drm_vblank_event crtc%d markers", i - OPT_RenderCrtc0 );
@@ -539,6 +544,8 @@ void TraceLoader::init( int argc, char **argv )
     }
 #endif
 
+    imgui_set_custom_style( get_opt( OPT_DarkTheme ), get_optf( OPT_ThemeAlpha ) );
+
     logf( "Welcome to gpuvis\n" );
 
     logf( "graph shortcuts:" );
@@ -548,11 +555,13 @@ void TraceLoader::init( int argc, char **argv )
     logf( "  alt key: hide all graph labels");
 
     strcpy_safe( m_trace_file, "trace.dat" );
+
+    imgui_set_scale( get_optf( OPT_Scale ) );
 }
 
 option_id_t TraceLoader::add_option_graph_rowsize( const char *name, int defval )
 {
-    TraceLoader::option_t opt;
+    option_t opt;
     const char *fullname = name;
 
     if ( !strncmp( name, "plot:", 5 ) )
@@ -572,6 +581,23 @@ option_id_t TraceLoader::add_option_graph_rowsize( const char *name, int defval 
     m_options.push_back( opt );
 
     return ( option_id_t )( m_options.size() - 1 );
+}
+
+int TraceLoader::get_opt( option_id_t opt )
+{
+    return m_options[ opt ].val;
+}
+
+float TraceLoader::get_optf( option_id_t opt )
+{
+    return m_options[ opt ].valf;
+}
+
+int TraceLoader::get_opt_crtc( int crtc )
+{
+    uint32_t val = crtc + OPT_RenderCrtc0;
+
+    return ( val <= OPT_RenderCrtc9 ) ? m_options[ val ].val : 0;
 }
 
 void TraceLoader::shutdown()
@@ -700,7 +726,7 @@ void TraceLoader::render()
     {
         ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
 
-        ImGui::Begin( "Color Picker", &m_show_color_picker );
+        ImGui::Begin( "Color Configuration", &m_show_color_picker );
         render_color_picker();
         ImGui::End();
     }
@@ -2221,9 +2247,9 @@ void TraceLoader::render_menu_options()
             m_show_font_window = true;
         }
 
-        if ( ImGui::MenuItem( "Gpuvis Color Picker" ) )
+        if ( ImGui::MenuItem( "Gpuvis Color Configuration" ) )
         {
-            ImGui::SetWindowFocus( "Color Picker" );
+            ImGui::SetWindowFocus( "Color Configuration" );
             m_show_color_picker = true;
         }
 
@@ -2257,7 +2283,7 @@ void TraceLoader::render_menu_options()
 
     for ( size_t i = 0; i < m_options.size(); i++ )
     {
-        TraceLoader::option_t &opt = m_options[ i ];
+        option_t &opt = m_options[ i ];
 
         if ( opt.hidden )
             continue;
@@ -2271,11 +2297,11 @@ void TraceLoader::render_menu_options()
 
         ImGui::PushID( i );
 
-        if ( opt.type == TraceLoader::OPT_Bool )
+        if ( opt.type == OPT_Bool )
         {
             ImGui::CheckboxInt( opt.desc.c_str(), &opt.val );
         }
-        else if ( opt.type == TraceLoader::OPT_Int )
+        else if ( opt.type == OPT_Int )
         {
             ImGui::PushItemWidth( imgui_scale( 200.0f ) );
             ImGui::SliderInt( "##slider_int", &opt.val, opt.val_min, opt.val_max, opt.desc.c_str() );
@@ -2296,8 +2322,8 @@ void TraceLoader::render_menu_options()
 
 void TraceLoader::render_font_options()
 {
-    TraceLoader::option_t &opt_scale = m_options[ OPT_Scale ];
-    TraceLoader::option_t &opt_use_freetype = m_options[ OPT_UseFreetype ];
+    option_t &opt_scale = m_options[ OPT_Scale ];
+    option_t &opt_use_freetype = m_options[ OPT_UseFreetype ];
 
     static const char lorem_str[] =
         "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do"
@@ -2379,6 +2405,18 @@ void TraceLoader::render_font_options()
 
 void TraceLoader::render_color_picker()
 {
+    option_t &opt_darktheme = m_options[ OPT_DarkTheme ];
+    option_t &opt_themealpha = m_options[ OPT_ThemeAlpha ];
+
+    bool changed = ImGui::CheckboxInt( opt_darktheme.desc.c_str(), &opt_darktheme.val );
+
+    ImGui::PushItemWidth( imgui_scale( 150.0f ) );
+    changed |= ImGui::SliderFloat( "##theme_alpha", &opt_themealpha.valf,
+                                   opt_themealpha.valf_min, opt_themealpha.valf_max, opt_themealpha.desc.c_str() );
+    ImGui::PopItemWidth();
+
+    ImGui::Separator();
+
     if ( ImGui::BeginColumns( "color_picker", 2, 0 ) )
         ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
 
@@ -2415,6 +2453,11 @@ void TraceLoader::render_color_picker()
     ImGui::NextColumn();
 
     ImGui::EndColumns();
+
+    if ( changed )
+    {
+        imgui_set_custom_style( get_opt( OPT_DarkTheme ), get_optf( OPT_ThemeAlpha ) );
+    }
 }
 
 
@@ -2698,11 +2741,6 @@ int main( int argc, char **argv )
 
     loader.init( argc, argv );
 
-    imgui_set_scale( loader.get_optf( OPT_Scale ) );
-
-    // Set imgui colors: dark with no alpha
-    imgui_set_custom_style( true, 1.0f );
-
     // Setup window
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG );
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE );
@@ -2712,13 +2750,9 @@ int main( int argc, char **argv )
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 3 );
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 2 );
 
-    SDL_DisplayMode current;
-    SDL_GetCurrentDisplayMode( 0, &current );
-
     int x, y, w, h;
     loader.get_window_pos( x, y, w, h );
-    window = SDL_CreateWindow( "GPUVis", x, y, w, h,
-                               SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE );
+    window = SDL_CreateWindow( "GPUVis", x, y, w, h, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE );
     sdl_setwindow_icon( window );
 
     SDL_GLContext glcontext = SDL_GL_CreateContext( window );

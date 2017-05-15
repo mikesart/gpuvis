@@ -1583,7 +1583,7 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
         max_graph_size = gi.total_graph_height;
     }
 
-    TraceLoader::option_t &opt = win->m_loader.m_options[ optid ];
+    option_t &opt = win->m_loader.m_options[ optid ];
 
     // First time initialization - start with about 15 rows
     if ( !opt.valf )
@@ -1866,7 +1866,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     if ( optid != OPT_Invalid )
     {
-        TraceLoader::option_t &opt = m_loader.m_options[ optid ];
+        option_t &opt = m_loader.m_options[ optid ];
 
         ImGui::AlignFirstTextHeightToWidgets();
         ImGui::Text( "%s", opt.desc.c_str() );
@@ -1925,7 +1925,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     for ( size_t i = 0; i < m_loader.m_options.size(); i++ )
     {
-        TraceLoader::option_t &opt = m_loader.m_options[ i ];
+        option_t &opt = m_loader.m_options[ i ];
 
         if ( opt.hidden )
             continue;
@@ -1939,13 +1939,13 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
         ImGui::PushID( i );
 
-        if ( opt.type == TraceLoader::OPT_Bool )
+        if ( opt.type == OPT_Bool )
         {
             bool val = !!opt.val;
             if ( ImGui::MenuItem( opt.desc.c_str(), "", &val ) )
                 opt.val = val;
         }
-        else if ( opt.type == TraceLoader::OPT_Int )
+        else if ( opt.type == OPT_Int )
         {
             ImGui::PushItemWidth( imgui_scale( 200.0f ) );
             ImGui::SliderInt( "##slider_int", &opt.val, opt.val_min, opt.val_max, opt.desc.c_str() );

@@ -653,7 +653,53 @@ enum : uint32_t
     OPT_EventListRowCount,
     OPT_Scale,
     OPT_UseFreetype,
+    OPT_DarkTheme,
+    OPT_ThemeAlpha,
     OPT_PresetMax
+};
+
+enum opt_type { OPT_Bool, OPT_Int, OPT_Float };
+struct option_t
+{
+    void opt_bool( const std::string &description, const std::string &key, bool defval )
+    {
+        type = OPT_Bool;
+        desc = description;
+        inikey = key;
+        val = defval;
+    }
+
+    void opt_int( const std::string &description, const std::string &key, int defval, int minval, int maxval )
+    {
+        type = OPT_Int;
+        desc = description;
+        inikey = key;
+        val = defval;
+        val_min = minval;
+        val_max = maxval;
+    }
+
+    void opt_float( const std::string &description, const std::string &key, float defval, float minval, float maxval )
+    {
+        type = OPT_Float;
+        desc = description;
+        inikey = key;
+        valf = defval;
+        valf_min = minval;
+        valf_max = maxval;
+    }
+
+    opt_type type;
+    std::string desc;
+    std::string inikey;
+    bool hidden = false;
+
+    int val;
+    int val_min;
+    int val_max;
+    float valf;
+    float valf_min;
+    float valf_max;
 };
 
 class TraceLoader
@@ -671,6 +717,9 @@ public:
     TraceLoader() {}
     ~TraceLoader() {}
 
+    void init( int argc, char **argv );
+    void shutdown();
+
     bool load_file( const char *filename );
     void cancel_load_file();
     bool is_loading();
@@ -685,9 +734,6 @@ public:
     void render_log();
     void render_font_options();
     void render_color_picker();
-
-    void init( int argc, char **argv );
-    void shutdown();
 
     void load_fonts();
 
@@ -706,6 +752,11 @@ public:
         m_inifile.PutInt( "win_w", w );
         m_inifile.PutInt( "win_h", h );
     }
+
+    int get_opt( option_id_t opt );
+    float get_optf( option_id_t opt );
+    int get_opt_crtc( int crtc );
+    option_id_t add_option_graph_rowsize( const char *name, int defval = 4 );
 
 protected:
     void parse_cmdline( int argc, char **argv );
@@ -731,88 +782,25 @@ public:
     uint32_t m_crtc_max = 0;
     std::vector< std::string > m_inputfiles;
 
-    enum opt_type { OPT_Bool, OPT_Int, OPT_Float };
-    struct option_t
-    {
-        void opt_bool( const std::string &description, const std::string &key, bool defval )
-        {
-            type = OPT_Bool;
-            desc = description;
-            inikey = key;
-            val = defval;
-        }
-
-        void opt_int( const std::string &description, const std::string &key, int defval, int minval, int maxval )
-        {
-            type = OPT_Int;
-            desc = description;
-            inikey = key;
-            val = defval;
-            val_min = minval;
-            val_max = maxval;
-        }
-
-        void opt_float( const std::string &description, const std::string &key, float defval, float minval, float maxval )
-        {
-            type = OPT_Float;
-            desc = description;
-            inikey = key;
-            valf = defval;
-            valf_min = minval;
-            valf_max = maxval;
-        }
-
-        std::string desc;
-        std::string inikey;
-
-        bool hidden = false;
-
-        opt_type type;
-        int val;
-        int val_min;
-        int val_max;
-        float valf;
-        float valf_min;
-        float valf_max;
-    };
-    int get_opt( option_id_t opt )
-    {
-        return m_options[ opt ].val;
-    }
-    float get_optf( option_id_t opt )
-    {
-        return m_options[ opt ].valf;
-    }
-    int get_opt_crtc( int crtc )
-    {
-        uint32_t val = crtc + OPT_RenderCrtc0;
-
-        return ( val <= OPT_RenderCrtc9 ) ? m_options[ val ].val : 0;
-    }
-    option_id_t add_option_graph_rowsize( const char *name, int defval = 4 );
+    std::vector< option_t > m_options;
 
     // Map row names to option IDs. Ie, "gfx", "print", "sdma0", etc.
     util_umap< std::string, option_id_t > m_name_optid_map;
-
-    std::vector< option_t > m_options;
-    std::string m_event_filter_str;
 
     FontInfo m_font_main;
     FontInfo m_font_small;
 
     ImGuiTextFilter m_filter;
-    std::string m_inputbuf;
+    size_t m_log_size = ( size_t )-1;
     std::vector< std::string > m_log;
 
     char m_trace_file[ PATH_MAX ] = { 0 };
 
-    ImVec4 m_clear_color;
     std::vector< INIEntry > m_imguiwindow_entries;
 
     int m_selected_color = 0;
     ColorPicker m_colorpicker;
 
-    size_t m_log_size = ( size_t )-1;
     bool m_quit = false;
     bool m_show_gpuvis_console = true;
     bool m_show_imgui_test_window = false;
