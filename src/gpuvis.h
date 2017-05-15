@@ -729,29 +729,11 @@ public:
 
     void render();
     void render_menu();
-    void render_menu_options();
-    void render_console();
-    void render_log();
-    void render_font_options();
-    void render_color_picker();
 
     void load_fonts();
 
-    void get_window_pos( int &x, int &y, int &w, int &h )
-    {
-        x = m_inifile.GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
-        y = m_inifile.GetInt( "win_y", SDL_WINDOWPOS_CENTERED );
-        w = m_inifile.GetInt( "win_w", 1280 );
-        h = m_inifile.GetInt( "win_h", 1024 );
-    }
-
-    void save_window_pos( int x, int y, int w, int h )
-    {
-        m_inifile.PutInt( "win_x", x );
-        m_inifile.PutInt( "win_y", y );
-        m_inifile.PutInt( "win_w", w );
-        m_inifile.PutInt( "win_h", h );
-    }
+    void get_window_pos( int &x, int &y, int &w, int &h );
+    void save_window_pos( int x, int y, int w, int h );
 
     int get_opt( option_id_t opt );
     float get_optf( option_id_t opt );
@@ -759,6 +741,12 @@ public:
     option_id_t add_option_graph_rowsize( const char *name, int defval = 4 );
 
 protected:
+    void render_menu_options();
+    void render_console();
+    void render_log();
+    void render_font_options();
+    void render_color_picker();
+
     void parse_cmdline( int argc, char **argv );
 
     state_t get_state();

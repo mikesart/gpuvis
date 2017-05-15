@@ -744,6 +744,22 @@ void TraceLoader::load_fonts()
     m_font_small.load_font( m_inifile, "$imgui_font_small$", "Proggy Tiny (10)", 10.0f );
 }
 
+void TraceLoader::get_window_pos( int &x, int &y, int &w, int &h )
+{
+    x = m_inifile.GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
+    y = m_inifile.GetInt( "win_y", SDL_WINDOWPOS_CENTERED );
+    w = m_inifile.GetInt( "win_w", 1280 );
+    h = m_inifile.GetInt( "win_h", 1024 );
+}
+
+void TraceLoader::save_window_pos( int x, int y, int w, int h )
+{
+    m_inifile.PutInt( "win_x", x );
+    m_inifile.PutInt( "win_y", y );
+    m_inifile.PutInt( "win_w", w );
+    m_inifile.PutInt( "win_h", h );
+}
+
 /*
  * GraphRows
  */
