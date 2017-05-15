@@ -242,11 +242,32 @@ enum colors_t
     col_Max
 };
 
-void col_init( CIniFile &inifile );
-void col_shutdown( CIniFile &inifile );
+class Cols
+{
+public:
+    Cols() {}
+    ~Cols() {}
 
-ImU32 col_get( colors_t col, ImU32 alpha = ( uint32_t )-1 );
-void col_set( colors_t col, ImU32 color );
-const char *col_get_name( colors_t col );
+    static void init( CIniFile &inifile );
+    static void shutdown( CIniFile &inifile );
+
+    static ImU32 get( colors_t col, ImU32 alpha = ( uint32_t )-1 );
+    static ImVec4 get4( colors_t col, float alpha = -1.0f );
+
+    static void set( colors_t col, ImU32 color );
+    static const char *get_name( colors_t col );
+
+    static bool is_default( colors_t col );
+
+public:
+    struct colordata_t
+    {
+        const char *name;
+        ImU32 color;
+        ImU32 defcolor;
+        bool modified;
+    };
+    static colordata_t s_colordata[ col_Max ];
+};
 
 #endif // _GPUVIS_UTILS_H

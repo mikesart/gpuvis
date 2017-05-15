@@ -465,92 +465,99 @@ bool imgui_key_pressed( ImGuiKey key )
     return ImGui::IsKeyPressed( ImGui::GetKeyIndex( key ) );
 }
 
+static colors_t col_index_from_imguicol( ImGuiCol col )
+{
+    switch ( col )
+    {
+    case ImGuiCol_Text: return col_ImGui_Text;
+    case ImGuiCol_TextDisabled: return col_ImGui_TextDisabled;
+    case ImGuiCol_WindowBg: return col_ImGui_WindowBg;
+    case ImGuiCol_ChildWindowBg: return col_ImGui_ChildWindowBg;
+    case ImGuiCol_PopupBg: return col_ImGui_PopupBg;
+    case ImGuiCol_Border: return col_ImGui_Border;
+    case ImGuiCol_BorderShadow: return col_ImGui_BorderShadow;
+    case ImGuiCol_FrameBg: return col_ImGui_FrameBg;
+    case ImGuiCol_FrameBgHovered: return col_ImGui_FrameBgHovered;
+    case ImGuiCol_FrameBgActive: return col_ImGui_FrameBgActive;
+    case ImGuiCol_TitleBg: return col_ImGui_TitleBg;
+    case ImGuiCol_TitleBgCollapsed: return col_ImGui_TitleBgCollapsed;
+    case ImGuiCol_TitleBgActive: return col_ImGui_TitleBgActive;
+    case ImGuiCol_MenuBarBg: return col_ImGui_MenuBarBg;
+    case ImGuiCol_ScrollbarBg: return col_ImGui_ScrollbarBg;
+    case ImGuiCol_ScrollbarGrab: return col_ImGui_ScrollbarGrab;
+    case ImGuiCol_ScrollbarGrabHovered: return col_ImGui_ScrollbarGrabHovered;
+    case ImGuiCol_ScrollbarGrabActive: return col_ImGui_ScrollbarGrabActive;
+    case ImGuiCol_ComboBg: return col_ImGui_ComboBg;
+    case ImGuiCol_CheckMark: return col_ImGui_CheckMark;
+    case ImGuiCol_SliderGrab: return col_ImGui_SliderGrab;
+    case ImGuiCol_SliderGrabActive: return col_ImGui_SliderGrabActive;
+    case ImGuiCol_Button: return col_ImGui_Button;
+    case ImGuiCol_ButtonHovered: return col_ImGui_ButtonHovered;
+    case ImGuiCol_ButtonActive: return col_ImGui_ButtonActive;
+    case ImGuiCol_Header: return col_ImGui_Header;
+    case ImGuiCol_HeaderHovered: return col_ImGui_HeaderHovered;
+    case ImGuiCol_HeaderActive: return col_ImGui_HeaderActive;
+    case ImGuiCol_Column: return col_ImGui_Column;
+    case ImGuiCol_ColumnHovered: return col_ImGui_ColumnHovered;
+    case ImGuiCol_ColumnActive: return col_ImGui_ColumnActive;
+    case ImGuiCol_ResizeGrip: return col_ImGui_ResizeGrip;
+    case ImGuiCol_ResizeGripHovered: return col_ImGui_ResizeGripHovered;
+    case ImGuiCol_ResizeGripActive: return col_ImGui_ResizeGripActive;
+    case ImGuiCol_CloseButton: return col_ImGui_CloseButton;
+    case ImGuiCol_CloseButtonHovered: return col_ImGui_CloseButtonHovered;
+    case ImGuiCol_CloseButtonActive: return col_ImGui_CloseButtonActive;
+    case ImGuiCol_PlotLines: return col_ImGui_PlotLines;
+    case ImGuiCol_PlotLinesHovered: return col_ImGui_PlotLinesHovered;
+    case ImGuiCol_PlotHistogram: return col_ImGui_PlotHistogram;
+    case ImGuiCol_PlotHistogramHovered: return col_ImGui_PlotHistogramHovered;
+    case ImGuiCol_TextSelectedBg: return col_ImGui_TextSelectedBg;
+    case ImGuiCol_ModalWindowDarkening: return col_ImGui_ModalWindowDarkening;
+    }
+
+    assert( 0 );
+    return col_Max;
+}
+
 void imgui_set_custom_style( bool dark, float alpha )
 {
     ImGuiStyle& style = ImGui::GetStyle();
 
-    // NB: a few default styles will be included in imgui 1.50+
     style.Alpha = 1.0f;
 
-    //style.FrameRounding = 3.0f;
-    style.Colors[ ImGuiCol_Text ] = ImVec4( 0.00f, 0.00f, 0.00f, 1.00f );
-    style.Colors[ ImGuiCol_TextDisabled ] = ImVec4( 0.60f, 0.60f, 0.60f, 1.00f );
-    style.Colors[ ImGuiCol_WindowBg ] = ImVec4( 0.94f, 0.94f, 0.94f, 0.94f );
-    style.Colors[ ImGuiCol_ChildWindowBg ] = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
-    style.Colors[ ImGuiCol_PopupBg ] = ImVec4( 1.00f, 1.00f, 1.00f, 0.94f );
-    style.Colors[ ImGuiCol_Border ] = ImVec4( 0.00f, 0.00f, 0.00f, 0.19f );
-    style.Colors[ ImGuiCol_BorderShadow ] = ImVec4( 1.00f, 1.00f, 1.00f, 0.10f );
-    style.Colors[ ImGuiCol_FrameBg ] = ImVec4( 0.16f, 0.29f, 0.48f, 0.54f );
-    style.Colors[ ImGuiCol_FrameBgHovered ] = ImVec4( 0.26f, 0.59f, 0.98f, 0.40f );
-    style.Colors[ ImGuiCol_FrameBgActive ] = ImVec4( 0.26f, 0.59f, 0.98f, 0.67f );
-    style.Colors[ ImGuiCol_TitleBg ] = ImVec4( 0.96f, 0.96f, 0.96f, 1.00f );
-    style.Colors[ ImGuiCol_TitleBgCollapsed ] = ImVec4( 1.00f, 1.00f, 1.00f, 0.51f );
-    style.Colors[ ImGuiCol_TitleBgActive ] = ImVec4( 0.82f, 0.82f, 0.82f, 1.00f );
-    style.Colors[ ImGuiCol_MenuBarBg ] = ImVec4( 0.17f, 0.20f, 0.23f, 1.00f );
-
-    style.Colors[ ImGuiCol_ScrollbarBg ] = ImVec4( 0.98f, 0.98f, 0.98f, 0.53f );
-    style.Colors[ ImGuiCol_ScrollbarGrab ] = ImVec4( 0.69f, 0.69f, 0.69f, 1.00f );
-    style.Colors[ ImGuiCol_ScrollbarGrabHovered ] = ImVec4( 0.59f, 0.59f, 0.59f, 1.00f );
-    style.Colors[ ImGuiCol_ScrollbarGrabActive ] = ImVec4( 0.49f, 0.49f, 0.49f, 1.00f );
-    style.Colors[ ImGuiCol_ComboBg ] = ImVec4( 0.86f, 0.86f, 0.86f, 0.99f );
-    style.Colors[ ImGuiCol_CheckMark ] = ImVec4( 0.26f, 0.59f, 0.98f, 1.00f );
-    style.Colors[ ImGuiCol_SliderGrab ] = ImVec4( 0.24f, 0.52f, 0.88f, 1.00f );
-    style.Colors[ ImGuiCol_SliderGrabActive ] = ImVec4( 0.26f, 0.59f, 0.98f, 1.00f );
-    style.Colors[ ImGuiCol_Button ] = ImVec4( 0.26f, 0.59f, 0.98f, 0.40f );
-    style.Colors[ ImGuiCol_ButtonHovered ] = ImVec4( 0.26f, 0.59f, 0.98f, 1.00f );
-    style.Colors[ ImGuiCol_ButtonActive ] = ImVec4( 0.06f, 0.53f, 0.98f, 1.00f );
-    style.Colors[ ImGuiCol_Header ] = ImVec4( 0.26f, 0.59f, 0.98f, 0.31f );
-    style.Colors[ ImGuiCol_HeaderHovered ] = ImVec4( 0.26f, 0.59f, 0.98f, 0.80f );
-    style.Colors[ ImGuiCol_HeaderActive ] = ImVec4( 0.26f, 0.59f, 0.98f, 1.00f );
-    style.Colors[ ImGuiCol_Column ] = ImVec4( 0.39f, 0.39f, 0.39f, 1.00f );
-    style.Colors[ ImGuiCol_ColumnHovered ] = ImVec4( 0.26f, 0.59f, 0.98f, 0.78f );
-    style.Colors[ ImGuiCol_ColumnActive ] = ImVec4( 0.26f, 0.59f, 0.98f, 1.00f );
-    style.Colors[ ImGuiCol_ResizeGrip ] = ImVec4( 0.26f, 0.59f, 0.98f, 0.25f );
-    style.Colors[ ImGuiCol_ResizeGripHovered ] = ImVec4( 0.26f, 0.59f, 0.98f, 0.67f );
-    style.Colors[ ImGuiCol_ResizeGripActive ] = ImVec4( 0.26f, 0.59f, 0.98f, 0.95f );
-    style.Colors[ ImGuiCol_CloseButton ] = ImVec4( 0.59f, 0.59f, 0.59f, 0.50f );
-    style.Colors[ ImGuiCol_CloseButtonHovered ] = ImVec4( 0.98f, 0.39f, 0.36f, 1.00f );
-    style.Colors[ ImGuiCol_CloseButtonActive ] = ImVec4( 0.98f, 0.39f, 0.36f, 1.00f );
-    style.Colors[ ImGuiCol_PlotLines ] = ImVec4( 0.39f, 0.39f, 0.39f, 1.00f );
-    style.Colors[ ImGuiCol_PlotLinesHovered ] = ImVec4( 1.00f, 0.43f, 0.35f, 1.00f );
-    style.Colors[ ImGuiCol_PlotHistogram ] = ImVec4( 0.90f, 0.70f, 0.00f, 1.00f );
-    style.Colors[ ImGuiCol_PlotHistogramHovered ] = ImVec4( 1.00f, 0.60f, 0.00f, 1.00f );
-    style.Colors[ ImGuiCol_TextSelectedBg ] = ImVec4( 0.26f, 0.59f, 0.98f, 0.35f );
-    style.Colors[ ImGuiCol_ModalWindowDarkening ] = ImVec4( 0.20f, 0.20f, 0.20f, 0.35f );
-
-    if ( alpha )
+    for ( int i = 0; i < ImGuiCol_COUNT; i++ )
     {
-        if ( dark )
+        colors_t icol = col_index_from_imguicol( i );
+
+        if ( icol != col_Max )
         {
-            // Invert
-            for ( int i = 0; i <= ImGuiCol_COUNT; i++ )
+            ImVec4 &col = style.Colors[ i ];
+
+            col = Cols::get4( icol );
+
+            if ( dark )
             {
-                float H, S, V;
-                ImVec4 &col = style.Colors[ i ];
-
-                ImGui::ColorConvertRGBtoHSV( col.x, col.y, col.z, H, S, V );
-                if ( S < 0.1f )
-                    V = 1.0f - V;
-
-                ImGui::ColorConvertHSVtoRGB(H, S, V, col.x, col.y, col.z);
-                if ( col.w < 1.00f )
-                    col.w *= alpha;
-            }
-        }
-        else
-        {
-            // Apply alpha
-            for ( int i = 0; i <= ImGuiCol_COUNT; i++ )
-            {
-                ImVec4 &col = style.Colors[ i ];
-
-                if ( col.w < 1.00f )
+                // Only invert if the user hasn't modified this color
+                if ( Cols::is_default( icol ) )
                 {
-                    col.x *= alpha;
-                    col.y *= alpha;
-                    col.z *= alpha;
-                    col.w *= alpha;
+                    // Invert
+                    float H, S, V;
+
+                    ImGui::ColorConvertRGBtoHSV( col.x, col.y, col.z, H, S, V );
+                    if ( S < 0.1f )
+                        V = 1.0f - V;
+
+                    ImGui::ColorConvertHSVtoRGB( H, S, V, col.x, col.y, col.z );
+                    if ( col.w < 1.00f )
+                        col.w *= alpha;
                 }
+            }
+            else if ( col.w < 1.00f )
+            {
+                // Apply alpha
+                col.x *= alpha;
+                col.y *= alpha;
+                col.z *= alpha;
+                col.w *= alpha;
             }
         }
     }
@@ -888,65 +895,75 @@ bool ColorPicker::render( ImU32 *pcolor )
     return ret;
 }
 
-static struct
+Cols::colordata_t Cols::s_colordata[ col_Max ] =
 {
-    const char *name;
-    ImU32 color;
-    bool modified;
-} g_colordata[] =
-{
-#define _XTAG( _name, _color ) { #_name, _color },
+#define _XTAG( _name, _color ) { #_name, _color, _color },
   #include "gpuvis_colors.inl"
 #undef _XTAG
 };
 
-void col_init( CIniFile &inifile )
+void Cols::init( CIniFile &inifile )
 {
     for ( int i = 0; i < col_Max; i++ )
     {
-        const char *key = g_colordata[ i ].name;
-        uint64_t val = inifile.GetUint64( key, UINT64_MAX, "$graph_colors$" );
+        const char *key = s_colordata[ i ].name;
+        uint64_t val = inifile.GetUint64( key, UINT64_MAX, "$imgui_colors$" );
 
         if ( val != UINT64_MAX )
         {
-            g_colordata[ i ].color = ( ImU32 )val;
+            s_colordata[ i ].color = ( ImU32 )val;
         }
     }
 }
 
-void col_shutdown( CIniFile &inifile )
+void Cols::shutdown( CIniFile &inifile )
 {
     for ( int i = 0; i < col_Max; i++ )
     {
-        if ( g_colordata[ i ].modified )
+        if ( s_colordata[ i ].modified )
         {
-            const char *key = g_colordata[ i ].name;
+            const char *key = s_colordata[ i ].name;
 
-            inifile.PutUint64( key, g_colordata[ i ].color, "$graph_colors$" );
+            inifile.PutUint64( key, s_colordata[ i ].color, "$imgui_colors$" );
         }
     }
 }
 
-ImU32 col_get( colors_t col, ImU32 alpha )
+ImU32 Cols::get( colors_t col, ImU32 alpha )
 {
     if ( alpha <= 0xff )
-        return ( g_colordata[ col ].color & ~IM_COL32_A_MASK ) | ( alpha << IM_COL32_A_SHIFT );
+        return ( s_colordata[ col ].color & ~IM_COL32_A_MASK ) | ( alpha << IM_COL32_A_SHIFT );
 
-    return g_colordata[ col ].color;
+    return s_colordata[ col ].color;
 }
 
-void col_set( colors_t col, ImU32 color )
+ImVec4 Cols::get4( colors_t col, float alpha )
 {
-    if ( g_colordata[ col ].color != color )
+    ImVec4 color;
+
+    color = ( ImColor )s_colordata[ col ].color;
+    if ( alpha >= 0.0f )
+        color.w = alpha;
+    return color;
+}
+
+void Cols::set( colors_t col, ImU32 color )
+{
+    if ( s_colordata[ col ].color != color )
     {
-        g_colordata[ col ].color = color;
-        g_colordata[ col ].modified = true;
+        s_colordata[ col ].color = color;
+        s_colordata[ col ].modified = true;
     }
 }
 
-const char *col_get_name( colors_t col )
+const char *Cols::get_name( colors_t col )
 {
-    return g_colordata[ col ].name;
+    return s_colordata[ col ].name;
+}
+
+bool Cols::is_default( colors_t col )
+{
+    return s_colordata[ col ].color == s_colordata[ col ].defcolor;
 }
 
 #if defined( WIN32 )

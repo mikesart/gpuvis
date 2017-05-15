@@ -442,7 +442,7 @@ void TraceLoader::init( int argc, char **argv )
 {
     m_inifile.Open( "gpuvis", "gpuvis.ini" );
 
-    col_init( m_inifile );
+    Cols::init( m_inifile );
 
     m_options.resize( OPT_PresetMax );
 
@@ -633,7 +633,7 @@ void TraceLoader::shutdown()
             m_inifile.PutInt( opt.inikey.c_str(), opt.val );
     }
 
-    col_shutdown( m_inifile );
+    Cols::shutdown( m_inifile );
 
 #if 0
     {
@@ -1991,7 +1991,7 @@ static void draw_ts_line( const ImVec2 &pos )
 
     ImGui::GetWindowDrawList()->AddLine(
                 ImVec2( pos.x, pos_y ), ImVec2( max_x, pos_y ),
-                col_get( col_MousePos ), imgui_scale( 2.0f ) );
+                Cols::get( col_MousePos ), imgui_scale( 2.0f ) );
 
     ImGui::PushColumnClipRect();
 }
@@ -2115,7 +2115,7 @@ void TraceWin::events_list_render( CIniFile &inifile )
                 if ( event.is_vblank() )
                 {
                     // If this is a vblank event, draw the text in blue or red vblank colors
-                    ImColor col = col_get( ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0 );
+                    ImColor col = Cols::get( ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0 );
 
                     ImGui::PushStyleColor( ImGuiCol_Text, col );
                 }
@@ -2433,8 +2433,8 @@ void TraceLoader::render_color_picker()
         {
             bool selected = i == m_selected_color;
             ImVec2 pos = ImGui::GetCursorScreenPos();
-            ImU32 col = col_get( ( colors_t )i );
-            const char *name = col_get_name( ( colors_t )i );
+            ImU32 col = Cols::get( ( colors_t )i );
+            const char *name = Cols::get_name( ( colors_t )i );
 
             ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + w, pos.y + text_h ), col );
 
@@ -2454,12 +2454,17 @@ void TraceLoader::render_color_picker()
     {
         ImU32 color;
 
-        const char *name = col_get_name( ( colors_t )m_selected_color );
+        const char *name = Cols::get_name( ( colors_t )m_selected_color );
         ImGui::Text( "Set color for %s", multi_text_color::yellow.m_str( name ).c_str() );
         ImGui::NewLine();
 
         if ( m_colorpicker.render( &color ) )
-            col_set( ( colors_t )m_selected_color, color );
+        {
+            Cols::set( ( colors_t )m_selected_color, color );
+
+            if ( ( m_selected_color >= col_ImGui_Text ) && ( m_selected_color < col_ImGui_ModalWindowDarkening ) )
+                changed = true;
+        }
     }
     ImGui::NextColumn();
 
@@ -2470,7 +2475,6 @@ void TraceLoader::render_color_picker()
         imgui_set_custom_style( get_opt( OPT_DarkTheme ), get_optf( OPT_ThemeAlpha ) );
     }
 }
-
 
 void TraceLoader::render_log()
 {
@@ -2814,7 +2818,7 @@ int main( int argc, char **argv )
 
         {
             // ImGui Rendering
-            const ImVec4 color = ( ImColor )col_get( col_ClearColor );
+            const ImVec4 color = ( ImColor )Cols::get( col_ClearColor );
             const ImVec2 &size = ImGui::GetIO().DisplaySize;
 
             glViewport( 0, 0, ( int )size.x, ( int )size.y );
