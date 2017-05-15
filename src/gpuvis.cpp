@@ -742,6 +742,11 @@ void TraceLoader::load_fonts()
 
     // Add small font
     m_font_small.load_font( m_inifile, "$imgui_font_small$", "Proggy Tiny (10)", 10.0f );
+
+    // Reset max rect size for the print events so they'll redo the CalcTextSize for the
+    //  print graph row backgrounds (in graph_render_print_timeline).
+    for ( TraceEvents *trace_event : m_trace_events_list )
+        trace_event->m_rect_size_max_x = -1.0f;
 }
 
 void TraceLoader::get_window_pos( int &x, int &y, int &w, int &h )
@@ -1311,8 +1316,6 @@ void TraceEvents::calculate_event_print_info()
     if ( !plocs )
         return;
 
-    imgui_push_smallfont();
-
     uint32_t row_id = 1;
     util_umap< uint32_t, uint32_t > hash_row_map;
 
@@ -1358,12 +1361,24 @@ void TraceEvents::calculate_event_print_info()
         }
 
         // Add cached print info for this event
-        const ImVec2 text_size = ImGui::CalcTextSize( buf );
-        m_print_buf_info.get_val( event.id, { buf, text_size } );
-        m_buf_size_max_x = std::max< float >( text_size.x, m_buf_size_max_x );
+        m_print_buf_info.get_val( event.id, { buf } );
     }
 
-    imgui_pop_smallfont();
+    m_rect_size_max_x = -1.0f;
+}
+
+void TraceEvents::update_event_print_info_rects()
+{
+    m_rect_size_max_x = -1.0f;
+
+    for ( auto &entry : m_print_buf_info.m_map )
+    {
+        event_print_info_t &print_info = entry.second;
+
+        print_info.rect_size = ImGui::CalcTextSize( print_info.buf );
+
+        m_rect_size_max_x = std::max< float >( print_info.rect_size.x, m_rect_size_max_x );
+    }
 }
 
 // Go through gfx, sdma0, sdma1, etc. timelines and calculate event durations

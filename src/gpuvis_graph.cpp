@@ -52,10 +52,6 @@
     * Add Browse button to load a trace file
 
   From Pierre-Loup:
-    * However the print timeline label background size doesn't seem to obey
-    the font size changing dynamically, but seems fine if you restart the
-    tool. Not a huge deal.
-
     * Graph scale logic looks pretty nice too. One thing I notice when zooming
     out is that things become very noisy because of the vblank bars. I'm
     changing their colors so they're not fullbright, which helps, but can
@@ -961,8 +957,11 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
     row_draw_info.resize( row_count + 1 );
 
+    if ( m_trace_events.m_rect_size_max_x == -1.0f )
+        m_trace_events.update_event_print_info_rects();
+
     // We need to start drawing to the left of 0 for timeline_labels
-    int64_t ts = timeline_labels ? gi.screenx_to_ts( gi.x - m_trace_events.m_buf_size_max_x ) : gi.ts0;
+    int64_t ts = timeline_labels ? gi.screenx_to_ts( gi.x - m_trace_events.m_rect_size_max_x ) : gi.ts0;
     uint32_t eventstart = ts_to_eventid( ts );
 
     static float dx = imgui_scale( 3.0f );
@@ -990,9 +989,9 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
             const TraceEvents::event_print_info_t *print_info = draw_info.print_info;
 
             // If we did and there is room, draw the ftrace print buf
-            if ( x - x0 > print_info->buf_size.x )
+            if ( x - x0 > print_info->rect_size.x )
             {
-                imgui_drawrect( x0, print_info->buf_size.x + 1.0f, y + imgui_scale( 2.0f ), print_info->buf_size.y,
+                imgui_drawrect( x0, print_info->rect_size.x + 1.0f, y + imgui_scale( 2.0f ), print_info->rect_size.y,
                                 draw_info.event->color );
                 imgui_draw_text( x0, y + imgui_scale( 2.0f ), print_info->buf, IM_COL32_WHITE );
             }
@@ -1026,7 +1025,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
             float y = gi.y + row_id * gi.text_h;
             const trace_event_t *event = draw_info.event;
 
-            imgui_drawrect( x0, print_info->buf_size.x + 1.0f, y + imgui_scale( 2.0f ), print_info->buf_size.y, event->color );
+            imgui_drawrect( x0, print_info->rect_size.x + 1.0f, y + imgui_scale( 2.0f ), print_info->rect_size.y, event->color );
             imgui_draw_text( x0, y + imgui_scale( 2.0f ), print_info->buf, IM_COL32_WHITE );
         }
     }

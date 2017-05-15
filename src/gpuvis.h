@@ -326,6 +326,7 @@ public:
 
     void calculate_event_durations();
     void calculate_event_print_info();
+    void update_event_print_info_rects();
 
     enum loc_type_t
     {
@@ -376,10 +377,10 @@ public:
     struct event_print_info_t
     {
         const char *buf;
-        ImVec2 buf_size;
+        ImVec2 rect_size;
     };
     util_umap< uint32_t, event_print_info_t > m_print_buf_info;
-    float m_buf_size_max_x = -1.0f;
+    float m_rect_size_max_x = -1.0f;
 
     // plot name to GraphPlot
     util_umap< uint32_t, GraphPlot > m_graph_plots;
