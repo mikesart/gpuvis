@@ -560,7 +560,7 @@ void TraceLoader::init( int argc, char **argv )
     }
 #endif
 
-    imgui_set_custom_style( get_opt( OPT_DarkTheme ), get_optf( OPT_ThemeAlpha ) );
+    imgui_set_custom_style( !!get_opt( OPT_DarkTheme ), get_optf( OPT_ThemeAlpha ) );
 
     logf( "Welcome to gpuvis\n" );
 
@@ -2561,7 +2561,7 @@ void TraceLoader::render_color_picker()
 
     if ( changed )
     {
-        imgui_set_custom_style( get_opt( OPT_DarkTheme ), get_optf( OPT_ThemeAlpha ) );
+        imgui_set_custom_style( !!get_opt( OPT_DarkTheme ), get_optf( OPT_ThemeAlpha ) );
     }
 }
 
