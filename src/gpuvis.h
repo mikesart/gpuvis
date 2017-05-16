@@ -444,6 +444,11 @@ public:
 public:
     bool render();
 
+    trace_event_t &get_event( uint32_t id )
+    {
+        return m_trace_events.m_events[ id ];
+    }
+
 protected:
     // Render events list
     void events_list_render( CIniFile &inifile );
@@ -457,6 +462,7 @@ protected:
     void graph_render_process();
     // Render regular graph row
     void graph_render_row( class graph_info_t &gi );
+
     // Render timeline graph row
     uint32_t graph_render_row_timeline( class graph_info_t &gi );
     // Render hw graph row
@@ -467,9 +473,13 @@ protected:
     uint32_t graph_render_plot( class graph_info_t &gi );
     // Render regular trace events
     uint32_t graph_render_row_events( class graph_info_t &gi );
-    // Render graph vblanks, tick markers, mouse location, etc.
+
+    void graph_render_time_ticks( class graph_info_t &gi );
     void graph_render_vblanks( class graph_info_t &gi );
-    // Render graph row labels
+    void graph_render_mouse_pos( class graph_info_t &gi );
+    void graph_render_eventids( class graph_info_t &gi );
+    void graph_render_mouse_selection( class graph_info_t &gi );
+    void graph_render_eventlist_selection( class graph_info_t &gi );
     void graph_render_row_labels( class graph_info_t &gi );
 
     // Handle graph popup menu
@@ -507,11 +517,6 @@ protected:
     int64_t timestr_to_ts( const char *buf, int64_t tsoffset = 0 );
     // Convert a time stamp to a time string
     std::string ts_to_timestr( int64_t event_ts, int64_t tsoffset = 0, int precision = 6 );
-
-    trace_event_t &get_event( uint32_t id )
-    {
-        return m_trace_events.m_events[ id ];
-    }
 
 public:
     // Window title

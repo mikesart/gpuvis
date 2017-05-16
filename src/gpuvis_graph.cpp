@@ -49,13 +49,6 @@
   Configurable hotkeys?
 
   From Pierre-Loup:
-    * Graph scale logic looks pretty nice too. One thing I notice when zooming
-    out is that things become very noisy because of the vblank bars. I'm
-    changing their colors so they're not fullbright, which helps, but can
-    they be changed to be in the background of other rendering past a
-    certain zoom threshold? You want them in the foreground when pretty
-    close, but in the background if there's more than ~50 on screen probably?
-
     * Since I find myself zooming in and out a lot to situate myself in the
     larger trace and analyze parts of it, I'm thinking one of the next big
     challenges is going to find a way to have a little stripe at the top and
@@ -241,7 +234,7 @@ static void imgui_draw_text( float x, float y, const char *text, ImU32 color, bo
 
         ImGui::GetWindowDrawList()->AddRectFilled(
                     ImVec2( x - 1, y - 1 ), ImVec2( x + textsize.x + 2, y + textsize.y + 2 ),
-                    Clrs::get( col_RowLabelBk) );
+                    Clrs::get( col_RowLabelBk ) );
     }
 
     ImGui::GetWindowDrawList()->AddText( ImVec2( x, y ), color, text );
@@ -1300,7 +1293,7 @@ void TraceWin::graph_render_row( graph_info_t &gi )
     gi.prinfo_cur->num_events = gi.prinfo_cur->render_cb ? gi.prinfo_cur->render_cb( gi ) : 0;
 }
 
-void TraceWin::graph_render_vblanks( graph_info_t &gi )
+void TraceWin::graph_render_time_ticks( class graph_info_t &gi )
 {
     // Draw time ticks every millisecond
     int64_t tsstart = std::max< int64_t >( gi.ts0 / MSECS_PER_SEC - 1, 0 ) * MSECS_PER_SEC;
@@ -1326,12 +1319,56 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
             }
         }
     }
+}
 
+static float get_vblank_xdiffs( TraceWin *win, graph_info_t &gi, const std::vector< uint32_t > *vblank_locs )
+{
+    float xdiff = 0.0f;
+    float xlast = 0.0f;
+    uint32_t count = 0;
+
+    for ( size_t idx = vec_find_eventid( *vblank_locs, gi.eventstart );
+          idx < vblank_locs->size();
+          idx++ )
+    {
+        uint32_t id = vblank_locs->at( idx );
+        trace_event_t &event = win->get_event( id );
+
+        if ( win->m_loader.get_opt_crtc( event.crtc ) )
+        {
+            float x = gi.ts_to_screenx( event.ts );
+
+            if ( xlast )
+                xdiff = std::max< float >( xdiff, x - xlast );
+            xlast = x;
+
+            if ( count++ >= 10 )
+                break;
+        }
+    }
+
+    return xdiff;
+}
+
+void TraceWin::graph_render_vblanks( graph_info_t &gi )
+{
     // Draw vblank events on every graph.
     const std::vector< uint32_t > *vblank_locs = m_trace_events.get_tdopexpr_locs( "$name=drm_vblank_event" );
 
     if ( vblank_locs )
     {
+        /*
+         * From Pierre-Loup: One thing I notice when zooming out is that things become
+         * very noisy because of the vblank bars. I'm changing their colors so they're not
+         * fullbright, which helps, but can they be changed to be in the background of
+         * other rendering past a certain zoom threshold? You want them in the foreground
+         * when pretty close, but in the background if there's more than ~50 on screen
+         * probably?
+         */
+        float minalpha = 50.0f;
+        float xdiff = get_vblank_xdiffs( this, gi, vblank_locs ) / imgui_scale( 1.0f );
+        uint32_t alpha = std::min< uint32_t >( 255, minalpha + xdiff * ( 255 - minalpha ) * ( 1.0f / 100.0f ) );
+
         for ( size_t idx = vec_find_eventid( *vblank_locs, gi.eventstart );
               idx < vblank_locs->size();
               idx++ )
@@ -1351,11 +1388,14 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
 
                 imgui_drawrect( x, imgui_scale( 1.0f ),
                                 gi.y, gi.h,
-                                Clrs::get( col ) );
+                                Clrs::get( col, alpha ) );
             }
         }
     }
+}
 
+void TraceWin::graph_render_mouse_pos( graph_info_t &gi )
+{
     // Draw location line for mouse if mouse is over graph
     if ( m_graph.is_mouse_over &&
          gi.mouse_pos.x >= gi.x &&
@@ -1366,6 +1406,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
                         Clrs::get( col_MousePos ) );
     }
 
+    // Render marker A if it's in range
     if ( m_graph.ts_marker_a >= gi.ts0 && m_graph.ts_marker_a < gi.ts1 )
     {
         float x = gi.ts_to_screenx( m_graph.ts_marker_a );
@@ -1374,6 +1415,10 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
                         gi.y, gi.h, Clrs::get( col_MarkerA ) );
     }
 
+}
+
+void TraceWin::graph_render_eventids( class graph_info_t &gi )
+{
     if ( is_valid_id( m_eventlist.hovered_eventid ) )
     {
         trace_event_t &event = get_event( m_eventlist.hovered_eventid );
@@ -1401,7 +1446,10 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
                             Clrs::get( col_SelEvent, 120 ) );
         }
     }
+}
 
+void TraceWin::graph_render_mouse_selection( class graph_info_t &gi )
+{
     // Draw mouse selection location
     if ( ( m_graph.mouse_captured == MOUSE_CAPTURED_ZOOM ) ||
          ( m_graph.mouse_captured == MOUSE_CAPTURED_SELECT_AREA ) )
@@ -1413,7 +1461,10 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
                         gi.y, gi.h,
                         Clrs::get( col_ZoomSel ) );
     }
+}
 
+void TraceWin::graph_render_eventlist_selection( class graph_info_t &gi )
+{
     if ( m_loader.get_opt( OPT_ShowEventList ) )
     {
         // Draw rectangle for visible event list contents
@@ -1705,8 +1756,13 @@ void TraceWin::graph_render_process()
 
         // Render full graph lines: vblanks, mouse cursors, etc...
         gi.set_pos_y( windowpos.y, windowsize.y, NULL );
-        graph_render_vblanks( gi );
 
+        graph_render_time_ticks( gi );
+        graph_render_vblanks( gi );
+        graph_render_mouse_pos( gi );
+        graph_render_eventids( gi );
+        graph_render_mouse_selection( gi );
+        graph_render_eventlist_selection( gi );
         graph_render_row_labels( gi );
 
         // Handle right, left, pgup, pgdown, etc in graph
