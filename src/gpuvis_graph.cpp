@@ -1365,9 +1365,8 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
          * when pretty close, but in the background if there's more than ~50 on screen
          * probably?
          */
-        float minalpha = 50.0f;
         float xdiff = get_vblank_xdiffs( this, gi, vblank_locs ) / imgui_scale( 1.0f );
-        uint32_t alpha = std::min< uint32_t >( 255, minalpha + xdiff * ( 255 - minalpha ) * ( 1.0f / 100.0f ) );
+        uint32_t alpha = std::min< uint32_t >( 255, 50 + 2 * xdiff );
 
         for ( size_t idx = vec_find_eventid( *vblank_locs, gi.eventstart );
               idx < vblank_locs->size();
