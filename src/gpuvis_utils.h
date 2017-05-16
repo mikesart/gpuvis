@@ -242,17 +242,17 @@ enum : uint32_t
     col_Max
 };
 
-class Cols
+class Clrs
 {
 public:
-    Cols() {}
-    ~Cols() {}
+    Clrs() {}
+    ~Clrs() {}
 
     static void init( CIniFile &inifile );
     static void shutdown( CIniFile &inifile );
 
     static ImU32 get( colors_t col, ImU32 alpha = ( uint32_t )-1 );
-    static ImVec4 get4( colors_t col, float alpha = -1.0f );
+    static ImVec4 getv4( colors_t col, float alpha = -1.0f );
     static float getalpha( colors_t col );
 
     static void set( colors_t col, ImU32 color );

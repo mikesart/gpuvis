@@ -527,12 +527,12 @@ void imgui_set_custom_style( bool dark, float alpha )
         {
             ImVec4 &col = style.Colors[ i ];
 
-            col = Cols::get4( icol );
+            col = Clrs::getv4( icol );
 
             if ( dark )
             {
                 // Only invert if the user hasn't modified this color
-                if ( Cols::is_default( icol ) )
+                if ( Clrs::is_default( icol ) )
                 {
                     // Invert
                     float H, S, V;
@@ -890,14 +890,14 @@ bool ColorPicker::render( ImU32 *pcolor )
     return ret;
 }
 
-Cols::colordata_t Cols::s_colordata[ col_Max ] =
+Clrs::colordata_t Clrs::s_colordata[ col_Max ] =
 {
-#define _XTAG( _name, _color ) { #_name, _color, _color },
+#define _XTAG( _name, _color ) { #_name, _color, _color, false },
   #include "gpuvis_colors.inl"
 #undef _XTAG
 };
 
-void Cols::init( CIniFile &inifile )
+void Clrs::init( CIniFile &inifile )
 {
     for ( colors_t i = 0; i < col_Max; i++ )
     {
@@ -911,7 +911,7 @@ void Cols::init( CIniFile &inifile )
     }
 }
 
-void Cols::shutdown( CIniFile &inifile )
+void Clrs::shutdown( CIniFile &inifile )
 {
     for ( colors_t i = 0; i < col_Max; i++ )
     {
@@ -919,7 +919,7 @@ void Cols::shutdown( CIniFile &inifile )
         {
             const char *key = s_colordata[ i ].name;
 
-            if ( Cols::is_default( i ) )
+            if ( Clrs::is_default( i ) )
                 inifile.PutStr( key, "", "$imgui_colors$" );
             else
                 inifile.PutUint64( key, s_colordata[ i ].color, "$imgui_colors$" );
@@ -927,7 +927,7 @@ void Cols::shutdown( CIniFile &inifile )
     }
 }
 
-ImU32 Cols::get( colors_t col, ImU32 alpha )
+ImU32 Clrs::get( colors_t col, ImU32 alpha )
 {
     if ( alpha <= 0xff )
         return ( s_colordata[ col ].color & ~IM_COL32_A_MASK ) | ( alpha << IM_COL32_A_SHIFT );
@@ -935,7 +935,7 @@ ImU32 Cols::get( colors_t col, ImU32 alpha )
     return s_colordata[ col ].color;
 }
 
-ImVec4 Cols::get4( colors_t col, float alpha )
+ImVec4 Clrs::getv4( colors_t col, float alpha )
 {
     ImVec4 color;
 
@@ -945,12 +945,12 @@ ImVec4 Cols::get4( colors_t col, float alpha )
     return color;
 }
 
-float Cols::getalpha( colors_t col )
+float Clrs::getalpha( colors_t col )
 {
     return ( s_colordata[ col ].color >> IM_COL32_A_SHIFT ) * ( 1.0f / 255.0f );
 }
 
-void Cols::set( colors_t col, ImU32 color )
+void Clrs::set( colors_t col, ImU32 color )
 {
     if ( s_colordata[ col ].color != color )
     {
@@ -959,17 +959,17 @@ void Cols::set( colors_t col, ImU32 color )
     }
 }
 
-const char *Cols::name( colors_t col )
+const char *Clrs::name( colors_t col )
 {
     return s_colordata[ col ].name;
 }
 
-bool Cols::is_default( colors_t col )
+bool Clrs::is_default( colors_t col )
 {
     return s_colordata[ col ].color == s_colordata[ col ].defcolor;
 }
 
-void Cols::reset( colors_t col )
+void Clrs::reset( colors_t col )
 {
     s_colordata[ col ].color = s_colordata[ col ].defcolor;
 }

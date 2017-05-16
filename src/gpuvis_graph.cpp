@@ -336,7 +336,7 @@ void event_renderer_t::start( float x )
 void event_renderer_t::draw()
 {
     int index = std::min< int >( col_1Event + num_events, col_6Event );
-    ImU32 color = Cols::get( index );
+    ImU32 color = Clrs::get( index );
     float min_width = std::min< float >( num_events + 1.0f, 4.0f );
     float width = std::max< float >( x1 - x0, min_width );
 
@@ -951,8 +951,8 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     if ( m_trace_events.m_rect_size_max_x == -1.0f )
     {
         m_trace_events.update_event_print_info_rects(
-                    Cols::getalpha( col_ColorLabelSat ),
-                    Cols::getalpha( col_ColorLabelAlpha ) );
+                    Clrs::getalpha( col_ColorLabelSat ),
+                    Clrs::getalpha( col_ColorLabelAlpha ) );
     }
 
     // We need to start drawing to the left of 0 for timeline_labels
@@ -1036,7 +1036,7 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
 
     float row_h = gi.h;
     uint32_t num_events = 0;
-    ImU32 col_event = Cols::get( col_1Event );
+    ImU32 col_event = Clrs::get( col_1Event );
 
     ImRect hov_rect;
     ImU32 last_color = 0;
@@ -1076,7 +1076,7 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
                 {
                     ImGui::GetWindowDrawList()->AddText(
                                 ImVec2( x0 + imgui_scale( 2.0f ), y + imgui_scale( 2.0f ) ),
-                                Cols::get( col_BarText ), label );
+                                Clrs::get( col_BarText ), label );
                 }
             }
 
@@ -1101,7 +1101,7 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
     }
 
     if ( hov_rect.Min.x < gi.x + gi.w )
-        ImGui::GetWindowDrawList()->AddRect( hov_rect.Min, hov_rect.Max, Cols::get( col_BarSelRect ) );
+        ImGui::GetWindowDrawList()->AddRect( hov_rect.Min, hov_rect.Max, Clrs::get( col_BarSelRect ) );
 
     imgui_pop_smallfont();
 
@@ -1114,10 +1114,10 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
 
     ImRect hov_rect;
     uint32_t num_events = 0;
-    ImU32 col_hwrunning = Cols::get( col_BarHwRunning );
-    ImU32 col_userspace = Cols::get( col_BarUserspace );
-    ImU32 col_hwqueue = Cols::get( col_BarHwQueue );
-    ImU32 color_1event = Cols::get( col_1Event );
+    ImU32 col_hwrunning = Clrs::get( col_BarHwRunning );
+    ImU32 col_userspace = Clrs::get( col_BarUserspace );
+    ImU32 col_hwqueue = Clrs::get( col_BarHwQueue );
+    ImU32 color_1event = Clrs::get( col_1Event );
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
 
     uint32_t timeline_row_count = gi.h / gi.text_h;
@@ -1185,7 +1185,7 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
                     if ( x_hw_end - x_text >= size.x )
                     {
                         ImGui::GetWindowDrawList()->AddText( ImVec2( x_text, y + imgui_scale( 1.0f ) ),
-                                                             Cols::get( col_BarText ), cs_ioctl.user_comm );
+                                                             Clrs::get( col_BarText ), cs_ioctl.user_comm );
                     }
                 }
 
@@ -1222,7 +1222,7 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
     }
 
     if ( hov_rect.Min.x < gi.x + gi.w )
-        ImGui::GetWindowDrawList()->AddRect( hov_rect.Min, hov_rect.Max, Cols::get( col_BarSelRect ) );
+        ImGui::GetWindowDrawList()->AddRect( hov_rect.Min, hov_rect.Max, Clrs::get( col_BarSelRect ) );
 
     imgui_pop_smallfont();
 
@@ -1274,7 +1274,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
         ImGui::GetWindowDrawList()->AddCircleFilled(
                     ImVec2( x, gi.y + gi.h / 2.0f ),
                     imgui_scale( 5.0f ),
-                    Cols::get( col_HovEvent ) );
+                    Clrs::get( col_HovEvent ) );
     }
 
     if ( draw_selected_event )
@@ -1285,7 +1285,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
         ImGui::GetWindowDrawList()->AddCircleFilled(
                     ImVec2( x, gi.y + gi.h / 2.0f ),
                     imgui_scale( 5.0f ),
-                    Cols::get( col_SelEvent ) );
+                    Clrs::get( col_SelEvent ) );
     }
 
     return num_events;
@@ -1341,7 +1341,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
         {
             imgui_drawrect( gi.x + x0, imgui_scale( 1.0f ),
                             gi.y, imgui_scale( 16.0f ),
-                            Cols::get( col_TimeTick ) );
+                            Clrs::get( col_TimeTick ) );
 
             if ( dx >= imgui_scale( 35.0f ) )
             {
@@ -1349,7 +1349,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
                 {
                     imgui_drawrect( gi.x + x0 + i * dx / 4, imgui_scale( 1.0f ),
                                     gi.y, imgui_scale( 4.0f ),
-                                    Cols::get( col_TimeTick ) );
+                                    Clrs::get( col_TimeTick ) );
                 }
             }
         }
@@ -1379,7 +1379,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
 
                 imgui_drawrect( x, imgui_scale( 1.0f ),
                                 gi.y, gi.h,
-                                Cols::get( col ) );
+                                Clrs::get( col ) );
             }
         }
     }
@@ -1391,7 +1391,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
     {
         imgui_drawrect( gi.mouse_pos.x, imgui_scale( 2.0f ),
                         gi.y, gi.h,
-                        Cols::get( col_MousePos ) );
+                        Clrs::get( col_MousePos ) );
     }
 
     if ( m_graph.ts_marker_a >= gi.ts0 && m_graph.ts_marker_a < gi.ts1 )
@@ -1399,7 +1399,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
         float x = gi.ts_to_screenx( m_graph.ts_marker_a );
 
         imgui_drawrect( x, imgui_scale( 2.0f ),
-                        gi.y, gi.h, Cols::get( col_MarkerA ) );
+                        gi.y, gi.h, Clrs::get( col_MarkerA ) );
     }
 
     if ( is_valid_id( m_eventlist.hovered_eventid ) )
@@ -1412,7 +1412,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
 
             imgui_drawrect( x, imgui_scale( 1.0f ),
                             gi.y, gi.h,
-                            Cols::get( col_HovEvent, 120 ) );
+                            Clrs::get( col_HovEvent, 120 ) );
         }
     }
 
@@ -1426,7 +1426,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
 
             imgui_drawrect( x, imgui_scale( 1.0f ),
                             gi.y, gi.h,
-                            Cols::get( col_SelEvent, 120 ) );
+                            Clrs::get( col_SelEvent, 120 ) );
         }
     }
 
@@ -1439,7 +1439,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
 
         imgui_drawrect( mousex0, mousex1 - mousex0,
                         gi.y, gi.h,
-                        Cols::get( col_ZoomSel ) );
+                        Clrs::get( col_ZoomSel ) );
     }
 
     if ( m_loader.get_opt( OPT_ShowEventList ) )
@@ -1651,7 +1651,7 @@ void TraceWin::graph_render_process()
 
         // Clear graph background
         imgui_drawrect( windowpos.x, windowsize.x,
-                        windowpos.y, windowsize.y, Cols::get( col_GraphBk ) );
+                        windowpos.y, windowsize.y, Clrs::get( col_GraphBk ) );
 
         // Initialize our graphics info struct
         gi.init( this, windowpos.x, windowsize.x );
