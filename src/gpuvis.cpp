@@ -2424,8 +2424,8 @@ void TraceLoader::render_color_picker()
 
     if ( ImGui::Button( "Reset to Defaults" ) )
     {
-        for ( int i = 0; i < col_Max; i++ )
-            Cols::set( ( colors_t )i, Cols::s_colordata[ i ].defcolor );
+        for ( colors_t i = 0; i < col_Max; i++ )
+            Cols::reset( i );
 
         m_options[ OPT_DarkTheme ].val = true;
         changed = true;
@@ -2445,12 +2445,12 @@ void TraceLoader::render_color_picker()
         float w = imgui_scale( 32.0f );
         float text_h = ImGui::GetTextLineHeight();
 
-        for ( int i = 0; i < col_Max; i++ )
+        for ( colors_t i = 0; i < col_Max; i++ )
         {
             bool selected = ( i == m_selected_color );
             ImVec2 pos = ImGui::GetCursorScreenPos();
-            ImU32 col = Cols::get( ( colors_t )i );
-            const char *name = Cols::get_name( ( colors_t )i );
+            ImU32 col = Cols::get( i );
+            const char *name = Cols::name( i );
 
             ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + w, pos.y + text_h ), col );
 
@@ -2470,7 +2470,7 @@ void TraceLoader::render_color_picker()
     {
         ImU32 color;
 
-        const char *name = Cols::get_name( ( colors_t )m_selected_color );
+        const char *name = Cols::name( m_selected_color );
 
         imgui_text_bg( name, ImGui::GetColorVec4( ImGuiCol_Header ) );
 
@@ -2478,13 +2478,13 @@ void TraceLoader::render_color_picker()
              m_selected_color == col_ColorLabelSat ||
              m_selected_color == col_ColorLabelAlpha )
         {
-            float val = Cols::getalpha( ( colors_t )m_selected_color );
+            float val = Cols::getalpha( m_selected_color );
 
             ImGui::PushItemWidth( imgui_scale( 125.0f ) );
 
             if ( ImGui::SliderFloat( "##alpha_val", &val, 0.0f, 1.0f, "%.02f" ) )
             {
-                Cols::set( ( colors_t )m_selected_color, ImColor( val, val, val, val ) );
+                Cols::set( m_selected_color, ImColor( val, val, val, val ) );
 
                 if ( m_selected_color == col_ColorLabelSat ||
                      m_selected_color == col_ColorLabelAlpha )
@@ -2500,7 +2500,7 @@ void TraceLoader::render_color_picker()
 
             if ( ImGui::Button( "Reset to Default" ) )
             {
-                Cols::set( ( colors_t )m_selected_color, Cols::s_colordata[ m_selected_color ].defcolor );
+                Cols::reset( m_selected_color );
                 changed = true;
             }
         }
@@ -2510,7 +2510,7 @@ void TraceLoader::render_color_picker()
 
             if ( m_colorpicker.render( &color ) )
             {
-                Cols::set( ( colors_t )m_selected_color, color );
+                Cols::set( m_selected_color, color );
 
                 if ( ( m_selected_color >= col_ImGui_Text ) && ( m_selected_color <= col_ImGui_ModalWindowDarkening ) )
                     changed = true;
@@ -2519,7 +2519,7 @@ void TraceLoader::render_color_picker()
             ImGui::NewLine();
             if ( ImGui::Button( "Reset to Default" ) )
             {
-                Cols::set( ( colors_t )m_selected_color, Cols::s_colordata[ m_selected_color ].defcolor );
+                Cols::reset( m_selected_color );
                 changed = true;
             }
         }

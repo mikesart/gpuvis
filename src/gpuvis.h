@@ -786,7 +786,7 @@ public:
 
     std::vector< INIEntry > m_imguiwindow_entries;
 
-    int m_selected_color = 0;
+    colors_t m_selected_color = 0;
     ColorPicker m_colorpicker;
 
     bool m_quit = false;

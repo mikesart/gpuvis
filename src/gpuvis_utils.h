@@ -233,7 +233,8 @@ public:
     float m_a = 1.0f;
 };
 
-enum colors_t
+typedef uint32_t colors_t;
+enum : uint32_t
 {
 #define _XTAG( _name, _color ) col_ ## _name,
 #include "gpuvis_colors.inl"
@@ -255,11 +256,12 @@ public:
     static float getalpha( colors_t col );
 
     static void set( colors_t col, ImU32 color );
-    static const char *get_name( colors_t col );
+    static const char *name( colors_t col );
 
     static bool is_default( colors_t col );
+    static void reset( colors_t col );
 
-public:
+private:
     struct colordata_t
     {
         const char *name;

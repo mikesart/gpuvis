@@ -336,7 +336,7 @@ void event_renderer_t::start( float x )
 void event_renderer_t::draw()
 {
     int index = std::min< int >( col_1Event + num_events, col_6Event );
-    ImU32 color = Cols::get( ( colors_t )index );
+    ImU32 color = Cols::get( index );
     float min_width = std::min< float >( num_events + 1.0f, 4.0f );
     float width = std::max< float >( x1 - x0, min_width );
 

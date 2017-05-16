@@ -899,7 +899,7 @@ Cols::colordata_t Cols::s_colordata[ col_Max ] =
 
 void Cols::init( CIniFile &inifile )
 {
-    for ( int i = 0; i < col_Max; i++ )
+    for ( colors_t i = 0; i < col_Max; i++ )
     {
         const char *key = s_colordata[ i ].name;
         uint64_t val = inifile.GetUint64( key, UINT64_MAX, "$imgui_colors$" );
@@ -913,13 +913,13 @@ void Cols::init( CIniFile &inifile )
 
 void Cols::shutdown( CIniFile &inifile )
 {
-    for ( int i = 0; i < col_Max; i++ )
+    for ( colors_t i = 0; i < col_Max; i++ )
     {
         if ( s_colordata[ i ].modified )
         {
             const char *key = s_colordata[ i ].name;
 
-            if ( Cols::is_default( ( colors_t )i ) )
+            if ( Cols::is_default( i ) )
                 inifile.PutStr( key, "", "$imgui_colors$" );
             else
                 inifile.PutUint64( key, s_colordata[ i ].color, "$imgui_colors$" );
@@ -959,7 +959,7 @@ void Cols::set( colors_t col, ImU32 color )
     }
 }
 
-const char *Cols::get_name( colors_t col )
+const char *Cols::name( colors_t col )
 {
     return s_colordata[ col ].name;
 }
@@ -967,6 +967,11 @@ const char *Cols::get_name( colors_t col )
 bool Cols::is_default( colors_t col )
 {
     return s_colordata[ col ].color == s_colordata[ col ].defcolor;
+}
+
+void Cols::reset( colors_t col )
+{
+    s_colordata[ col ].color = s_colordata[ col ].defcolor;
 }
 
 #if defined( WIN32 )
