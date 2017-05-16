@@ -16,6 +16,7 @@
 NAME = gpuvis
 
 CFG ?= release
+USE_GTK3 ?= 1
 
 # Use gcc-6 / gcc-5 if it exists and CC is the default cc
 ifeq ($(CC),cc)
@@ -43,8 +44,11 @@ VERBOSE ?= 0
 
 SDL2FLAGS=$(shell sdl2-config --cflags)
 SDL2LIBS=$(shell sdl2-config --static-libs)
-GTK3FLAGS=$(shell pkg-config --cflags gtk+-3.0)
+
+ifeq ($(USE_GTK3), 1)
+GTK3FLAGS=$(shell pkg-config --cflags gtk+-3.0) -DUSE_GTK3
 GTK3LIBS=$(shell pkg-config --libs gtk+-3.0)
+endif
 
 WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wsuggest-attribute=format $(WSHADOW) -Wno-unused-parameter -Wno-missing-field-initializers -DUSE_FREETYPE
 CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 $(SDL2FLAGS) $(GTK3FLAGS) -I/usr/include/freetype2

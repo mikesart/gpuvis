@@ -37,6 +37,9 @@
  *  NOC_FILE_DIALOG_OSX
  */
 
+#ifndef _NOC_FILE_DIALOG_H_
+#define _NOC_FILE_DIALOG_H_
+
 enum {
     NOC_FILE_DIALOG_OPEN    = 1 << 0,   // Create an open file dialog.
     NOC_FILE_DIALOG_SAVE    = 1 << 1,   // Create a save file dialog.
@@ -67,14 +70,14 @@ const char *noc_file_dialog_open(int flags,
                                  const char *default_path,
                                  const char *default_name);
 
-#ifdef NOC_FILE_DIALOG_IMPLEMENTATION
+#if defined( NOC_FILE_DIALOG_IMPLEMENTATION )
 
 #include <stdlib.h>
 #include <string.h>
 
 static char *g_noc_file_dialog_ret = NULL;
 
-#ifdef NOC_FILE_DIALOG_GTK
+#if defined( NOC_FILE_DIALOG_GTK )
 
 #include <gtk/gtk.h>
 
@@ -144,9 +147,7 @@ const char *noc_file_dialog_open(int flags,
     return g_noc_file_dialog_ret;
 }
 
-#endif
-
-#ifdef NOC_FILE_DIALOG_WIN32
+#elif defined( NOC_FILE_DIALOG_WIN32 )
 
 #include <windows.h>
 #include <commdlg.h>
@@ -182,9 +183,7 @@ const char *noc_file_dialog_open(int flags,
     return g_noc_file_dialog_ret;
 }
 
-#endif
-
-#ifdef NOC_FILE_DIALOG_OSX
+#elif defined( NOC_FILE_DIALOG_OSX )
 
 #include <AppKit/AppKit.h>
 
@@ -254,7 +253,19 @@ const char *noc_file_dialog_open(int flags,
     [pool release];
     return g_noc_file_dialog_ret;
 }
+
+#else
+
+inline const char *noc_file_dialog_open(int flags,
+                                 const char *filters,
+                                 const char *default_path,
+                                 const char *default_name)
+{
+    return NULL;
+}
+
 #endif
 
+#endif // NOC_FILE_DIALOG_IMPLEMENTATION
 
-#endif
+#endif // _NOC_FILE_DIALOG_H_

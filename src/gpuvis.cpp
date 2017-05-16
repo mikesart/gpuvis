@@ -44,13 +44,15 @@
 #include "tdopexpr.h"
 
 // https://github.com/ocornut/imgui/issues/88
-#define NOC_FILE_DIALOG_IMPLEMENTATION
-#if defined( __linux__ )
-#define NOC_FILE_DIALOG_GTK
+#if defined( USE_GTK3 )
+  #define NOC_FILE_DIALOG_IMPLEMENTATION
+  #define NOC_FILE_DIALOG_GTK
+  #include "noc_file_dialog.h"
 #elif defined( WIN32 )
-#define NOC_FILE_DIALOG_WIN32
+  #define NOC_FILE_DIALOG_IMPLEMENTATION
+  #define NOC_FILE_DIALOG_WIN32
+  #include "noc_file_dialog.h"
 #endif
-#include "noc_file_dialog.h"
 
 multi_text_color multi_text_color::yellow = { ImVec4( 1, 1, 0, 1 ) };
 multi_text_color multi_text_color::red = { ImVec4( 1, 0, 0, 1 ) };
@@ -231,11 +233,12 @@ bool TraceLoader::load_file( const char *filename )
     for ( TraceEvents *events : m_trace_events_list )
     {
         if ( events->m_title == title )
-        {
-            new_event_window( events );
             return true;
-        }
     }
+
+    // Close currently opened trace files
+    while ( !m_trace_events_list.empty() )
+        close_event_file( m_trace_events_list.back(), true );
 
     set_state( State_Loading );
     m_filename = filename;
@@ -534,32 +537,6 @@ void TraceLoader::init( int argc, char **argv )
 
     parse_cmdline( argc, argv );
 
-#if 0
-    {
-        ImGuiStyle &style = ImGui::GetStyle();
-        const char section[] = "$imgui_settings$";
-
-        ImVec4 defcol = { -1.0f, -1.0f, -1.0f, -1.0f };
-
-        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
-        {
-            const char *name = ImGui::GetStyleColName( i );
-
-            ImVec4 col = m_inifile.GetVec4( name, defcol, section );
-            if ( col.w == -1.0f )
-            {
-                // Default to no alpha for our windows...
-                if ( i == ImGuiCol_WindowBg )
-                    ImGui::GetStyle().Colors[ i ].w = 1.0f;
-            }
-            else
-            {
-                style.Colors[ i ] = col;
-            }
-        }
-    }
-#endif
-
     imgui_set_custom_style( !!get_opt( OPT_DarkTheme ), get_optf( OPT_ThemeAlpha ) );
 
     logf( "Welcome to gpuvis\n" );
@@ -679,21 +656,6 @@ void TraceLoader::shutdown()
     }
 
     Cols::shutdown( m_inifile );
-
-#if 0
-    {
-        ImGuiStyle &style = ImGui::GetStyle();
-        const char section[] = "$imgui_settings$";
-
-        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
-        {
-            const ImVec4 &col = style.Colors[ i ];
-            const char *name = ImGui::GetStyleColName( i );
-
-            m_inifile.PutVec4( name, col, section );
-        }
-    }
-#endif
 
     m_inifile.Close();
 }
@@ -2652,85 +2614,9 @@ void TraceLoader::render_console()
     render_menu();
 
     ImGui::Text( "%.2f ms/frame (%.1f FPS)",
-                 1000.0f / ImGui::GetIO().Framerate,
-                 ImGui::GetIO().Framerate );
-    if ( ImGui::CollapsingHeader( "Trace File", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        bool is_trace_loading = is_loading();
+                 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
 
-        // Align text to upcoming widgets
-        ImGui::AlignFirstTextHeightToWidgets();
-        ImGui::Text( "File:" );
-        ImGui::SameLine();
-
-        ImVec4 &text_disabled = ImGui::GetStyle().Colors[ ImGuiCol_TextDisabled ];
-        ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue;
-
-        const char *button_text;
-        if ( is_trace_loading )
-        {
-            ImGui::PushStyleColor( ImGuiCol_Text, text_disabled );
-
-            flags |= ImGuiInputTextFlags_ReadOnly;
-            button_text = "Loading...";
-        }
-        else
-        {
-            button_text = "Load";
-        }
-
-        bool do_load = ImGui::InputText( "##load-trace-file", m_trace_file, sizeof( m_trace_file ), flags );
-
-        ImGui::SameLine();
-        do_load |= ImGui::Button( button_text, ImVec2( 0, 0 ) );
-
-        if ( is_trace_loading )
-        {
-            ImGui::PopStyleColor();
-        }
-        else if ( do_load )
-        {
-            load_file( m_trace_file );
-        }
-    }
-
-    if ( ImGui::CollapsingHeader( "Opened Event Files", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        ImGui::BeginColumns( "event_files", 2 );
-
-        ImGui::Separator();
-
-        for ( size_t i = 0; i < m_trace_events_list.size(); i++ )
-        {
-            TraceEvents *events = m_trace_events_list[ i ];
-            int eventsloaded = SDL_AtomicGet( &events->m_eventsloaded );
-
-            if ( !eventsloaded )
-            {
-                ImGui::Text( "%s", events->m_title.c_str() );
-                ImGui::NextColumn();
-
-                if ( ImGui::SmallButton( string_format( "Events##%lu", i ).c_str() ) )
-                    new_event_window( events );
-
-                ImGui::SameLine();
-                if ( ImGui::SmallButton( string_format( "Close Windows##%lu", i ).c_str() ) )
-                    close_event_file( events, false );
-
-                ImGui::SameLine();
-                if ( ImGui::SmallButton( string_format( "Free##%lu", i ).c_str() ) )
-                    close_event_file( events, true );
-
-                ImGui::NextColumn();
-            }
-        }
-
-        ImGui::EndColumns();
-        ImGui::Separator();
-    }
-
-    if ( ImGui::CollapsingHeader( "Log", ImGuiTreeNodeFlags_DefaultOpen ) )
-        render_log();
+    render_log();
 
     ImGui::End();
 }
@@ -2742,14 +2628,16 @@ void TraceLoader::render_menu()
 
     if ( ImGui::BeginMenu( "File" ) )
     {
+#if defined( NOC_FILE_DIALOG_IMPLEMENTATION )
         if ( ImGui::MenuItem( "Open Trace File..." ) )
         {
             const char *file = noc_file_dialog_open( NOC_FILE_DIALOG_OPEN,
                 "trace-cmd files (*.dat)\0*.dat\0", NULL, "trace.dat" );
 
             if ( file && file[ 0 ] )
-                load_file( file );
+                m_inputfiles.push_back( file );
         }
+#endif
 
         if ( ImGui::MenuItem( "Quit" ) )
         {
@@ -2791,6 +2679,7 @@ void TraceLoader::parse_cmdline( int argc, char **argv )
                 m_options[ OPT_Scale ].valf = atof( ya_optarg );
             break;
         case 'i':
+            m_inputfiles.clear();
             m_inputfiles.push_back( ya_optarg );
             break;
 
@@ -2801,6 +2690,7 @@ void TraceLoader::parse_cmdline( int argc, char **argv )
 
     for ( ; ya_optind < argc; ya_optind++ )
     {
+        m_inputfiles.clear();
         m_inputfiles.push_back( argv[ ya_optind ] );
     }
 }
