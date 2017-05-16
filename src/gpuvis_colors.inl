@@ -22,6 +22,10 @@
  * THE SOFTWARE.
  */
 
+_XTAG( ThemeAlpha, IM_COL32( 255, 255, 255, 255 ) )
+_XTAG( ColorLabelSat, IM_COL32( 230, 230, 230, 230 ) )
+_XTAG( ColorLabelAlpha, IM_COL32( 255, 255, 255, 255 ) )
+
 _XTAG( 1Event, IM_COL32( 254, 178, 76, 255 ) )
 _XTAG( 2Event, IM_COL32( 253, 141, 60, 255 ) )
 _XTAG( 3Event, IM_COL32( 252, 78, 42, 255 ) )

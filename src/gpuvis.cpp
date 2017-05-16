@@ -490,13 +490,6 @@ void TraceLoader::init( int argc, char **argv )
 
     m_options[ OPT_DarkTheme ].opt_bool( "Dark Theme", "dark_theme", true );
     m_options[ OPT_DarkTheme ].hidden = true;
-    m_options[ OPT_ThemeAlpha ].opt_float( "Theme Alpha: %.2f", "theme_alpha", 1.0f, 0.1f, 1.0f );
-    m_options[ OPT_ThemeAlpha ].hidden = true;
-
-    m_options[ OPT_ColorLabelAlpha ].opt_float( "Color Label Alpha: %.2f", "colorlabel_alpha", 1.0f, 0.0f, 1.0f );
-    m_options[ OPT_ColorLabelAlpha ].hidden = true;
-    m_options[ OPT_ColorLabelSat ].opt_float( "Color Label Sat: %.2f", "colorlabel_sat", 0.9f, 0.0f, 1.0f );
-    m_options[ OPT_ColorLabelSat ].hidden = true;
 
     for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
@@ -539,7 +532,7 @@ void TraceLoader::init( int argc, char **argv )
 
     parse_cmdline( argc, argv );
 
-    imgui_set_custom_style( !!get_opt( OPT_DarkTheme ), get_optf( OPT_ThemeAlpha ) );
+    imgui_set_custom_style( !!get_opt( OPT_DarkTheme ), Cols::getalpha( col_ThemeAlpha ) );
 
     logf( "Welcome to gpuvis\n" );
 
@@ -2429,30 +2422,12 @@ void TraceLoader::render_color_picker()
 {
     bool changed = imgui_opt( OPT_DarkTheme );
 
-    changed |= imgui_opt( OPT_ThemeAlpha );
-
-    {
-        bool sat_changed = imgui_opt( OPT_ColorLabelSat );
-        ImGui::SameLine();
-        bool alpha_changed = imgui_opt( OPT_ColorLabelAlpha );
-
-        if ( sat_changed || alpha_changed )
-        {
-            for ( TraceEvents *trace_event : m_trace_events_list )
-                trace_event->m_rect_size_max_x = -1.0f;
-            changed = true;
-        }
-    }
-
     if ( ImGui::Button( "Reset to Defaults" ) )
     {
         for ( int i = 0; i < col_Max; i++ )
             Cols::set( ( colors_t )i, Cols::s_colordata[ i ].defcolor );
 
         m_options[ OPT_DarkTheme ].val = true;
-        m_options[ OPT_ThemeAlpha ].valf = 1.0f;
-        m_options[ OPT_ColorLabelSat ].valf = 0.9f;
-        m_options[ OPT_ColorLabelAlpha ].valf = 1.0f;
         changed = true;
     }
 
@@ -2499,23 +2474,55 @@ void TraceLoader::render_color_picker()
 
         imgui_text_bg( name, ImGui::GetColorVec4( ImGuiCol_Header ) );
 
-        ImGui::NewLine();
-
-        if ( m_colorpicker.render( &color ) )
+        if ( m_selected_color == col_ThemeAlpha ||
+             m_selected_color == col_ColorLabelSat ||
+             m_selected_color == col_ColorLabelAlpha )
         {
-            Cols::set( ( colors_t )m_selected_color, color );
+            float val = Cols::getalpha( ( colors_t )m_selected_color );
 
-            if ( ( m_selected_color >= col_ImGui_Text ) && ( m_selected_color <= col_ImGui_ModalWindowDarkening ) )
+            ImGui::PushItemWidth( imgui_scale( 125.0f ) );
+
+            if ( ImGui::SliderFloat( "##alpha_val", &val, 0.0f, 1.0f, "%.02f" ) )
+            {
+                Cols::set( ( colors_t )m_selected_color, ImColor( val, val, val, val ) );
+
+                if ( m_selected_color == col_ColorLabelSat ||
+                     m_selected_color == col_ColorLabelAlpha )
+                {
+                    for ( TraceEvents *trace_event : m_trace_events_list )
+                        trace_event->m_rect_size_max_x = -1.0f;
+                }
+
                 changed = true;
-        }
+            }
 
-        ImGui::NewLine();
-        if ( ImGui::Button( "Reset to Default" ) )
+            ImGui::PopItemWidth();
+
+            if ( ImGui::Button( "Reset to Default" ) )
+            {
+                Cols::set( ( colors_t )m_selected_color, Cols::s_colordata[ m_selected_color ].defcolor );
+                changed = true;
+            }
+        }
+        else
         {
-            Cols::set( ( colors_t )m_selected_color, Cols::s_colordata[ m_selected_color ].defcolor );
-            changed = true;
-        }
+            ImGui::NewLine();
 
+            if ( m_colorpicker.render( &color ) )
+            {
+                Cols::set( ( colors_t )m_selected_color, color );
+
+                if ( ( m_selected_color >= col_ImGui_Text ) && ( m_selected_color <= col_ImGui_ModalWindowDarkening ) )
+                    changed = true;
+            }
+
+            ImGui::NewLine();
+            if ( ImGui::Button( "Reset to Default" ) )
+            {
+                Cols::set( ( colors_t )m_selected_color, Cols::s_colordata[ m_selected_color ].defcolor );
+                changed = true;
+            }
+        }
     }
     ImGui::NextColumn();
 
@@ -2523,7 +2530,7 @@ void TraceLoader::render_color_picker()
 
     if ( changed )
     {
-        imgui_set_custom_style( !!get_opt( OPT_DarkTheme ), get_optf( OPT_ThemeAlpha ) );
+        imgui_set_custom_style( !!get_opt( OPT_DarkTheme ), Cols::getalpha( col_ThemeAlpha ) );
     }
 }
 

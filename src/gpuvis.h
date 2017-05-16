@@ -653,9 +653,6 @@ enum : uint32_t
     OPT_Scale,
     OPT_UseFreetype,
     OPT_DarkTheme,
-    OPT_ThemeAlpha,
-    OPT_ColorLabelAlpha,
-    OPT_ColorLabelSat,
     OPT_PresetMax
 };
 

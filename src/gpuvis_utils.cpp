@@ -945,6 +945,11 @@ ImVec4 Cols::get4( colors_t col, float alpha )
     return color;
 }
 
+float Cols::getalpha( colors_t col )
+{
+    return ( s_colordata[ col ].color >> IM_COL32_A_SHIFT ) * ( 1.0f / 255.0f );
+}
+
 void Cols::set( colors_t col, ImU32 color )
 {
     if ( s_colordata[ col ].color != color )

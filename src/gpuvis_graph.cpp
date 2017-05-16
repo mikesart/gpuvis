@@ -951,8 +951,8 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     if ( m_trace_events.m_rect_size_max_x == -1.0f )
     {
         m_trace_events.update_event_print_info_rects(
-                    m_loader.get_optf( OPT_ColorLabelSat ),
-                    m_loader.get_optf( OPT_ColorLabelAlpha ) );
+                    Cols::getalpha( col_ColorLabelSat ),
+                    Cols::getalpha( col_ColorLabelAlpha ) );
     }
 
     // We need to start drawing to the left of 0 for timeline_labels

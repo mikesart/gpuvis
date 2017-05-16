@@ -252,6 +252,7 @@ public:
 
     static ImU32 get( colors_t col, ImU32 alpha = ( uint32_t )-1 );
     static ImVec4 get4( colors_t col, float alpha = -1.0f );
+    static float getalpha( colors_t col );
 
     static void set( colors_t col, ImU32 color );
     static const char *get_name( colors_t col );
