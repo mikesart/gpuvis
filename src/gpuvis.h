@@ -534,9 +534,6 @@ public:
 
     struct
     {
-        // Is event list visible?
-        bool show = false;
-
         bool do_gotoevent = false;
         int goto_eventid = 0;
 

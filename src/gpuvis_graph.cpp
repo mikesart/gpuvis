@@ -1442,7 +1442,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
                         Cols::get( col_ZoomSel ) );
     }
 
-    if ( m_eventlist.show )
+    if ( m_loader.get_opt( OPT_ShowEventList ) )
     {
         // Draw rectangle for visible event list contents
         if ( is_valid_id( m_eventlist.start_eventid ) &&
@@ -2038,7 +2038,7 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
 void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts )
 {
     std::string time_buf = "Time: " + ts_to_timestr( mouse_ts, m_eventlist.tsoffset );
-    bool sync_event_list_to_graph = m_loader.get_opt( OPT_SyncEventListToGraph ) && m_eventlist.show;
+    bool sync_event_list_to_graph = m_loader.get_opt( OPT_SyncEventListToGraph ) && m_loader.get_opt( OPT_ShowEventList );
 
     m_eventlist.highlight_ids.clear();
 

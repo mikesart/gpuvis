@@ -470,6 +470,8 @@ void TraceLoader::init( int argc, char **argv )
     m_options[ OPT_GraphOnlyFiltered ].opt_bool( "Graph only filtered events", "graph_only_filtered", false );
 
     m_options[ OPT_ShowEventList ].opt_bool( "Show Event List", "show_event_list", true );
+    m_options[ OPT_ShowEventList ].hidden = true;
+
     m_options[ OPT_SyncEventListToGraph ].opt_bool( "Sync Event List to graph mouse location", "sync_eventlist_to_graph", true );
 
     m_options[ OPT_GraphHeight ].opt_float( "Graph Size: %.1f", "graph_height", 0, 0, 1 );
@@ -1678,10 +1680,10 @@ bool TraceWin::render()
         graph_render_process();
     }
 
-    ImGuiTreeNodeFlags eventslist_flags = m_loader.get_opt( OPT_ShowEventList) ?
+    ImGuiTreeNodeFlags eventslist_flags = m_loader.get_opt( OPT_ShowEventList ) ?
         ImGuiTreeNodeFlags_DefaultOpen : 0;
-    m_eventlist.show = ImGui::CollapsingHeader( "Events List", eventslist_flags );
-    if ( m_eventlist.show )
+    m_loader.m_options[ OPT_ShowEventList ].val = ImGui::CollapsingHeader( "Events List", eventslist_flags );
+    if ( m_loader.get_opt( OPT_ShowEventList ) )
     {
         m_eventlist.do_gotoevent |= imgui_input_int( &m_eventlist.goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
 
