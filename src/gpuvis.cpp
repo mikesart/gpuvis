@@ -43,6 +43,7 @@
 #include "gpuvis.h"
 #include "tdopexpr.h"
 
+// https://github.com/ocornut/imgui/issues/88
 #define NOC_FILE_DIALOG_IMPLEMENTATION
 #if defined( __linux__ )
 #define NOC_FILE_DIALOG_GTK

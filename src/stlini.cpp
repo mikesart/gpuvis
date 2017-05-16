@@ -48,13 +48,12 @@
 #include <fstream>
 #include <fcntl.h>
 #include <vector>
+
 #ifndef WIN32
 #include <unistd.h>
 #include <pwd.h>
 #else
-#include <windows.h>
-#include <Shlobj.h>
-#include <Shlwapi.h>
+#include <SDL.h>
 #endif
 
 #include "gpuvis_macros.h"
@@ -410,53 +409,10 @@ std::vector< INIEntry > CIniFile::GetSectionEntries( const char *section )
     return GetIniSectionEntries( m_inifile, section );
 }
 
-#ifdef WIN32
-
-static void stb_fixpath(char *path)
-{
-   for(; *path; ++path)
-      if (*path == '\\')
-         *path = '/';
-}
-
-static void stb_fixpath_to_windows(char *path)
-{
-   for(; *path; ++path)
-      if (*path == '/')
-         *path = '\\';
-}
-
-static bool util_mkdir( const char *dirname, bool is_filename = false )
-{
-    char rgchPath[ MAX_PATH + 1 ];
-
-    strcpy( rgchPath, dirname );
-    stb_fixpath_to_windows( rgchPath );
-    if ( is_filename )
-        PathRemoveFileSpec( rgchPath );
-    return SUCCEEDED( SHCreateDirectoryEx( NULL, rgchPath, NULL ) );
-}
-
-#endif
-
 std::string util_get_config_dir( const char *dirname )
 {
 #ifdef WIN32
-    // On WIN32 use radgitwin in the User's APPDATA dir
-    char rgchPath[ MAX_PATH + 1 ];
-    std::string config_dir;
-
-    if ( !SUCCEEDED( SHGetFolderPath( NULL, CSIDL_APPDATA, NULL, 0, rgchPath ) ) )
-    {
-        // Failed use a temp dir
-        GetTempPath( sizeof( rgchPath ), rgchPath );
-    }
-    stb_fixpath( rgchPath );
-    config_dir = rgchPath;
-    config_dir += "/radgitwin";
-    util_mkdir( config_dir.c_str() );
-
-    return config_dir;
+    return SDL_GetPrefPath( "gpuvis", "gpuvis" );
 #else
     std::string config_dir;
     static const char *xdg_config_home = getenv( "XDG_CONFIG_HOME" );
