@@ -469,6 +469,8 @@ protected:
     uint32_t graph_render_row_events( class graph_info_t &gi );
     // Render graph vblanks, tick markers, mouse location, etc.
     void graph_render_vblanks( class graph_info_t &gi );
+    // Render graph row labels
+    void graph_render_row_labels( class graph_info_t &gi );
 
     // Handle graph popup menu
     bool graph_render_popupmenu( class graph_info_t &gi );

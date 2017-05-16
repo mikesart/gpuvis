@@ -56,12 +56,6 @@
     certain zoom threshold? You want them in the foreground when pretty
     close, but in the background if there's more than ~50 on screen probably?
 
-    * Also for the row titles like "0) gfx\n5648 events", can you change them
-    so they're always drawn last (right now vblank and selection rects seem
-    drawn over them), and also add a translucent dark backdrop around them
-    to bring the contrast up so they stay legible if the info behind them is
-    noisy?
-
     * Since I find myself zooming in and out a lot to situate myself in the
     larger trace and analyze parts of it, I'm thinking one of the next big
     challenges is going to find a way to have a little stripe at the top and
@@ -149,6 +143,9 @@ struct row_info_t
 {
     uint32_t id;
     std::string row_name;
+    uint32_t num_events = 0;
+    float minval = FLT_MAX;
+    float maxval = FLT_MIN;
 
     float row_y;
     float row_h;
@@ -165,7 +162,7 @@ public:
     void init_row_info( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows );
 
     void init( TraceWin *win, float x, float w );
-    void set_pos_y( float y, float h, const row_info_t *ri );
+    void set_pos_y( float y, float h, row_info_t *ri );
 
     float ts_to_x( int64_t ts );
     float ts_to_screenx( int64_t ts );
@@ -212,17 +209,14 @@ public:
     bool graph_only_filtered;
 
     std::vector< row_info_t > row_info;
-    const row_info_t *prinfo_cur = nullptr;
-    const row_info_t *prinfo_gfx = nullptr;
-    const row_info_t *prinfo_gfx_hw = nullptr;
+    row_info_t *prinfo_cur = nullptr;
+    row_info_t *prinfo_gfx = nullptr;
+    row_info_t *prinfo_gfx_hw = nullptr;
 
     float text_h;
     float row_h;
     float visible_graph_height;
     float total_graph_height;
-
-    float minval = FLT_MAX;
-    float maxval = FLT_MIN;
 };
 
 static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
@@ -239,16 +233,16 @@ static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
         ImGui::GetWindowDrawList()->AddRectFilled( ImVec2( x, y ), ImVec2( x + w, y + h ), color );
 }
 
-static void imgui_draw_text( float x, float y, const char *text, ImU32 color )
+static void imgui_draw_text( float x, float y, const char *text, ImU32 color, bool draw_background = false )
 {
-#if 0
-    //$ Don't draw background behind row label text - think it obscures the graph a bit.
-    ImVec2 textsize = ImGui::CalcTextSize( text );
+    if ( draw_background )
+    {
+        ImVec2 textsize = ImGui::CalcTextSize( text );
 
-    ImGui::GetWindowDrawList()->AddRectFilled(
-        ImVec2( x, y ), ImVec2( x + textsize.x, y + textsize.y ),
-        Cols::get( col_RowLabelBk) );
-#endif
+        ImGui::GetWindowDrawList()->AddRectFilled(
+                    ImVec2( x - 1, y - 1 ), ImVec2( x + textsize.x + 2, y + textsize.y + 2 ),
+                    Clrs::get( col_RowLabelBk) );
+    }
 
     ImGui::GetWindowDrawList()->AddText( ImVec2( x, y ), color, text );
 }
@@ -487,7 +481,7 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
     }
 }
 
-void graph_info_t::set_pos_y( float y_in, float h_in, const row_info_t *ri )
+void graph_info_t::set_pos_y( float y_in, float h_in, row_info_t *ri )
 {
     y = y_in;
     h = h_in;
@@ -901,8 +895,8 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
         float thickness = 2.0f;
         bool anti_aliased = true;
 
-        gi.minval = minval;
-        gi.maxval = maxval;
+        gi.prinfo_cur->minval = minval;
+        gi.prinfo_cur->maxval = maxval;
 
         float pad = 0.15f * ( maxval - minval );
         if ( !pad )
@@ -1293,39 +1287,17 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 
 void TraceWin::graph_render_row( graph_info_t &gi )
 {
-    const std::string row_name = gi.prinfo_cur->row_name;
-
     if ( gi.mouse_over )
-        m_graph.mouse_over_row_name = row_name;
+        m_graph.mouse_over_row_name = gi.prinfo_cur->row_name;
 
     // Draw background
     ImGui::GetWindowDrawList()->AddRectFilled(
         ImVec2( gi.x, gi.y ),
         ImVec2( gi.x + gi.w, gi.y + gi.h ),
-        Cols::get( col_GraphRowBk ) );
+        Clrs::get( col_GraphRowBk ) );
 
     // Call the render callback function
-    uint32_t num_events = gi.prinfo_cur->render_cb ? gi.prinfo_cur->render_cb( gi ) : 0;
-
-    // Draw row label
-    std::string label = string_format( "%u) %s", gi.prinfo_cur->id, row_name.c_str() );
-    imgui_draw_text( gi.x, gi.y, label.c_str(),
-                     Cols::get( col_RowLabel ) );
-
-    if ( gi.minval <= gi.maxval )
-    {
-        label = string_format( "min:%.2f max:%.2f", gi.minval, gi.maxval );
-        imgui_draw_text( gi.x, gi.y + ImGui::GetTextLineHeight(), label.c_str(),
-                         Cols::get( col_RowLabel ) );
-        gi.minval = FLT_MAX;
-        gi.maxval = FLT_MIN;
-    }
-    else if ( num_events )
-    {
-        label = string_format( "%u events", num_events );
-        imgui_draw_text( gi.x, gi.y + ImGui::GetTextLineHeight(), label.c_str(),
-                         Cols::get( col_RowLabel ) );
-    }
+    gi.prinfo_cur->num_events = gi.prinfo_cur->render_cb ? gi.prinfo_cur->render_cb( gi ) : 0;
 }
 
 void TraceWin::graph_render_vblanks( graph_info_t &gi )
@@ -1456,7 +1428,32 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
             ImGui::GetWindowDrawList()->AddRect(
                         ImVec2( xstart, gi.y + imgui_scale( 20 ) ),
                         ImVec2( xend, gi.y + gi.h - imgui_scale( 30 ) ),
-                        Cols::get( col_EventListSel ) );
+                        Clrs::get( col_EventListSel ) );
+        }
+    }
+}
+
+void TraceWin::graph_render_row_labels( graph_info_t &gi )
+{
+    for ( row_info_t &ri : gi.row_info )
+    {
+        float x = gi.x;
+        float y = gi.y + ri.row_y;
+
+        // Draw row label
+        std::string label = string_format( "%u) %s", ri.id, ri.row_name.c_str() );
+        imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabel ), true );
+        y += ImGui::GetTextLineHeight();
+
+        if ( ri.minval <= ri.maxval )
+        {
+            label = string_format( "min:%.2f max:%.2f", ri.minval, ri.maxval );
+            imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabel ), true );
+        }
+        else if ( ri.num_events )
+        {
+            label = string_format( "%u events", ri.num_events );
+            imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabel ), true );
         }
     }
 }
@@ -1674,7 +1671,7 @@ void TraceWin::graph_render_process()
 
             if ( gi.prinfo_gfx_hw )
             {
-                const row_info_t &ri = *gi.prinfo_gfx_hw;
+                row_info_t &ri = *gi.prinfo_gfx_hw;
                 gfx_hw_row_h = ri.row_h + ImGui::GetStyle().FramePadding.y;
 
                 gi.set_pos_y( windowpos.y + windowsize.y - ri.row_h, ri.row_h, &ri );
@@ -1693,7 +1690,7 @@ void TraceWin::graph_render_process()
             {
                 bool render_timelines = !!pass;
 
-                for ( const row_info_t &ri : gi.row_info )
+                for ( row_info_t &ri : gi.row_info )
                 {
                     bool is_timeline = ( ri.loc_type == TraceEvents::LOC_TYPE_Timeline );
 
@@ -1709,6 +1706,8 @@ void TraceWin::graph_render_process()
         // Render full graph lines: vblanks, mouse cursors, etc...
         gi.set_pos_y( windowpos.y, windowsize.y, NULL );
         graph_render_vblanks( gi );
+
+        graph_render_row_labels( gi );
 
         // Handle right, left, pgup, pgdown, etc in graph
         graph_handle_keyboard_scroll();
