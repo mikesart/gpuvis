@@ -2791,7 +2791,7 @@ void TraceLoader::parse_cmdline( int argc, char **argv )
                 m_options[ OPT_Scale ].valf = atof( ya_optarg );
             break;
         case 'i':
-            m_inputfiles.push_back( optarg );
+            m_inputfiles.push_back( ya_optarg );
             break;
 
         default:
@@ -2799,9 +2799,9 @@ void TraceLoader::parse_cmdline( int argc, char **argv )
         }
     }
 
-    for ( ; optind < argc; optind++ )
+    for ( ; ya_optind < argc; ya_optind++ )
     {
-        m_inputfiles.push_back( argv[ optind ] );
+        m_inputfiles.push_back( argv[ ya_optind ] );
     }
 }
 
