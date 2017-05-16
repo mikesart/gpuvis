@@ -460,7 +460,7 @@ void TraceLoader::init( int argc, char **argv )
 
     m_options.resize( OPT_PresetMax );
 
-    m_options[ OPT_TimelineZoomGfx ].opt_bool( "Zoom gfx timeline (Ctrl+Shift+Z)", "zoom_gfx_timeline", false );
+    m_options[ OPT_TimelineZoomGfx ].opt_bool( "Zoom gfx timeline", "zoom_gfx_timeline", false );
     m_options[ OPT_TimelineLabels ].opt_bool( "Show gfx timeline labels", "timeline_gfx_labels", true );
     m_options[ OPT_TimelineEvents ].opt_bool( "Show gfx timeline events", "timeline_gfx_events", true );
     m_options[ OPT_TimelineRenderUserSpace ].opt_bool( "Show gfx timeline userspace", "timeline_gfx_userspace", false );
@@ -1776,9 +1776,7 @@ bool TraceWin::render()
             std::string label = string_format( "Graph only filtered (%lu events)", m_eventlist.filtered_events.size() );
 
             ImGui::SameLine();
-            bool val = !!m_loader.get_opt( OPT_GraphOnlyFiltered );
-            if ( ImGui::Checkbox( label.c_str(), &val ) )
-                m_loader.m_options[ OPT_GraphOnlyFiltered ].val = val;
+            m_loader.imgui_opt( OPT_GraphOnlyFiltered );
         }
 
         events_list_render( m_loader.m_inifile );

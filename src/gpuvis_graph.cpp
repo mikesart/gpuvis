@@ -462,7 +462,7 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
                 ImGui::GetMousePos() : ImVec2( -1024, -1024 );
 
     // Check if we're supposed to render filtered events only
-    graph_only_filtered = win->m_loader.m_options[ OPT_GraphOnlyFiltered ].val &&
+    graph_only_filtered = win->m_loader.get_opt( OPT_GraphOnlyFiltered ) &&
                           !win->m_eventlist.filtered_events.empty();
 
     timeline_render_user = !!win->m_loader.get_opt( OPT_TimelineRenderUserSpace );
@@ -1635,7 +1635,7 @@ void TraceWin::graph_render_process()
     {
         // Checkbox to toggle zooming gfx timeline view
         ImGui::SameLine();
-        ImGui::CheckboxInt( "Zoom gfx timeline", &m_loader.m_options[ OPT_TimelineZoomGfx ].val );
+        m_loader.imgui_opt( OPT_TimelineZoomGfx );
     }
 
     // Figure out gi.visible_graph_height
