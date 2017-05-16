@@ -47,8 +47,11 @@ endif()
 if ( WIN32 )
     ucm_add_flags( -D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4244 /wd4090 /wd4018 )
 
-    LINK_LIBRARIES( shlwapi opengl32 )
+    LINK_LIBRARIES( shlwapi opengl32 comctl32 )
 elseif ( UNIX )
+    find_package( PkgConfig REQUIRED )
+    pkg_check_modules( GTK3 REQUIRED gtk+-3.0 )
+
     LINK_LIBRARIES( dl )
 endif()
 
@@ -76,9 +79,10 @@ set ( SRC_LIST
     )
 
 include_directories(
-    ${FREETYPE_INCLUDE_DIRS}
-    ${SDL2_INCLUDE_DIR}
     ${CMAKE_CURRENT_LIST_DIR}/src
+    ${FREETYPE_INCLUDE_DIRS}
+    ${GTK3_INCLUDE_DIRS}
+    ${SDL2_INCLUDE_DIR}
     )
 
 ucm_add_target( NAME gpuvis TYPE EXECUTABLE SOURCES ${SRC_LIST} )
@@ -88,4 +92,5 @@ target_link_libraries(
     ${LIBRARY_LIST}
     ${SDL2_LIBRARY}
     ${FREETYPE_LIBRARIES}
+    ${GTK3_LIBRARIES}
     )

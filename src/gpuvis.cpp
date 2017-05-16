@@ -37,9 +37,19 @@
 #include <SDL.h>
 
 #include "GL/gl3w.h"
+
+#define YA_GETOPT_NO_COMPAT_MACRO
 #include "ya_getopt.h"
 #include "gpuvis.h"
 #include "tdopexpr.h"
+
+#define NOC_FILE_DIALOG_IMPLEMENTATION
+#if defined( __linux__ )
+#define NOC_FILE_DIALOG_GTK
+#elif defined( WIN32 )
+#define NOC_FILE_DIALOG_WIN32
+#endif
+#include "noc_file_dialog.h"
 
 multi_text_color multi_text_color::yellow = { ImVec4( 1, 1, 0, 1 ) };
 multi_text_color multi_text_color::red = { ImVec4( 1, 0, 0, 1 ) };
@@ -2731,6 +2741,15 @@ void TraceLoader::render_menu()
 
     if ( ImGui::BeginMenu( "File" ) )
     {
+        if ( ImGui::MenuItem( "Open Trace File..." ) )
+        {
+            const char *file = noc_file_dialog_open( NOC_FILE_DIALOG_OPEN,
+                "trace-cmd files (*.dat)\0*.dat\0", NULL, "trace.dat" );
+
+            if ( file && file[ 0 ] )
+                load_file( file );
+        }
+
         if ( ImGui::MenuItem( "Quit" ) )
         {
             SDL_Event event;
@@ -2755,13 +2774,13 @@ void TraceLoader::parse_cmdline( int argc, char **argv )
 {
     static struct option long_opts[] =
     {
-        { "scale", required_argument, 0, 0 },
+        { "scale", ya_required_argument, 0, 0 },
         { 0, 0, 0, 0 }
     };
 
     int c;
     int opt_ind = 0;
-    while ( ( c = getopt_long( argc, argv, "i:",
+    while ( ( c = ya_getopt_long( argc, argv, "i:",
                                long_opts, &opt_ind ) ) != -1 )
     {
         switch ( c )

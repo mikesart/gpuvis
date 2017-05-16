@@ -48,9 +48,6 @@
 
   Configurable hotkeys?
 
-  From DanG:
-    * Add Browse button to load a trace file
-
   From Pierre-Loup:
     * Graph scale logic looks pretty nice too. One thing I notice when zooming
     out is that things become very noisy because of the vblank bars. I'm
@@ -58,12 +55,6 @@
     they be changed to be in the background of other rendering past a
     certain zoom threshold? You want them in the foreground when pretty
     close, but in the background if there's more than ~50 on screen probably?
-
-    * Can I change the color of the automatic print color labels somewhere? I
-    assume it's in code rather than in the editor. They look great as unique
-    colors, I just want to try desaturating them a little bit. In general I
-    want to try bringing down the brightness of all the fullbright colors a
-    little bit, and change the full black backgrounds to be more of a dark gray.
 
     * Also for the row titles like "0) gfx\n5648 events", can you change them
     so they're always drawn last (right now vblank and selection rects seem
