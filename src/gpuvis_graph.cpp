@@ -1483,27 +1483,44 @@ void TraceWin::graph_render_eventlist_selection( class graph_info_t &gi )
     }
 }
 
+static void render_row_label( float x, float y, row_info_t &ri )
+{
+    std::string label = string_format( "%u) %s", ri.id, ri.row_name.c_str() );
+    imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabel ), true );
+    y += ImGui::GetTextLineHeight();
+
+    if ( ri.minval <= ri.maxval )
+    {
+        label = string_format( "min:%.2f max:%.2f", ri.minval, ri.maxval );
+        imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabel ), true );
+    }
+    else if ( ri.num_events )
+    {
+        label = string_format( "%u events", ri.num_events );
+        imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabel ), true );
+    }
+}
+
 void TraceWin::graph_render_row_labels( graph_info_t &gi )
 {
-    for ( row_info_t &ri : gi.row_info )
+    if ( gi.prinfo_zoom )
     {
-        float x = gi.x;
-        float y = gi.y + ri.row_y;
-
-        // Draw row label
-        std::string label = string_format( "%u) %s", ri.id, ri.row_name.c_str() );
-        imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabel ), true );
-        y += ImGui::GetTextLineHeight();
-
-        if ( ri.minval <= ri.maxval )
+        if ( gi.prinfo_zoom_hw )
         {
-            label = string_format( "min:%.2f max:%.2f", ri.minval, ri.maxval );
-            imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabel ), true );
+            float y = gi.y + gi.h - gi.prinfo_zoom_hw->row_h;
+
+            render_row_label( gi.x, y, *gi.prinfo_zoom_hw );
         }
-        else if ( ri.num_events )
+
+        render_row_label( gi.x, gi.y, *gi.prinfo_zoom );
+    }
+    else
+    {
+        for ( row_info_t &ri : gi.row_info )
         {
-            label = string_format( "%u events", ri.num_events );
-            imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabel ), true );
+            float y = gi.y + ri.row_y;
+
+            render_row_label( gi.x, y, ri );
         }
     }
 }
@@ -1756,6 +1773,7 @@ void TraceWin::graph_render_process()
         }
 
         // If we have a gfx graph and we're zoomed, render only that
+        float start_y = gi.prinfo_zoom ? 0 : m_graph.start_y;
         if ( gi.prinfo_zoom )
         {
             float gfx_hw_row_h = 0;
@@ -1787,7 +1805,7 @@ void TraceWin::graph_render_process()
 
                     if ( is_timeline == render_timelines )
                     {
-                        gi.set_pos_y( windowpos.y + ri.row_y + m_graph.start_y, ri.row_h, &ri );
+                        gi.set_pos_y( windowpos.y + ri.row_y + start_y, ri.row_h, &ri );
                         graph_render_row( gi );
                     }
                 }
@@ -1803,6 +1821,8 @@ void TraceWin::graph_render_process()
         graph_render_eventids( gi );
         graph_render_mouse_selection( gi );
         graph_render_eventlist_selection( gi );
+
+        gi.set_pos_y( windowpos.y + start_y, windowsize.y, NULL );
         graph_render_row_labels( gi );
 
         // Handle right, left, pgup, pgdown, etc in graph
