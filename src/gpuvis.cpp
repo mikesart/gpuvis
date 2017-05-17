@@ -2198,11 +2198,7 @@ void TraceWin::events_list_render( CIniFile &inifile )
                 bool highlight = !selected && std::binary_search(
                             m_eventlist.highlight_ids.begin(), m_eventlist.highlight_ids.end(), event.id );
                 if ( highlight )
-                {
-                    const ImVec4 &col = ImGui::GetColorVec4( ImGuiCol_PlotLinesHovered );
-
-                    ImGui::PushStyleColor( ImGuiCol_Header, ImVec4( col.x, col.y, col.z, 0.4f ) );
-                }
+                    ImGui::PushStyleColor( ImGuiCol_Header, Clrs::getv4( col_EventListHov ) );
 
                 // column 0: event id
                 {

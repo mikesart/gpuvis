@@ -46,6 +46,7 @@ _XTAG( MousePos, IM_COL32( 0xFF, 0x14, 0x93, 255 ) )
 _XTAG( MarkerA, IM_COL32( 0xEE, 0x82, 0xEE, 255 ) )
 _XTAG( ZoomSel, IM_COL32( 0xFF, 0xFF, 0xFF, 80 ) )
 _XTAG( EventListSel, IM_COL32( 0x00, 0xFF, 0x00, 255 ) )
+_XTAG( EventListHov, IM_COL32( 0xFF, 0x70, 0x60, 100 ) )
 
 _XTAG( BarUserspace, IM_COL32( 0, 0xff, 0, 50 ) )
 _XTAG( BarHwQueue, IM_COL32( 0xff, 0, 0xff, 80 ) )
