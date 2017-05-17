@@ -25,14 +25,12 @@
 _XTAG( ThemeAlpha, IM_COL32( 255, 255, 255, 255 ) )
 _XTAG( ColorLabelSat, IM_COL32( 230, 230, 230, 230 ) )
 _XTAG( ColorLabelAlpha, IM_COL32( 255, 255, 255, 255 ) )
-
 _XTAG( 1Event, IM_COL32( 254, 178, 76, 255 ) )
 _XTAG( 2Event, IM_COL32( 253, 141, 60, 255 ) )
 _XTAG( 3Event, IM_COL32( 252, 78, 42, 255 ) )
 _XTAG( 4Event, IM_COL32( 227, 26, 28, 255 ) )
 _XTAG( 5Event, IM_COL32( 189, 0, 38, 255 ) )
 _XTAG( 6Event, IM_COL32( 128, 0, 38, 255 ) )
-
 _XTAG( GraphBk, IM_COL32( 0x2F, 0x4F, 0x4F, 255 ) )
 _XTAG( GraphRowBk, IM_COL32( 0x00, 0x00, 0x00, 255 ) )
 _XTAG( HovEvent, IM_COL32( 0xc8, 0x1a, 0xff, 255 ) )
@@ -47,12 +45,12 @@ _XTAG( MarkerA, IM_COL32( 0xEE, 0x82, 0xEE, 255 ) )
 _XTAG( ZoomSel, IM_COL32( 0xFF, 0xFF, 0xFF, 80 ) )
 _XTAG( EventListSel, IM_COL32( 0x00, 0xFF, 0x00, 255 ) )
 _XTAG( EventListHov, IM_COL32( 0xFF, 0x70, 0x60, 100 ) )
-
 _XTAG( BarUserspace, IM_COL32( 0, 0xff, 0, 50 ) )
 _XTAG( BarHwQueue, IM_COL32( 0xff, 0, 0xff, 80 ) )
 _XTAG( BarHwRunning, IM_COL32( 0xff, 0, 0, 80 ) )
 _XTAG( BarSelRect, IM_COL32( 0, 0, 0xff, 255 ) )
 _XTAG( BarText, IM_COL32( 0xff, 0xff, 0xff, 255 ) )
+_XTAG( FtracePrintText, IM_COL32( 0xFF, 0xFF, 0, 0xFF ) )
 
 _XTAG( ClearColor, IM_COL32( 114, 144, 154, 255 ) )
 
@@ -70,7 +68,6 @@ _XTAG( ImGui_TitleBg, ImColor( 0.96f, 0.96f, 0.96f, 1.00f ) )
 _XTAG( ImGui_TitleBgCollapsed, ImColor( 1.00f, 1.00f, 1.00f, 0.51f ) )
 _XTAG( ImGui_TitleBgActive, ImColor( 0.82f, 0.82f, 0.82f, 1.00f ) )
 _XTAG( ImGui_MenuBarBg, ImColor( 0.17f, 0.20f, 0.23f, 1.00f ) )
-
 _XTAG( ImGui_ScrollbarBg, ImColor( 0.98f, 0.98f, 0.98f, 0.53f ) )
 _XTAG( ImGui_ScrollbarGrab, ImColor( 0.69f, 0.69f, 0.69f, 1.00f ) )
 _XTAG( ImGui_ScrollbarGrabHovered, ImColor( 0.59f, 0.59f, 0.59f, 1.00f ) )

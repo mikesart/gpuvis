@@ -208,12 +208,15 @@ public:
         buf[ 5 ] = 0;
     }
 
+    static void update_colors();
+
 public:
     char buf[ 6 ];
 
     static multi_text_color yellow;
     static multi_text_color red;
     static multi_text_color def;
+    static multi_text_color print_text;
 };
 
 bool imgui_push_smallfont();

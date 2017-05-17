@@ -2257,7 +2257,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
                 const event_field_t *field = find_event_field( event.fields, "buf" );
 
                 if ( field )
-                    time_buf += " " +  multi_text_color::yellow.m_str( field->value );
+                    time_buf += " " +  multi_text_color::print_text.m_str( field->value );
             }
         }
 
@@ -2288,7 +2288,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
                 m_eventlist.highlight_ids.push_back( id );
 
             time_buf += string_format( "\n  %u %s duration: %s%sms%s", event.id, name,
-                                       multi_text_color::yellow.c_str(),
+                                       multi_text_color::print_text.c_str(),
                                        ts_to_timestr( event.duration, 0, 4 ).c_str(),
                                        multi_text_color::def.c_str() );
         }

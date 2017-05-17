@@ -57,6 +57,13 @@
 multi_text_color multi_text_color::yellow = { ImVec4( 1, 1, 0, 1 ) };
 multi_text_color multi_text_color::red = { ImVec4( 1, 0, 0, 1 ) };
 multi_text_color multi_text_color::def = { ImVec4( 0.90f, 0.90f, 0.90f, 1.00f ) };
+multi_text_color multi_text_color::print_text = { ImVec4( 1, 1, 0, 1 ) };
+
+void multi_text_color::update_colors()
+{
+    def.set( ImGui::GetColorVec4( ImGuiCol_Text ) );
+    print_text.set( Clrs::getv4( col_FtracePrintText ) );
+}
 
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
 {
@@ -1971,7 +1978,7 @@ std::string get_event_fields_str( const trace_event_t &event, const char *eqstr,
         std::string str = string_format( "%s%s%s%c", field.key, eqstr, field.value, sep );
 
         if ( event.is_ftrace_print() && !strcmp( field.key, "buf" ) )
-            fieldstr += multi_text_color::yellow.m_str( str.c_str() );
+            fieldstr += multi_text_color::print_text.m_str( str.c_str() );
         else
             fieldstr += str;
     }
@@ -2251,7 +2258,7 @@ void TraceWin::events_list_render( CIniFile &inifile )
                 {
                     if ( event.is_ftrace_print() )
                     {
-                        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", get_event_field_val( event.fields, "buf" ) );
+                        ImGui::TextColored( Clrs::getv4( col_FtracePrintText ), "%s", get_event_field_val( event.fields, "buf" ) );
                     }
                     else
                     {
@@ -2534,6 +2541,9 @@ void TraceLoader::render_color_picker()
             {
                 Clrs::set( m_selected_color, color );
 
+                if ( m_selected_color == col_FtracePrintText )
+                    multi_text_color::update_colors();
+
                 if ( ( m_selected_color >= col_ImGui_Text ) && ( m_selected_color <= col_ImGui_ModalWindowDarkening ) )
                     changed = true;
             }
@@ -2553,6 +2563,8 @@ void TraceLoader::render_color_picker()
     if ( changed )
     {
         imgui_set_custom_style( !!get_opt( OPT_DarkTheme ), Clrs::getalpha( col_ThemeAlpha ) );
+
+        multi_text_color::update_colors();
     }
 }
 
@@ -2798,7 +2810,7 @@ int main( int argc, char **argv )
     SDL_GL_SetSwapInterval( 1 );
 
     // Setup imgui default text color
-    multi_text_color::def.set( ImGui::GetColorVec4( ImGuiCol_Text ) );
+    multi_text_color::update_colors();
 
     // Load our fonts
     loader.load_fonts();
