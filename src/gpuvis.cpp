@@ -2043,12 +2043,9 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
                     m_eventlist.filtered_events[ m_eventlist.popup_eventid ] :
                     m_eventlist.popup_eventid;
 
-        imgui_pop_smallfont();
-
         if ( !TraceWin::events_list_render_popupmenu( eventid ) )
             m_eventlist.popup_eventid = INVALID_ID;
 
-        imgui_push_smallfont();
         popup_shown = true;
     }
 
@@ -2081,8 +2078,6 @@ void TraceWin::events_list_render( CIniFile &inifile )
         ImGui::SetNextWindowFocus();
 
     // Events list
-    imgui_push_smallfont();
-
     {
         float lineh = ImGui::GetTextLineHeightWithSpacing();
         const ImVec2 content_avail = ImGui::GetContentRegionAvail();
@@ -2295,8 +2290,6 @@ void TraceWin::events_list_render( CIniFile &inifile )
 
         ImGui::EndChild();
     }
-
-    imgui_pop_smallfont();
 }
 
 void TraceLoader::render_menu_options()
