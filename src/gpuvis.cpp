@@ -733,10 +733,7 @@ void TraceLoader::render()
     }
 
     if ( m_show_scale_popup && !ImGui::IsPopupOpen( "Display Scaling" ) )
-    {
         ImGui::OpenPopup( "Display Scaling" );
-        m_show_scale_popup = false;
-    }
     if ( ImGui::BeginPopupModal( "Display Scaling", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
     {
         ImGui::Text( "Are you running on a high resolution display?" );
@@ -745,7 +742,10 @@ void TraceLoader::render()
         ImGui::Separator();
 
         if ( ImGui::Button( "Yes", ImVec2( 150, 0 ) ) )
+        {
             ImGui::CloseCurrentPopup();
+            m_show_scale_popup = false;
+        }
 
         ImGui::SameLine();
         if ( ImGui::Button( "No", ImVec2( 150, 0 ) ) )
@@ -753,6 +753,7 @@ void TraceLoader::render()
             m_options[ OPT_Scale ].valf = 1.0f;
             m_font_main.m_changed = true;
             ImGui::CloseCurrentPopup();
+            m_show_scale_popup = false;
         }
 
         ImGui::EndPopup();
