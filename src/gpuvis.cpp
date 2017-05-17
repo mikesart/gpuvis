@@ -2183,16 +2183,16 @@ void TraceWin::events_list_render( CIniFile &inifile )
                             m_trace_events.m_events[ i ];
                 bool selected = ( m_eventlist.selected_eventid == event.id );
                 ImVec2 cursorpos = ImGui::GetCursorScreenPos();
+                ImVec4 color = Clrs::getv4( col_EventListText );
 
                 ImGui::PushID( i );
 
                 if ( event.is_vblank() )
                 {
                     // If this is a vblank event, draw the text in blue or red vblank colors
-                    ImColor col = Clrs::get( ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0 );
-
-                    ImGui::PushStyleColor( ImGuiCol_Text, col );
+                    color = Clrs::getv4( ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0 );
                 }
+                ImGui::PushStyleColor( ImGuiCol_Text, color );
 
                 // If this event is in the highlighted list, give it a bit of a colored background
                 bool highlight = !selected && std::binary_search(
@@ -2278,7 +2278,7 @@ void TraceWin::events_list_render( CIniFile &inifile )
                     ts_marker_diff = ts_diff;
                 }
 
-                ImGui::PopStyleColor( event.is_vblank() + highlight );
+                ImGui::PopStyleColor( 1 + highlight );
                 ImGui::PopID();
             }
 
