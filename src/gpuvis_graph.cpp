@@ -1642,12 +1642,12 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             }
         }
     }
-    else if ( ImGui::IsWindowFocused() &&
-              ( ImGui::IsKeyPressed( 'a' ) || ImGui::IsKeyPressed( 'b' ) ) )
+    else if ( ImGui::IsWindowFocused() && ImGui::IsKeyPressed( 'z' ) )
     {
         int64_t mouse_ts = gi.screenx_to_ts( gi.mouse_pos.x );
+        int64_t newlen = ( m_graph.length_ts >= 30 * MSECS_PER_SEC ) ?
+                    3 * MSECS_PER_SEC : 100 * MSECS_PER_SEC;
 
-        int64_t newlen =  ImGui::IsKeyPressed( 'a' ) ? 3 * MSECS_PER_SEC : 100 * MSECS_PER_SEC;
         graph_zoom( mouse_ts, gi.ts0, false, newlen );
     }
 }
