@@ -797,9 +797,6 @@ bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
     {
         ParsePlotStr parse_plot_str;
 
-        m_color_line = trace_events.m_events[ plocs->front() ].color;
-        m_color_point = imgui_col_complement( m_color_line );
-
         if ( parse_plot_str.init( m_scanf_str.c_str() ) )
         {
             for ( uint32_t idx : *plocs )
@@ -854,6 +851,10 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
 
     points.reserve( index1 - index0 + 10 );
 
+    uint32_t idx0 = gi.prinfo_cur->plocs->front();
+    ImU32 color_line = m_trace_events.m_events[ idx0 ].color;
+    ImU32 color_point = imgui_col_complement( color_line );
+
     for ( size_t idx = index0; idx < plot.m_plotdata.size(); idx++ )
     {
         GraphPlot::plotdata_t &data = plot.m_plotdata[ idx ];
@@ -899,13 +900,13 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
             pt.y = gi.y + ( maxval - pt.y ) * rcpdenom;
 
         ImGui::GetWindowDrawList()->AddPolyline( points.data(), points.size(),
-                                                 plot.m_color_line, closed, thickness, anti_aliased );
+                                                 color_line, closed, thickness, anti_aliased );
 
         for ( const ImVec2 &pt : points )
         {
             imgui_drawrect( pt.x - imgui_scale( 1.5f ), imgui_scale( 3.0f ),
                             pt.y - imgui_scale( 1.5f ), imgui_scale( 3.0f ),
-                            plot.m_color_point );
+                            color_point );
         }
     }
 

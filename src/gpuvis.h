@@ -215,9 +215,6 @@ public:
     float m_minval = FLT_MAX;
     float m_maxval = FLT_MIN;
 
-    ImU32 m_color_line;
-    ImU32 m_color_point;
-
     // plot: TimeSyncLastVSync
     std::string m_name;
 
