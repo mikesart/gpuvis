@@ -60,6 +60,7 @@ _XTAG( col_Graph_BarHwRunning, 0xd9ffaa00, "Graph timeline hw running bar" )
 _XTAG( col_Graph_BarSelRect, 0xd9fff300, "Graph timeline selected bar rectangle" )
 _XTAG( col_Graph_BarText, IM_COL32( 0xff, 0xff, 0xff, 255 ), "Graph timeline bar text" )
 
+// ImGui colors
 _XTAG( col_ImGui_Text, 0xffe6e6e6, "ImGui text" )
 _XTAG( col_ImGui_TextDisabled, 0xff666666, "ImGui disabled text" )
 _XTAG( col_ImGui_TextSelectedBg, 0x59fa9642, "ImGui selected text background" )
