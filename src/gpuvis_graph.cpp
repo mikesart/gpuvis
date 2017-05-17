@@ -968,8 +968,8 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
             // If we did and there is room, draw the ftrace print buf
             if ( x - x0 > print_info->rect_size.x )
             {
-                imgui_drawrect( x0, print_info->rect_size.x + 1.0f, y + imgui_scale( 2.0f ), print_info->rect_size.y,
-                                draw_info.event->color );
+                // imgui_drawrect( x0, print_info->rect_size.x + 1.0f, y + imgui_scale( 2.0f ),
+                //     print_info->rect_size.y, draw_info.event->color );
                 imgui_draw_text( x0, y + imgui_scale( 2.0f ), print_info->buf, IM_COL32_WHITE );
             }
         }
@@ -1000,9 +1000,9 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         {
             float x0 = draw_info.x + dx;
             float y = gi.y + row_id * gi.text_h;
-            const trace_event_t *event = draw_info.event;
 
-            imgui_drawrect( x0, print_info->rect_size.x + 1.0f, y + imgui_scale( 2.0f ), print_info->rect_size.y, event->color );
+            // const trace_event_t *event = draw_info.event;
+            // imgui_drawrect( x0, print_info->rect_size.x + 1.0f, y + imgui_scale( 2.0f ), print_info->rect_size.y, event->color );
             imgui_draw_text( x0, y + imgui_scale( 2.0f ), print_info->buf, IM_COL32_WHITE );
         }
     }
