@@ -1813,9 +1813,8 @@ void TraceWin::graph_render_process()
             }
         }
 
-        // Render full graph lines: vblanks, mouse cursors, etc...
+        // Render full graph ticks, vblanks, cursor pos, etc.
         gi.set_pos_y( windowpos.y, windowsize.y, NULL );
-
         graph_render_time_ticks( gi );
         graph_render_vblanks( gi );
         graph_render_mouse_pos( gi );
@@ -1823,6 +1822,7 @@ void TraceWin::graph_render_process()
         graph_render_mouse_selection( gi );
         graph_render_eventlist_selection( gi );
 
+        // Render row labels (taking panning into consideration)
         gi.set_pos_y( windowpos.y + start_y, windowsize.y, NULL );
         graph_render_row_labels( gi );
 
@@ -1833,6 +1833,7 @@ void TraceWin::graph_render_process()
         graph_handle_hotkeys();
 
         // Render mouse tooltips, mouse selections, etc
+        gi.set_pos_y( windowpos.y, windowsize.y, NULL );
         graph_handle_mouse( gi );
     }
     ImGui::EndChild();
