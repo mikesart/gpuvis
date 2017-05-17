@@ -513,7 +513,7 @@ static colors_t col_index_from_imguicol( ImGuiCol col )
     return col_Max;
 }
 
-void imgui_set_custom_style( bool dark, float alpha )
+void imgui_set_custom_style( float alpha )
 {
     ImGuiStyle& style = ImGui::GetStyle();
 
@@ -529,24 +529,7 @@ void imgui_set_custom_style( bool dark, float alpha )
 
             col = Clrs::getv4( icol );
 
-            if ( dark )
-            {
-                // Only invert if the user hasn't modified this color
-                if ( Clrs::is_default( icol ) )
-                {
-                    // Invert
-                    float H, S, V;
-
-                    ImGui::ColorConvertRGBtoHSV( col.x, col.y, col.z, H, S, V );
-                    if ( S < 0.1f )
-                        V = 1.0f - V;
-
-                    ImGui::ColorConvertHSVtoRGB( H, S, V, col.x, col.y, col.z );
-                    if ( col.w < 1.00f )
-                        col.w *= alpha;
-                }
-            }
-            else if ( col.w < 1.00f )
+            if ( col.w < 1.00f )
             {
                 // Apply alpha
                 col.x *= alpha;

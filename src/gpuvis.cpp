@@ -495,9 +495,6 @@ void TraceLoader::init( int argc, char **argv )
     m_options[ OPT_UseFreetype ].opt_bool( "Use Freetype", "use_freetype", false );
     m_options[ OPT_UseFreetype ].hidden = true;
 
-    m_options[ OPT_DarkTheme ].opt_bool( "Dark Theme", "dark_theme", true );
-    m_options[ OPT_DarkTheme ].hidden = true;
-
     for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
         const std::string desc = string_format( "Show drm_vblank_event crtc%d markers", i - OPT_RenderCrtc0 );
@@ -539,7 +536,7 @@ void TraceLoader::init( int argc, char **argv )
 
     parse_cmdline( argc, argv );
 
-    imgui_set_custom_style( !!get_opt( OPT_DarkTheme ), Clrs::getalpha( col_ThemeAlpha ) );
+    imgui_set_custom_style( Clrs::getalpha( col_ThemeAlpha ) );
 
     logf( "Welcome to gpuvis\n" );
 
@@ -2450,14 +2447,12 @@ void TraceLoader::render_font_options()
 
 void TraceLoader::render_color_picker()
 {
-    bool changed = imgui_opt( OPT_DarkTheme );
+    bool changed = false;
 
     if ( ImGui::Button( "Reset to Defaults" ) )
     {
         for ( colors_t i = 0; i < col_Max; i++ )
             Clrs::reset( i );
-
-        m_options[ OPT_DarkTheme ].val = true;
         changed = true;
     }
 
@@ -2563,7 +2558,7 @@ void TraceLoader::render_color_picker()
 
     if ( changed )
     {
-        imgui_set_custom_style( !!get_opt( OPT_DarkTheme ), Clrs::getalpha( col_ThemeAlpha ) );
+        imgui_set_custom_style( Clrs::getalpha( col_ThemeAlpha ) );
 
         multi_text_color::update_colors();
     }
