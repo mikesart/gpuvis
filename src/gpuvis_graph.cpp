@@ -689,10 +689,10 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
         const char *val_end = parse_plot_str.m_val_end;
 
         ImGui::Text( "%s%.*s%s%.*s%s%s",
-                     multi_text_color::yellow.c_str(),
+                     multi_text_color::bright_text.c_str(),
                      ( int )( val_start - buf ), buf,
                      multi_text_color::red.c_str(), ( int )( val_end - val_start ), val_start,
-                     multi_text_color::yellow.c_str(), val_end );
+                     multi_text_color::bright_text.c_str(), val_end );
     }
     else
     {
@@ -1979,7 +1979,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         {
             std::string tooltip;
 
-            tooltip += multi_text_color::yellow.m_str( "Add a new row with filtered events\n\n" );
+            tooltip += multi_text_color::bright_text.m_str( "Add a new row with filtered events\n\n" );
             tooltip += "Examples:\n";
             tooltip += "  $pid = 4615\n";
             tooltip += "  $duration >= 5.5\n";
@@ -2001,7 +2001,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
         if ( plot_str )
         {
-            std::string plot_label = std::string( "Create Plot for " ) + multi_text_color::yellow.m_str( plot_str );
+            std::string plot_label = std::string( "Create Plot for " ) + multi_text_color::bright_text.m_str( plot_str );
 
             if ( ImGui::MenuItem( plot_label.c_str() ) )
                 m_create_plot_eventid = event.id;
@@ -2251,7 +2251,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             if ( event.crtc >= 0 )
                 time_buf += std::to_string( event.crtc );
 
-            // Add yellow string for ftrace print events
+            // Add colored string for ftrace print events
             if ( event.is_ftrace_print() )
             {
                 const event_field_t *field = find_event_field( event.fields, "buf" );

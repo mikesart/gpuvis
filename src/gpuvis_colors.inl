@@ -51,6 +51,7 @@ _XTAG( BarHwRunning, IM_COL32( 0xff, 0, 0, 80 ) )
 _XTAG( BarSelRect, IM_COL32( 0, 0, 0xff, 255 ) )
 _XTAG( BarText, IM_COL32( 0xff, 0xff, 0xff, 255 ) )
 _XTAG( FtracePrintText, IM_COL32( 0xFF, 0xFF, 0, 0xFF ) )
+_XTAG( BrightText, IM_COL32( 0xFF, 0xFF, 0, 0xFF ) )
 
 _XTAG( ClearColor, IM_COL32( 114, 144, 154, 255 ) )
 
