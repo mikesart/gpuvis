@@ -1551,18 +1551,19 @@ void TraceWin::graph_range_check_times()
     }
 }
 
-void TraceWin::graph_zoom( int64_t center_ts, int64_t ts0, bool zoomin )
+void TraceWin::graph_zoom( int64_t center_ts, int64_t ts0, bool zoomin, int64_t newlenin )
 {
-    int64_t len0 = m_graph.length_ts;
-    int64_t amt = zoomin ? -( m_graph.length_ts / 2 ) : ( m_graph.length_ts / 2 );
-    int64_t len1 = Clamp< int64_t >( len0 + amt, m_graph.s_min_length, m_graph.s_max_length );
+    int64_t origlen = m_graph.length_ts;
+    int64_t amt = zoomin ? -( origlen / 2 ) : ( origlen / 2 );
+    int64_t newlen = ( newlenin != INT64_MAX ) ? newlenin :
+            Clamp< int64_t >( origlen + amt, m_graph.s_min_length, m_graph.s_max_length );
 
-    if ( len1 != m_graph.length_ts )
+    if ( newlen != origlen )
     {
-        double scale = ( double )len1 / len0;
+        double scale = ( double )newlen / origlen;
 
         m_graph.start_ts = center_ts - ( int64_t )( ( center_ts - ts0 ) * scale ) - m_eventlist.tsoffset;
-        m_graph.length_ts = len1;
+        m_graph.length_ts = newlen;
 
         m_graph.do_start_timestr = true;
         m_graph.do_length_timestr = true;
@@ -1599,7 +1600,7 @@ void TraceWin::zoom_graph_row()
     }
 }
 
-void TraceWin::graph_handle_hotkeys()
+void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
 {
     if ( m_graph.saved_locs.size() < 9 )
         m_graph.saved_locs.resize( 9 );
@@ -1640,6 +1641,14 @@ void TraceWin::graph_handle_hotkeys()
                 }
             }
         }
+    }
+    else if ( ImGui::IsWindowFocused() &&
+              ( ImGui::IsKeyPressed( 'a' ) || ImGui::IsKeyPressed( 'b' ) ) )
+    {
+        int64_t mouse_ts = gi.screenx_to_ts( gi.mouse_pos.x );
+
+        int64_t newlen =  ImGui::IsKeyPressed( 'a' ) ? 3 * MSECS_PER_SEC : 100 * MSECS_PER_SEC;
+        graph_zoom( mouse_ts, gi.ts0, false, newlen );
     }
 }
 
@@ -1827,7 +1836,7 @@ void TraceWin::graph_render_process()
         graph_handle_keyboard_scroll();
 
         // Handle hotkeys. Ie: Ctrl+Shift+1, etc
-        graph_handle_hotkeys();
+        graph_handle_hotkeys( gi );
 
         // Render mouse tooltips, mouse selections, etc
         gi.set_pos_y( windowpos.y, windowsize.y, NULL );
