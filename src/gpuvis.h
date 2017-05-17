@@ -500,6 +500,9 @@ protected:
     // Zoom in / out graph
     void graph_zoom( int64_t center_ts, int64_t ts0, bool zoomin );
 
+    bool is_graph_row_zoomable();
+    void zoom_graph_row();
+
 protected:
     // Render trace information header
     void trace_render_info();
@@ -592,7 +595,11 @@ public:
         float resize_graph_click_pos = 0.0f;
 
         bool popupmenu = false;
+
+        std::string zoom_row_name;
         std::string mouse_over_row_name;
+        TraceEvents::loc_type_t mouse_over_row_type;
+
         std::vector< GraphRows::graph_rows_info_t > rows_hidden_rows;
 
         char rename_comm_buf[ 512 ] = { 0 };
@@ -636,8 +643,7 @@ typedef uint32_t option_id_t;
 enum : uint32_t
 {
     OPT_Invalid = ( uint32_t )-1,
-    OPT_TimelineZoomGfx = 0,
-    OPT_TimelineLabels,
+    OPT_TimelineLabels = 0,
     OPT_TimelineEvents,
     OPT_TimelineRenderUserSpace,
     OPT_PrintTimelineLabels,

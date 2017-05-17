@@ -460,7 +460,6 @@ void TraceLoader::init( int argc, char **argv )
 
     m_options.resize( OPT_PresetMax );
 
-    m_options[ OPT_TimelineZoomGfx ].opt_bool( "Zoom gfx timeline", "zoom_gfx_timeline", false );
     m_options[ OPT_TimelineLabels ].opt_bool( "Show gfx timeline labels", "timeline_gfx_labels", true );
     m_options[ OPT_TimelineEvents ].opt_bool( "Show gfx timeline events", "timeline_gfx_events", true );
     m_options[ OPT_TimelineRenderUserSpace ].opt_bool( "Show gfx timeline userspace", "timeline_gfx_userspace", false );

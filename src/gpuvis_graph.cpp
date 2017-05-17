@@ -136,6 +136,7 @@ struct row_info_t
 {
     uint32_t id;
     std::string row_name;
+
     uint32_t num_events = 0;
     float minval = FLT_MAX;
     float maxval = FLT_MIN;
@@ -143,7 +144,7 @@ struct row_info_t
     float row_y;
     float row_h;
 
-    TraceEvents::loc_type_t loc_type;
+    TraceEvents::loc_type_t row_type;
     const std::vector< uint32_t > *plocs;
 
     RenderGraphRowCallback render_cb;
@@ -197,14 +198,13 @@ public:
     // Id of hovered / selected fence signaled event
     uint32_t hovered_fence_signaled = INVALID_ID;
 
-    bool do_zoom_gfx;
     bool timeline_render_user;
     bool graph_only_filtered;
 
     std::vector< row_info_t > row_info;
     row_info_t *prinfo_cur = nullptr;
-    row_info_t *prinfo_gfx = nullptr;
-    row_info_t *prinfo_gfx_hw = nullptr;
+    row_info_t *prinfo_zoom = nullptr;
+    row_info_t *prinfo_zoom_hw = nullptr;
 
     float text_h;
     float row_h;
@@ -371,7 +371,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         if ( grow.hidden )
             continue;
 
-        plocs = win->m_trace_events.get_locs( row_name.c_str(), &rinfo.loc_type );
+        plocs = win->m_trace_events.get_locs( row_name.c_str(), &rinfo.row_type );
 
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
@@ -382,23 +382,23 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
             // Nothing to render
             rinfo.render_cb = nullptr;
         }
-        else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Print )
+        else if ( rinfo.row_type == TraceEvents::LOC_TYPE_Print )
         {
             // ftrace print row
             optid = get_comm_option_id( win->m_loader, rinfo.row_name );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_print_timeline, win, _1 );
         }
-        else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Plot )
+        else if ( rinfo.row_type == TraceEvents::LOC_TYPE_Plot )
         {
             optid = get_comm_option_id( win->m_loader, rinfo.row_name );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_plot, win, _1 );
         }
-        else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Timeline )
+        else if ( rinfo.row_type == TraceEvents::LOC_TYPE_Timeline )
         {
             optid = get_comm_option_id( win->m_loader, rinfo.row_name );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_row_timeline, win, _1 );
         }
-        else if ( rinfo.loc_type == TraceEvents::LOC_TYPE_Timeline_hw )
+        else if ( rinfo.row_type == TraceEvents::LOC_TYPE_Timeline_hw )
         {
             rinfo.row_h = 2 * text_h;
             rinfo.render_cb = std::bind( &TraceWin::graph_render_hw_row_timeline, win, _1 );
@@ -426,9 +426,6 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
 
     total_graph_height += imgui_scale( 2.0f );
     total_graph_height = std::max< float >( total_graph_height, 4 * row_h );
-
-    prinfo_gfx = find_row( "gfx" );
-    prinfo_gfx_hw = find_row( "gfx hw" );
 }
 
 void graph_info_t::init( TraceWin *win, float x_in, float w_in )
@@ -1281,7 +1278,10 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 void TraceWin::graph_render_row( graph_info_t &gi )
 {
     if ( gi.mouse_over )
+    {
         m_graph.mouse_over_row_name = gi.prinfo_cur->row_name;
+        m_graph.mouse_over_row_type = gi.prinfo_cur->row_type;
+    }
 
     // Draw background
     ImGui::GetWindowDrawList()->AddRectFilled(
@@ -1554,6 +1554,36 @@ void TraceWin::graph_zoom( int64_t center_ts, int64_t ts0, bool zoomin )
     }
 }
 
+bool TraceWin::is_graph_row_zoomable()
+{
+    if ( !m_graph.mouse_over_row_name.empty() )
+    {
+        if ( m_graph.zoom_row_name != m_graph.mouse_over_row_name )
+        {
+            if ( m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Timeline ||
+                 m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Timeline_hw ||
+                 m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Plot ||
+                 m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Print )
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+void TraceWin::zoom_graph_row()
+{
+    m_graph.zoom_row_name = m_graph.mouse_over_row_name;
+
+    if ( m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Timeline_hw )
+    {
+        // Trim " hw" from end of string so, for example, we zoom "gfx" and not "gfx hw".
+        m_graph.zoom_row_name.resize( m_graph.zoom_row_name.size() - 3 );
+    }
+}
+
 void TraceWin::graph_handle_hotkeys()
 {
     if ( m_graph.saved_locs.size() < 9 )
@@ -1565,7 +1595,10 @@ void TraceWin::graph_handle_hotkeys()
 
         if ( keyshift && ImGui::IsKeyPressed( 'z' ) )
         {
-            m_loader.m_options[ OPT_TimelineZoomGfx ].val ^= 1;
+            if ( !m_graph.zoom_row_name.empty() )
+                m_graph.zoom_row_name.clear();
+            else if ( is_graph_row_zoomable() )
+                zoom_graph_row();
         }
         else
         {
@@ -1644,9 +1677,7 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
     option_id_t optid;
     float max_graph_size;
 
-    gi.do_zoom_gfx = gi.prinfo_gfx && win->m_loader.get_opt( OPT_TimelineZoomGfx );
-
-    if ( gi.do_zoom_gfx )
+    if ( gi.prinfo_zoom )
     {
         optid = OPT_GraphHeightZoomed;
         max_graph_size = imgui_scale( 60.0f ) * gi.row_h;
@@ -1678,11 +1709,20 @@ void TraceWin::graph_render_process()
     // Initialize our row size, location, etc information based on our graph rows
     gi.init_row_info( this, m_graph.rows.m_graph_rows_list );
 
-    if ( gi.prinfo_gfx )
+    if ( !m_graph.zoom_row_name.empty() )
     {
-        // Checkbox to toggle zooming gfx timeline view
+        gi.prinfo_zoom = gi.find_row( m_graph.zoom_row_name.c_str() );
+        if ( gi.prinfo_zoom )
+            gi.prinfo_zoom_hw = gi.find_row( ( m_graph.zoom_row_name + " hw" ).c_str() );
+    }
+
+    if ( gi.prinfo_zoom )
+    {
         ImGui::SameLine();
-        m_loader.imgui_opt( OPT_TimelineZoomGfx );
+
+        std::string label = string_format( "Unzoom '%s'", m_graph.zoom_row_name.c_str() );
+        if ( ImGui::Button( label.c_str() ) )
+            m_graph.zoom_row_name.clear();
     }
 
     // Figure out gi.visible_graph_height
@@ -1711,17 +1751,18 @@ void TraceWin::graph_render_process()
         if ( !m_graph.popupmenu )
         {
             m_graph.mouse_over_row_name = "";
+            m_graph.mouse_over_row_type = TraceEvents::LOC_TYPE_Max;
             m_graph.rename_comm_buf[ 0 ] = 0;
         }
 
         // If we have a gfx graph and we're zoomed, render only that
-        if ( gi.do_zoom_gfx )
+        if ( gi.prinfo_zoom )
         {
             float gfx_hw_row_h = 0;
 
-            if ( gi.prinfo_gfx_hw )
+            if ( gi.prinfo_zoom_hw )
             {
-                row_info_t &ri = *gi.prinfo_gfx_hw;
+                row_info_t &ri = *gi.prinfo_zoom_hw;
                 gfx_hw_row_h = ri.row_h + ImGui::GetStyle().FramePadding.y;
 
                 gi.set_pos_y( windowpos.y + windowsize.y - ri.row_h, ri.row_h, &ri );
@@ -1729,7 +1770,7 @@ void TraceWin::graph_render_process()
             }
 
             gi.timeline_render_user = true;
-            gi.set_pos_y( windowpos.y, windowsize.y - gfx_hw_row_h, gi.prinfo_gfx );
+            gi.set_pos_y( windowpos.y, windowsize.y - gfx_hw_row_h, gi.prinfo_zoom );
             graph_render_row( gi );
         }
         else
@@ -1742,7 +1783,7 @@ void TraceWin::graph_render_process()
 
                 for ( row_info_t &ri : gi.row_info )
                 {
-                    bool is_timeline = ( ri.loc_type == TraceEvents::LOC_TYPE_Timeline );
+                    bool is_timeline = ( ri.row_type == TraceEvents::LOC_TYPE_Timeline );
 
                     if ( is_timeline == render_timelines )
                     {
@@ -1780,7 +1821,7 @@ void TraceWin::graph_render_process()
         ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeNS );
     if ( ImGui::IsItemActive() )
     {
-        option_id_t opt = gi.do_zoom_gfx ? OPT_GraphHeightZoomed : OPT_GraphHeight;
+        option_id_t opt = gi.prinfo_zoom ? OPT_GraphHeightZoomed : OPT_GraphHeight;
 
         if ( ImGui::IsMouseClicked( 0 ) )
             m_graph.resize_graph_click_pos = m_loader.m_options[ opt ].valf;
@@ -1807,11 +1848,28 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     imgui_text_bg( "Options", ImGui::GetColorVec4( ImGuiCol_Header ) );
     ImGui::Separator();
 
+    if ( !m_graph.zoom_row_name.empty() )
+    {
+        std::string label = string_format( "Unzoom '%s'", m_graph.zoom_row_name.c_str() );
+
+        if ( ImGui::MenuItem( label.c_str() ) )
+            m_graph.zoom_row_name.clear();
+    }
+
     if ( !m_graph.mouse_over_row_name.empty() )
     {
-        optid = get_comm_option_id( m_loader, m_graph.mouse_over_row_name.c_str() );
+        std::string label;
 
-        std::string label = string_format( "Hide row '%s'", m_graph.mouse_over_row_name.c_str() );
+        if ( is_graph_row_zoomable() )
+        {
+            label = string_format( "Zoom '%s'", m_graph.mouse_over_row_name.c_str() );
+
+            if ( ImGui::MenuItem( label.c_str() ) )
+                zoom_graph_row();
+        }
+
+        optid = get_comm_option_id( m_loader, m_graph.mouse_over_row_name.c_str() );
+        label = string_format( "Hide row '%s'", m_graph.mouse_over_row_name.c_str() );
 
         if ( ImGui::MenuItem( label.c_str() ) )
             m_graph.rows.show_row( m_graph.mouse_over_row_name, GraphRows::HIDE_ROW );
