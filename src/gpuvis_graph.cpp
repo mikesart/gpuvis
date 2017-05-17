@@ -43,9 +43,6 @@
 
   Check if entire rows are clipped when drawing...
 
-  Add ability to zoom compute, sdma, print, etc.
-    Basically, zoom hovered row...
-
   Configurable hotkeys?
 
   From Pierre-Loup:
@@ -1822,7 +1819,7 @@ void TraceWin::graph_render_process()
         graph_render_mouse_selection( gi );
         graph_render_eventlist_selection( gi );
 
-        // Render row labels (taking panning into consideration)
+        // Render row labels last (taking panning into consideration)
         gi.set_pos_y( windowpos.y + start_y, windowsize.y, NULL );
         graph_render_row_labels( gi );
 

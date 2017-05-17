@@ -481,7 +481,7 @@ void TraceLoader::init( int argc, char **argv )
     m_options[ OPT_EventListRowCount ].opt_int( "Event List Size: %.0f", "eventlist_rows", 0, 0, 100 );
     m_options[ OPT_EventListRowCount ].hidden = true;
 
-    m_options[ OPT_Scale ].opt_float( "Font Scale: %.1f", "scale", 1.0f, 0.25f, 6.0f );
+    m_options[ OPT_Scale ].opt_float( "Font Scale: %.1f", "scale", 2.0f, 0.25f, 6.0f );
     m_options[ OPT_Scale ].hidden = true;
 
     m_options[ OPT_UseFreetype ].opt_bool( "Use Freetype", "use_freetype", false );
@@ -731,6 +731,32 @@ void TraceLoader::render()
         render_color_picker();
         ImGui::End();
     }
+
+    if ( m_show_scale_popup && !ImGui::IsPopupOpen( "Display Scaling" ) )
+    {
+        ImGui::OpenPopup( "Display Scaling" );
+        m_show_scale_popup = false;
+    }
+    if ( ImGui::BeginPopupModal( "Display Scaling", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
+    {
+        ImGui::Text( "Are you running on a high resolution display?" );
+        ImGui::Text( " You can update settings in Font Options dialog." );
+
+        ImGui::Separator();
+
+        if ( ImGui::Button( "Yes", ImVec2( 150, 0 ) ) )
+            ImGui::CloseCurrentPopup();
+
+        ImGui::SameLine();
+        if ( ImGui::Button( "No", ImVec2( 150, 0 ) ) )
+        {
+            m_options[ OPT_Scale ].valf = 1.0f;
+            m_font_main.m_changed = true;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
 }
 
 void TraceLoader::load_fonts()
@@ -748,6 +774,13 @@ void TraceLoader::load_fonts()
     //  print graph row backgrounds (in graph_render_print_timeline).
     for ( TraceEvents *trace_event : m_trace_events_list )
         trace_event->m_rect_size_max_x = -1.0f;
+
+    if ( m_inifile.GetFloat( "scale", -1.0f ) == -1.0f )
+    {
+        m_inifile.PutFloat( "scale", get_optf( OPT_Scale ) );
+        m_show_scale_popup = true;
+        m_show_font_window = true;
+    }
 }
 
 void TraceLoader::get_window_pos( int &x, int &y, int &w, int &h )

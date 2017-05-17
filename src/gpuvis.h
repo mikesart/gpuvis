@@ -806,4 +806,5 @@ public:
     bool m_show_imgui_metrics_editor = false;
     bool m_show_font_window = false;
     bool m_show_color_picker = false;
+    bool m_show_scale_popup = false;
 };
