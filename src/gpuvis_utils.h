@@ -51,6 +51,48 @@ inline float util_time_to_ms( util_time_t start, util_time_t end )
     return ( float )std::chrono::duration< double, std::milli >( diff ).count();
 }
 
+void logf_init();
+void logf_shutdown();
+void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
+void logf_update();
+void logf_clear();
+const std::vector< char * > &logf_get();
+
+// Helper routines to parse / create compute strings. Ie:
+//   comp_[1-2].[0-3].[0-8]
+// val is an index value from 0..(2*4*9)-1
+std::string comp_str_create_val( uint32_t val );
+std::string comp_str_create_abc( uint32_t a, uint32_t b, uint32_t c );
+bool comp_str_parse( const char *comp, uint32_t &a, uint32_t &b, uint32_t &c );
+bool comp_val_to_abc( uint32_t val, uint32_t &a, uint32_t &b, uint32_t &c );
+uint32_t comp_abc_to_val( uint32_t a, uint32_t b, uint32_t c );
+
+float imgui_scale( float val );
+void imgui_set_scale( float val );
+bool imgui_key_pressed( ImGuiKey key );
+
+void imgui_set_custom_style( float alpha );
+
+ImU32 imgui_col_from_hashval( uint32_t hashval, float sat = 0.9f, float alpha = 1.0f );
+ImU32 imgui_hsv( float h, float s, float v, float a );
+ImU32 imgui_col_complement( ImU32 col );
+ImU32 imgui_vec4_to_u32( const ImVec4 &vec );
+
+void imgui_text_bg( const char *str, const ImVec4 &bgcolor );
+
+bool imgui_push_smallfont();
+void imgui_pop_smallfont();
+
+inline char *strncasestr( const char *haystack, const char *needle, size_t needle_len )
+{
+   for ( ; *haystack; haystack++ )
+   {
+       if ( !strncasecmp( haystack, needle, needle_len ) )
+           return ( char * )haystack;
+   }
+   return NULL;
+}
+
 template < typename K, typename V >
 class util_umap
 {
@@ -134,68 +176,22 @@ public:
     char m_input_filename[ PATH_MAX ] = { 0 };
 };
 
-void logf_init();
-void logf_shutdown();
-void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
-void logf_update();
-void logf_clear();
-const std::vector< char * > &logf_get();
-
-// Helper routines to parse / create compute strings. Ie:
-//   comp_[1-2].[0-3].[0-8]
-// val is an index value from 0..(2*4*9)-1
-std::string comp_str_create_val( uint32_t val );
-std::string comp_str_create_abc( uint32_t a, uint32_t b, uint32_t c );
-bool comp_str_parse( const char *comp, uint32_t &a, uint32_t &b, uint32_t &c );
-bool comp_val_to_abc( uint32_t val, uint32_t &a, uint32_t &b, uint32_t &c );
-uint32_t comp_abc_to_val( uint32_t a, uint32_t b, uint32_t c );
-
-float imgui_scale( float val );
-void imgui_set_scale( float val );
-bool imgui_key_pressed( ImGuiKey key );
-
-void imgui_set_custom_style( float alpha );
-
-ImU32 imgui_col_from_hashval( uint32_t hashval, float sat = 0.9f, float alpha = 1.0f );
-ImU32 imgui_hsv( float h, float s, float v, float a );
-ImU32 imgui_col_complement( ImU32 col );
-ImU32 imgui_vec4_to_u32( const ImVec4 &vec );
-
-void imgui_text_bg( const char *str, const ImVec4 &bgcolor );
-
-inline char *strncasestr( const char *haystack, const char *needle, size_t needle_len )
-{
-   for ( ; *haystack; haystack++ )
-   {
-       if ( !strncasecmp( haystack, needle, needle_len ) )
-           return ( char * )haystack;
-   }
-   return NULL;
-}
-
-
 // Print color marked up text.
 // We've added a quick hack in ImFont::RenderText() which checks for:
 //   ESC + RGBA bytes
 // This class helps embed these 5 byte color esc sequences.
-class multi_text_color
+class TextClrs
 {
 public:
-    multi_text_color() {}
-    multi_text_color( const ImVec4 &color ) { set( color ); }
-    ~multi_text_color() {}
+    TextClrs() {}
+    TextClrs( const ImVec4 &color ) { set( color ); }
+    ~TextClrs() {}
 
     const char *c_str() { return buf; }
 
     const std::string m_str( const char *str )
     {
         return std::string( buf ) + str + def.c_str();
-    }
-
-    const std::string m_str( const ImVec4 &color, const char *str )
-    {
-        set( color );
-        return m_str( str );
     }
 
     void set( const ImVec4 &color )
@@ -213,14 +209,11 @@ public:
 public:
     char buf[ 6 ];
 
-    static multi_text_color bright_text;
-    static multi_text_color red;
-    static multi_text_color def;
-    static multi_text_color print_text;
+    static TextClrs bright_text;
+    static TextClrs red;
+    static TextClrs def;
+    static TextClrs print_text;
 };
-
-bool imgui_push_smallfont();
-void imgui_pop_smallfont();
 
 class ColorPicker
 {

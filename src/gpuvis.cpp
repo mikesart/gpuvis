@@ -54,12 +54,12 @@
   #include "noc_file_dialog.h"
 #endif
 
-multi_text_color multi_text_color::bright_text = { ImVec4( 1, 1, 0, 1 ) };
-multi_text_color multi_text_color::red = { ImVec4( 1, 0, 0, 1 ) };
-multi_text_color multi_text_color::def = { ImVec4( 0.90f, 0.90f, 0.90f, 1.00f ) };
-multi_text_color multi_text_color::print_text = { ImVec4( 1, 1, 0, 1 ) };
+TextClrs TextClrs::red = { ImVec4( 1, 0, 0, 1 ) };
+TextClrs TextClrs::def = { ImVec4( 0.90f, 0.90f, 0.90f, 1.00f ) };
+TextClrs TextClrs::print_text = { ImVec4( 1, 1, 0, 1 ) };
+TextClrs TextClrs::bright_text = { ImVec4( 1, 1, 0, 1 ) };
 
-void multi_text_color::update_colors()
+void TextClrs::update_colors()
 {
     def.set( ImGui::GetColorVec4( ImGuiCol_Text ) );
     print_text.set( Clrs::getv4( col_FtracePrintText ) );
@@ -1774,7 +1774,7 @@ bool TraceWin::render()
         {
             std::string tooltip;
 
-            tooltip += multi_text_color::bright_text.m_str( "Event Filter\n\n" );
+            tooltip += TextClrs::bright_text.m_str( "Event Filter\n\n" );
             tooltip += "Vars: Any field in Info column plus:\n";
             tooltip += "      $name, $comm, $user_comm, $id, $pid, $ts\n";
             tooltip += "Operators: &&, ||, !=, =, >, >=, <, <=, =~\n\n";
@@ -1954,7 +1954,7 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
     {
         ImGui::Separator();
 
-        std::string plot_label = std::string( "Create Plot for " ) + multi_text_color::bright_text.m_str( plot_str );
+        std::string plot_label = std::string( "Create Plot for " ) + TextClrs::bright_text.m_str( plot_str );
         if ( ImGui::MenuItem( plot_label.c_str() ) )
             m_create_plot_eventid = event.id;
     }
@@ -1976,7 +1976,7 @@ std::string get_event_fields_str( const trace_event_t &event, const char *eqstr,
         std::string str = string_format( "%s%s%s%c", field.key, eqstr, field.value, sep );
 
         if ( event.is_ftrace_print() && !strcmp( field.key, "buf" ) )
-            fieldstr += multi_text_color::print_text.m_str( str.c_str() );
+            fieldstr += TextClrs::print_text.m_str( str.c_str() );
         else
             fieldstr += str;
     }
@@ -2408,7 +2408,7 @@ void TraceLoader::render_font_options()
     {
         const char *font_name = m_font_main.m_name.c_str();
 
-        ImGui::TextWrapped( "%s: %s", multi_text_color::bright_text.m_str( font_name ).c_str(), lorem_str );
+        ImGui::TextWrapped( "%s: %s", TextClrs::bright_text.m_str( font_name ).c_str(), lorem_str );
 
         m_font_main.render_font_options( !!m_options[ OPT_UseFreetype ].val );
         ImGui::TreePop();
@@ -2421,7 +2421,7 @@ void TraceLoader::render_font_options()
         ImGui::BeginChild( "small_font", ImVec2( 0, ImGui::GetTextLineHeightWithSpacing() * 4 ) );
 
         imgui_push_smallfont();
-        ImGui::TextWrapped( "%s: %s", multi_text_color::bright_text.m_str( font_name ).c_str(), lorem_str );
+        ImGui::TextWrapped( "%s: %s", TextClrs::bright_text.m_str( font_name ).c_str(), lorem_str );
         imgui_pop_smallfont();
 
         ImGui::EndChild();
@@ -2547,7 +2547,7 @@ void TraceLoader::render_color_picker()
                 Clrs::set( m_selected_color, color );
 
                 if ( m_selected_color == col_FtracePrintText || m_selected_color == col_BrightText )
-                    multi_text_color::update_colors();
+                    TextClrs::update_colors();
 
                 if ( ( m_selected_color >= col_ImGui_Text ) && ( m_selected_color <= col_ImGui_ModalWindowDarkening ) )
                     changed = true;
@@ -2569,7 +2569,7 @@ void TraceLoader::render_color_picker()
     {
         imgui_set_custom_style( Clrs::getalpha( col_ThemeAlpha ) );
 
-        multi_text_color::update_colors();
+        TextClrs::update_colors();
     }
 }
 
@@ -2815,7 +2815,7 @@ int main( int argc, char **argv )
     SDL_GL_SetSwapInterval( 1 );
 
     // Setup imgui default text color
-    multi_text_color::update_colors();
+    TextClrs::update_colors();
 
     // Load our fonts
     loader.load_fonts();
