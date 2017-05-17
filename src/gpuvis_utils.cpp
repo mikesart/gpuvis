@@ -796,6 +796,23 @@ bool ColorPicker::render( ImU32 *pcolor )
 {
     bool ret = false;
 
+    {
+        static const char s_text[] = "Lorem ipsum dolor sit amet, consectetur adipiscing elit";
+        const ImVec2 size = ImGui::CalcTextSize( s_text );
+        const ImVec2 size2 = ImGui::CalcTextSize( " ffffffff" );
+
+        ImGui::BeginChild( "color_sample", ImVec2( 0, size.y * 4 ), true );
+        ImGui::Text( "%08x", *pcolor );
+        ImGui::SameLine();
+        ImGui::TextColored( ImColor( *pcolor ), s_text );
+
+        const ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + size.x + size2.x, pos.y + size.y ), *pcolor );
+        ImGui::EndChild();
+    }
+
+    ImGui::NewLine();
+
     ImGui::PushItemWidth( imgui_scale( 125.0f ) );
     ImGui::SliderFloat( "##s_value", &m_s, 0.0f, 1.0f, "sat %.2f");
     ImGui::PopItemWidth();

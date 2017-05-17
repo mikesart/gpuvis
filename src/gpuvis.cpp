@@ -2500,12 +2500,11 @@ void TraceLoader::render_color_picker()
      * Column 2: Draw our color picker
      */
     {
-        ImU32 color;
-
+        ImU32 color = Clrs::get( m_selected_color );
         const char *name = Clrs::name( m_selected_color );
         const char *desc = Clrs::desc( m_selected_color );
 
-        imgui_text_bg( string_format( "%s: %s", name, desc ).c_str(),
+        imgui_text_bg( string_format( "%s: %s", TextClrs::bright_text.m_str( name ).c_str(), desc ).c_str(),
                        ImGui::GetColorVec4( ImGuiCol_Header ) );
 
         if ( m_selected_color == col_ThemeAlpha ||
