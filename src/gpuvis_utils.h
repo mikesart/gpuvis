@@ -239,7 +239,7 @@ public:
 typedef uint32_t colors_t;
 enum : uint32_t
 {
-#define _XTAG( _name, _color, _desc ) col_ ## _name,
+#define _XTAG( _name, _color, _desc ) _name,
 #include "gpuvis_colors.inl"
 #undef _XTAG
     col_Max

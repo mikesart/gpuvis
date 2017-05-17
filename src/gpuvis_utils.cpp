@@ -907,7 +907,8 @@ void Clrs::set( colors_t col, ImU32 color )
 
 const char *Clrs::name( colors_t col )
 {
-    return s_colordata[ col ].name;
+    // Skip "col_" prefix
+    return s_colordata[ col ].name + 4;
 }
 
 const char *Clrs::desc( colors_t col )

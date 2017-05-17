@@ -2067,7 +2067,7 @@ static void draw_ts_line( const ImVec2 &pos )
 
     ImGui::GetWindowDrawList()->AddLine(
                 ImVec2( pos.x, pos_y ), ImVec2( max_x, pos_y ),
-                Clrs::get( col_MousePos ), imgui_scale( 2.0f ) );
+                Clrs::get( col_Graph_MousePos ), imgui_scale( 2.0f ) );
 
     ImGui::PushColumnClipRect();
 }
@@ -2183,7 +2183,7 @@ void TraceWin::events_list_render( CIniFile &inifile )
                             m_trace_events.m_events[ i ];
                 bool selected = ( m_eventlist.selected_eventid == event.id );
                 ImVec2 cursorpos = ImGui::GetCursorScreenPos();
-                ImVec4 color = Clrs::getv4( col_EventListText );
+                ImVec4 color = Clrs::getv4( col_EventList_Text );
 
                 ImGui::PushID( i );
 
@@ -2198,7 +2198,7 @@ void TraceWin::events_list_render( CIniFile &inifile )
                 bool highlight = !selected && std::binary_search(
                             m_eventlist.highlight_ids.begin(), m_eventlist.highlight_ids.end(), event.id );
                 if ( highlight )
-                    ImGui::PushStyleColor( ImGuiCol_Header, Clrs::getv4( col_EventListHov ) );
+                    ImGui::PushStyleColor( ImGuiCol_Header, Clrs::getv4( col_EventList_Hov ) );
 
                 // column 0: event id
                 {
@@ -2509,8 +2509,8 @@ void TraceLoader::render_color_picker()
                        ImGui::GetColorVec4( ImGuiCol_Header ) );
 
         if ( m_selected_color == col_ThemeAlpha ||
-             m_selected_color == col_PrintLabelSat ||
-             m_selected_color == col_PrintLabelAlpha )
+             m_selected_color == col_Graph_PrintLabelSat ||
+             m_selected_color == col_Graph_PrintLabelAlpha )
         {
             float val = Clrs::getalpha( m_selected_color );
 
@@ -2520,8 +2520,8 @@ void TraceLoader::render_color_picker()
             {
                 Clrs::set( m_selected_color, ImColor( val, val, val, val ) );
 
-                if ( m_selected_color == col_PrintLabelSat ||
-                     m_selected_color == col_PrintLabelAlpha )
+                if ( m_selected_color == col_Graph_PrintLabelSat ||
+                     m_selected_color == col_Graph_PrintLabelAlpha )
                 {
                     for ( TraceEvents *trace_event : m_trace_events_list )
                         trace_event->m_rect_size_max_x = -1.0f;
