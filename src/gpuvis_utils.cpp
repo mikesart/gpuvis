@@ -501,12 +501,13 @@ static colors_t col_index_from_imguicol( ImGuiCol col )
     case ImGuiCol_CloseButton: return col_ImGui_CloseButton;
     case ImGuiCol_CloseButtonHovered: return col_ImGui_CloseButtonHovered;
     case ImGuiCol_CloseButtonActive: return col_ImGui_CloseButtonActive;
-    case ImGuiCol_PlotLines: return col_ImGui_PlotLines;
-    case ImGuiCol_PlotLinesHovered: return col_ImGui_PlotLinesHovered;
-    case ImGuiCol_PlotHistogram: return col_ImGui_PlotHistogram;
-    case ImGuiCol_PlotHistogramHovered: return col_ImGui_PlotHistogramHovered;
     case ImGuiCol_TextSelectedBg: return col_ImGui_TextSelectedBg;
     case ImGuiCol_ModalWindowDarkening: return col_ImGui_ModalWindowDarkening;
+
+    case ImGuiCol_PlotLines: return col_Max;
+    case ImGuiCol_PlotLinesHovered: return col_Max;
+    case ImGuiCol_PlotHistogram: return col_Max;
+    case ImGuiCol_PlotHistogramHovered: return col_Max;
     }
 
     assert( 0 );
@@ -536,44 +537,6 @@ void imgui_set_custom_style( float alpha )
                 col.y *= alpha;
                 col.z *= alpha;
                 col.w *= alpha;
-            }
-        }
-    }
-}
-
-void imgui_ini_settings( CIniFile &inifile, bool save )
-{
-    ImGuiStyle &style = ImGui::GetStyle();
-    const char section[] = "$imgui_settings$";
-
-    if ( save )
-    {
-        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
-        {
-            const ImVec4 &col = style.Colors[ i ];
-            const char *name = ImGui::GetStyleColName( i );
-
-            inifile.PutVec4( name, col, section );
-        }
-    }
-    else
-    {
-        ImVec4 defcol = { -1.0f, -1.0f, -1.0f, -1.0f };
-
-        for ( int i = 0; i < ImGuiCol_COUNT; i++ )
-        {
-            const char *name = ImGui::GetStyleColName( i );
-
-            ImVec4 col = inifile.GetVec4( name, defcol, section );
-            if ( col.w == -1.0f )
-            {
-                // Default to no alpha for our windows...
-                if ( i == ImGuiCol_WindowBg )
-                    ImGui::GetStyle().Colors[ i ].w = 1.0f;
-            }
-            else
-            {
-                style.Colors[ i ] = col;
             }
         }
     }
@@ -875,7 +838,7 @@ bool ColorPicker::render( ImU32 *pcolor )
 
 Clrs::colordata_t Clrs::s_colordata[ col_Max ] =
 {
-#define _XTAG( _name, _color ) { #_name, _color, _color, false },
+#define _XTAG( _name, _color, _desc ) { #_name, _color, _color, false, _desc },
   #include "gpuvis_colors.inl"
 #undef _XTAG
 };
@@ -945,6 +908,11 @@ void Clrs::set( colors_t col, ImU32 color )
 const char *Clrs::name( colors_t col )
 {
     return s_colordata[ col ].name;
+}
+
+const char *Clrs::desc( colors_t col )
+{
+    return s_colordata[ col ].desc;
 }
 
 bool Clrs::is_default( colors_t col )

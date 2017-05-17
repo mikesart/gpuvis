@@ -231,7 +231,7 @@ static void imgui_draw_text( float x, float y, const char *text, ImU32 color, bo
 
         ImGui::GetWindowDrawList()->AddRectFilled(
                     ImVec2( x - 1, y - 1 ), ImVec2( x + textsize.x + 2, y + textsize.y + 2 ),
-                    Clrs::get( col_RowLabelBk ) );
+                    Clrs::get( col_RowLabelTextBk ) );
     }
 
     ImGui::GetWindowDrawList()->AddText( ImVec2( x, y ), color, text );
@@ -933,8 +933,8 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     if ( m_trace_events.m_rect_size_max_x == -1.0f )
     {
         m_trace_events.update_event_print_info_rects(
-                    Clrs::getalpha( col_ColorLabelSat ),
-                    Clrs::getalpha( col_ColorLabelAlpha ) );
+                    Clrs::getalpha( col_PrintLabelSat ),
+                    Clrs::getalpha( col_PrintLabelAlpha ) );
     }
 
     // We need to start drawing to the left of 0 for timeline_labels
@@ -1484,18 +1484,18 @@ void TraceWin::graph_render_eventlist_selection( class graph_info_t &gi )
 static void render_row_label( float x, float y, row_info_t &ri )
 {
     std::string label = string_format( "%u) %s", ri.id, ri.row_name.c_str() );
-    imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabel ), true );
+    imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabelText ), true );
     y += ImGui::GetTextLineHeight();
 
     if ( ri.minval <= ri.maxval )
     {
         label = string_format( "min:%.2f max:%.2f", ri.minval, ri.maxval );
-        imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabel ), true );
+        imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabelText ), true );
     }
     else if ( ri.num_events )
     {
         label = string_format( "%u events", ri.num_events );
-        imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabel ), true );
+        imgui_draw_text( x, y, label.c_str(), Clrs::get( col_RowLabelText ), true );
     }
 }
 

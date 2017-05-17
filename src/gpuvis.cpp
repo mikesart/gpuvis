@@ -2472,6 +2472,8 @@ void TraceLoader::render_color_picker()
 
         for ( colors_t i = 0; i < col_Max; i++ )
         {
+            ImGui::BeginGroup();
+
             bool selected = ( i == m_selected_color );
             ImVec2 pos = ImGui::GetCursorScreenPos();
             ImU32 col = Clrs::get( i );
@@ -2483,6 +2485,11 @@ void TraceLoader::render_color_picker()
             if ( ImGui::Selectable( name, selected, 0 ) )
                 m_selected_color = i;
             ImGui::Unindent( imgui_scale( 40.0f ) );
+
+            ImGui::EndGroup();
+
+            if ( ImGui::IsItemHovered() )
+                ImGui::SetTooltip( "%s", Clrs::desc( i ) );
         }
 
         ImGui::EndChild();
@@ -2496,12 +2503,14 @@ void TraceLoader::render_color_picker()
         ImU32 color;
 
         const char *name = Clrs::name( m_selected_color );
+        const char *desc = Clrs::desc( m_selected_color );
 
-        imgui_text_bg( name, ImGui::GetColorVec4( ImGuiCol_Header ) );
+        imgui_text_bg( string_format( "%s: %s", name, desc ).c_str(),
+                       ImGui::GetColorVec4( ImGuiCol_Header ) );
 
         if ( m_selected_color == col_ThemeAlpha ||
-             m_selected_color == col_ColorLabelSat ||
-             m_selected_color == col_ColorLabelAlpha )
+             m_selected_color == col_PrintLabelSat ||
+             m_selected_color == col_PrintLabelAlpha )
         {
             float val = Clrs::getalpha( m_selected_color );
 
@@ -2511,8 +2520,8 @@ void TraceLoader::render_color_picker()
             {
                 Clrs::set( m_selected_color, ImColor( val, val, val, val ) );
 
-                if ( m_selected_color == col_ColorLabelSat ||
-                     m_selected_color == col_ColorLabelAlpha )
+                if ( m_selected_color == col_PrintLabelSat ||
+                     m_selected_color == col_PrintLabelAlpha )
                 {
                     for ( TraceEvents *trace_event : m_trace_events_list )
                         trace_event->m_rect_size_max_x = -1.0f;

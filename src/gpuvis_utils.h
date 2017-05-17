@@ -239,7 +239,7 @@ public:
 typedef uint32_t colors_t;
 enum : uint32_t
 {
-#define _XTAG( _name, _color ) col_ ## _name,
+#define _XTAG( _name, _color, _desc ) col_ ## _name,
 #include "gpuvis_colors.inl"
 #undef _XTAG
     col_Max
@@ -260,6 +260,7 @@ public:
 
     static void set( colors_t col, ImU32 color );
     static const char *name( colors_t col );
+    static const char *desc( colors_t col );
 
     static bool is_default( colors_t col );
     static void reset( colors_t col );
@@ -271,6 +272,7 @@ private:
         ImU32 color;
         const ImU32 defcolor;
         bool modified;
+        const char *desc;
     };
     static colordata_t s_colordata[ col_Max ];
 };
