@@ -412,11 +412,6 @@ ImU32 imgui_col_complement( ImU32 col )
     return imgui_hsv( h, s, v, 1.0f );
 }
 
-ImU32 imgui_vec4_to_u32( const ImVec4 &vec )
-{
-    return ImGui::ColorConvertFloat4ToU32( vec );
-}
-
 void imgui_text_bg( const char *str, const ImVec4 &bgcolor )
 {
     ImGui::PushStyleColor( ImGuiCol_HeaderHovered, bgcolor );
@@ -944,6 +939,7 @@ void Clrs::reset( colors_t col )
 void TextClrs::set( std::string &str, const ImVec4 &color )
 {
     str.resize( 5 );
+
     str[ 0 ] = '\033';
     str[ 1 ] = std::max< uint8_t >( 1, color.x * 255.0f );
     str[ 2 ] = std::max< uint8_t >( 1, color.y * 255.0f );
