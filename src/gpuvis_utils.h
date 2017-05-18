@@ -27,8 +27,11 @@
 
 #include "stlini.h"
 
-// Our ini file singleton
+// ini file singleton
 CIniFile &s_ini();
+
+// Colors singleton
+class Clrs &s_clrs();
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -246,19 +249,19 @@ public:
     Clrs() {}
     ~Clrs() {}
 
-    static void init();
-    static void shutdown();
+    void init();
+    void shutdown();
 
-    static ImU32 get( colors_t col, ImU32 alpha = ( uint32_t )-1 );
-    static ImVec4 getv4( colors_t col, float alpha = -1.0f );
-    static float getalpha( colors_t col );
+    ImU32 get( colors_t col, ImU32 alpha = ( uint32_t )-1 );
+    ImVec4 getv4( colors_t col, float alpha = -1.0f );
+    float getalpha( colors_t col );
 
-    static void set( colors_t col, ImU32 color );
-    static const char *name( colors_t col );
-    static const char *desc( colors_t col );
+    void set( colors_t col, ImU32 color );
+    const char *name( colors_t col );
+    const char *desc( colors_t col );
 
-    static bool is_default( colors_t col );
-    static void reset( colors_t col );
+    bool is_default( colors_t col );
+    void reset( colors_t col );
 
 private:
     struct colordata_t

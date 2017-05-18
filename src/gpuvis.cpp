@@ -62,8 +62,8 @@ TextClrs TextClrs::bright_text = { ImVec4( 1, 1, 0, 1 ) };
 void TextClrs::update_colors()
 {
     def.set( ImGui::GetColorVec4( ImGuiCol_Text ) );
-    print_text.set( Clrs::getv4( col_FtracePrintText ) );
-    bright_text.set( Clrs::getv4( col_BrightText ) );
+    print_text.set( s_clrs().getv4( col_FtracePrintText ) );
+    bright_text.set( s_clrs().getv4( col_BrightText ) );
 }
 
 CIniFile &s_ini()
@@ -76,6 +76,12 @@ Opts &s_opts()
 {
     static Opts s_opts;
     return s_opts;
+}
+
+Clrs &s_clrs()
+{
+    static Clrs s_clrs;
+    return s_clrs;
 }
 
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
@@ -688,8 +694,6 @@ int SDLCALL TraceLoader::thread_func( void *data )
 
 void TraceLoader::init( int argc, char **argv )
 {
-    Clrs::init();
-
     ImGuiIO &io = ImGui::GetIO();
     m_imguiwindow_entries = s_ini().GetSectionEntries( "$imguiwindows$" );
     io.IniLoadSettingCB = std::bind( imgui_ini_load_settings_cb, &m_imguiwindow_entries, _1, _2 );
@@ -697,7 +701,7 @@ void TraceLoader::init( int argc, char **argv )
 
     parse_cmdline( argc, argv );
 
-    imgui_set_custom_style( Clrs::getalpha( col_ThemeAlpha ) );
+    imgui_set_custom_style( s_clrs().getalpha( col_ThemeAlpha ) );
 
     logf( "Welcome to gpuvis\n" );
 
@@ -733,8 +737,6 @@ void TraceLoader::shutdown()
     for ( TraceEvents *events : m_trace_events_list )
         delete events;
     m_trace_events_list.clear();
-
-    Clrs::shutdown();
 }
 
 void TraceLoader::render()
@@ -2148,7 +2150,7 @@ static void draw_ts_line( const ImVec2 &pos )
 
     ImGui::GetWindowDrawList()->AddLine(
                 ImVec2( pos.x, pos_y ), ImVec2( max_x, pos_y ),
-                Clrs::get( col_Graph_MousePos ), imgui_scale( 2.0f ) );
+                s_clrs().get( col_Graph_MousePos ), imgui_scale( 2.0f ) );
 
     ImGui::PushColumnClipRect();
 }
@@ -2264,14 +2266,14 @@ void TraceWin::events_list_render()
                             m_trace_events.m_events[ i ];
                 bool selected = ( m_eventlist.selected_eventid == event.id );
                 ImVec2 cursorpos = ImGui::GetCursorScreenPos();
-                ImVec4 color = Clrs::getv4( col_EventList_Text );
+                ImVec4 color = s_clrs().getv4( col_EventList_Text );
 
                 ImGui::PushID( i );
 
                 if ( event.is_vblank() )
                 {
                     // If this is a vblank event, draw the text in blue or red vblank colors
-                    color = Clrs::getv4( ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0 );
+                    color = s_clrs().getv4( ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0 );
                 }
                 ImGui::PushStyleColor( ImGuiCol_Text, color );
 
@@ -2279,7 +2281,7 @@ void TraceWin::events_list_render()
                 bool highlight = !selected && std::binary_search(
                             m_eventlist.highlight_ids.begin(), m_eventlist.highlight_ids.end(), event.id );
                 if ( highlight )
-                    ImGui::PushStyleColor( ImGuiCol_Header, Clrs::getv4( col_EventList_Hov ) );
+                    ImGui::PushStyleColor( ImGuiCol_Header, s_clrs().getv4( col_EventList_Hov ) );
 
                 // column 0: event id
                 {
@@ -2337,7 +2339,7 @@ void TraceWin::events_list_render()
                 {
                     if ( event.is_ftrace_print() )
                     {
-                        ImGui::TextColored( Clrs::getv4( col_FtracePrintText ), "%s", get_event_field_val( event.fields, "buf" ) );
+                        ImGui::TextColored( s_clrs().getv4( col_FtracePrintText ), "%s", get_event_field_val( event.fields, "buf" ) );
                     }
                     else
                     {
@@ -2503,7 +2505,7 @@ void TraceLoader::render_font_options()
         ImGui::Image( atlas->TexID,
                       ImVec2( (float )atlas->TexWidth, ( float )atlas->TexHeight),
                       ImVec2( 0, 0 ), ImVec2( 1, 1 ),
-                      ImColor( 255, 255, 255, 255 ), ImColor( 255, 255, 255, 128 ) );
+                      ImVec4( 1, 1, 1, 1 ), ImVec4( 1, 1, 1, 0.5f ) );
         ImGui::TreePop();
     }
 
@@ -2518,7 +2520,7 @@ void TraceLoader::render_color_picker()
     if ( ImGui::Button( "Reset to Defaults" ) )
     {
         for ( colors_t i = 0; i < col_Max; i++ )
-            Clrs::reset( i );
+            s_clrs().reset( i );
         changed = true;
     }
 
@@ -2542,8 +2544,8 @@ void TraceLoader::render_color_picker()
 
             bool selected = ( i == m_selected_color );
             ImVec2 pos = ImGui::GetCursorScreenPos();
-            ImU32 col = Clrs::get( i );
-            const char *name = Clrs::name( i );
+            ImU32 col = s_clrs().get( i );
+            const char *name = s_clrs().name( i );
 
             ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + w, pos.y + text_h ), col );
 
@@ -2555,7 +2557,7 @@ void TraceLoader::render_color_picker()
             ImGui::EndGroup();
 
             if ( ImGui::IsItemHovered() )
-                ImGui::SetTooltip( "%s", Clrs::desc( i ) );
+                ImGui::SetTooltip( "%s", s_clrs().desc( i ) );
         }
 
         ImGui::EndChild();
@@ -2566,9 +2568,9 @@ void TraceLoader::render_color_picker()
      * Column 2: Draw our color picker
      */
     {
-        ImU32 color = Clrs::get( m_selected_color );
-        const char *name = Clrs::name( m_selected_color );
-        const char *desc = Clrs::desc( m_selected_color );
+        ImU32 color = s_clrs().get( m_selected_color );
+        const char *name = s_clrs().name( m_selected_color );
+        const char *desc = s_clrs().desc( m_selected_color );
 
         imgui_text_bg( string_format( "%s: %s", TextClrs::bright_text.m_str( name ).c_str(), desc ).c_str(),
                        ImGui::GetColorVec4( ImGuiCol_Header ) );
@@ -2577,13 +2579,13 @@ void TraceLoader::render_color_picker()
              m_selected_color == col_Graph_PrintLabelSat ||
              m_selected_color == col_Graph_PrintLabelAlpha )
         {
-            float val = Clrs::getalpha( m_selected_color );
+            float val = s_clrs().getalpha( m_selected_color );
 
             ImGui::PushItemWidth( imgui_scale( 125.0f ) );
 
             if ( ImGui::SliderFloat( "##alpha_val", &val, 0.0f, 1.0f, "%.02f" ) )
             {
-                Clrs::set( m_selected_color, ImColor( val, val, val, val ) );
+                s_clrs().set( m_selected_color, ImColor( val, val, val, val ) );
 
                 if ( m_selected_color == col_Graph_PrintLabelSat ||
                      m_selected_color == col_Graph_PrintLabelAlpha )
@@ -2599,7 +2601,7 @@ void TraceLoader::render_color_picker()
 
             if ( ImGui::Button( "Reset to Default" ) )
             {
-                Clrs::reset( m_selected_color );
+                s_clrs().reset( m_selected_color );
                 changed = true;
             }
         }
@@ -2609,7 +2611,7 @@ void TraceLoader::render_color_picker()
 
             if ( m_colorpicker.render( &color ) )
             {
-                Clrs::set( m_selected_color, color );
+                s_clrs().set( m_selected_color, color );
 
                 if ( m_selected_color == col_FtracePrintText || m_selected_color == col_BrightText )
                     TextClrs::update_colors();
@@ -2621,7 +2623,7 @@ void TraceLoader::render_color_picker()
             ImGui::NewLine();
             if ( ImGui::Button( "Reset to Default" ) )
             {
-                Clrs::reset( m_selected_color );
+                s_clrs().reset( m_selected_color );
                 changed = true;
             }
         }
@@ -2632,7 +2634,7 @@ void TraceLoader::render_color_picker()
 
     if ( changed )
     {
-        imgui_set_custom_style( Clrs::getalpha( col_ThemeAlpha ) );
+        imgui_set_custom_style( s_clrs().getalpha( col_ThemeAlpha ) );
 
         TextClrs::update_colors();
     }
@@ -2693,9 +2695,9 @@ void TraceLoader::render_log()
             ImVec4 col = ImVec4( 1, 1, 1, 1 );
 
             if ( !strncasecmp( item, "[error]", 7 ) )
-                col = ImColor( 1.0f, 0.4f, 0.4f, 1.0f );
+                col = ImVec4( 1.0f, 0.4f, 0.4f, 1.0f );
             else if ( strncmp( item, "# ", 2 ) == 0 )
-                col = ImColor( 1.0f, 0.78f, 0.58f, 1.0f );
+                col = ImVec4( 1.0f, 0.78f, 0.58f, 1.0f );
 
             ImGui::PushStyleColor( ImGuiCol_Text, col );
             ImGui::TextUnformatted( item );
@@ -2855,6 +2857,8 @@ int main( int argc, char **argv )
 
     // Init ini singleton
     s_ini().Open( "gpuvis", "gpuvis.ini" );
+    // Initialize colors
+    s_clrs().init();
     // Init opts singleton
     s_opts().init();
     // Init loader
@@ -2924,7 +2928,7 @@ int main( int argc, char **argv )
 
         {
             // ImGui Rendering
-            const ImVec4 color = ( ImColor )Clrs::get( col_ClearColor );
+            const ImVec4 color = s_clrs().getv4( col_ClearColor );
             const ImVec2 &size = ImGui::GetIO().DisplaySize;
 
             glViewport( 0, 0, ( int )size.x, ( int )size.y );
@@ -2973,6 +2977,8 @@ int main( int argc, char **argv )
     loader.shutdown();
     // Write option settings to ini file
     s_opts().shutdown();
+    // Save color entries
+    s_clrs().shutdown();
     // Close ini file
     s_ini().Close();
 

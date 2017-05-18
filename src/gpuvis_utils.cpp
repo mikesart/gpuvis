@@ -527,7 +527,7 @@ void imgui_set_custom_style( float alpha )
         {
             ImVec4 &col = style.Colors[ i ];
 
-            col = Clrs::getv4( icol );
+            col = s_clrs().getv4( icol );
 
             if ( col.w < 1.00f )
             {
@@ -828,20 +828,21 @@ bool ColorPicker::render( ImU32 *pcolor )
     for ( int i = 0; i < 64; i++ )
     {
         float h = i / 63.0f;
-        ImColor col = imgui_hsv( h, m_s, m_v, m_a );
-        std::string name = string_format( "%08x", ( ImU32 )col );
+        ImColor colv4 = ImColor::HSV( h, m_s, m_v, m_a );
+        ImU32 colu32 = ( ImU32 )colv4;
+        std::string name = string_format( "%08x", colu32 );
 
         if ( i % 8 )
             ImGui::SameLine();
 
         ImGui::PushID( i );
-        ImGui::PushStyleColor( ImGuiCol_Button, col );
-        ImGui::PushStyleColor( ImGuiCol_ButtonActive, col );
+        ImGui::PushStyleColor( ImGuiCol_Button, colv4 );
+        ImGui::PushStyleColor( ImGuiCol_ButtonActive, colv4 );
 
         if ( ImGui::Button( name.c_str(), ImVec2( imgui_scale( 80.0f ), 0.0f ) ) )
         {
             ret = true;
-            *pcolor = ( ImU32 )col;
+            *pcolor = colu32;
         }
 
         ImGui::PopStyleColor( 2 );
@@ -880,7 +881,7 @@ void Clrs::shutdown()
         {
             const char *key = s_colordata[ i ].name;
 
-            if ( Clrs::is_default( i ) )
+            if ( is_default( i ) )
                 s_ini().PutStr( key, "", "$imgui_colors$" );
             else
                 s_ini().PutUint64( key, s_colordata[ i ].color, "$imgui_colors$" );
@@ -898,9 +899,8 @@ ImU32 Clrs::get( colors_t col, ImU32 alpha )
 
 ImVec4 Clrs::getv4( colors_t col, float alpha )
 {
-    ImVec4 color;
+    ImVec4 color = ImColor( s_colordata[ col ].color );
 
-    color = ( ImColor )s_colordata[ col ].color;
     if ( alpha >= 0.0f )
         color.w = alpha;
     return color;
