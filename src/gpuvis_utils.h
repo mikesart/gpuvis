@@ -32,7 +32,7 @@ CIniFile &s_ini();
 
 // Color singletons
 class Clrs &s_clrs();
-class TextClrs s_textclrs();
+class TextClrs &s_textclrs();
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -186,39 +186,34 @@ public:
 // We've added a quick hack in ImFont::RenderText() which checks for:
 //   ESC + RGBA bytes
 // This class helps embed these 5 byte color esc sequences.
+enum text_colors_t
+{
+    TClr_Def,
+    TClr_Bright,
+    TClr_FtracePrint,
+    TClr_Red,
+    TClr_Max
+};
 class TextClrs
 {
 public:
     TextClrs() {}
-    TextClrs( const ImVec4 &color ) { set( color ); }
     ~TextClrs() {}
 
-    const char *c_str() { return buf; }
+    const char *str( text_colors_t clr )                        { return m_buf[ clr ].c_str(); }
+    const std::string bright_str( const std::string &str )      { return mstr( TClr_Bright, str ); }
+    const std::string ftraceprint_str( const std::string &str ) { return mstr( TClr_FtracePrint, str ); }
 
-    const std::string m_str( const char *str )
-    {
-        return std::string( buf ) + str + def.c_str();
-    }
+    void update_colors();
 
-    void set( const ImVec4 &color )
-    {
-        buf[ 0 ] = '\033';
-        buf[ 1 ] = std::max< uint8_t >( 1, color.x * 255.0f );
-        buf[ 2 ] = std::max< uint8_t >( 1, color.y * 255.0f );
-        buf[ 3 ] = std::max< uint8_t >( 1, color.z * 255.0f );
-        buf[ 4 ] = std::max< uint8_t >( 1, color.w * 255.0f );
-        buf[ 5 ] = 0;
-    }
-
-    static void update_colors();
+private:
+    void set( std::string &str, const ImVec4 &color );
+    const std::string mstr( text_colors_t clr, const std::string &str );
 
 public:
-    char buf[ 6 ];
-
-    static TextClrs bright_text;
-    static TextClrs red;
-    static TextClrs def;
-    static TextClrs print_text;
+    size_t index = 0;
+    std::array< std::string, 10 > m_cache;
+    std::string m_buf[ TClr_Max ];
 };
 
 class ColorPicker

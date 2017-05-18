@@ -54,18 +54,6 @@
   #include "noc_file_dialog.h"
 #endif
 
-TextClrs TextClrs::red = { ImVec4( 1, 0, 0, 1 ) };
-TextClrs TextClrs::def = { ImVec4( 0.90f, 0.90f, 0.90f, 1.00f ) };
-TextClrs TextClrs::print_text = { ImVec4( 1, 1, 0, 1 ) };
-TextClrs TextClrs::bright_text = { ImVec4( 1, 1, 0, 1 ) };
-
-void TextClrs::update_colors()
-{
-    def.set( ImGui::GetColorVec4( ImGuiCol_Text ) );
-    print_text.set( s_clrs().getv4( col_FtracePrintText ) );
-    bright_text.set( s_clrs().getv4( col_BrightText ) );
-}
-
 CIniFile &s_ini()
 {
     static CIniFile s_inifile;
@@ -84,7 +72,7 @@ Clrs &s_clrs()
     return s_clrs;
 }
 
-TextClrs s_textclrs()
+TextClrs &s_textclrs()
 {
     static TextClrs s_textclrs;
     return s_textclrs;
@@ -1863,7 +1851,7 @@ bool TraceWin::render()
         {
             std::string tooltip;
 
-            tooltip += s_textclrs().bright_text.m_str( "Event Filter\n\n" );
+            tooltip += s_textclrs().bright_str( "Event Filter\n\n" );
             tooltip += "Vars: Any field in Info column plus:\n";
             tooltip += "      $name, $comm, $user_comm, $id, $pid, $ts\n";
             tooltip += "Operators: &&, ||, !=, =, >, >=, <, <=, =~\n\n";
@@ -2043,7 +2031,7 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
     {
         ImGui::Separator();
 
-        std::string plot_label = std::string( "Create Plot for " ) + s_textclrs().bright_text.m_str( plot_str );
+        std::string plot_label = std::string( "Create Plot for " ) + s_textclrs().bright_str( plot_str );
         if ( ImGui::MenuItem( plot_label.c_str() ) )
             m_create_plot_eventid = event.id;
     }
@@ -2065,7 +2053,7 @@ std::string get_event_fields_str( const trace_event_t &event, const char *eqstr,
         std::string str = string_format( "%s%s%s%c", field.key, eqstr, field.value, sep );
 
         if ( event.is_ftrace_print() && !strcmp( field.key, "buf" ) )
-            fieldstr += s_textclrs().print_text.m_str( str.c_str() );
+            fieldstr += s_textclrs().ftraceprint_str( str.c_str() );
         else
             fieldstr += str;
     }
@@ -2480,9 +2468,9 @@ void TraceLoader::render_font_options()
 
     if ( ImGui::TreeNodeEx( "Main Font", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        const char *font_name = m_font_main.m_name.c_str();
+        std::string font_name = s_textclrs().bright_str( m_font_main.m_name );
 
-        ImGui::TextWrapped( "%s: %s", s_textclrs().bright_text.m_str( font_name ).c_str(), lorem_str );
+        ImGui::TextWrapped( "%s: %s", font_name.c_str(), lorem_str );
 
         m_font_main.render_font_options( s_opts().getb( OPT_UseFreetype ) );
         ImGui::TreePop();
@@ -2490,12 +2478,12 @@ void TraceLoader::render_font_options()
 
     if ( ImGui::TreeNodeEx( "Small Font", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        const char *font_name = m_font_small.m_name.c_str();
+        std::string font_name = s_textclrs().bright_str( m_font_small.m_name );
 
         ImGui::BeginChild( "small_font", ImVec2( 0, ImGui::GetTextLineHeightWithSpacing() * 4 ) );
 
         imgui_push_smallfont();
-        ImGui::TextWrapped( "%s: %s", s_textclrs().bright_text.m_str( font_name ).c_str(), lorem_str );
+        ImGui::TextWrapped( "%s: %s", font_name.c_str(), lorem_str );
         imgui_pop_smallfont();
 
         ImGui::EndChild();
@@ -2577,8 +2565,9 @@ void TraceLoader::render_color_picker()
         ImU32 color = s_clrs().get( m_selected_color );
         const char *name = s_clrs().name( m_selected_color );
         const char *desc = s_clrs().desc( m_selected_color );
+        std::string brightname = s_textclrs().bright_str( name );
 
-        imgui_text_bg( string_format( "%s: %s", s_textclrs().bright_text.m_str( name ).c_str(), desc ).c_str(),
+        imgui_text_bg( string_format( "%s: %s", brightname.c_str(), desc ).c_str(),
                        ImGui::GetColorVec4( ImGuiCol_Header ) );
 
         if ( m_selected_color == col_ThemeAlpha ||
@@ -2869,6 +2858,8 @@ int main( int argc, char **argv )
     s_opts().init();
     // Init loader
     loader.init( argc, argv );
+    // Setup imgui default text color
+    s_textclrs().update_colors();
 
     // Setup window
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG );
@@ -2893,9 +2884,6 @@ int main( int argc, char **argv )
 
     // 1 for updates synchronized with the vertical retrace
     SDL_GL_SetSwapInterval( 1 );
-
-    // Setup imgui default text color
-    s_textclrs().update_colors();
 
     // Load our fonts
     loader.load_fonts();

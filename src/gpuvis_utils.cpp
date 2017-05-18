@@ -941,6 +941,29 @@ void Clrs::reset( colors_t col )
     s_colordata[ col ].color = s_colordata[ col ].defcolor;
 }
 
+void TextClrs::set( std::string &str, const ImVec4 &color )
+{
+    str.resize( 5 );
+    str[ 0 ] = '\033';
+    str[ 1 ] = std::max< uint8_t >( 1, color.x * 255.0f );
+    str[ 2 ] = std::max< uint8_t >( 1, color.y * 255.0f );
+    str[ 3 ] = std::max< uint8_t >( 1, color.z * 255.0f );
+    str[ 4 ] = std::max< uint8_t >( 1, color.w * 255.0f );
+}
+
+const std::string TextClrs::mstr( text_colors_t clr, const std::string &str )
+{
+    return m_buf[ clr ] + str + m_buf[ TClr_Def ];
+}
+
+void TextClrs::update_colors()
+{
+    set( m_buf[ TClr_Def ], ImGui::GetColorVec4( ImGuiCol_Text ) );
+    set( m_buf[ TClr_FtracePrint ], s_clrs().getv4( col_FtracePrintText ) );
+    set( m_buf[ TClr_Bright ], s_clrs().getv4( col_BrightText ) );
+    set( m_buf[ TClr_Red ], ImVec4( 0.90f, 0.90f, 0.90f, 1.00f ) );
+}
+
 #if defined( WIN32 )
 
 #include <shlwapi.h>
