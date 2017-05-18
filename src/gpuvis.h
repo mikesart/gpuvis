@@ -29,6 +29,9 @@
 #include "gpuvis_macros.h"
 #include "gpuvis_utils.h"
 
+// Opts singleton
+class Opts &s_opts();
+
 struct trace_info_t
 {
     uint32_t cpus = 0;
@@ -780,8 +783,6 @@ public:
 
     uint32_t m_crtc_max = 0;
     std::vector< std::string > m_inputfiles;
-
-    Opts m_opts;
 
     FontInfo m_font_main;
     FontInfo m_font_small;

@@ -331,13 +331,13 @@ void event_renderer_t::draw()
 
 static option_id_t get_comm_option_id( TraceLoader &loader, const std::string &row_name )
 {
-    option_id_t optid = loader.m_opts.get_opt_graph_rowsize_id( row_name );
+    option_id_t optid = s_opts().get_opt_graph_rowsize_id( row_name );
 
     if ( optid != OPT_Invalid )
         return optid;
 
     if ( !strncmp( row_name.c_str(), "plot:", 5 ) )
-        return loader.m_opts.add_opt_graph_rowsize( row_name.c_str() );
+        return s_opts().add_opt_graph_rowsize( row_name.c_str() );
 
     return OPT_Invalid;
 }
@@ -410,7 +410,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
 
         if ( optid != OPT_Invalid )
         {
-            int rows = ( optid != OPT_Invalid ) ? win->m_loader.m_opts.geti( optid ) : 4;
+            int rows = ( optid != OPT_Invalid ) ? s_opts().geti( optid ) : 4;
 
             rinfo.row_h = Clamp< int >( rows, 2, 50 ) * text_h;
         }
@@ -444,10 +444,10 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
                 ImGui::GetMousePos() : ImVec2( -1024, -1024 );
 
     // Check if we're supposed to render filtered events only
-    graph_only_filtered = win->m_loader.m_opts.getb( OPT_GraphOnlyFiltered ) &&
+    graph_only_filtered = s_opts().getb( OPT_GraphOnlyFiltered ) &&
                           !win->m_eventlist.filtered_events.empty();
 
-    timeline_render_user = win->m_loader.m_opts.getb( OPT_TimelineRenderUserSpace );
+    timeline_render_user = s_opts().getb( OPT_TimelineRenderUserSpace );
 
     const std::vector< trace_event_t > &events = win->m_trace_events.m_events;
 
@@ -925,7 +925,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
     uint32_t num_events = 0;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
-    bool timeline_labels = m_loader.m_opts.getb( OPT_PrintTimelineLabels ) && !ImGui::GetIO().KeyAlt;
+    bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) && !ImGui::GetIO().KeyAlt;
 
     uint32_t row_count = std::max< uint32_t >( 1, gi.h / gi.text_h - 1 );
 
@@ -1105,8 +1105,8 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
 
     uint32_t timeline_row_count = gi.h / gi.text_h;
 
-    bool render_timeline_events = m_loader.m_opts.getb( OPT_TimelineEvents );
-    bool render_timeline_labels = m_loader.m_opts.getb( OPT_TimelineLabels ) && !ImGui::GetIO().KeyAlt;
+    bool render_timeline_events = s_opts().getb( OPT_TimelineEvents );
+    bool render_timeline_labels = s_opts().getb( OPT_TimelineLabels ) && !ImGui::GetIO().KeyAlt;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -1333,7 +1333,7 @@ static float get_vblank_xdiffs( TraceWin *win, graph_info_t &gi, const std::vect
         uint32_t id = vblank_locs->at( idx );
         trace_event_t &event = win->get_event( id );
 
-        if ( win->m_loader.m_opts.getcrtc( event.crtc ) )
+        if ( s_opts().getcrtc( event.crtc ) )
         {
             float x = gi.ts_to_screenx( event.ts );
 
@@ -1378,7 +1378,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
 
             trace_event_t &event = get_event( id );
 
-            if ( m_loader.m_opts.getcrtc( event.crtc ) )
+            if ( s_opts().getcrtc( event.crtc ) )
             {
                 // drm_vblank_event0: blue, drm_vblank_event1: red
                 colors_t col = ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0;
@@ -1463,7 +1463,7 @@ void TraceWin::graph_render_mouse_selection( class graph_info_t &gi )
 
 void TraceWin::graph_render_eventlist_selection( class graph_info_t &gi )
 {
-    if ( m_loader.m_opts.getb( OPT_ShowEventList ) )
+    if ( s_opts().getb( OPT_ShowEventList ) )
     {
         // Draw rectangle for visible event list contents
         if ( is_valid_id( m_eventlist.start_eventid ) &&
@@ -1714,7 +1714,7 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
     }
 
     // Set up min / max sizes and clamp value in that range
-    float valf = win->m_loader.m_opts.getf( optid );
+    float valf = s_opts().getf( optid );
     float valf_min = 4.0f * gi.row_h;
     float valf_max = Clamp< float >( max_graph_size, valf_min, ImGui::GetWindowHeight() );
 
@@ -1723,7 +1723,7 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
         valf = 15.0f * gi.row_h;
 
     valf = Clamp< float >( valf, valf_min, valf_max );
-    win->m_loader.m_opts.setf( optid, valf, valf_min, valf_max );
+    s_opts().setf( optid, valf, valf_min, valf_max );
 
     gi.visible_graph_height = valf;
 }
@@ -1854,9 +1854,9 @@ void TraceWin::graph_render_process()
         option_id_t opt = gi.prinfo_zoom ? OPT_GraphHeightZoomed : OPT_GraphHeight;
 
         if ( ImGui::IsMouseClicked( 0 ) )
-            m_graph.resize_graph_click_pos = m_loader.m_opts.getf( opt );
+            m_graph.resize_graph_click_pos = s_opts().getf( opt );
 
-        m_loader.m_opts.setf( opt, m_graph.resize_graph_click_pos + ImGui::GetMouseDragDelta( 0 ).y );
+        s_opts().setf( opt, m_graph.resize_graph_click_pos + ImGui::GetMouseDragDelta( 0 ).y );
     }
 }
 
@@ -2034,7 +2034,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     }
 
     if ( optid != OPT_Invalid )
-        m_loader.m_opts.render_imgui_opt( optid );
+        s_opts().render_imgui_opt( optid );
 
     ImGui::Separator();
 
@@ -2084,7 +2084,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     ImGui::Separator();
 
-    m_loader.m_opts.render_imgui_options( m_loader.m_crtc_max );
+    s_opts().render_imgui_options( m_loader.m_crtc_max );
 
     ImGui::EndPopup();
     return true;
@@ -2158,8 +2158,8 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
 void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts )
 {
     std::string time_buf = "Time: " + ts_to_timestr( mouse_ts, m_eventlist.tsoffset );
-    bool sync_event_list_to_graph = m_loader.m_opts.getb( OPT_SyncEventListToGraph ) &&
-            m_loader.m_opts.getb( OPT_ShowEventList );
+    bool sync_event_list_to_graph = s_opts().getb( OPT_SyncEventListToGraph ) &&
+            s_opts().getb( OPT_ShowEventList );
 
     m_eventlist.highlight_ids.clear();
 
@@ -2176,7 +2176,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
         {
             trace_event_t &event = get_event( vblank_locs->at( idx ) );
 
-            if ( m_loader.m_opts.getcrtc( event.crtc ) )
+            if ( s_opts().getcrtc( event.crtc ) )
             {
                 if ( event.ts < mouse_ts )
                 {

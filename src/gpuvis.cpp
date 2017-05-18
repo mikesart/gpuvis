@@ -72,6 +72,12 @@ CIniFile &s_ini()
     return s_inifile;
 }
 
+Opts &s_opts()
+{
+    static Opts s_opts;
+    return s_opts;
+}
+
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
 {
     bool ret = ImGui::Button( label );
@@ -684,8 +690,6 @@ void TraceLoader::init( int argc, char **argv )
 {
     Clrs::init();
 
-    m_opts.init();
-
     ImGuiIO &io = ImGui::GetIO();
     m_imguiwindow_entries = s_ini().GetSectionEntries( "$imguiwindows$" );
     io.IniLoadSettingCB = std::bind( imgui_ini_load_settings_cb, &m_imguiwindow_entries, _1, _2 );
@@ -705,7 +709,7 @@ void TraceLoader::init( int argc, char **argv )
 
     strcpy_safe( m_trace_file, "trace.dat" );
 
-    imgui_set_scale( m_opts.getf( OPT_Scale ) );
+    imgui_set_scale( s_opts().getf( OPT_Scale ) );
 }
 
 void TraceLoader::shutdown()
@@ -729,9 +733,6 @@ void TraceLoader::shutdown()
     for ( TraceEvents *events : m_trace_events_list )
         delete events;
     m_trace_events_list.clear();
-
-    // Write option settings to ini file
-    m_opts.shutdown();
 
     Clrs::shutdown();
 }
@@ -832,7 +833,7 @@ void TraceLoader::render()
         ImGui::SameLine();
         if ( ImGui::Button( "No", ImVec2( 150, 0 ) ) )
         {
-            m_opts.setf( OPT_Scale, 1.0f );
+            s_opts().setf( OPT_Scale, 1.0f );
             m_font_main.m_changed = true;
             ImGui::CloseCurrentPopup();
             m_show_scale_popup = false;
@@ -860,7 +861,7 @@ void TraceLoader::load_fonts()
 
     if ( s_ini().GetFloat( "scale", -1.0f ) == -1.0f )
     {
-        s_ini().PutFloat( "scale", m_opts.getf( OPT_Scale ) );
+        s_ini().PutFloat( "scale", s_opts().getf( OPT_Scale ) );
 
         m_show_scale_popup = true;
         m_show_font_window = true;
@@ -1789,12 +1790,12 @@ bool TraceWin::render()
         graph_render_process();
     }
 
-    ImGuiTreeNodeFlags eventslist_flags = m_loader.m_opts.getb( OPT_ShowEventList ) ?
+    ImGuiTreeNodeFlags eventslist_flags = s_opts().getb( OPT_ShowEventList ) ?
         ImGuiTreeNodeFlags_DefaultOpen : 0;
 
-    m_loader.m_opts.setb( OPT_ShowEventList, ImGui::CollapsingHeader( "Events List", eventslist_flags ) );
+    s_opts().setb( OPT_ShowEventList, ImGui::CollapsingHeader( "Events List", eventslist_flags ) );
 
-    if ( m_loader.m_opts.getb( OPT_ShowEventList ) )
+    if ( s_opts().getb( OPT_ShowEventList ) )
     {
         m_eventlist.do_gotoevent |= imgui_input_int( &m_eventlist.goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
 
@@ -1887,7 +1888,7 @@ bool TraceWin::render()
             std::string label = string_format( "Graph only filtered (%lu events)", m_eventlist.filtered_events.size() );
 
             ImGui::SameLine();
-            m_loader.m_opts.render_imgui_opt( OPT_GraphOnlyFiltered );
+            s_opts().render_imgui_opt( OPT_GraphOnlyFiltered );
         }
 
         events_list_render();
@@ -2167,7 +2168,7 @@ void TraceWin::events_list_render()
         float lineh = ImGui::GetTextLineHeightWithSpacing();
         const ImVec2 content_avail = ImGui::GetContentRegionAvail();
 
-        int eventlist_row_count = m_loader.m_opts.geti( OPT_EventListRowCount );
+        int eventlist_row_count = s_opts().geti( OPT_EventListRowCount );
 
         // If the user has set the event list row count to 0 (auto size), make
         //  sure we always have at least 20 rows.
@@ -2429,7 +2430,7 @@ void TraceLoader::render_menu_options()
     ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", "Gpuvis Settings" );
     ImGui::Indent();
 
-    m_opts.render_imgui_options( m_crtc_max );
+    s_opts().render_imgui_options( m_crtc_max );
 
     ImGui::Unindent();
 }
@@ -2451,9 +2452,9 @@ void TraceLoader::render_font_options()
         bool changed = false;
 
 #ifdef USE_FREETYPE
-        changed |= m_opts.render_imgui_opt( OPT_UseFreetype );
+        changed |= s_opts().render_imgui_opt( OPT_UseFreetype );
 #endif
-        changed |= m_opts.render_imgui_opt( OPT_Scale );
+        changed |= s_opts().render_imgui_opt( OPT_Scale );
 
         if ( ImGui::Button( "Reset to Defaults" ) )
         {
@@ -2475,7 +2476,7 @@ void TraceLoader::render_font_options()
 
         ImGui::TextWrapped( "%s: %s", TextClrs::bright_text.m_str( font_name ).c_str(), lorem_str );
 
-        m_font_main.render_font_options( m_opts.getb( OPT_UseFreetype ) );
+        m_font_main.render_font_options( s_opts().getb( OPT_UseFreetype ) );
         ImGui::TreePop();
     }
 
@@ -2491,7 +2492,7 @@ void TraceLoader::render_font_options()
 
         ImGui::EndChild();
 
-        m_font_small.render_font_options( m_opts.getb( OPT_UseFreetype ) );
+        m_font_small.render_font_options( s_opts().getb( OPT_UseFreetype ) );
 
         ImGui::TreePop();
     }
@@ -2786,7 +2787,7 @@ void TraceLoader::parse_cmdline( int argc, char **argv )
         {
         case 0:
             if ( !strcasecmp( "scale", long_opts[ opt_ind ].name ) )
-                m_opts.setf( OPT_Scale, atof( ya_optarg ) );
+                s_opts().setf( OPT_Scale, atof( ya_optarg ) );
             break;
         case 'i':
             m_inputfiles.clear();
@@ -2844,16 +2845,19 @@ int main( int argc, char **argv )
         return -1;
     }
 
-    s_ini().Open( "gpuvis", "gpuvis.ini" );
-
-    // Initialize logging system
-    logf_init();
-
     TraceLoader loader;
     SDL_Window *window = NULL;
     SDL_Cursor *cursor_sizens = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENS );
     SDL_Cursor *cursor_default = SDL_GetDefaultCursor();
 
+    // Initialize logging system
+    logf_init();
+
+    // Init ini singleton
+    s_ini().Open( "gpuvis", "gpuvis.ini" );
+    // Init opts singleton
+    s_opts().init();
+    // Init loader
     loader.init( argc, argv );
 
     // Setup window
@@ -2908,9 +2912,9 @@ int main( int argc, char **argv )
             if ( event.type == SDL_QUIT )
                 done = true;
         }
-        bool use_freetype = loader.m_opts.getb( OPT_UseFreetype );
+        bool use_freetype = s_opts().getb( OPT_UseFreetype );
         ImGui_ImplSdlGL3_NewFrame( window, &use_freetype );
-        loader.m_opts.setb( OPT_UseFreetype, use_freetype );
+        s_opts().setb( OPT_UseFreetype, use_freetype );
 
         // Check for logf() calls from background threads.
         logf_update();
@@ -2947,7 +2951,7 @@ int main( int argc, char **argv )
         if ( ( loader.m_font_main.m_changed || loader.m_font_small.m_changed ) &&
              !ImGui::IsMouseDown( 0 ) )
         {
-            imgui_set_scale( loader.m_opts.getf( OPT_Scale ) );
+            imgui_set_scale( s_opts().getf( OPT_Scale ) );
 
             ImGui_ImplSdlGL3_InvalidateDeviceObjects();
             loader.load_fonts();
@@ -2967,7 +2971,9 @@ int main( int argc, char **argv )
 
     // Shut down trace loader
     loader.shutdown();
-
+    // Write option settings to ini file
+    s_opts().shutdown();
+    // Close ini file
     s_ini().Close();
 
     logf_clear();
