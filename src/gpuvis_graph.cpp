@@ -690,12 +690,12 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
         ImGui::Text( "%s%.*s%s%.*s%s%s",
                      s_textclrs().str( TClr_Bright ),
                      ( int )( val_start - buf ), buf,
-                     s_textclrs().str( TClr_Red ), ( int )( val_end - val_start ), val_start,
+                     s_textclrs().str( TClr_BrightComp ), ( int )( val_end - val_start ), val_start,
                      s_textclrs().str( TClr_Bright ), val_end );
     }
     else
     {
-        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", m_plot_buf.c_str() );
+        ImGui::TextColored( s_clrs().getv4( col_BrightText ), "%s", m_plot_buf.c_str() );
     }
 
     ImGui::NewLine();

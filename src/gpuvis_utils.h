@@ -190,8 +190,8 @@ enum text_colors_t
 {
     TClr_Def,
     TClr_Bright,
+    TClr_BrightComp,
     TClr_FtracePrint,
-    TClr_Red,
     TClr_Max
 };
 class TextClrs

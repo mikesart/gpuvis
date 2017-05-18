@@ -958,10 +958,13 @@ const std::string TextClrs::mstr( text_colors_t clr, const std::string &str )
 
 void TextClrs::update_colors()
 {
+    ImVec4 col_bright = s_clrs().getv4( col_BrightText );
+    ImVec4 col_bright_comp = ( ImColor )imgui_col_complement( ( ImColor )col_bright );
+
     set( m_buf[ TClr_Def ], ImGui::GetColorVec4( ImGuiCol_Text ) );
+    set( m_buf[ TClr_Bright ], col_bright );
+    set( m_buf[ TClr_BrightComp ], col_bright_comp );
     set( m_buf[ TClr_FtracePrint ], s_clrs().getv4( col_FtracePrintText ) );
-    set( m_buf[ TClr_Bright ], s_clrs().getv4( col_BrightText ) );
-    set( m_buf[ TClr_Red ], ImVec4( 0.90f, 0.90f, 0.90f, 1.00f ) );
 }
 
 #if defined( WIN32 )

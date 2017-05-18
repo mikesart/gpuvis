@@ -140,7 +140,7 @@ static bool imgui_begin_columns( const char *title,
 
     for ( const char *str : headers )
     {
-        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", str );
+        ImGui::TextColored( s_clrs().getv4( col_BrightText ), "%s", str );
         ImGui::NextColumn();
     }
     ImGui::Separator();
@@ -2445,7 +2445,7 @@ void TraceWin::events_list_render()
 void TraceLoader::render_menu_options()
 {
     {
-        ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", "Windows" );
+        ImGui::TextColored( s_clrs().getv4( col_BrightText ), "%s", "Windows" );
         ImGui::Indent();
 
         if ( ImGui::MenuItem( "GpuVis Help" ) )
@@ -2497,7 +2497,7 @@ void TraceLoader::render_menu_options()
 
     ImGui::Separator();
 
-    ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", "Gpuvis Settings" );
+    ImGui::TextColored( s_clrs().getv4( col_BrightText ), "%s", "Gpuvis Settings" );
     ImGui::Indent();
 
     s_opts().render_imgui_options( m_crtc_max );
