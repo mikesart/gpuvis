@@ -593,7 +593,9 @@ public:
 
         // Mouse timestamp location in graph
         int64_t ts_marker_mouse = -1;
-        int64_t ts_marker_a = INT64_MAX;
+
+        // Marker A and B
+        int64_t ts_markers[ 2 ] = { INT64_MAX, INT64_MAX };
 
         float resize_graph_click_pos = 0.0f;
 

@@ -51,6 +51,7 @@ _XTAG( col_Graph_SelEvent , IM_COL32( 0x17, 0xe6, 0x8d, 255 ), "Graph selected e
 _XTAG( col_Graph_TimeTick, 0xd992ff00, "Graph ms time ticks" )
 _XTAG( col_Graph_MousePos, 0x94fff300, "Graph mouse location line" )
 _XTAG( col_Graph_MarkerA, IM_COL32( 0xEE, 0x82, 0xEE, 255 ), "Graph marker A" )
+_XTAG( col_Graph_MarkerB, IM_COL32( 0xEE, 0xEE, 0x82, 255 ), "Graph marker B" )
 _XTAG( col_Graph_ZoomSel, IM_COL32( 0xFF, 0xFF, 0xFF, 80 ), "Graph mouse zoom selection" )
 _XTAG( col_Graph_PrintLabelSat, IM_COL32( 230, 230, 230, 230 ), "Graph print row label saturation" )
 _XTAG( col_Graph_PrintLabelAlpha, IM_COL32( 255, 255, 255, 255 ), "Graph print row label text alpha" )

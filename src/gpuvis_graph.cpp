@@ -1397,15 +1397,17 @@ void TraceWin::graph_render_mouse_pos( graph_info_t &gi )
                         s_clrs().get( col_Graph_MousePos ) );
     }
 
-    // Render marker A if it's in range
-    if ( m_graph.ts_marker_a >= gi.ts0 && m_graph.ts_marker_a < gi.ts1 )
+    // Render markers A/B if in range
+    for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
     {
-        float x = gi.ts_to_screenx( m_graph.ts_marker_a );
+        if ( ( m_graph.ts_markers[ i ] >= gi.ts0 ) && ( m_graph.ts_markers[ i ] < gi.ts1 ) )
+        {
+            float x = gi.ts_to_screenx( m_graph.ts_markers[ i ] );
 
-        imgui_drawrect( x, imgui_scale( 2.0f ),
-                        gi.y, gi.h, s_clrs().get( col_Graph_MarkerA ) );
+            imgui_drawrect( x, imgui_scale( 2.0f ),
+                            gi.y, gi.h, s_clrs().get( col_Graph_MarkerA + i ) );
+        }
     }
-
 }
 
 void TraceWin::graph_render_eventids( class graph_info_t &gi )
@@ -1609,6 +1611,19 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
                 m_graph.zoom_row_name.clear();
             else if ( is_graph_row_zoomable() )
                 zoom_graph_row();
+        }
+        else  if ( ImGui::IsKeyPressed( 'a' ) || ImGui::IsKeyPressed( 'b' ) )
+        {
+            int index = ImGui::IsKeyPressed( 'a' ) ? 0 : 1;
+            if ( keyshift )
+            {
+                m_graph.ts_markers[ index ] = m_graph.ts_marker_mouse;
+            }
+            else if ( m_graph.ts_markers[ index ] != INT64_MAX )
+            {
+                m_graph.start_ts = m_graph.ts_markers[ index ] - m_graph.length_ts / 2;
+                m_graph.do_start_timestr = true;
+            }
         }
         else
         {
@@ -2031,10 +2046,57 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     ImGui::Separator();
 
-    if ( ImGui::MenuItem( "Set Marker A" ) )
-        m_graph.ts_marker_a = m_graph.ts_marker_mouse;
-    if ( ( m_graph.ts_marker_a != INT64_MAX ) && ImGui::MenuItem( "Clear Marker A" ) )
-        m_graph.ts_marker_a = INT64_MAX;
+    if ( ImGui::BeginMenu( "Set Marker" ) )
+    {
+        for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
+        {
+            ImGui::PushID( i );
+
+            char label[ 2 ];
+            std::string shortcut = string_format( "Ctrl+Shift+%c", char( 'A' + i ) );
+
+            label[ 0 ] = char( 'A' + i );
+            label[ 1 ] = 0;
+            if ( ImGui::MenuItem( label, shortcut.c_str() ) )
+                m_graph.ts_markers[ i ] = m_graph.ts_marker_mouse;
+
+            ImGui::PopID();
+        }
+
+        ImGui::EndMenu();
+    }
+
+    bool any_markers_set = false;
+    for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
+    {
+        if ( m_graph.ts_markers[ i ] != INT64_MAX )
+        {
+            any_markers_set = true;
+            break;
+        }
+    }
+
+    if ( any_markers_set && ImGui::BeginMenu( "Clear Marker" ) )
+    {
+        for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
+        {
+            if ( m_graph.ts_markers[ i ] == INT64_MAX )
+                continue;
+
+            ImGui::PushID( i );
+
+            char label[ 2 ];
+            label[ 0 ] = char( 'A' + i );
+            label[ 1 ] = 0;
+            if ( ImGui::MenuItem( label ) )
+                m_graph.ts_markers[ i ] = INT64_MAX;
+
+            ImGui::PopID();
+        }
+
+
+        ImGui::EndMenu();
+    }
 
     if ( ImGui::BeginMenu( "Save Location" ) )
     {
@@ -2190,8 +2252,10 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 ) + "ms";
     }
 
-    if ( m_graph.ts_marker_a != INT64_MAX )
-        time_buf += "\nMarker A: " + ts_to_timestr( m_graph.ts_marker_a - mouse_ts, 0, 2 ) + "ms";
+    if ( m_graph.ts_markers[ 0 ] != INT64_MAX )
+        time_buf += "\nMarker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - mouse_ts, 0, 2 ) + "ms";
+    if ( m_graph.ts_markers[ 1 ] != INT64_MAX )
+        time_buf += "\nMarker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - mouse_ts, 0, 2 ) + "ms";
 
     m_graph.hovered_eventid = INVALID_ID;
     if ( !gi.hovered_items.empty() )
