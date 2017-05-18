@@ -84,6 +84,12 @@ Clrs &s_clrs()
     return s_clrs;
 }
 
+TextClrs s_textclrs()
+{
+    static TextClrs s_textclrs;
+    return s_textclrs;
+}
+
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
 {
     bool ret = ImGui::Button( label );
@@ -1857,7 +1863,7 @@ bool TraceWin::render()
         {
             std::string tooltip;
 
-            tooltip += TextClrs::bright_text.m_str( "Event Filter\n\n" );
+            tooltip += s_textclrs().bright_text.m_str( "Event Filter\n\n" );
             tooltip += "Vars: Any field in Info column plus:\n";
             tooltip += "      $name, $comm, $user_comm, $id, $pid, $ts\n";
             tooltip += "Operators: &&, ||, !=, =, >, >=, <, <=, =~\n\n";
@@ -2037,7 +2043,7 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
     {
         ImGui::Separator();
 
-        std::string plot_label = std::string( "Create Plot for " ) + TextClrs::bright_text.m_str( plot_str );
+        std::string plot_label = std::string( "Create Plot for " ) + s_textclrs().bright_text.m_str( plot_str );
         if ( ImGui::MenuItem( plot_label.c_str() ) )
             m_create_plot_eventid = event.id;
     }
@@ -2059,7 +2065,7 @@ std::string get_event_fields_str( const trace_event_t &event, const char *eqstr,
         std::string str = string_format( "%s%s%s%c", field.key, eqstr, field.value, sep );
 
         if ( event.is_ftrace_print() && !strcmp( field.key, "buf" ) )
-            fieldstr += TextClrs::print_text.m_str( str.c_str() );
+            fieldstr += s_textclrs().print_text.m_str( str.c_str() );
         else
             fieldstr += str;
     }
@@ -2476,7 +2482,7 @@ void TraceLoader::render_font_options()
     {
         const char *font_name = m_font_main.m_name.c_str();
 
-        ImGui::TextWrapped( "%s: %s", TextClrs::bright_text.m_str( font_name ).c_str(), lorem_str );
+        ImGui::TextWrapped( "%s: %s", s_textclrs().bright_text.m_str( font_name ).c_str(), lorem_str );
 
         m_font_main.render_font_options( s_opts().getb( OPT_UseFreetype ) );
         ImGui::TreePop();
@@ -2489,7 +2495,7 @@ void TraceLoader::render_font_options()
         ImGui::BeginChild( "small_font", ImVec2( 0, ImGui::GetTextLineHeightWithSpacing() * 4 ) );
 
         imgui_push_smallfont();
-        ImGui::TextWrapped( "%s: %s", TextClrs::bright_text.m_str( font_name ).c_str(), lorem_str );
+        ImGui::TextWrapped( "%s: %s", s_textclrs().bright_text.m_str( font_name ).c_str(), lorem_str );
         imgui_pop_smallfont();
 
         ImGui::EndChild();
@@ -2517,7 +2523,7 @@ void TraceLoader::render_color_picker()
 {
     bool changed = false;
 
-    if ( ImGui::Button( "Reset to Defaults" ) )
+    if ( ImGui::Button( "Reset All to Defaults" ) )
     {
         for ( colors_t i = 0; i < col_Max; i++ )
             s_clrs().reset( i );
@@ -2572,7 +2578,7 @@ void TraceLoader::render_color_picker()
         const char *name = s_clrs().name( m_selected_color );
         const char *desc = s_clrs().desc( m_selected_color );
 
-        imgui_text_bg( string_format( "%s: %s", TextClrs::bright_text.m_str( name ).c_str(), desc ).c_str(),
+        imgui_text_bg( string_format( "%s: %s", s_textclrs().bright_text.m_str( name ).c_str(), desc ).c_str(),
                        ImGui::GetColorVec4( ImGuiCol_Header ) );
 
         if ( m_selected_color == col_ThemeAlpha ||
@@ -2614,7 +2620,7 @@ void TraceLoader::render_color_picker()
                 s_clrs().set( m_selected_color, color );
 
                 if ( m_selected_color == col_FtracePrintText || m_selected_color == col_BrightText )
-                    TextClrs::update_colors();
+                    s_textclrs().update_colors();
 
                 if ( ( m_selected_color >= col_ImGui_Text ) && ( m_selected_color <= col_ImGui_ModalWindowDarkening ) )
                     changed = true;
@@ -2636,7 +2642,7 @@ void TraceLoader::render_color_picker()
     {
         imgui_set_custom_style( s_clrs().getalpha( col_ThemeAlpha ) );
 
-        TextClrs::update_colors();
+        s_textclrs().update_colors();
     }
 }
 
@@ -2889,7 +2895,7 @@ int main( int argc, char **argv )
     SDL_GL_SetSwapInterval( 1 );
 
     // Setup imgui default text color
-    TextClrs::update_colors();
+    s_textclrs().update_colors();
 
     // Load our fonts
     loader.load_fonts();

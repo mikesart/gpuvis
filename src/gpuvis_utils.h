@@ -30,8 +30,9 @@
 // ini file singleton
 CIniFile &s_ini();
 
-// Colors singleton
+// Color singletons
 class Clrs &s_clrs();
+class TextClrs s_textclrs();
 
 using std::placeholders::_1;
 using std::placeholders::_2;
