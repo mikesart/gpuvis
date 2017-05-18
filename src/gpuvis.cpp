@@ -853,7 +853,7 @@ void TraceLoader::load_fonts()
     // Reset max rect size for the print events so they'll redo the CalcTextSize for the
     //  print graph row backgrounds (in graph_render_print_timeline).
     for ( TraceEvents *trace_event : m_trace_events_list )
-        trace_event->m_rect_size_max_x = -1.0f;
+        trace_event->invalidate_ftraceprint_colors();
 
     if ( s_ini().GetFloat( "scale", -1.0f ) == -1.0f )
     {
@@ -1480,7 +1480,7 @@ void TraceEvents::calculate_event_print_info()
     m_rect_size_max_x = -1.0f;
 }
 
-void TraceEvents::update_event_print_info_rects( float label_sat, float label_alpha )
+void TraceEvents::update_ftraceprint_colors( float label_sat, float label_alpha )
 {
     m_rect_size_max_x = -1.0f;
 
@@ -1506,12 +1506,38 @@ void TraceEvents::update_event_print_info_rects( float label_sat, float label_al
     }
 }
 
+void TraceEvents::invalidate_ftraceprint_colors()
+{
+    m_rect_size_max_x = -1.0f;
+}
+
+void TraceEvents::update_fence_signaled_timeline_colors( float label_sat, float label_alpha )
+{
+    for ( auto &timeline_locs : m_timeline_locations.m_locs.m_map )
+    {
+        std::vector< uint32_t > &locs = timeline_locs.second;
+
+        for ( uint32_t index : locs )
+        {
+            trace_event_t &fence_signaled = m_events[ index ];
+
+            if ( fence_signaled.is_fence_signaled() &&
+                 is_valid_id( fence_signaled.id_start ) )
+            {
+                uint32_t hashval = fnv_hashstr32( fence_signaled.user_comm );
+                fence_signaled.color = imgui_col_from_hashval( hashval, label_sat, label_alpha );
+            }
+        }
+    }
+}
+
 // Go through gfx, sdma0, sdma1, etc. timelines and calculate event durations
 void TraceEvents::calculate_event_durations()
 {
-    std::vector< trace_event_t > &events = m_events;
-
     std::vector< uint32_t > erase_list;
+    std::vector< trace_event_t > &events = m_events;
+    float label_sat = s_clrs().getalpha( col_Graph_TimelineLabelSat );
+    float label_alpha = s_clrs().getalpha( col_Graph_TimelineLabelAlpha );
 
     for ( auto &timeline_locs : m_timeline_locations.m_locs.m_map )
     {
@@ -1574,7 +1600,7 @@ void TraceEvents::calculate_event_durations()
                 last_fence_signaled_ts = fence_signaled.ts;
 
                 uint32_t hashval = fnv_hashstr32( fence_signaled.user_comm );
-                fence_signaled.color = imgui_col_from_hashval( hashval );
+                fence_signaled.color = imgui_col_from_hashval( hashval, label_sat, label_alpha );
             }
         }
     }
@@ -2572,31 +2598,41 @@ void TraceLoader::render_color_picker()
 
         if ( m_selected_color == col_ThemeAlpha ||
              m_selected_color == col_Graph_PrintLabelSat ||
-             m_selected_color == col_Graph_PrintLabelAlpha )
+             m_selected_color == col_Graph_PrintLabelAlpha ||
+             m_selected_color == col_Graph_TimelineLabelSat ||
+             m_selected_color == col_Graph_TimelineLabelAlpha )
         {
-            float val = s_clrs().getalpha( m_selected_color );
-
             ImGui::PushItemWidth( imgui_scale( 125.0f ) );
+            float val = s_clrs().getalpha( m_selected_color );
+            bool set_color = ImGui::SliderFloat( "##alpha_val", &val, 0.0f, 1.0f, "%.02f" );
+            ImGui::PopItemWidth();
 
-            if ( ImGui::SliderFloat( "##alpha_val", &val, 0.0f, 1.0f, "%.02f" ) )
+            bool reset_color = ImGui::Button( "Reset to Default" );
+
+            if ( set_color || reset_color )
             {
-                s_clrs().set( m_selected_color, ImColor( val, val, val, val ) );
+                if ( set_color )
+                    s_clrs().set( m_selected_color, ImColor( val, val, val, val ) );
+                else
+                    s_clrs().reset( m_selected_color );
 
                 if ( m_selected_color == col_Graph_PrintLabelSat ||
                      m_selected_color == col_Graph_PrintLabelAlpha )
                 {
                     for ( TraceEvents *trace_event : m_trace_events_list )
-                        trace_event->m_rect_size_max_x = -1.0f;
+                        trace_event->invalidate_ftraceprint_colors();
+                }
+                else if ( m_selected_color == col_Graph_TimelineLabelSat ||
+                          m_selected_color == col_Graph_TimelineLabelAlpha )
+                {
+                    for ( TraceEvents *trace_event : m_trace_events_list )
+                    {
+                        trace_event->update_fence_signaled_timeline_colors(
+                                    s_clrs().getalpha( col_Graph_TimelineLabelSat ),
+                                    s_clrs().getalpha( col_Graph_TimelineLabelAlpha ) );
+                    }
                 }
 
-                changed = true;
-            }
-
-            ImGui::PopItemWidth();
-
-            if ( ImGui::Button( "Reset to Default" ) )
-            {
-                s_clrs().reset( m_selected_color );
                 changed = true;
             }
         }

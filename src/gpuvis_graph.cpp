@@ -931,7 +931,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
     if ( m_trace_events.m_rect_size_max_x == -1.0f )
     {
-        m_trace_events.update_event_print_info_rects(
+        m_trace_events.update_ftraceprint_colors(
                     s_clrs().getalpha( col_Graph_PrintLabelSat ),
                     s_clrs().getalpha( col_Graph_PrintLabelAlpha ) );
     }

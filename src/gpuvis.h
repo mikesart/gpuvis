@@ -325,7 +325,11 @@ public:
 
     void calculate_event_durations();
     void calculate_event_print_info();
-    void update_event_print_info_rects( float label_sat, float label_alpha );
+
+    void invalidate_ftraceprint_colors();
+    void update_ftraceprint_colors( float label_sat, float label_alpha );
+
+    void update_fence_signaled_timeline_colors( float label_sat, float label_alpha );
 
     enum loc_type_t
     {
