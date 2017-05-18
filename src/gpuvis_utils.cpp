@@ -39,7 +39,6 @@
 #include "imgui/imgui_freetype.h"
 #include "gpuvis_macros.h"
 #include "gpuvis_utils.h"
-#include "stlini.h"
 
 #include "proggy_tiny.cpp"
 #include "Droid_Sans.cpp"
@@ -546,21 +545,20 @@ void FontInfo::update_ini()
 {
     const char *section = m_section.c_str();
 
-    m_inifile->PutStr( "name", m_name.c_str(), section );
-    m_inifile->PutStr( "filename", m_filename.c_str(), section );
-    m_inifile->PutFloat( "size", m_size / g_scale, section );
-    m_inifile->PutInt( "OverSampleH", m_font_cfg.OversampleH, section );
-    m_inifile->PutInt( "OverSampleV", m_font_cfg.OversampleV, section );
-    m_inifile->PutInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
-    m_inifile->PutFloat( "GlyphExtraSpacing", m_font_cfg.GlyphExtraSpacing.x, section );
-    m_inifile->PutInt( "FreetypeFlags", m_font_cfg.FreetypeFlags, section );
-    m_inifile->PutFloat( "Brighten", m_font_cfg.Brighten, section );
+    s_ini().PutStr( "name", m_name.c_str(), section );
+    s_ini().PutStr( "filename", m_filename.c_str(), section );
+    s_ini().PutFloat( "size", m_size / g_scale, section );
+    s_ini().PutInt( "OverSampleH", m_font_cfg.OversampleH, section );
+    s_ini().PutInt( "OverSampleV", m_font_cfg.OversampleV, section );
+    s_ini().PutInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
+    s_ini().PutFloat( "GlyphExtraSpacing", m_font_cfg.GlyphExtraSpacing.x, section );
+    s_ini().PutInt( "FreetypeFlags", m_font_cfg.FreetypeFlags, section );
+    s_ini().PutFloat( "Brighten", m_font_cfg.Brighten, section );
 }
 
-void FontInfo::load_font( CIniFile &inifile, const char *section, const char *defname, float defsize )
+void FontInfo::load_font( const char *section, const char *defname, float defsize )
 {
     m_section = section;
-    m_inifile = &inifile;
     m_font_cfg = ImFontConfig();
 
     if ( m_reset )
@@ -573,16 +571,16 @@ void FontInfo::load_font( CIniFile &inifile, const char *section, const char *de
     }
     else
     {
-        m_name = inifile.GetStr( "name", defname, section );
-        m_filename = inifile.GetStr( "filename", "", section );
-        m_size = inifile.GetFloat( "size", defsize, section ) * g_scale;
+        m_name = s_ini().GetStr( "name", defname, section );
+        m_filename = s_ini().GetStr( "filename", "", section );
+        m_size = s_ini().GetFloat( "size", defsize, section ) * g_scale;
 
-        m_font_cfg.OversampleH = inifile.GetInt( "OversampleH", m_font_cfg.OversampleH, section );
-        m_font_cfg.OversampleV = inifile.GetInt( "OversampleV", m_font_cfg.OversampleV, section );
-        m_font_cfg.PixelSnapH = !!inifile.GetInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
-        m_font_cfg.GlyphExtraSpacing.x = inifile.GetFloat( "GlyphExtraSpacing", m_font_cfg.GlyphExtraSpacing.x, section );
-        m_font_cfg.FreetypeFlags = inifile.GetInt( "FreetypeFlags", m_font_cfg.FreetypeFlags, section );
-        m_font_cfg.Brighten = inifile.GetFloat( "Brighten", m_font_cfg.Brighten, section );
+        m_font_cfg.OversampleH = s_ini().GetInt( "OversampleH", m_font_cfg.OversampleH, section );
+        m_font_cfg.OversampleV = s_ini().GetInt( "OversampleV", m_font_cfg.OversampleV, section );
+        m_font_cfg.PixelSnapH = !!s_ini().GetInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
+        m_font_cfg.GlyphExtraSpacing.x = s_ini().GetFloat( "GlyphExtraSpacing", m_font_cfg.GlyphExtraSpacing.x, section );
+        m_font_cfg.FreetypeFlags = s_ini().GetInt( "FreetypeFlags", m_font_cfg.FreetypeFlags, section );
+        m_font_cfg.Brighten = s_ini().GetFloat( "Brighten", m_font_cfg.Brighten, section );
     }
 
     m_font_id = get_font_id( m_name.c_str(), m_filename.c_str() );
@@ -860,12 +858,12 @@ Clrs::colordata_t Clrs::s_colordata[ col_Max ] =
 #undef _XTAG
 };
 
-void Clrs::init( CIniFile &inifile )
+void Clrs::init()
 {
     for ( colors_t i = 0; i < col_Max; i++ )
     {
         const char *key = s_colordata[ i ].name;
-        uint64_t val = inifile.GetUint64( key, UINT64_MAX, "$imgui_colors$" );
+        uint64_t val = s_ini().GetUint64( key, UINT64_MAX, "$imgui_colors$" );
 
         if ( val != UINT64_MAX )
         {
@@ -874,7 +872,7 @@ void Clrs::init( CIniFile &inifile )
     }
 }
 
-void Clrs::shutdown( CIniFile &inifile )
+void Clrs::shutdown()
 {
     for ( colors_t i = 0; i < col_Max; i++ )
     {
@@ -883,9 +881,9 @@ void Clrs::shutdown( CIniFile &inifile )
             const char *key = s_colordata[ i ].name;
 
             if ( Clrs::is_default( i ) )
-                inifile.PutStr( key, "", "$imgui_colors$" );
+                s_ini().PutStr( key, "", "$imgui_colors$" );
             else
-                inifile.PutUint64( key, s_colordata[ i ].color, "$imgui_colors$" );
+                s_ini().PutUint64( key, s_colordata[ i ].color, "$imgui_colors$" );
         }
     }
 }

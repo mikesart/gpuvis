@@ -43,6 +43,8 @@
 
   Check if entire rows are clipped when drawing...
 
+  Add singletons for CIniFile and Opts and Clrs?
+
   Configurable hotkeys?
 
   From Pierre-Loup:
@@ -335,7 +337,7 @@ static option_id_t get_comm_option_id( TraceLoader &loader, const std::string &r
         return optid;
 
     if ( !strncmp( row_name.c_str(), "plot:", 5 ) )
-        return loader.m_opts.add_opt_graph_rowsize( loader.m_inifile, row_name.c_str() );
+        return loader.m_opts.add_opt_graph_rowsize( row_name.c_str() );
 
     return OPT_Invalid;
 }
@@ -760,7 +762,7 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
     return !!m_plot;
 }
 
-void CreatePlotDlg::add_plot( CIniFile &inifile, GraphRows &rows )
+void CreatePlotDlg::add_plot( GraphRows &rows )
 {
     if ( rows.find_row( m_plot_name ) == ( size_t )-1 )
     {
@@ -772,7 +774,7 @@ void CreatePlotDlg::add_plot( CIniFile &inifile, GraphRows &rows )
     }
 
     std::string val = string_format( "%s\t%s", m_plot->m_filter_str.c_str(), m_plot->m_scanf_str.c_str() );
-    inifile.PutStr( m_plot_name.c_str(), val.c_str(), "$graph_plots$" );
+    s_ini().PutStr( m_plot_name.c_str(), val.c_str(), "$graph_plots$" );
 }
 
 bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,

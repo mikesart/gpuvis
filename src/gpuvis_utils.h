@@ -25,7 +25,10 @@
 #ifndef _GPUVIS_UTILS_H
 #define _GPUVIS_UTILS_H
 
-class CIniFile;
+#include "stlini.h"
+
+// Our ini file singleton
+CIniFile &s_ini();
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -155,14 +158,13 @@ public:
     FontInfo() {}
     ~FontInfo() {}
 
-    void load_font( CIniFile &inifile, const char *section, const char *defname, float defsize );
+    void load_font( const char *section, const char *defname, float defsize );
     void render_font_options( bool m_use_freetype );
 
 protected:
     void update_ini();
 
 public:
-    CIniFile *m_inifile = nullptr;
     float m_size = 0.0f;
     std::string m_filename;
     std::string m_section;
@@ -244,8 +246,8 @@ public:
     Clrs() {}
     ~Clrs() {}
 
-    static void init( CIniFile &inifile );
-    static void shutdown( CIniFile &inifile );
+    static void init();
+    static void shutdown();
 
     static ImU32 get( colors_t col, ImU32 alpha = ( uint32_t )-1 );
     static ImVec4 getv4( colors_t col, float alpha = -1.0f );

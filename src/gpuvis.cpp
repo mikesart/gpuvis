@@ -66,6 +66,12 @@ void TextClrs::update_colors()
     bright_text.set( Clrs::getv4( col_BrightText ) );
 }
 
+CIniFile &s_ini()
+{
+    static CIniFile s_inifile;
+    return s_inifile;
+}
+
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
 {
     bool ret = ImGui::Button( label );
@@ -94,12 +100,12 @@ static bool imgui_input_text( const char *button_label, const char *text_label,
     return ret;
 }
 
-static int imgui_ini_save_settings_cb( CIniFile *inifile, int index, const ImGuiIniData &data )
+static int imgui_ini_save_settings_cb( int index, const ImGuiIniData &data )
 {
     std::string value = string_format( "%.2f,%.2f,%.2f,%.2f",
                                        data.Pos.x, data.Pos.y, data.Size.x, data.Size.y );
 
-    inifile->PutStr( data.Name, value.c_str(), "$imguiwindows$" );
+    s_ini().PutStr( data.Name, value.c_str(), "$imguiwindows$" );
     return 0;
 }
 
@@ -122,7 +128,7 @@ static int imgui_ini_load_settings_cb( std::vector< INIEntry > *entries, int ind
 
 static bool imgui_begin_columns( const char *title,
                                  const std::initializer_list< const char * > &headers,
-                                 CIniFile *inifile = NULL, bool *resized = NULL )
+                                 bool *resized = NULL )
 {
     bool inited = ImGui::BeginColumns( title, headers.size() );
 
@@ -134,7 +140,7 @@ static bool imgui_begin_columns( const char *title,
     ImGui::Separator();
 
     // If we were just initialized or resized...
-    if ( inifile && ( inited || ( *resized && ImGui::IsMouseReleased( 0 ) ) ) )
+    if ( inited || ( *resized && ImGui::IsMouseReleased( 0 ) ) )
     {
         // Go through the columns and save/restore the column width.
         // Skip the last column - it should size to edge of window.
@@ -145,7 +151,7 @@ static bool imgui_begin_columns( const char *title,
             if ( inited )
             {
                 // Try to restore the column widths
-                float val = inifile->GetFloat( key.c_str(), -1.0f );
+                float val = s_ini().GetFloat( key.c_str(), -1.0f );
                 if ( val <= 0.0f )
                     break;
 
@@ -154,7 +160,7 @@ static bool imgui_begin_columns( const char *title,
             else
             {
                 // Save the column widths
-                inifile->PutFloat( key.c_str(), ImGui::GetColumnWidth( i ) );
+                s_ini().PutFloat( key.c_str(), ImGui::GetColumnWidth( i ) );
             }
         }
 
@@ -216,7 +222,7 @@ void Opts::init_opt( option_id_t optid, const char *description, const char *key
     opt.valf_max = maxval;
 }
 
-void Opts::init( CIniFile &inifile )
+void Opts::init()
 {
     m_options.resize( OPT_PresetMax );
 
@@ -242,10 +248,10 @@ void Opts::init( CIniFile &inifile )
         init_opt_bool( i, desc.c_str(), inikey.c_str(), true );
     }
 
-    add_opt_graph_rowsize( inifile, "gfx", 8 );
-    add_opt_graph_rowsize( inifile, "print", 10 );
-    add_opt_graph_rowsize( inifile, "sdma0" );
-    add_opt_graph_rowsize( inifile, "sdma1" );
+    add_opt_graph_rowsize( "gfx", 8 );
+    add_opt_graph_rowsize( "print", 10 );
+    add_opt_graph_rowsize( "sdma0" );
+    add_opt_graph_rowsize( "sdma1" );
 
     // Create all the entries for the compute shader rows
     for ( uint32_t val = 0; ; val++ )
@@ -254,7 +260,7 @@ void Opts::init( CIniFile &inifile )
         if ( str.empty() )
             break;
 
-        add_opt_graph_rowsize( inifile, str.c_str() );
+        add_opt_graph_rowsize( str.c_str() );
     }
 
     // Read option values stored in ini file
@@ -262,26 +268,26 @@ void Opts::init( CIniFile &inifile )
     {
         option_t &opt = m_options[ i ];
 
-        opt.valf = inifile.GetFloat( opt.inikey.c_str(), opt.valf );
+        opt.valf = s_ini().GetFloat( opt.inikey.c_str(), opt.valf );
     }
 }
 
-void Opts::shutdown( CIniFile &inifile )
+void Opts::shutdown()
 {
     for ( size_t i = 0; i < m_options.size(); i++ )
     {
         const option_t &opt = m_options[ i ];
 
         if ( opt.flags & OPT_Int )
-            inifile.PutInt( opt.inikey.c_str(), ( int )opt.valf );
+            s_ini().PutInt( opt.inikey.c_str(), ( int )opt.valf );
         else if ( opt.flags & OPT_Bool )
-            inifile.PutInt( opt.inikey.c_str(), opt.valf ? 1 : 0 );
+            s_ini().PutInt( opt.inikey.c_str(), opt.valf ? 1 : 0 );
         else
-            inifile.PutFloat( opt.inikey.c_str(), opt.valf );
+            s_ini().PutFloat( opt.inikey.c_str(), opt.valf );
     }
 }
 
-option_id_t Opts::add_opt_graph_rowsize( CIniFile &inifile, const char *row_name, int defval )
+option_id_t Opts::add_opt_graph_rowsize( const char *row_name, int defval )
 {
     option_t opt;
     const char *fullname = row_name;
@@ -292,7 +298,7 @@ option_id_t Opts::add_opt_graph_rowsize( CIniFile &inifile, const char *row_name
     opt.flags = OPT_Int | OPT_Hidden;
     opt.desc = string_format( "%s size: %%.0f", row_name );
     opt.inikey = string_format( "row_%s_size", row_name );
-    opt.valf = inifile.GetInt( opt.inikey.c_str(), defval );
+    opt.valf = s_ini().GetInt( opt.inikey.c_str(), defval );
     opt.valf_min = 4;
     opt.valf_max = 40;
 
@@ -676,16 +682,14 @@ int SDLCALL TraceLoader::thread_func( void *data )
 
 void TraceLoader::init( int argc, char **argv )
 {
-    m_inifile.Open( "gpuvis", "gpuvis.ini" );
+    Clrs::init();
 
-    Clrs::init( m_inifile );
-
-    m_opts.init( m_inifile );
+    m_opts.init();
 
     ImGuiIO &io = ImGui::GetIO();
-    m_imguiwindow_entries = m_inifile.GetSectionEntries( "$imguiwindows$" );
+    m_imguiwindow_entries = s_ini().GetSectionEntries( "$imguiwindows$" );
     io.IniLoadSettingCB = std::bind( imgui_ini_load_settings_cb, &m_imguiwindow_entries, _1, _2 );
-    io.IniSaveSettingCB = std::bind( imgui_ini_save_settings_cb, &m_inifile, _1, _2 );
+    io.IniSaveSettingCB = std::bind( imgui_ini_save_settings_cb, _1, _2 );
 
     parse_cmdline( argc, argv );
 
@@ -727,11 +731,9 @@ void TraceLoader::shutdown()
     m_trace_events_list.clear();
 
     // Write option settings to ini file
-    m_opts.shutdown( m_inifile );
+    m_opts.shutdown();
 
-    Clrs::shutdown( m_inifile );
-
-    m_inifile.Close();
+    Clrs::shutdown();
 }
 
 void TraceLoader::render()
@@ -846,19 +848,20 @@ void TraceLoader::load_fonts()
     ImGui::GetIO().Fonts->Clear();
 
     // Add main font
-    m_font_main.load_font( m_inifile, "$imgui_font_main$", "Proggy Clean (13)", 13.0f );
+    m_font_main.load_font( "$imgui_font_main$", "Proggy Clean (13)", 13.0f );
 
     // Add small font
-    m_font_small.load_font( m_inifile, "$imgui_font_small$", "Proggy Tiny (10)", 10.0f );
+    m_font_small.load_font( "$imgui_font_small$", "Proggy Tiny (10)", 10.0f );
 
     // Reset max rect size for the print events so they'll redo the CalcTextSize for the
     //  print graph row backgrounds (in graph_render_print_timeline).
     for ( TraceEvents *trace_event : m_trace_events_list )
         trace_event->m_rect_size_max_x = -1.0f;
 
-    if ( m_inifile.GetFloat( "scale", -1.0f ) == -1.0f )
+    if ( s_ini().GetFloat( "scale", -1.0f ) == -1.0f )
     {
-        m_inifile.PutFloat( "scale", m_opts.getf( OPT_Scale ) );
+        s_ini().PutFloat( "scale", m_opts.getf( OPT_Scale ) );
+
         m_show_scale_popup = true;
         m_show_font_window = true;
     }
@@ -866,18 +869,18 @@ void TraceLoader::load_fonts()
 
 void TraceLoader::get_window_pos( int &x, int &y, int &w, int &h )
 {
-    x = m_inifile.GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
-    y = m_inifile.GetInt( "win_y", SDL_WINDOWPOS_CENTERED );
-    w = m_inifile.GetInt( "win_w", 1280 );
-    h = m_inifile.GetInt( "win_h", 1024 );
+    x = s_ini().GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
+    y = s_ini().GetInt( "win_y", SDL_WINDOWPOS_CENTERED );
+    w = s_ini().GetInt( "win_w", 1280 );
+    h = s_ini().GetInt( "win_h", 1024 );
 }
 
 void TraceLoader::save_window_pos( int x, int y, int w, int h )
 {
-    m_inifile.PutInt( "win_x", x );
-    m_inifile.PutInt( "win_y", y );
-    m_inifile.PutInt( "win_w", w );
-    m_inifile.PutInt( "win_h", h );
+    s_ini().PutInt( "win_x", x );
+    s_ini().PutInt( "win_y", y );
+    s_ini().PutInt( "win_w", w );
+    s_ini().PutInt( "win_h", h );
 }
 
 /*
@@ -949,7 +952,7 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
 }
 
 // Initialize m_graph_rows_list
-void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
+void GraphRows::init( TraceEvents &trace_events )
 {
     if ( !m_graph_rows_list.empty() )
         return;
@@ -1007,7 +1010,7 @@ void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
         m_graph_rows_list.push_back( { type, plocs->size(), "print", false } );
 
     {
-        std::vector< INIEntry > entries = inifile.GetSectionEntries( "$graph_plots$" );
+        std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$graph_plots$" );
 
         for ( const INIEntry &entry : entries )
         {
@@ -1053,7 +1056,7 @@ void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
     // Add the sorted comm events to our m_graph_rows_list array
     m_graph_rows_list.insert( m_graph_rows_list.end(), comms.begin(), comms.end() );
 
-    std::string graph_rows_add_str = inifile.GetStr( "graph_rows_add_str", "" );
+    std::string graph_rows_add_str = s_ini().GetStr( "graph_rows_add_str", "" );
     if ( !graph_rows_add_str.empty() )
     {
         std::vector< std::string > rows_add = string_explode( graph_rows_add_str, ',' );
@@ -1063,7 +1066,7 @@ void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
     }
 
     {
-        std::vector< INIEntry > entries = inifile.GetSectionEntries( "$graph_rows_move_after$" );
+        std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$graph_rows_move_after$" );
 
         if ( !entries.empty() )
         {
@@ -1083,7 +1086,7 @@ void GraphRows::init( CIniFile &inifile, TraceEvents &trace_events )
         }
     }
 
-    std::string graph_rows_hide_str = inifile.GetStr( "graph_rows_hide_str", "" );
+    std::string graph_rows_hide_str = s_ini().GetStr( "graph_rows_hide_str", "" );
     if ( !graph_rows_hide_str.empty() )
     {
         m_graph_rows_hide = string_explode( graph_rows_hide_str, ',' );
@@ -1194,7 +1197,7 @@ bool TraceWin::rename_comm_event( const char *comm_old, const char *comm_new )
     {
         m_graph.rows.rename_row( comm_old, comm_new );
 
-        m_loader.m_inifile.PutStr( comm_old, comm_new, "$rename_comm$" );
+        s_ini().PutStr( comm_old, comm_new, "$rename_comm$" );
         return true;
     }
 
@@ -1664,7 +1667,7 @@ TraceWin::TraceWin( TraceLoader &loader, TraceEvents &trace_events, std::string 
 
     strcpy_safe( m_graph.new_row_buf, "<Enter Filter Expression>" );
 
-    std::string event_filter = m_loader.m_inifile.GetStr( "event_filter_buf", "" );
+    std::string event_filter = s_ini().GetStr( "event_filter_buf", "" );
     if ( !event_filter.empty() )
     {
         strcpy_safe( m_eventlist.filter_buf, event_filter.c_str() );
@@ -1674,13 +1677,13 @@ TraceWin::TraceWin( TraceLoader &loader, TraceEvents &trace_events, std::string 
 
 TraceWin::~TraceWin()
 {
-    m_loader.m_inifile.PutStr( "event_filter_buf", m_eventlist.filter_buf );
+    s_ini().PutStr( "event_filter_buf", m_eventlist.filter_buf );
 
     std::string str = string_implode( m_graph.rows.m_graph_rows_hide, "," );
-    m_loader.m_inifile.PutStr( "graph_rows_hide_str", str.c_str() );
+    s_ini().PutStr( "graph_rows_hide_str", str.c_str() );
 
     str = string_implode( m_graph.rows.m_graph_rows_add, "," );
-    m_loader.m_inifile.PutStr( "graph_rows_add_str", str.c_str() );
+    s_ini().PutStr( "graph_rows_add_str", str.c_str() );
 
     for ( const auto &item : m_graph.rows.m_graph_rows_move.m_map )
     {
@@ -1688,7 +1691,7 @@ TraceWin::~TraceWin()
 
         // Can't have equal signs in our ini keys...
         string_replace_str( key, "=", "**equalsign**" );
-        m_loader.m_inifile.PutStr( key.c_str(), item.second.c_str(), "$graph_rows_move_after$" );
+        s_ini().PutStr( key.c_str(), item.second.c_str(), "$graph_rows_move_after$" );
     }
 }
 
@@ -1732,7 +1735,7 @@ bool TraceWin::render()
 
     if ( !m_inited )
     {
-        std::vector< INIEntry > entries = m_loader.m_inifile.GetSectionEntries( "$rename_comm$" );
+        std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$rename_comm$" );
 
         // Init event durations
         m_trace_events.calculate_event_durations();
@@ -1740,7 +1743,7 @@ bool TraceWin::render()
         m_trace_events.calculate_event_print_info();
 
         // Initialize our graph rows first time through.
-        m_graph.rows.init( m_loader.m_inifile, m_trace_events );
+        m_graph.rows.init( m_trace_events );
 
         for ( INIEntry &entry : entries )
             rename_comm_event( entry.first.c_str(), entry.second.c_str() );
@@ -1887,7 +1890,7 @@ bool TraceWin::render()
             m_loader.m_opts.render_imgui_opt( OPT_GraphOnlyFiltered );
         }
 
-        events_list_render( m_loader.m_inifile );
+        events_list_render();
     }
 
     if ( is_valid_id( m_create_plot_eventid ) )
@@ -1896,7 +1899,7 @@ bool TraceWin::render()
         m_create_plot_eventid = INVALID_ID;
     }
     if ( m_create_plot_dlg.render_dlg( m_trace_events ) )
-        m_create_plot_dlg.add_plot( m_loader.m_inifile, m_graph.rows );
+        m_create_plot_dlg.add_plot( m_graph.rows );
 
     ImGui::End();
 
@@ -2149,7 +2152,7 @@ static void draw_ts_line( const ImVec2 &pos )
     ImGui::PushColumnClipRect();
 }
 
-void TraceWin::events_list_render( CIniFile &inifile )
+void TraceWin::events_list_render()
 {
     const std::vector< trace_event_t > &events = m_trace_events.m_events;
     size_t event_count = m_eventlist.filtered_events.empty() ?
@@ -2229,7 +2232,7 @@ void TraceWin::events_list_render( CIniFile &inifile )
 
         // Draw columns
         imgui_begin_columns( "event_list", { "Id", "Time Stamp", "Task", "Event", "Duration", "Info" },
-                             &inifile, &m_eventlist.columns_resized );
+                             &m_eventlist.columns_resized );
         {
             bool popup_shown = false;
             int64_t ts_marker_diff = 0;
@@ -2841,6 +2844,8 @@ int main( int argc, char **argv )
         return -1;
     }
 
+    s_ini().Open( "gpuvis", "gpuvis.ini" );
+
     // Initialize logging system
     logf_init();
 
@@ -2962,6 +2967,8 @@ int main( int argc, char **argv )
 
     // Shut down trace loader
     loader.shutdown();
+
+    s_ini().Close();
 
     logf_clear();
 

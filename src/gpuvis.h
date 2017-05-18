@@ -28,7 +28,6 @@
 
 #include "gpuvis_macros.h"
 #include "gpuvis_utils.h"
-#include "stlini.h"
 
 struct trace_info_t
 {
@@ -287,7 +286,7 @@ public:
 
     bool init( TraceEvents &trace_events, uint32_t eventid );
     bool render_dlg( TraceEvents &trace_events );
-    void add_plot( CIniFile &inifile, class GraphRows &rows );
+    void add_plot( class GraphRows &rows );
 
     static const char *get_plot_str( const trace_event_t &event );
 
@@ -395,7 +394,7 @@ public:
 
 public:
     // Initialize graph rows
-    void init( CIniFile &inifile, TraceEvents &trace_events );
+    void init( TraceEvents &trace_events );
 
     struct graph_rows_info_t
     {
@@ -448,7 +447,7 @@ public:
 
 protected:
     // Render events list
-    void events_list_render( CIniFile &inifile );
+    void events_list_render();
     // Handle events list popup menu
     bool events_list_render_popupmenu( uint32_t eventid );
     // Handle mouse clicking and tooltips for event list
@@ -682,8 +681,8 @@ public:
     Opts() {}
     ~Opts() {}
 
-    void init( CIniFile &inifile );
-    void shutdown( CIniFile &inifile );
+    void init();
+    void shutdown();
 
     int geti( option_id_t optid );
     bool getb( option_id_t optid );
@@ -696,7 +695,7 @@ public:
     bool render_imgui_opt( option_id_t optid, float w = 200.0f );
     void render_imgui_options( uint32_t crtc_max );
 
-    option_id_t add_opt_graph_rowsize( CIniFile &inifile, const char *row_name, int defval = 4 );
+    option_id_t add_opt_graph_rowsize( const char *row_name, int defval = 4 );
     option_id_t get_opt_graph_rowsize_id( const std::string &row_name );
 
 private:
@@ -771,7 +770,6 @@ protected:
     int init_new_event( trace_event_t &event, const trace_info_t &info );
 
 public:
-    CIniFile m_inifile;
     std::string m_filename;
     SDL_atomic_t m_state = { 0 };
     SDL_Thread *m_thread = nullptr;
