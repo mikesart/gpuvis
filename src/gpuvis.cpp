@@ -698,12 +698,7 @@ void TraceLoader::init( int argc, char **argv )
     imgui_set_custom_style( s_clrs().getalpha( col_ThemeAlpha ) );
 
     logf( "Welcome to gpuvis\n" );
-
-    logf( "graph shortcuts:" );
-    logf( "  shift+click+drag: zoom to selection" );
-    logf( "  ctrl+click+drag: select area to see time" );
-    logf( "  click+drag: pan graph" );
-    logf( "  alt key: hide all graph labels");
+    logf( " " );
 
     strcpy_safe( m_trace_file, "trace.dat" );
 
@@ -833,6 +828,53 @@ void TraceLoader::render()
             m_font_main.m_changed = true;
             ImGui::CloseCurrentPopup();
             m_show_scale_popup = false;
+        }
+
+        ImGui::EndPopup();
+    }
+
+    if ( m_show_help && !ImGui::IsPopupOpen( "GpuVis Help" ) )
+        ImGui::OpenPopup( "GpuVis Help" );
+    if ( ImGui::BeginPopupModal( "GpuVis Help", &m_show_help, ImGuiWindowFlags_AlwaysAutoResize ) )
+    {
+        static const struct
+        {
+            const char *keys;
+            const char *descr;
+        } s_text[] =
+        {
+            { "Up arrow", "pan graph up" },
+            { "Down arrow", "pan graph down" },
+            { "Left arrow", "pan graph left" },
+            { "Right arrow", "pan graph right" },
+            { "Home", "move to start of graph" },
+            { "End", "move to end of graph" },
+            { NULL, NULL },
+            { "shift + click + drag", "zoom to mouse selection on release" },
+            { "ctrl + click + drag", "select area to see time" },
+            { "click + drag", "pan graph" },
+            { "alt key", "hide all graph labels" },
+            { NULL, NULL },
+            { "z", "zoom graph in/out to mouse pos" },
+            { "ctrl + shift + z", "toggle hovered row zoom" },
+            { NULL, NULL },
+            { "ctrl + shift + a", "set marker A" },
+            { "ctrl + shift + b", "set marker B" },
+            { "ctrl + a", "center marker A" },
+            { "ctrl + b", "center marker B" },
+            { NULL, NULL },
+            { "ctrl + shift + 1..9", "save location" },
+            { "Ctrl + 1..9", "restore location" },
+            { NULL, NULL },
+            { "ctrl + click on ImGui sliders", "edit value with keyboard" },
+        };
+
+        for ( size_t i = 0; i < ARRAY_SIZE( s_text ); i++ )
+        {
+            if ( !s_text[ i ].keys )
+                ImGui::NewLine();
+            else
+                ImGui::Text( "%s: %s", s_textclrs().bright_str( s_text[ i ].keys ).c_str(), s_text[ i ].descr );
         }
 
         ImGui::EndPopup();
@@ -2405,6 +2447,12 @@ void TraceLoader::render_menu_options()
     {
         ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", "Windows" );
         ImGui::Indent();
+
+        if ( ImGui::MenuItem( "GpuVis Help" ) )
+        {
+            ImGui::SetWindowFocus( "GpuVis Help" );
+            m_show_help = true;
+        }
 
         if ( ImGui::MenuItem( "Gpuvis Console" ) )
         {

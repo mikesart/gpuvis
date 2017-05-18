@@ -812,4 +812,5 @@ public:
     bool m_show_font_window = false;
     bool m_show_color_picker = false;
     bool m_show_scale_popup = false;
+    bool m_show_help = false;
 };
