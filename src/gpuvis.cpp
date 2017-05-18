@@ -190,6 +190,220 @@ const char *StrPool::findstr( uint32_t hashval )
 }
 
 /*
+ * Opts
+ */
+void Opts::init_opt_bool( option_id_t optid, const char *description, const char *key,
+                    bool defval, OPT_Flags flags )
+{
+    option_t &opt = m_options[ optid ];
+
+    opt.flags = OPT_Bool | flags;
+    opt.desc = description;
+    opt.inikey = key;
+    opt.valf = defval;
+}
+
+void Opts::init_opt( option_id_t optid, const char *description, const char *key,
+               float defval, float minval, float maxval, OPT_Flags flags )
+{
+    option_t &opt = m_options[ optid ];
+
+    opt.flags = flags;
+    opt.desc = description;
+    opt.inikey = key;
+    opt.valf = defval;
+    opt.valf_min = minval;
+    opt.valf_max = maxval;
+}
+
+void Opts::init( CIniFile &inifile )
+{
+    m_options.resize( OPT_PresetMax );
+
+    init_opt_bool( OPT_TimelineLabels, "Show gfx timeline labels", "timeline_gfx_labels", true );
+    init_opt_bool( OPT_TimelineEvents, "Show gfx timeline events", "timeline_gfx_events", true );
+    init_opt_bool( OPT_TimelineRenderUserSpace, "Show gfx timeline userspace", "timeline_gfx_userspace", false );
+    init_opt_bool( OPT_PrintTimelineLabels, "Show print timeline labels", "print_timeline_gfx_labels", true );
+    init_opt_bool( OPT_GraphOnlyFiltered, "Graph only filtered events", "graph_only_filtered", false );
+    init_opt_bool( OPT_ShowEventList, "Show Event List", "show_event_list", true, OPT_Hidden );
+    init_opt_bool( OPT_SyncEventListToGraph, "Sync Event List to graph mouse location", "sync_eventlist_to_graph", true );
+
+    init_opt( OPT_GraphHeight, "Graph Size: %.1f", "graph_height", 0, 0, 1, OPT_Float | OPT_Hidden );
+    init_opt( OPT_GraphHeightZoomed, "Zoomed Graph Size: %.1f", "graph_height_zoomed", 0, 0, 1, OPT_Float | OPT_Hidden );
+    init_opt( OPT_EventListRowCount, "Event List Size: %.0f", "eventlist_rows", 0, 0, 100, OPT_Int | OPT_Hidden );
+    init_opt( OPT_Scale, "Font Scale: %.1f", "scale", 2.0f, 0.25f, 6.0f, OPT_Float | OPT_Hidden );
+    init_opt_bool( OPT_UseFreetype, "Use Freetype", "use_freetype", false, OPT_Hidden );
+
+    for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
+    {
+        const std::string desc = string_format( "Show drm_vblank_event crtc%d markers", i - OPT_RenderCrtc0 );
+        const std::string inikey = string_format( "render_crtc%d", i - OPT_RenderCrtc0 );
+
+        init_opt_bool( i, desc.c_str(), inikey.c_str(), true );
+    }
+
+    add_opt_graph_rowsize( inifile, "gfx", 8 );
+    add_opt_graph_rowsize( inifile, "print", 10 );
+    add_opt_graph_rowsize( inifile, "sdma0" );
+    add_opt_graph_rowsize( inifile, "sdma1" );
+
+    // Create all the entries for the compute shader rows
+    for ( uint32_t val = 0; ; val++ )
+    {
+        std::string str = comp_str_create_val( val );
+        if ( str.empty() )
+            break;
+
+        add_opt_graph_rowsize( inifile, str.c_str() );
+    }
+
+    // Read option values stored in ini file
+    for ( size_t i = 0; i < m_options.size(); i++ )
+    {
+        option_t &opt = m_options[ i ];
+
+        opt.valf = inifile.GetFloat( opt.inikey.c_str(), opt.valf );
+    }
+}
+
+void Opts::shutdown( CIniFile &inifile )
+{
+    for ( size_t i = 0; i < m_options.size(); i++ )
+    {
+        const option_t &opt = m_options[ i ];
+
+        if ( opt.flags & OPT_Int )
+            inifile.PutInt( opt.inikey.c_str(), ( int )opt.valf );
+        else if ( opt.flags & OPT_Bool )
+            inifile.PutInt( opt.inikey.c_str(), opt.valf ? 1 : 0 );
+        else
+            inifile.PutFloat( opt.inikey.c_str(), opt.valf );
+    }
+}
+
+option_id_t Opts::add_opt_graph_rowsize( CIniFile &inifile, const char *row_name, int defval )
+{
+    option_t opt;
+    const char *fullname = row_name;
+
+    if ( !strncmp( row_name, "plot:", 5 ) )
+        row_name = fullname + 5;
+
+    opt.flags = OPT_Int | OPT_Hidden;
+    opt.desc = string_format( "%s size: %%.0f", row_name );
+    opt.inikey = string_format( "row_%s_size", row_name );
+    opt.valf = inifile.GetInt( opt.inikey.c_str(), defval );
+    opt.valf_min = 4;
+    opt.valf_max = 40;
+
+    // Upper case first letter in description
+    opt.desc[ 0 ] = toupper( opt.desc[ 0 ] );
+
+    option_id_t optid = m_options.size();
+    m_options.push_back( opt );
+    m_graph_rowname_optid_map.m_map[ fullname ] = optid;
+
+    return optid;
+}
+
+option_id_t Opts::get_opt_graph_rowsize_id( const std::string &row_name )
+{
+    option_id_t *optid = m_graph_rowname_optid_map.get_val( row_name );
+
+    return optid ? *optid : OPT_Invalid;
+}
+
+int Opts::geti( option_id_t optid )
+{
+    assert( m_options[ optid ].flags & OPT_Int );
+
+    return ( int )m_options[ optid ].valf;
+}
+
+bool Opts::getb( option_id_t optid )
+{
+    assert( m_options[ optid ].flags & OPT_Bool );
+
+    return ( m_options[ optid ].valf != 0.0f );
+}
+
+float Opts::getf( option_id_t optid )
+{
+    assert( !( m_options[ optid ].flags & ( OPT_Int | OPT_Bool ) ) );
+
+    return m_options[ optid ].valf;
+}
+
+bool Opts::getcrtc( int crtc )
+{
+    uint32_t val = crtc + OPT_RenderCrtc0;
+
+    return ( val <= OPT_RenderCrtc9 ) ? getb( val ) : false;
+}
+
+void Opts::setf( option_id_t optid, float valf, float valf_min, float valf_max )
+{
+    m_options[ optid ].valf = valf;
+
+    if ( valf_min != FLT_MAX )
+        m_options[ optid ].valf_min = valf_min;
+
+    if ( valf_max != FLT_MAX )
+        m_options[ optid ].valf_max = valf_max;
+}
+
+void Opts::setb( option_id_t optid, bool valb )
+{
+    assert( m_options[ optid ].flags & OPT_Bool );
+
+    m_options[ optid ].valf = valb ? 1.0f : 0.0f;
+}
+
+bool Opts::render_imgui_opt( option_id_t optid, float w )
+{
+    bool changed = false;
+    option_t &opt = m_options[ optid ];
+
+    ImGui::PushID( optid );
+
+    if ( opt.flags & OPT_Bool )
+    {
+        bool val = !!opt.valf;
+
+        changed = ImGui::Checkbox( opt.desc.c_str(), &val );
+        if ( changed )
+            opt.valf = val;
+    }
+    else
+    {
+        ImGui::PushItemWidth( imgui_scale( w ) );
+        changed = ImGui::SliderFloat( "##opt_valf", &opt.valf, opt.valf_min, opt.valf_max, opt.desc.c_str() );
+        ImGui::PopItemWidth();
+    }
+
+    ImGui::PopID();
+
+    return changed;
+}
+
+void Opts::render_imgui_options( uint32_t crtc_max )
+{
+    for ( size_t i = 0; i < m_options.size(); i++ )
+    {
+        if ( m_options[ i ].flags & OPT_Hidden )
+            continue;
+
+        if ( ( i >= OPT_RenderCrtc0 ) && ( i <= OPT_RenderCrtc9 ) )
+        {
+            if ( i - OPT_RenderCrtc0 > crtc_max )
+                continue;
+        }
+
+        render_imgui_opt( i );
+    }
+}
+
+/*
  * TraceLoader
  */
 TraceLoader::state_t TraceLoader::get_state()
@@ -466,68 +680,7 @@ void TraceLoader::init( int argc, char **argv )
 
     Clrs::init( m_inifile );
 
-    m_options.resize( OPT_PresetMax );
-
-    m_options[ OPT_TimelineLabels ].opt_bool( "Show gfx timeline labels", "timeline_gfx_labels", true );
-    m_options[ OPT_TimelineEvents ].opt_bool( "Show gfx timeline events", "timeline_gfx_events", true );
-    m_options[ OPT_TimelineRenderUserSpace ].opt_bool( "Show gfx timeline userspace", "timeline_gfx_userspace", false );
-
-    m_options[ OPT_PrintTimelineLabels ].opt_bool( "Show print timeline labels", "print_timeline_gfx_labels", true );
-
-    m_options[ OPT_GraphOnlyFiltered ].opt_bool( "Graph only filtered events", "graph_only_filtered", false );
-
-    m_options[ OPT_ShowEventList ].opt_bool( "Show Event List", "show_event_list", true );
-    m_options[ OPT_ShowEventList ].hidden = true;
-
-    m_options[ OPT_SyncEventListToGraph ].opt_bool( "Sync Event List to graph mouse location", "sync_eventlist_to_graph", true );
-
-    m_options[ OPT_GraphHeight ].opt_float( "Graph Size: %.1f", "graph_height", 0, 0, 1 );
-    m_options[ OPT_GraphHeightZoomed ].opt_float( "Zoomed Graph Size: %.1f", "graph_height_zoomed", 0, 0, 1 );
-    m_options[ OPT_GraphHeight ].hidden = true;
-    m_options[ OPT_GraphHeightZoomed ].hidden = true;
-
-    m_options[ OPT_EventListRowCount ].opt_int( "Event List Size: %.0f", "eventlist_rows", 0, 0, 100 );
-    m_options[ OPT_EventListRowCount ].hidden = true;
-
-    m_options[ OPT_Scale ].opt_float( "Font Scale: %.1f", "scale", 2.0f, 0.25f, 6.0f );
-    m_options[ OPT_Scale ].hidden = true;
-
-    m_options[ OPT_UseFreetype ].opt_bool( "Use Freetype", "use_freetype", false );
-    m_options[ OPT_UseFreetype ].hidden = true;
-
-    for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
-    {
-        const std::string desc = string_format( "Show drm_vblank_event crtc%d markers", i - OPT_RenderCrtc0 );
-        const std::string inikey = string_format( "render_crtc%d", i - OPT_RenderCrtc0 );
-
-        m_options[ i ].opt_bool( desc, inikey, true );
-    }
-
-    add_option_graph_rowsize( "gfx", 8 );
-    add_option_graph_rowsize( "print", 10 );
-    add_option_graph_rowsize( "sdma0" );
-    add_option_graph_rowsize( "sdma1" );
-
-    // Create all the entries for the compute shader rows
-    for ( uint32_t val = 0; ; val++ )
-    {
-        std::string str = comp_str_create_val( val );
-        if ( str.empty() )
-            break;
-
-        add_option_graph_rowsize( str.c_str() );
-    }
-
-    // Read option settings from ini file
-    for ( size_t i = 0; i < m_options.size(); i++ )
-    {
-        option_t &opt = m_options[ i ];
-
-        if ( opt.type == OPT_Float )
-            opt.valf = m_inifile.GetFloat( opt.inikey.c_str(), opt.valf );
-        else
-            opt.val = m_inifile.GetInt( opt.inikey.c_str(), opt.val );
-    }
+    m_opts.init( m_inifile );
 
     ImGuiIO &io = ImGui::GetIO();
     m_imguiwindow_entries = m_inifile.GetSectionEntries( "$imguiwindows$" );
@@ -548,77 +701,7 @@ void TraceLoader::init( int argc, char **argv )
 
     strcpy_safe( m_trace_file, "trace.dat" );
 
-    imgui_set_scale( get_optf( OPT_Scale ) );
-}
-
-option_id_t TraceLoader::add_option_graph_rowsize( const char *name, int defval )
-{
-    option_t opt;
-    const char *fullname = name;
-
-    if ( !strncmp( name, "plot:", 5 ) )
-        name = fullname + 5;
-
-    std::string descr = string_format( "%s Size:", name );
-    std::string key = string_format( "row_%s_size", name );
-
-    descr[ 0 ] = toupper( descr[ 0 ] );
-
-    opt.opt_int( descr, key, defval, 4, 40 );
-    opt.hidden = true;
-
-    opt.val = m_inifile.GetInt( opt.inikey.c_str(), opt.val );
-
-    m_name_optid_map.m_map[ fullname ] = ( option_id_t )m_options.size();
-    m_options.push_back( opt );
-
-    return ( option_id_t )( m_options.size() - 1 );
-}
-
-bool TraceLoader::imgui_opt( option_id_t optid, float w )
-{
-    bool changed = false;
-    option_t &opt = m_options[ optid ];
-
-    ImGui::PushID( optid );
-
-    if ( opt.type == OPT_Float )
-    {
-        ImGui::PushItemWidth( imgui_scale( w ) );
-        changed |= ImGui::SliderFloat( "##opt_float", &opt.valf, opt.valf_min, opt.valf_max, opt.desc.c_str() );
-        ImGui::PopItemWidth();
-    }
-    else if ( opt.type == OPT_Int )
-    {
-        ImGui::PushItemWidth( imgui_scale( w ) );
-        changed |= ImGui::SliderInt( "##opt_int", &opt.val, opt.val_min, opt.val_max, opt.desc.c_str() );
-        ImGui::PopItemWidth();
-    }
-    else
-    {
-        changed |= ImGui::CheckboxInt( opt.desc.c_str(), &opt.val );
-    }
-
-    ImGui::PopID();
-
-    return changed;
-}
-
-int TraceLoader::get_opt( option_id_t opt )
-{
-    return m_options[ opt ].val;
-}
-
-float TraceLoader::get_optf( option_id_t opt )
-{
-    return m_options[ opt ].valf;
-}
-
-int TraceLoader::get_opt_crtc( int crtc )
-{
-    uint32_t val = crtc + OPT_RenderCrtc0;
-
-    return ( val <= OPT_RenderCrtc9 ) ? m_options[ val ].val : 0;
+    imgui_set_scale( m_opts.getf( OPT_Scale ) );
 }
 
 void TraceLoader::shutdown()
@@ -644,15 +727,7 @@ void TraceLoader::shutdown()
     m_trace_events_list.clear();
 
     // Write option settings to ini file
-    for ( size_t i = 0; i < m_options.size(); i++ )
-    {
-        const option_t &opt = m_options[ i ];
-
-        if ( opt.type == OPT_Float )
-            m_inifile.PutFloat( opt.inikey.c_str(), opt.valf );
-        else
-            m_inifile.PutInt( opt.inikey.c_str(), opt.val );
-    }
+    m_opts.shutdown( m_inifile );
 
     Clrs::shutdown( m_inifile );
 
@@ -755,7 +830,7 @@ void TraceLoader::render()
         ImGui::SameLine();
         if ( ImGui::Button( "No", ImVec2( 150, 0 ) ) )
         {
-            m_options[ OPT_Scale ].valf = 1.0f;
+            m_opts.setf( OPT_Scale, 1.0f );
             m_font_main.m_changed = true;
             ImGui::CloseCurrentPopup();
             m_show_scale_popup = false;
@@ -783,7 +858,7 @@ void TraceLoader::load_fonts()
 
     if ( m_inifile.GetFloat( "scale", -1.0f ) == -1.0f )
     {
-        m_inifile.PutFloat( "scale", get_optf( OPT_Scale ) );
+        m_inifile.PutFloat( "scale", m_opts.getf( OPT_Scale ) );
         m_show_scale_popup = true;
         m_show_font_window = true;
     }
@@ -1711,10 +1786,12 @@ bool TraceWin::render()
         graph_render_process();
     }
 
-    ImGuiTreeNodeFlags eventslist_flags = m_loader.get_opt( OPT_ShowEventList ) ?
+    ImGuiTreeNodeFlags eventslist_flags = m_loader.m_opts.getb( OPT_ShowEventList ) ?
         ImGuiTreeNodeFlags_DefaultOpen : 0;
-    m_loader.m_options[ OPT_ShowEventList ].val = ImGui::CollapsingHeader( "Events List", eventslist_flags );
-    if ( m_loader.get_opt( OPT_ShowEventList ) )
+
+    m_loader.m_opts.setb( OPT_ShowEventList, ImGui::CollapsingHeader( "Events List", eventslist_flags ) );
+
+    if ( m_loader.m_opts.getb( OPT_ShowEventList ) )
     {
         m_eventlist.do_gotoevent |= imgui_input_int( &m_eventlist.goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
 
@@ -1807,7 +1884,7 @@ bool TraceWin::render()
             std::string label = string_format( "Graph only filtered (%lu events)", m_eventlist.filtered_events.size() );
 
             ImGui::SameLine();
-            m_loader.imgui_opt( OPT_GraphOnlyFiltered );
+            m_loader.m_opts.render_imgui_opt( OPT_GraphOnlyFiltered );
         }
 
         events_list_render( m_loader.m_inifile );
@@ -2087,7 +2164,7 @@ void TraceWin::events_list_render( CIniFile &inifile )
         float lineh = ImGui::GetTextLineHeightWithSpacing();
         const ImVec2 content_avail = ImGui::GetContentRegionAvail();
 
-        int eventlist_row_count = m_loader.get_opt( OPT_EventListRowCount );
+        int eventlist_row_count = m_loader.m_opts.geti( OPT_EventListRowCount );
 
         // If the user has set the event list row count to 0 (auto size), make
         //  sure we always have at least 20 rows.
@@ -2349,21 +2426,7 @@ void TraceLoader::render_menu_options()
     ImGui::TextColored( ImVec4( 1, 1, 0, 1 ), "%s", "Gpuvis Settings" );
     ImGui::Indent();
 
-    for ( size_t i = 0; i < m_options.size(); i++ )
-    {
-        option_t &opt = m_options[ i ];
-
-        if ( opt.hidden )
-            continue;
-
-        if ( ( i >= OPT_RenderCrtc0 ) && ( i <= OPT_RenderCrtc9 ) )
-        {
-            if ( i - OPT_RenderCrtc0 > m_crtc_max )
-                continue;
-        }
-
-        imgui_opt( i );
-    }
+    m_opts.render_imgui_options( m_crtc_max );
 
     ImGui::Unindent();
 }
@@ -2385,10 +2448,9 @@ void TraceLoader::render_font_options()
         bool changed = false;
 
 #ifdef USE_FREETYPE
-        changed |= imgui_opt( OPT_UseFreetype );
+        changed |= m_opts.render_imgui_opt( OPT_UseFreetype );
 #endif
-
-        changed |= imgui_opt( OPT_Scale );
+        changed |= m_opts.render_imgui_opt( OPT_Scale );
 
         if ( ImGui::Button( "Reset to Defaults" ) )
         {
@@ -2410,7 +2472,7 @@ void TraceLoader::render_font_options()
 
         ImGui::TextWrapped( "%s: %s", TextClrs::bright_text.m_str( font_name ).c_str(), lorem_str );
 
-        m_font_main.render_font_options( !!m_options[ OPT_UseFreetype ].val );
+        m_font_main.render_font_options( m_opts.getb( OPT_UseFreetype ) );
         ImGui::TreePop();
     }
 
@@ -2426,7 +2488,7 @@ void TraceLoader::render_font_options()
 
         ImGui::EndChild();
 
-        m_font_small.render_font_options( !!m_options[ OPT_UseFreetype ].val );
+        m_font_small.render_font_options( m_opts.getb( OPT_UseFreetype ) );
 
         ImGui::TreePop();
     }
@@ -2721,7 +2783,7 @@ void TraceLoader::parse_cmdline( int argc, char **argv )
         {
         case 0:
             if ( !strcasecmp( "scale", long_opts[ opt_ind ].name ) )
-                m_options[ OPT_Scale ].valf = atof( ya_optarg );
+                m_opts.setf( OPT_Scale, atof( ya_optarg ) );
             break;
         case 'i':
             m_inputfiles.clear();
@@ -2841,7 +2903,9 @@ int main( int argc, char **argv )
             if ( event.type == SDL_QUIT )
                 done = true;
         }
-        ImGui_ImplSdlGL3_NewFrame( window, &loader.m_options[ OPT_UseFreetype ].val );
+        bool use_freetype = loader.m_opts.getb( OPT_UseFreetype );
+        ImGui_ImplSdlGL3_NewFrame( window, &use_freetype );
+        loader.m_opts.setb( OPT_UseFreetype, use_freetype );
 
         // Check for logf() calls from background threads.
         logf_update();
@@ -2878,7 +2942,7 @@ int main( int argc, char **argv )
         if ( ( loader.m_font_main.m_changed || loader.m_font_small.m_changed ) &&
              !ImGui::IsMouseDown( 0 ) )
         {
-            imgui_set_scale( loader.get_optf( OPT_Scale ) );
+            imgui_set_scale( loader.m_opts.getf( OPT_Scale ) );
 
             ImGui_ImplSdlGL3_InvalidateDeviceObjects();
             loader.load_fonts();

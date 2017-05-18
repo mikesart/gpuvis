@@ -665,48 +665,59 @@ enum : uint32_t
     OPT_PresetMax
 };
 
-enum opt_type { OPT_Bool, OPT_Int, OPT_Float };
 struct option_t
 {
-    void opt_bool( const std::string &description, const std::string &key, bool defval )
-    {
-        type = OPT_Bool;
-        desc = description;
-        inikey = key;
-        val = defval;
-    }
-
-    void opt_int( const std::string &description, const std::string &key, int defval, int minval, int maxval )
-    {
-        type = OPT_Int;
-        desc = description;
-        inikey = key;
-        val = defval;
-        val_min = minval;
-        val_max = maxval;
-    }
-
-    void opt_float( const std::string &description, const std::string &key, float defval, float minval, float maxval )
-    {
-        type = OPT_Float;
-        desc = description;
-        inikey = key;
-        valf = defval;
-        valf_min = minval;
-        valf_max = maxval;
-    }
-
-    opt_type type;
+    uint32_t flags;
     std::string desc;
     std::string inikey;
-    bool hidden = false;
 
-    int val;
-    int val_min;
-    int val_max;
     float valf;
-    float valf_min;
-    float valf_max;
+    float valf_min = 0.0f;
+    float valf_max = 1.0f;
+};
+
+class Opts
+{
+public:
+    Opts() {}
+    ~Opts() {}
+
+    void init( CIniFile &inifile );
+    void shutdown( CIniFile &inifile );
+
+    int geti( option_id_t optid );
+    bool getb( option_id_t optid );
+    float getf( option_id_t optid );
+    bool getcrtc( int crtc );
+
+    void setb( option_id_t optid, bool valb );
+    void setf( option_id_t optid, float valf, float valf_min = FLT_MAX, float valf_max = FLT_MAX );
+
+    bool render_imgui_opt( option_id_t optid, float w = 200.0f );
+    void render_imgui_options( uint32_t crtc_max );
+
+    option_id_t add_opt_graph_rowsize( CIniFile &inifile, const char *row_name, int defval = 4 );
+    option_id_t get_opt_graph_rowsize_id( const std::string &row_name );
+
+private:
+    typedef uint32_t OPT_Flags;
+    enum : uint32_t
+    {
+        OPT_Float = 0x0000,
+        OPT_Bool = 0x0001,
+        OPT_Int = 0x0002,
+        OPT_Hidden = 0x004
+    };
+    void init_opt_bool( option_id_t optid, const char *description, const char *key,
+                        bool defval, OPT_Flags flags = 0 );
+    void init_opt( option_id_t optid, const char *description, const char *key,
+                   float defval, float minval, float maxval, OPT_Flags flags );
+
+private:
+    std::vector< option_t > m_options;
+
+    // Map row names to option IDs to store graph row sizes. Ie, "gfx", "print", "sdma0", etc.
+    util_umap< std::string, option_id_t > m_graph_rowname_optid_map;
 };
 
 class TraceLoader
@@ -742,13 +753,6 @@ public:
     void get_window_pos( int &x, int &y, int &w, int &h );
     void save_window_pos( int x, int y, int w, int h );
 
-    int get_opt( option_id_t opt );
-    float get_optf( option_id_t opt );
-    int get_opt_crtc( int crtc );
-    option_id_t add_option_graph_rowsize( const char *name, int defval = 4 );
-
-    bool imgui_opt( option_id_t optid, float w = 200.0f );
-
 protected:
     void render_menu_options();
     void render_console();
@@ -779,10 +783,7 @@ public:
     uint32_t m_crtc_max = 0;
     std::vector< std::string > m_inputfiles;
 
-    std::vector< option_t > m_options;
-
-    // Map row names to option IDs. Ie, "gfx", "print", "sdma0", etc.
-    util_umap< std::string, option_id_t > m_name_optid_map;
+    Opts m_opts;
 
     FontInfo m_font_main;
     FontInfo m_font_small;

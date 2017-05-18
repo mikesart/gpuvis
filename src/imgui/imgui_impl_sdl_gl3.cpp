@@ -175,7 +175,7 @@ bool ImGui_ImplSdlGL3_ProcessEvent(SDL_Event* event)
     return false;
 }
 
-void ImGui_ImplSdlGL3_CreateFontsTexture(int *use_freetype)
+void ImGui_ImplSdlGL3_CreateFontsTexture(bool *use_freetype)
 {
     // Build texture atlas
     ImGuiIO& io = ImGui::GetIO();
@@ -185,7 +185,7 @@ void ImGui_ImplSdlGL3_CreateFontsTexture(int *use_freetype)
     if ( use_freetype && *use_freetype )
     {
         if ( !ImGuiFreeType::BuildFontAtlas( io.Fonts ) )
-            *use_freetype = 0;
+            *use_freetype = false;
     }
 
     // Load as RGBA 32-bits for OpenGL3 demo because it is more likely to be compatible with user's existing shader.
@@ -235,7 +235,7 @@ void ImGui_ImplSdlGL3_CreateFontsTexture(int *use_freetype)
 #endif
 }
 
-bool ImGui_ImplSdlGL3_CreateDeviceObjects(int *use_freetype)
+bool ImGui_ImplSdlGL3_CreateDeviceObjects(bool *use_freetype)
 {
     // Backup GL state
     GLint last_texture, last_array_buffer, last_vertex_array;
@@ -384,7 +384,7 @@ void ImGui_ImplSdlGL3_Shutdown()
     ImGui::Shutdown();
 }
 
-void ImGui_ImplSdlGL3_NewFrame(SDL_Window* window, int *use_freetype)
+void ImGui_ImplSdlGL3_NewFrame(SDL_Window* window, bool *use_freetype)
 {
     if (!g_FontTexture)
         ImGui_ImplSdlGL3_CreateDeviceObjects(use_freetype);
