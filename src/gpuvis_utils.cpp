@@ -520,8 +520,10 @@ void imgui_set_custom_style( float alpha )
 
         if ( icol != col_Max )
         {
+            // Get imgui color reference
             ImVec4 &col = style.Colors[ i ];
 
+            // Set to new color
             col = s_clrs().getv4( icol );
 
             if ( col.w < 1.00f )
@@ -915,6 +917,11 @@ void Clrs::set( colors_t col, ImU32 color )
     }
 }
 
+void Clrs::reset( colors_t col )
+{
+    s_colordata[ col ].color = s_colordata[ col ].defcolor;
+}
+
 const char *Clrs::name( colors_t col )
 {
     // Skip "col_" prefix
@@ -928,12 +935,30 @@ const char *Clrs::desc( colors_t col )
 
 bool Clrs::is_default( colors_t col )
 {
-    return s_colordata[ col ].color == s_colordata[ col ].defcolor;
+    return ( s_colordata[ col ].color == s_colordata[ col ].defcolor );
 }
 
-void Clrs::reset( colors_t col )
+bool Clrs::is_alpha_color( colors_t col )
 {
-    s_colordata[ col ].color = s_colordata[ col ].defcolor;
+    switch( col )
+    {
+    case col_ThemeAlpha:
+    case col_Graph_PrintLabelSat:
+    case col_Graph_PrintLabelAlpha:
+    case col_Graph_TimelineLabelSat:
+    case col_Graph_TimelineLabelAlpha:
+        return true;
+    }
+
+    return false;
+}
+
+bool Clrs::is_imgui_color( colors_t col )
+{
+    if ( ( col >= col_ImGui_Text ) || ( col == col_ThemeAlpha ) )
+        return true;
+
+    return false;
 }
 
 void TextClrs::set( std::string &str, ImU32 color )

@@ -257,6 +257,10 @@ public:
 
     bool is_default( colors_t col );
 
+    // True if this is an alpha or saturation only color
+    bool is_alpha_color( colors_t col );
+    bool is_imgui_color( colors_t col );
+
 private:
     struct colordata_t
     {

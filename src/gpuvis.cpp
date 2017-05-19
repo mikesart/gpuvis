@@ -2612,11 +2612,13 @@ void TraceLoader::render_color_picker()
 
             bool selected = ( i == m_selected_color );
             ImVec2 pos = ImGui::GetCursorScreenPos();
-            ImU32 col = s_clrs().get( i );
+            ImU32 color = s_clrs().get( i );
             const char *name = s_clrs().name( i );
 
-            ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + w, pos.y + text_h ), col );
+            // Draw colored rectangle
+            ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + w, pos.y + text_h ), color );
 
+            // Draw color name
             ImGui::Indent( imgui_scale( 40.0f ) );
             if ( ImGui::Selectable( name, selected, 0 ) )
                 m_selected_color = i;
@@ -2641,14 +2643,11 @@ void TraceLoader::render_color_picker()
         const char *desc = s_clrs().desc( m_selected_color );
         std::string brightname = s_textclrs().bright_str( name );
 
+        // Color name and description
         imgui_text_bg( string_format( "%s: %s", brightname.c_str(), desc ).c_str(),
                        ImGui::GetColorVec4( ImGuiCol_Header ) );
 
-        if ( m_selected_color == col_ThemeAlpha ||
-             m_selected_color == col_Graph_PrintLabelSat ||
-             m_selected_color == col_Graph_PrintLabelAlpha ||
-             m_selected_color == col_Graph_TimelineLabelSat ||
-             m_selected_color == col_Graph_TimelineLabelAlpha )
+        if ( s_clrs().is_alpha_color( m_selected_color ) )
         {
             ImGui::PushItemWidth( imgui_scale( 125.0f ) );
             float val = s_clrs().getalpha( m_selected_color );
@@ -2664,23 +2663,6 @@ void TraceLoader::render_color_picker()
                 else
                     s_clrs().reset( m_selected_color );
 
-                if ( m_selected_color == col_Graph_PrintLabelSat ||
-                     m_selected_color == col_Graph_PrintLabelAlpha )
-                {
-                    for ( TraceEvents *trace_event : m_trace_events_list )
-                        trace_event->invalidate_ftraceprint_colors();
-                }
-                else if ( m_selected_color == col_Graph_TimelineLabelSat ||
-                          m_selected_color == col_Graph_TimelineLabelAlpha )
-                {
-                    for ( TraceEvents *trace_event : m_trace_events_list )
-                    {
-                        trace_event->update_fence_signaled_timeline_colors(
-                                    s_clrs().getalpha( col_Graph_TimelineLabelSat ),
-                                    s_clrs().getalpha( col_Graph_TimelineLabelAlpha ) );
-                    }
-                }
-
                 changed = true;
             }
         }
@@ -2691,12 +2673,7 @@ void TraceLoader::render_color_picker()
             if ( m_colorpicker.render( &color ) )
             {
                 s_clrs().set( m_selected_color, color );
-
-                if ( m_selected_color == col_FtracePrintText || m_selected_color == col_BrightText )
-                    s_textclrs().update_colors();
-
-                if ( ( m_selected_color >= col_ImGui_Text ) && ( m_selected_color <= col_ImGui_ModalWindowDarkening ) )
-                    changed = true;
+                changed = true;
             }
 
             ImGui::NewLine();
@@ -2713,7 +2690,30 @@ void TraceLoader::render_color_picker()
 
     if ( changed )
     {
-        imgui_set_custom_style( s_clrs().getalpha( col_ThemeAlpha ) );
+        switch( m_selected_color )
+        {
+        case col_Graph_PrintLabelSat:
+        case col_Graph_PrintLabelAlpha:
+            // ftrace print label color changes - invalidate current colors
+            for ( TraceEvents *trace_event : m_trace_events_list )
+                trace_event->invalidate_ftraceprint_colors();
+            break;
+
+        case col_Graph_TimelineLabelSat:
+        case col_Graph_TimelineLabelAlpha:
+            // fence_signaled event color change - update event fence_signaled colors
+            for ( TraceEvents *trace_event : m_trace_events_list )
+            {
+                trace_event->update_fence_signaled_timeline_colors(
+                            s_clrs().getalpha( col_Graph_TimelineLabelSat ),
+                            s_clrs().getalpha( col_Graph_TimelineLabelAlpha ) );
+            }
+            break;
+        }
+
+        // imgui color change - set new imgui colors
+        if ( s_clrs().is_imgui_color( m_selected_color ) )
+            imgui_set_custom_style( s_clrs().getalpha( col_ThemeAlpha ) );
 
         s_textclrs().update_colors();
     }
