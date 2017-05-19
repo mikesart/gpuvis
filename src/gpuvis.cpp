@@ -2647,41 +2647,18 @@ void TraceLoader::render_color_picker()
         imgui_text_bg( string_format( "%s: %s", brightname.c_str(), desc ).c_str(),
                        ImGui::GetColorVec4( ImGuiCol_Header ) );
 
-        if ( s_clrs().is_alpha_color( m_selected_color ) )
+        ImGui::NewLine();
+        if ( m_colorpicker.render( m_selected_color, &color ) )
         {
-            ImGui::PushItemWidth( imgui_scale( 125.0f ) );
-            float val = s_clrs().getalpha( m_selected_color );
-            bool set_color = ImGui::SliderFloat( "##alpha_val", &val, 0.0f, 1.0f, "%.02f" );
-            ImGui::PopItemWidth();
-
-            bool reset_color = ImGui::Button( "Reset to Default" );
-
-            if ( set_color || reset_color )
-            {
-                if ( set_color )
-                    s_clrs().set( m_selected_color, ImColor( val, val, val, val ) );
-                else
-                    s_clrs().reset( m_selected_color );
-
-                changed = true;
-            }
+            s_clrs().set( m_selected_color, color );
+            changed = true;
         }
-        else
+
+        ImGui::NewLine();
+        if ( ImGui::Button( "Reset to Default" ) )
         {
-            ImGui::NewLine();
-
-            if ( m_colorpicker.render( &color ) )
-            {
-                s_clrs().set( m_selected_color, color );
-                changed = true;
-            }
-
-            ImGui::NewLine();
-            if ( ImGui::Button( "Reset to Default" ) )
-            {
-                s_clrs().reset( m_selected_color );
-                changed = true;
-            }
+            s_clrs().reset( m_selected_color );
+            changed = true;
         }
     }
     ImGui::NextColumn();

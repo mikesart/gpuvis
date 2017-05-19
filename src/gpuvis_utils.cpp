@@ -787,9 +787,10 @@ void FontInfo::render_font_options( bool m_use_freetype )
     ImGui::PopID();
 }
 
-bool ColorPicker::render( ImU32 *pcolor )
+bool ColorPicker::render( colors_t idx, ImU32 *pcolor )
 {
     bool ret = false;
+    const float w = imgui_scale( 125.0f );
 
     {
         static const char s_text[] = "Lorem ipsum dolor sit amet, consectetur adipiscing elit";
@@ -806,19 +807,32 @@ bool ColorPicker::render( ImU32 *pcolor )
         ImGui::EndChild();
     }
 
+    if ( s_clrs().is_alpha_color( idx ) )
+    {
+        ImGui::PushItemWidth( w );
+
+        float val = IM_COL32_A( *pcolor ) * ( 1.0f / 255.0f );
+        ret = ImGui::SliderFloat( "##alpha_val", &val, 0.0f, 1.0f, "%.02f" );
+        if ( ret )
+            *pcolor = ImColor( val, val, val, val );
+
+        ImGui::PopItemWidth();
+        return ret;
+    }
+
     ImGui::NewLine();
 
-    ImGui::PushItemWidth( imgui_scale( 125.0f ) );
+    ImGui::PushItemWidth( w );
     ImGui::SliderFloat( "##s_value", &m_s, 0.0f, 1.0f, "sat %.2f");
     ImGui::PopItemWidth();
 
     ImGui::SameLine( 0, imgui_scale( 20.0f ) );
-    ImGui::PushItemWidth( imgui_scale( 125.0f ) );
+    ImGui::PushItemWidth( w );
     ImGui::SliderFloat( "##v_value", &m_v, 0.0f, 1.0f, "val %.2f");
     ImGui::PopItemWidth();
 
     ImGui::SameLine( 0, imgui_scale( 20.0f ) );
-    ImGui::PushItemWidth( imgui_scale( 125.0f ) );
+    ImGui::PushItemWidth( w );
     ImGui::SliderFloat( "##a_value", &m_a, 0.0f, 1.0f, "alpha %.2f");
     ImGui::PopItemWidth();
 
@@ -905,7 +919,7 @@ ImVec4 Clrs::getv4( colors_t col, float alpha )
 
 float Clrs::getalpha( colors_t col )
 {
-    return ( s_colordata[ col ].color >> IM_COL32_A_SHIFT ) * ( 1.0f / 255.0f );
+    return IM_COL32_A( s_colordata[ col ].color ) * ( 1.0f / 255.0f );
 }
 
 void Clrs::set( colors_t col, ImU32 color )
@@ -966,10 +980,10 @@ void TextClrs::set( std::string &str, ImU32 color )
     str.resize( 5 );
 
     str[ 0 ] = '\033';
-    str[ 1 ] = std::max< uint8_t >( ( uint8_t )( color >> IM_COL32_R_SHIFT ), 1 );
-    str[ 2 ] = std::max< uint8_t >( ( uint8_t )( color >> IM_COL32_G_SHIFT ), 1 );
-    str[ 3 ] = std::max< uint8_t >( ( uint8_t )( color >> IM_COL32_B_SHIFT ), 1 );
-    str[ 4 ] = std::max< uint8_t >( ( uint8_t )( color >> IM_COL32_A_SHIFT ), 1 );
+    str[ 1 ] = std::max< uint8_t >( IM_COL32_R( color ), 1 );
+    str[ 2 ] = std::max< uint8_t >( IM_COL32_G( color ), 1 );
+    str[ 3 ] = std::max< uint8_t >( IM_COL32_B( color ), 1 );
+    str[ 4 ] = std::max< uint8_t >( IM_COL32_A( color ), 1 );
 }
 
 const std::string TextClrs::mstr( text_colors_t clr, const std::string &str )

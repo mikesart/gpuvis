@@ -89,6 +89,11 @@ void imgui_text_bg( const char *str, const ImVec4 &bgcolor );
 bool imgui_push_smallfont();
 void imgui_pop_smallfont();
 
+#define IM_COL32_R( _x ) ( ( ( _x ) >> IM_COL32_R_SHIFT ) & 0xFF )
+#define IM_COL32_G( _x ) ( ( ( _x ) >> IM_COL32_G_SHIFT ) & 0xFF )
+#define IM_COL32_B( _x ) ( ( ( _x ) >> IM_COL32_B_SHIFT ) & 0xFF )
+#define IM_COL32_A( _x ) ( ( ( _x ) >> IM_COL32_A_SHIFT ) & 0xFF )
+
 inline char *strncasestr( const char *haystack, const char *needle, size_t needle_len )
 {
    for ( ; *haystack; haystack++ )
@@ -213,20 +218,6 @@ public:
     std::string m_buf[ TClr_Max ];
 };
 
-class ColorPicker
-{
-public:
-    ColorPicker() {}
-    ~ColorPicker() {}
-
-    bool render( ImU32 *pcolor );
-
-public:
-    float m_s = 0.9f;
-    float m_v = 0.9f;
-    float m_a = 1.0f;
-};
-
 typedef uint32_t colors_t;
 enum : uint32_t
 {
@@ -271,6 +262,20 @@ private:
         const char *desc;
     };
     static colordata_t s_colordata[ col_Max ];
+};
+
+class ColorPicker
+{
+public:
+    ColorPicker() {}
+    ~ColorPicker() {}
+
+    bool render( colors_t idx, ImU32 *pcolor );
+
+public:
+    float m_s = 0.9f;
+    float m_v = 0.9f;
+    float m_a = 1.0f;
 };
 
 #endif // _GPUVIS_UTILS_H
