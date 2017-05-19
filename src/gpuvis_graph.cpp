@@ -237,22 +237,15 @@ static void imgui_draw_text( float x, float y, const char *text, ImU32 color, bo
     ImGui::GetWindowDrawList()->AddText( ImVec2( x, y ), color, text );
 }
 
-const event_field_t *find_event_field( const std::vector< event_field_t > &fields, const char *name )
+const char *get_event_field_val( const trace_event_t &event, const char *name )
 {
-    for ( const event_field_t &field : fields )
+    for ( const event_field_t &field : event.fields )
     {
         if ( !strcmp( field.key, name ) )
-            return &field;
+            return field.value;
     }
 
-    return NULL;
-}
-
-const char *get_event_field_val( const std::vector< event_field_t > &fields, const char *name )
-{
-    const event_field_t *field = find_event_field( fields, name );
-
-    return field ? field->value : "";
+    return "";
 }
 
 /*
@@ -584,7 +577,7 @@ const char *CreatePlotDlg::get_plot_str( const trace_event_t &event )
 {
     if ( event.is_ftrace_print() )
     {
-        const char *buf = get_event_field_val( event.fields, "buf" );
+        const char *buf = get_event_field_val( event, "buf" );
 
         if ( str_get_digit_loc( buf ) )
             return buf;
@@ -602,7 +595,7 @@ bool CreatePlotDlg::init( TraceEvents &trace_events, uint32_t eventid )
         return false;
 
     const trace_event_t &event = trace_events.m_events[ eventid ];
-    const char *buf = get_event_field_val( event.fields, "buf" );
+    const char *buf = get_event_field_val( event, "buf" );
     size_t digit_loc = str_get_digit_loc( buf );
 
     m_plot_buf = buf;
@@ -799,7 +792,7 @@ bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
             for ( uint32_t idx : *plocs )
             {
                 const trace_event_t &event = trace_events.m_events[ idx ];
-                const char *buf = get_event_field_val( event.fields, "buf" );
+                const char *buf = get_event_field_val( event, "buf" );
 
                 if ( parse_plot_str.parse( buf ) )
                 {
@@ -831,6 +824,45 @@ uint32_t GraphPlot::find_ts_index( int64_t ts0 )
     }
 
     return ( uint32_t )-1;
+}
+
+bool ParsePlotStr::init( const char *scanf_str )
+{
+    const char *pct_f = strstr( scanf_str, "%f" );
+
+    if ( pct_f )
+    {
+        m_scanf_str = scanf_str;
+        m_scanf_len = pct_f - scanf_str;
+        return true;
+    }
+
+    return false;
+}
+
+bool ParsePlotStr::parse( const char *buf )
+{
+    if ( buf )
+    {
+        const char *pat_start = strncasestr( buf, m_scanf_str, m_scanf_len );
+
+        if ( pat_start )
+        {
+            char *val_end;
+            const char *val_start = pat_start + m_scanf_len;
+
+            m_valf = strtof( val_start, &val_end );
+
+            if ( val_start != val_end )
+            {
+                m_val_start = val_start;
+                m_val_end = val_end;
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
@@ -2293,10 +2325,10 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             // Add colored string for ftrace print events
             if ( event.is_ftrace_print() )
             {
-                const event_field_t *field = find_event_field( event.fields, "buf" );
+                const char *buf = get_event_field_val( event, "buf" );
 
-                if ( field )
-                    time_buf += " " + s_textclrs().ftraceprint_str( field->value );
+                if ( buf[ 0 ] )
+                    time_buf += " " + s_textclrs().ftraceprint_str( buf );
             }
         }
 

@@ -327,7 +327,7 @@ const char *get_path_filename( const char *filename )
 {
     for ( const char *str = filename; *str; str++ )
     {
-        if ( (*str == '/' || *str == '\\' ) && str[ 1 ] )
+        if ( ( str[ 0 ] == '/' || str[ 0 ] == '\\' ) && str[ 1 ] )
             filename = str + 1;
     }
     return filename;
@@ -936,15 +936,15 @@ void Clrs::reset( colors_t col )
     s_colordata[ col ].color = s_colordata[ col ].defcolor;
 }
 
-void TextClrs::set( std::string &str, const ImVec4 &color )
+void TextClrs::set( std::string &str, ImU32 color )
 {
     str.resize( 5 );
 
     str[ 0 ] = '\033';
-    str[ 1 ] = std::max< uint8_t >( 1, color.x * 255.0f );
-    str[ 2 ] = std::max< uint8_t >( 1, color.y * 255.0f );
-    str[ 3 ] = std::max< uint8_t >( 1, color.z * 255.0f );
-    str[ 4 ] = std::max< uint8_t >( 1, color.w * 255.0f );
+    str[ 1 ] = std::max< uint8_t >( ( uint8_t )( color >> IM_COL32_R_SHIFT ), 1 );
+    str[ 2 ] = std::max< uint8_t >( ( uint8_t )( color >> IM_COL32_G_SHIFT ), 1 );
+    str[ 3 ] = std::max< uint8_t >( ( uint8_t )( color >> IM_COL32_B_SHIFT ), 1 );
+    str[ 4 ] = std::max< uint8_t >( ( uint8_t )( color >> IM_COL32_A_SHIFT ), 1 );
 }
 
 const std::string TextClrs::mstr( text_colors_t clr, const std::string &str )
@@ -954,13 +954,13 @@ const std::string TextClrs::mstr( text_colors_t clr, const std::string &str )
 
 void TextClrs::update_colors()
 {
-    ImVec4 col_bright = s_clrs().getv4( col_BrightText );
-    ImVec4 col_bright_comp = ( ImColor )imgui_col_complement( ( ImColor )col_bright );
+    ImU32 col_bright = s_clrs().get( col_BrightText );
+    ImU32 col_bright_comp = imgui_col_complement( col_bright );
 
-    set( m_buf[ TClr_Def ], ImGui::GetColorVec4( ImGuiCol_Text ) );
+    set( m_buf[ TClr_Def ], ImGui::GetColorU32( ImGuiCol_Text ) );
     set( m_buf[ TClr_Bright ], col_bright );
     set( m_buf[ TClr_BrightComp ], col_bright_comp );
-    set( m_buf[ TClr_FtracePrint ], s_clrs().getv4( col_FtracePrintText ) );
+    set( m_buf[ TClr_FtracePrint ], s_clrs().get( col_FtracePrintText ) );
 }
 
 #if defined( WIN32 )

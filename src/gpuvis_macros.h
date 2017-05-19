@@ -84,14 +84,6 @@ char *strtok_r( char *str, const char *delim, char **saveptr );
 
 #endif
 
-#if defined( __GNUC__ )
-__inline__ void __debugbreak() __attribute( ( always_inline ) );
-__inline__ void __debugbreak()
-{
-    __asm__ volatile( "int $0x03" );
-}
-#endif
-
 #if defined( __cplusplus )
 
 extern "C" uint32_t fnv_hashstr32( const char *str, size_t len = ( size_t )-1 );

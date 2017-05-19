@@ -206,11 +206,10 @@ public:
     void update_colors();
 
 private:
-    void set( std::string &str, const ImVec4 &color );
+    void set( std::string &str, ImU32 color );
     const std::string mstr( text_colors_t clr, const std::string &str );
 
 public:
-    size_t index = 0;
     std::string m_buf[ TClr_Max ];
 };
 
@@ -251,11 +250,12 @@ public:
     float getalpha( colors_t col );
 
     void set( colors_t col, ImU32 color );
+    void reset( colors_t col );
+
     const char *name( colors_t col );
     const char *desc( colors_t col );
 
     bool is_default( colors_t col );
-    void reset( colors_t col );
 
 private:
     struct colordata_t

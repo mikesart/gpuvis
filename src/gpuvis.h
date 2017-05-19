@@ -125,8 +125,7 @@ struct trace_event_t
     std::vector< event_field_t > fields;
 };
 
-const event_field_t *find_event_field( const std::vector< event_field_t > &fields, const char *name );
-const char *get_event_field_val( const std::vector< event_field_t > &fields, const char *name );
+const char *get_event_field_val( const trace_event_t &event, const char *name );
 
 typedef std::function< int ( const trace_info_t &info, const trace_event_t &event ) > EventCallback;
 int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb );
@@ -233,44 +232,8 @@ public:
     ParsePlotStr() {}
     ~ParsePlotStr() {}
 
-    bool init( const char *scanf_str )
-    {
-        const char *pct_f = strstr( scanf_str, "%f" );
-
-        if ( pct_f )
-        {
-            m_scanf_str = scanf_str;
-            m_scanf_len = pct_f - scanf_str;
-            return true;
-        }
-
-        return false;
-    }
-
-    bool parse( const char *buf )
-    {
-        if ( buf )
-        {
-            const char *pat_start = strncasestr( buf, m_scanf_str, m_scanf_len );
-
-            if ( pat_start )
-            {
-                char *val_end;
-                const char *val_start = pat_start + m_scanf_len;
-
-                m_valf = strtof( val_start, &val_end );
-
-                if ( val_start != val_end )
-                {
-                    m_val_start = val_start;
-                    m_val_end = val_end;
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+    bool init( const char *scanf_str );
+    bool parse( const char *buf );
 
 public:
     float m_valf;

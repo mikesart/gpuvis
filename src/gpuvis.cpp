@@ -1479,7 +1479,7 @@ void TraceEvents::calculate_event_print_info()
     for ( uint32_t idx : *plocs )
     {
         trace_event_t &event = m_events[ idx ];
-        const char *buf = get_event_field_val( event.fields, "buf" );
+        const char *buf = get_event_field_val( event, "buf" );
 
         // If we can find a colon, use everything before it
         const char *buf_end = strrchr( buf, ':' );
@@ -2401,7 +2401,7 @@ void TraceWin::events_list_render()
                 {
                     if ( event.is_ftrace_print() )
                     {
-                        ImGui::TextColored( s_clrs().getv4( col_FtracePrintText ), "%s", get_event_field_val( event.fields, "buf" ) );
+                        ImGui::TextColored( s_clrs().getv4( col_FtracePrintText ), "%s", get_event_field_val( event, "buf" ) );
                     }
                     else
                     {
