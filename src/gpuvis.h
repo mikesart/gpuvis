@@ -487,6 +487,9 @@ protected:
     // Convert a time stamp to a time string
     std::string ts_to_timestr( int64_t event_ts, int64_t tsoffset = 0, int precision = 6 );
 
+    bool graph_markers_valid( int idx0, int idx1 = -1 );
+    void graph_marker_set( size_t index, int64_t ts, const char *str = NULL );
+
 public:
     // Window title
     std::string m_title;
@@ -507,17 +510,6 @@ public:
     CreatePlotDlg m_create_plot_dlg;
 
     util_umap< int64_t, int > m_ts_to_eventid_cache;
-
-    void set_graph_marker( size_t index, int64_t ts, const char *str = NULL )
-    {
-        m_graph.ts_markers[ index ] = str ? timestr_to_ts( str ) : ts;
-
-        if ( ts == INT64_MAX )
-            m_graph.marker_bufs[ index ][ 0 ] = 0;
-        else
-            snprintf_safe( m_graph.marker_bufs[ index ], "%s ms",
-                           ts_to_timestr( m_graph.ts_markers[ index ], 0, 4 ).c_str() );
-    }
 
     struct
     {
@@ -571,6 +563,7 @@ public:
         // Marker A and B
         int64_t ts_markers[ 2 ] = { INT64_MAX, INT64_MAX };
         char marker_bufs[ 2 ][ 32 ] = { 0 };
+        char marker_delta_buf[ 32 ] = { 0 };
 
         float resize_graph_click_pos = 0.0f;
 

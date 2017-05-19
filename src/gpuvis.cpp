@@ -1245,6 +1245,27 @@ std::string TraceWin::ts_to_timestr( int64_t event_ts, int64_t tsoffset, int pre
     return string_format( "%.*lf", precision, val );
 }
 
+bool TraceWin::graph_markers_valid( int idx0, int idx1 )
+{
+    if ( m_graph.ts_markers[ idx0 ] == INT64_MAX )
+        return false;
+    return ( idx1 == -1 ) || ( m_graph.ts_markers[ idx1 ] != INT64_MAX );
+}
+
+void TraceWin::graph_marker_set( size_t index, int64_t ts, const char *str )
+{
+    m_graph.ts_markers[ index ] = str ? timestr_to_ts( str ) : ts;
+
+    if ( ts == INT64_MAX )
+        m_graph.marker_bufs[ index ][ 0 ] = 0;
+    else
+        snprintf_safe( m_graph.marker_bufs[ index ], "%s ms",
+                       ts_to_timestr( m_graph.ts_markers[ index ], 0, 4 ).c_str() );
+
+    if ( graph_markers_valid( 0, 1 ) )
+        snprintf_safe( m_graph.marker_delta_buf, "%s ms",
+                       ts_to_timestr( m_graph.ts_markers[ 1 ] - m_graph.ts_markers[ 0 ], 0, 4 ).c_str() );
+}
 
 bool TraceWin::rename_comm_event( const char *comm_old, const char *comm_new )
 {
@@ -1856,7 +1877,7 @@ bool TraceWin::render()
 
         for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
         {
-            if ( m_graph.ts_markers[ i ] != INT64_MAX )
+            if ( graph_markers_valid( i ) )
             {
                 char label[ 64 ];
                 snprintf_safe( label, "Marker %c:", ( char )( 'A' + i ) );
@@ -1864,11 +1885,19 @@ bool TraceWin::render()
                 ImGui::PushID( i );
                 ImGui::SameLine();
                 if ( imgui_input_text( label, "##MarkStart", m_graph.marker_bufs[ i ], 120.0f, InputText_NoButton ) )
-                    set_graph_marker( i, 0, m_graph.marker_bufs[ i ] );
+                    graph_marker_set( i, 0, m_graph.marker_bufs[ i ] );
                 ImGui::PopID();
             }
         }
+        if ( graph_markers_valid( 0, 1 ) )
+        {
+            ImGui::SameLine();
+            if ( imgui_input_text( "AB Delta:", "##MarkerDelta", m_graph.marker_delta_buf, 120.0f, InputText_NoButton ) )
+                graph_marker_set( 1, m_graph.ts_markers[ 0 ] + timestr_to_ts( m_graph.marker_delta_buf ) );
+        }
 
+        ImGui::SameLine();
+        ImGui::Spacing();
         ImGui::SameLine();
         bool m_do_graph_zoom_in = ImGui::SmallButton( "Zoom In" );
 

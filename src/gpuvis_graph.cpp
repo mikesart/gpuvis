@@ -1650,9 +1650,9 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             int index = ImGui::IsKeyPressed( 'a' ) ? 0 : 1;
             if ( keyshift )
             {
-                set_graph_marker( index, m_graph.ts_marker_mouse );
+                graph_marker_set( index, m_graph.ts_marker_mouse );
             }
-            else if ( m_graph.ts_markers[ index ] != INT64_MAX )
+            else if ( graph_markers_valid( index ) )
             {
                 m_graph.start_ts = m_graph.ts_markers[ index ] - m_graph.length_ts / 2;
                 m_graph.do_start_timestr = true;
@@ -2104,7 +2104,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             label[ 0 ] = char( 'A' + i );
             label[ 1 ] = 0;
             if ( ImGui::MenuItem( label, shortcut.c_str() ) )
-                set_graph_marker( i, m_graph.ts_marker_mouse );
+                graph_marker_set( i, m_graph.ts_marker_mouse );
 
             ImGui::PopID();
         }
@@ -2112,21 +2112,11 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         ImGui::EndMenu();
     }
 
-    bool any_markers_set = false;
-    for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
-    {
-        if ( m_graph.ts_markers[ i ] != INT64_MAX )
-        {
-            any_markers_set = true;
-            break;
-        }
-    }
-
-    if ( any_markers_set && ImGui::BeginMenu( "Clear Marker" ) )
+    if ( graph_markers_valid( 0, 1 ) && ImGui::BeginMenu( "Clear Marker" ) )
     {
         for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
         {
-            if ( m_graph.ts_markers[ i ] == INT64_MAX )
+            if ( !graph_markers_valid( i ) )
                 continue;
 
             ImGui::PushID( i );
@@ -2135,7 +2125,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             label[ 0 ] = char( 'A' + i );
             label[ 1 ] = 0;
             if ( ImGui::MenuItem( label ) )
-                set_graph_marker( i, INT64_MAX );
+                graph_marker_set( i, INT64_MAX );
 
             ImGui::PopID();
         }
@@ -2300,9 +2290,9 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 ) + "ms";
     }
 
-    if ( m_graph.ts_markers[ 0 ] != INT64_MAX )
+    if ( graph_markers_valid( 0 ) )
         time_buf += "\nMarker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - mouse_ts, 0, 2 ) + "ms";
-    if ( m_graph.ts_markers[ 1 ] != INT64_MAX )
+    if ( graph_markers_valid( 1 ) )
         time_buf += "\nMarker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - mouse_ts, 0, 2 ) + "ms";
 
     m_graph.hovered_eventid = INVALID_ID;
