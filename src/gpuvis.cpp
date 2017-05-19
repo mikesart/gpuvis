@@ -137,6 +137,10 @@ static bool imgui_begin_columns( const char *title,
                                  bool *resized = NULL )
 {
     bool inited = ImGui::BeginColumns( title, headers.size() );
+    bool temp = false;
+
+    if ( !resized )
+        resized = &temp;
 
     for ( const char *str : headers )
     {
