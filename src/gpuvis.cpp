@@ -90,16 +90,33 @@ static bool imgui_input_int( int *val, float w, const char *label, const char *l
     return ret;
 }
 
+enum
+{
+    InputText_EnterReturnsTrue = 0x0001,
+    InputText_NoButton = 0x0002,
+};
 template < size_t T >
 static bool imgui_input_text( const char *button_label, const char *text_label,
                               char ( &buf )[ T ], float w, int flags = 0)
 {
-    bool ret = ImGui::Button( button_label );
+    bool ret = false;
+    ImGuiInputTextFlags imgui_flags = ( flags & InputText_NoButton ) ?
+            ImGuiInputTextFlags_EnterReturnsTrue : 0;
+
+    if ( flags & InputText_NoButton )
+    {
+        ImGui::AlignFirstTextHeightToWidgets();
+        ImGui::Text( "%s", button_label );
+    }
+    else
+    {
+        ret = ImGui::Button( button_label );
+    }
 
     ImGui::SameLine();
     ImGui::PushItemWidth( imgui_scale( w ) );
 
-    ret |= ImGui::InputText( text_label, buf, T, flags, 0 );
+    ret |= ImGui::InputText( text_label, buf, T, imgui_flags, 0 );
 
     ImGui::PopItemWidth();
 
@@ -1830,12 +1847,27 @@ bool TraceWin::render()
 
     if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        if ( imgui_input_text( "Start:", "##GraphStart", m_graph.time_start_buf, 150.0f ) )
+        if ( imgui_input_text( "Start:", "##GraphStart", m_graph.time_start_buf, 120.0f, InputText_NoButton ) )
             m_graph.start_ts = timestr_to_ts( m_graph.time_start_buf );
 
         ImGui::SameLine();
-        if ( imgui_input_text( "Length:", "##GraphLength", m_graph.time_length_buf, 150.0f ) )
+        if ( imgui_input_text( "Length:", "##GraphLength", m_graph.time_length_buf, 120.0f, InputText_NoButton ) )
             m_graph.length_ts = timestr_to_ts( m_graph.time_length_buf );
+
+        for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
+        {
+            if ( m_graph.ts_markers[ i ] != INT64_MAX )
+            {
+                char label[ 64 ];
+                snprintf_safe( label, "Marker %c:", ( char )( 'A' + i ) );
+
+                ImGui::PushID( i );
+                ImGui::SameLine();
+                if ( imgui_input_text( label, "##MarkStart", m_graph.marker_bufs[ i ], 120.0f, InputText_NoButton ) )
+                    set_graph_marker( i, 0, m_graph.marker_bufs[ i ] );
+                ImGui::PopID();
+            }
+        }
 
         ImGui::SameLine();
         bool m_do_graph_zoom_in = ImGui::SmallButton( "Zoom In" );
@@ -1868,19 +1900,19 @@ bool TraceWin::render()
         m_eventlist.do_gotoevent |= imgui_input_int( &m_eventlist.goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
 
         ImGui::SameLine();
-        if ( imgui_input_text( "Goto Time:", "##GotoTime", m_eventlist.timegoto_buf, 150.0f ) )
+        if ( imgui_input_text( "Goto Time:", "##GotoTime", m_eventlist.timegoto_buf, 120.0f ) )
         {
             m_eventlist.do_gotoevent = true;
             m_eventlist.goto_eventid = timestr_to_eventid( m_eventlist.timegoto_buf, m_eventlist.tsoffset );
         }
 
         ImGui::SameLine();
-        if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_eventlist.timeoffset_buf, 150.0f ) )
+        if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_eventlist.timeoffset_buf, 120.0f ) )
             m_eventlist.tsoffset = timestr_to_ts( m_eventlist.timeoffset_buf );
 
         if ( m_eventlist.do_filter ||
              imgui_input_text( "Event Filter:", "##Event Filter", m_eventlist.filter_buf, 500.0f,
-                               ImGuiInputTextFlags_EnterReturnsTrue ) )
+                               InputText_EnterReturnsTrue ) )
         {
             m_eventlist.filtered_events.clear();
             m_eventlist.filtered_events_str.clear();

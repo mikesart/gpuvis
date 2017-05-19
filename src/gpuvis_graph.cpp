@@ -1650,7 +1650,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             int index = ImGui::IsKeyPressed( 'a' ) ? 0 : 1;
             if ( keyshift )
             {
-                m_graph.ts_markers[ index ] = m_graph.ts_marker_mouse;
+                set_graph_marker( index, m_graph.ts_marker_mouse );
             }
             else if ( m_graph.ts_markers[ index ] != INT64_MAX )
             {
@@ -2104,7 +2104,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             label[ 0 ] = char( 'A' + i );
             label[ 1 ] = 0;
             if ( ImGui::MenuItem( label, shortcut.c_str() ) )
-                m_graph.ts_markers[ i ] = m_graph.ts_marker_mouse;
+                set_graph_marker( i, m_graph.ts_marker_mouse );
 
             ImGui::PopID();
         }
@@ -2135,7 +2135,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             label[ 0 ] = char( 'A' + i );
             label[ 1 ] = 0;
             if ( ImGui::MenuItem( label ) )
-                m_graph.ts_markers[ i ] = INT64_MAX;
+                set_graph_marker( i, INT64_MAX );
 
             ImGui::PopID();
         }

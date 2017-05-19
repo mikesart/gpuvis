@@ -508,6 +508,17 @@ public:
 
     util_umap< int64_t, int > m_ts_to_eventid_cache;
 
+    void set_graph_marker( size_t index, int64_t ts, const char *str = NULL )
+    {
+        m_graph.ts_markers[ index ] = str ? timestr_to_ts( str ) : ts;
+
+        if ( ts == INT64_MAX )
+            m_graph.marker_bufs[ index ][ 0 ] = 0;
+        else
+            snprintf_safe( m_graph.marker_bufs[ index ], "%s ms",
+                           ts_to_timestr( m_graph.ts_markers[ index ], 0, 4 ).c_str() );
+    }
+
     struct
     {
         bool do_gotoevent = false;
@@ -559,6 +570,7 @@ public:
 
         // Marker A and B
         int64_t ts_markers[ 2 ] = { INT64_MAX, INT64_MAX };
+        char marker_bufs[ 2 ][ 32 ] = { 0 };
 
         float resize_graph_click_pos = 0.0f;
 
