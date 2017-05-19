@@ -564,6 +564,7 @@ public:
 
         bool popupmenu = false;
 
+        std::pair< int64_t, int64_t > zoom_loc = { INT64_MAX, INT64_MAX };
         std::string zoom_row_name;
         std::string mouse_over_row_name;
         TraceEvents::loc_type_t mouse_over_row_type;

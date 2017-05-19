@@ -1686,11 +1686,24 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
     }
     else if ( ImGui::IsWindowFocused() && ImGui::IsKeyPressed( 'z' ) )
     {
-        int64_t mouse_ts = gi.screenx_to_ts( gi.mouse_pos.x );
-        int64_t newlen = ( m_graph.length_ts >= 30 * MSECS_PER_SEC ) ?
-                    3 * MSECS_PER_SEC : 100 * MSECS_PER_SEC;
+        if ( m_graph.zoom_loc.first != INT64_MAX )
+        {
+            m_graph.start_ts = m_graph.zoom_loc.first;
+            m_graph.length_ts = m_graph.zoom_loc.second;
+            m_graph.do_start_timestr = true;
+            m_graph.do_length_timestr = true;
 
-        graph_zoom( mouse_ts, gi.ts0, false, newlen );
+            m_graph.zoom_loc = std::make_pair( INT64_MAX, INT64_MAX );
+        }
+        else
+        {
+            int64_t newlen = 3 * MSECS_PER_SEC;
+            int64_t mouse_ts = gi.screenx_to_ts( gi.mouse_pos.x );
+
+            m_graph.zoom_loc = std::make_pair( m_graph.start_ts, m_graph.length_ts );
+
+            graph_zoom( mouse_ts, gi.ts0, false, newlen );
+        }
     }
 }
 
@@ -1921,7 +1934,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     if ( !m_graph.zoom_row_name.empty() )
     {
-        std::string label = string_format( "Unzoom '%s'", m_graph.zoom_row_name.c_str() );
+        std::string label = string_format( "Unzoom row '%s'", m_graph.zoom_row_name.c_str() );
 
         if ( ImGui::MenuItem( label.c_str() ) )
             m_graph.zoom_row_name.clear();
@@ -1933,7 +1946,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
         if ( is_graph_row_zoomable() )
         {
-            label = string_format( "Zoom '%s'", m_graph.mouse_over_row_name.c_str() );
+            label = string_format( "Zoom row '%s'", m_graph.mouse_over_row_name.c_str() );
 
             if ( ImGui::MenuItem( label.c_str() ) )
                 zoom_graph_row();
@@ -2211,6 +2224,8 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
         }
         else if ( m_graph.mouse_captured == MOUSE_CAPTURED_ZOOM )
         {
+            m_graph.zoom_loc = std::make_pair( m_graph.start_ts, m_graph.length_ts );
+
             m_graph.start_ts = event_ts0 - m_eventlist.tsoffset;
             m_graph.length_ts = event_ts1 - event_ts0;
             m_graph.do_start_timestr = true;
