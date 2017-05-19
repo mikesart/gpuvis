@@ -1851,9 +1851,9 @@ bool TraceWin::render()
         }
 
         if ( m_graph.do_start_timestr )
-            strcpy_safe( m_graph.time_start_buf, ts_to_timestr( m_graph.start_ts, 0, 4 ) );
+            snprintf_safe( m_graph.time_start_buf, "%s ms", ts_to_timestr( m_graph.start_ts, 0, 4 ).c_str() );
         if ( m_graph.do_length_timestr )
-            strcpy_safe( m_graph.time_length_buf, ts_to_timestr( m_graph.length_ts, 0, 4 ) );
+            snprintf_safe( m_graph.time_length_buf, "%s ms", ts_to_timestr( m_graph.length_ts, 0, 4 ).c_str() );
 
         graph_render_process();
     }
