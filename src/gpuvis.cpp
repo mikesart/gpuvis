@@ -1906,9 +1906,12 @@ bool TraceWin::render()
             m_eventlist.goto_eventid = timestr_to_eventid( m_eventlist.timegoto_buf, m_eventlist.tsoffset );
         }
 
+        //$ TODO mikesart: Let's kill this. Can use Marker A/B to check distances now.
+#if 0
         ImGui::SameLine();
         if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_eventlist.timeoffset_buf, 120.0f ) )
             m_eventlist.tsoffset = timestr_to_ts( m_eventlist.timeoffset_buf );
+#endif
 
         if ( m_eventlist.do_filter ||
              imgui_input_text( "Event Filter:", "##Event Filter", m_eventlist.filter_buf, 500.0f,
@@ -2101,12 +2104,14 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
         m_graph.do_start_timestr = true;
     }
 
+#if 0
     label = string_format( "Set Time Offset to %s", ts_to_timestr( event.ts ).c_str() );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
         m_eventlist.tsoffset = event.ts;
         strcpy_safe( m_eventlist.timeoffset_buf, ts_to_timestr( m_eventlist.tsoffset ) );
     }
+#endif
 
     ImGui::Separator();
 
