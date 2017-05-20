@@ -2133,6 +2133,25 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
         m_graph.do_start_timestr = true;
     }
 
+    if ( ImGui::BeginMenu( "Set Marker" ) )
+    {
+        for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
+        {
+            ImGui::PushID( i );
+
+            char marker_label[ 2 ];
+
+            marker_label[ 0 ] = char( 'A' + i );
+            marker_label[ 1 ] = 0;
+            if ( ImGui::MenuItem( marker_label ) )
+                graph_marker_set( i, event.ts );
+
+            ImGui::PopID();
+        }
+
+        ImGui::EndMenu();
+    }
+
 #if 0
     label = string_format( "Set Time Offset to %s", ts_to_timestr( event.ts ).c_str() );
     if ( ImGui::MenuItem( label.c_str() ) )
