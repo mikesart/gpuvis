@@ -1648,11 +1648,12 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
         else  if ( ImGui::IsKeyPressed( 'a' ) || ImGui::IsKeyPressed( 'b' ) )
         {
             int index = ImGui::IsKeyPressed( 'a' ) ? 0 : 1;
+
             if ( keyshift )
             {
                 graph_marker_set( index, m_graph.ts_marker_mouse );
             }
-            else if ( graph_markers_valid( index ) )
+            else if ( graph_marker_valid( index ) )
             {
                 m_graph.start_ts = m_graph.ts_markers[ index ] - m_graph.length_ts / 2;
                 m_graph.do_start_timestr = true;
@@ -2112,11 +2113,12 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         ImGui::EndMenu();
     }
 
-    if ( graph_markers_valid( 0, 1 ) && ImGui::BeginMenu( "Clear Marker" ) )
+    if ( ( graph_marker_valid( 0 ) || graph_marker_valid( 1 ) )
+         && ImGui::BeginMenu( "Clear Marker" ) )
     {
         for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
         {
-            if ( !graph_markers_valid( i ) )
+            if ( !graph_marker_valid( i ) )
                 continue;
 
             ImGui::PushID( i );
@@ -2290,9 +2292,9 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 ) + "ms";
     }
 
-    if ( graph_markers_valid( 0 ) )
+    if ( graph_marker_valid( 0 ) )
         time_buf += "\nMarker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - mouse_ts, 0, 2 ) + "ms";
-    if ( graph_markers_valid( 1 ) )
+    if ( graph_marker_valid( 1 ) )
         time_buf += "\nMarker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - mouse_ts, 0, 2 ) + "ms";
 
     m_graph.hovered_eventid = INVALID_ID;

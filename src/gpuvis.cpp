@@ -1245,11 +1245,9 @@ std::string TraceWin::ts_to_timestr( int64_t event_ts, int64_t tsoffset, int pre
     return string_format( "%.*lf", precision, val );
 }
 
-bool TraceWin::graph_markers_valid( int idx0, int idx1 )
+bool TraceWin::graph_marker_valid( int idx0 )
 {
-    if ( m_graph.ts_markers[ idx0 ] == INT64_MAX )
-        return false;
-    return ( idx1 == -1 ) || ( m_graph.ts_markers[ idx1 ] != INT64_MAX );
+    return ( m_graph.ts_markers[ idx0 ] != INT64_MAX );
 }
 
 void TraceWin::graph_marker_set( size_t index, int64_t ts, const char *str )
@@ -1262,9 +1260,11 @@ void TraceWin::graph_marker_set( size_t index, int64_t ts, const char *str )
         snprintf_safe( m_graph.marker_bufs[ index ], "%s ms",
                        ts_to_timestr( m_graph.ts_markers[ index ], 0, 4 ).c_str() );
 
-    if ( graph_markers_valid( 0, 1 ) )
+    if ( graph_marker_valid( 0 ) && graph_marker_valid( 1 ) )
+    {
         snprintf_safe( m_graph.marker_delta_buf, "%s ms",
                        ts_to_timestr( m_graph.ts_markers[ 1 ] - m_graph.ts_markers[ 0 ], 0, 4 ).c_str() );
+    }
 }
 
 bool TraceWin::rename_comm_event( const char *comm_old, const char *comm_new )
@@ -1877,7 +1877,7 @@ bool TraceWin::render()
 
         for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
         {
-            if ( graph_markers_valid( i ) )
+            if ( graph_marker_valid( i ) )
             {
                 char label[ 64 ];
                 snprintf_safe( label, "Marker %c:", ( char )( 'A' + i ) );
@@ -1889,7 +1889,7 @@ bool TraceWin::render()
                 ImGui::PopID();
             }
         }
-        if ( graph_markers_valid( 0, 1 ) )
+        if ( graph_marker_valid( 0 ) && graph_marker_valid( 1 ) )
         {
             ImGui::SameLine();
             if ( imgui_input_text( "AB Delta:", "##MarkerDelta", m_graph.marker_delta_buf, 120.0f, InputText_NoButton ) )
@@ -2269,9 +2269,18 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
             // Otherwise show a tooltip.
             std::string ts_str = ts_to_timestr( event.ts, m_eventlist.tsoffset );
             std::string fieldstr = get_event_fields_str( event, ": ", '\n' );
+            std::string graph_markers;
 
-            ImGui::SetTooltip( "Id: %u\nTime: %s\nComm: %s\n%s",
-                               event.id, ts_str.c_str(), event.comm, fieldstr.c_str() );
+            if ( graph_marker_valid( 0 ) )
+                graph_markers += "Marker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - event.ts, 0, 2 ) + "ms\n";
+            if ( graph_marker_valid( 1 ) )
+                graph_markers += "Marker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - event.ts, 0, 2 ) + "ms\n";
+            if ( !graph_markers.empty() )
+                graph_markers += "\n";
+
+            ImGui::SetTooltip( "%sId: %u\nTime: %s\nComm: %s\n%s",
+                               graph_markers.c_str(), event.id,
+                               ts_str.c_str(), event.comm, fieldstr.c_str() );
         }
     }
 
@@ -2291,7 +2300,7 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
     return popup_shown;
 }
 
-static void draw_ts_line( const ImVec2 &pos )
+static void draw_ts_line( const ImVec2 &pos, ImU32 color )
 {
     ImGui::PopClipRect();
 
@@ -2301,7 +2310,7 @@ static void draw_ts_line( const ImVec2 &pos )
 
     ImGui::GetWindowDrawList()->AddLine(
                 ImVec2( pos.x, pos_y ), ImVec2( max_x, pos_y ),
-                s_clrs().get( col_Graph_MousePos ), imgui_scale( 2.0f ) );
+                color, imgui_scale( 2.0f ) );
 
     ImGui::PushColumnClipRect();
 }
@@ -2389,7 +2398,6 @@ void TraceWin::events_list_render()
                              &m_eventlist.columns_resized );
         {
             bool popup_shown = false;
-            int64_t ts_marker_diff = 0;
 
             // Reset our hovered event id
             m_eventlist.hovered_eventid = INVALID_ID;
@@ -2409,12 +2417,14 @@ void TraceWin::events_list_render()
                 m_eventlist.end_eventid = end_idx;
             }
 
+            int64_t prev_ts = INT64_MIN;
+
             // Loop through and draw events
             for ( uint32_t i = start_idx; i < end_idx; i++ )
             {
                 trace_event_t &event = filtered_events ?
-                            m_trace_events.m_events[ m_eventlist.filtered_events[ i ] ] :
-                            m_trace_events.m_events[ i ];
+                        m_trace_events.m_events[ m_eventlist.filtered_events[ i ] ] :
+                        m_trace_events.m_events[ i ];
                 bool selected = ( m_eventlist.selected_eventid == event.id );
                 ImVec2 cursorpos = ImGui::GetCursorScreenPos();
                 ImVec4 color = s_clrs().getv4( col_EventList_Text );
@@ -2422,10 +2432,12 @@ void TraceWin::events_list_render()
                 ImGui::PushID( i );
 
                 if ( event.is_vblank() )
-                {
-                    // If this is a vblank event, draw the text in blue or red vblank colors
                     color = s_clrs().getv4( ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0 );
-                }
+                else if ( event.ts == m_graph.ts_markers[ 0 ] )
+                    color = s_clrs().getv4( col_Graph_MarkerA );
+                else if ( event.ts == m_graph.ts_markers[ 1 ] )
+                    color = s_clrs().getv4( col_Graph_MarkerB );
+
                 ImGui::PushStyleColor( ImGuiCol_Text, color );
 
                 // If this event is in the highlighted list, give it a bit of a colored background
@@ -2501,19 +2513,29 @@ void TraceWin::events_list_render()
                     ImGui::NextColumn();
                 }
 
-                // Draw time stamp marker diff line if we're right below ts_marker_mouse
+                if ( ( prev_ts < m_graph.ts_marker_mouse ) &&
+                     ( event.ts > m_graph.ts_marker_mouse ) )
                 {
-                    int64_t ts_diff = event.ts - m_graph.ts_marker_mouse;
-                    bool do_draw_ts_line = ( ts_marker_diff < 0 ) && ( ts_diff > 0 );
-
-                    if ( do_draw_ts_line )
-                        draw_ts_line( cursorpos );
-
-                    ts_marker_diff = ts_diff;
+                    // Draw time stamp marker diff line if we're right below ts_marker_mouse
+                    draw_ts_line( cursorpos, s_clrs().get( col_Graph_MousePos ) );
+                }
+                else
+                {
+                    for ( size_t idx = 0; idx < ARRAY_SIZE( m_graph.ts_markers ); idx++ )
+                    {
+                        if ( ( prev_ts < m_graph.ts_markers[ idx ] ) &&
+                             ( event.ts > m_graph.ts_markers[ idx ] ) )
+                        {
+                            draw_ts_line( cursorpos, s_clrs().get( col_Graph_MarkerA + idx ) );
+                            break;
+                        }
+                    }
                 }
 
                 ImGui::PopStyleColor( 1 + highlight );
                 ImGui::PopID();
+
+                prev_ts = event.ts;
             }
 
             if ( !popup_shown )
