@@ -1322,12 +1322,19 @@ void TraceWin::graph_render_row( graph_info_t &gi )
 void TraceWin::graph_render_time_ticks( class graph_info_t &gi )
 {
     // Draw time ticks every millisecond
-    int64_t tsstart = std::max< int64_t >( gi.ts0 / MSECS_PER_SEC - 1, 0 ) * MSECS_PER_SEC;
-    float x0 = gi.ts_to_x( tsstart );
-    float dx = gi.w * MSECS_PER_SEC * gi.tsdxrcp;
+    int64_t tsstart = std::max< int64_t >( gi.ts0 / NSECS_PER_MSEC - 1, 0 ) * NSECS_PER_MSEC;
+    float dx = gi.w * NSECS_PER_MSEC * gi.tsdxrcp;
+
+    if ( dx <= imgui_scale( 4.0f ) )
+    {
+        tsstart = std::max< int64_t >( gi.ts0 / NSECS_PER_SEC - 1, 0 ) * NSECS_PER_SEC;
+        dx = gi.w * NSECS_PER_SEC * gi.tsdxrcp;
+    }
 
     if ( dx > imgui_scale( 4.0f ) )
     {
+        float x0 = gi.ts_to_x( tsstart );
+
         for ( ; x0 <= gi.w; x0 += dx )
         {
             imgui_drawrect( gi.x + x0, imgui_scale( 1.0f ),
@@ -1560,24 +1567,24 @@ void TraceWin::graph_range_check_times()
     if ( m_graph.length_ts < m_graph.s_min_length )
     {
         m_graph.length_ts = m_graph.s_min_length;
-        m_graph.do_length_timestr = true;
+        m_graph.recalc_timebufs = true;
     }
     else if ( m_graph.length_ts > m_graph.s_max_length )
     {
         m_graph.length_ts = m_graph.s_max_length;
-        m_graph.do_length_timestr = true;
+        m_graph.recalc_timebufs = true;
     }
 
     // Sanity check the graph start doesn't go completely off the rails.
-    if ( m_graph.start_ts + m_eventlist.tsoffset < events.front().ts - 1 * MSECS_PER_SEC )
+    if ( m_graph.start_ts + m_eventlist.tsoffset < events.front().ts - 1 * NSECS_PER_MSEC )
     {
-        m_graph.start_ts = events.front().ts - m_eventlist.tsoffset - 1 * MSECS_PER_SEC;
-        m_graph.do_start_timestr = true;
+        m_graph.start_ts = events.front().ts - m_eventlist.tsoffset - 1 * NSECS_PER_MSEC;
+        m_graph.recalc_timebufs = true;
     }
     else if ( m_graph.start_ts + m_eventlist.tsoffset > events.back().ts )
     {
         m_graph.start_ts = events.back().ts - m_eventlist.tsoffset;
-        m_graph.do_start_timestr = true;
+        m_graph.recalc_timebufs = true;
     }
 }
 
@@ -1594,9 +1601,7 @@ void TraceWin::graph_zoom( int64_t center_ts, int64_t ts0, bool zoomin, int64_t 
 
         m_graph.start_ts = center_ts - ( int64_t )( ( center_ts - ts0 ) * scale ) - m_eventlist.tsoffset;
         m_graph.length_ts = newlen;
-
-        m_graph.do_start_timestr = true;
-        m_graph.do_length_timestr = true;
+        m_graph.recalc_timebufs = true;
     }
 }
 
@@ -1657,7 +1662,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             else if ( graph_marker_valid( index ) )
             {
                 m_graph.start_ts = m_graph.ts_markers[ index ] - m_graph.length_ts / 2;
-                m_graph.do_start_timestr = true;
+                m_graph.recalc_timebufs = true;
             }
         }
         else
@@ -1678,8 +1683,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
                         // ctrl+#: goto location
                         m_graph.start_ts = m_graph.saved_locs[ index ].first;
                         m_graph.length_ts = m_graph.saved_locs[ index ].second;
-                        m_graph.do_start_timestr = true;
-                        m_graph.do_length_timestr = true;
+                        m_graph.recalc_timebufs = true;
                     }
                     break;
                 }
@@ -1692,14 +1696,13 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
         {
             m_graph.start_ts = m_graph.zoom_loc.first;
             m_graph.length_ts = m_graph.zoom_loc.second;
-            m_graph.do_start_timestr = true;
-            m_graph.do_length_timestr = true;
+            m_graph.recalc_timebufs = true;
 
             m_graph.zoom_loc = std::make_pair( INT64_MAX, INT64_MAX );
         }
         else
         {
-            int64_t newlen = 3 * MSECS_PER_SEC;
+            int64_t newlen = 3 * NSECS_PER_MSEC;
             int64_t mouse_ts = gi.screenx_to_ts( gi.mouse_pos.x );
 
             m_graph.zoom_loc = std::make_pair( m_graph.start_ts, m_graph.length_ts );
@@ -1728,27 +1731,27 @@ void TraceWin::graph_handle_keyboard_scroll()
     else if ( imgui_key_pressed( ImGuiKey_LeftArrow ) )
     {
         start_ts = std::max< int64_t >( start_ts - 9 * m_graph.length_ts / 10,
-                                        -MSECS_PER_SEC );
+                                        -NSECS_PER_MSEC );
     }
     else if ( imgui_key_pressed( ImGuiKey_RightArrow ) )
     {
         start_ts = std::min< int64_t >( start_ts + 9 * m_graph.length_ts / 10,
-                                        events.back().ts - m_graph.length_ts + MSECS_PER_SEC );
+                                        events.back().ts - m_graph.length_ts + NSECS_PER_MSEC );
     }
     else if ( imgui_key_pressed( ImGuiKey_Home ) )
     {
-        start_ts = events.front().ts - MSECS_PER_SEC;
+        start_ts = events.front().ts - NSECS_PER_MSEC;
     }
     else if ( imgui_key_pressed( ImGuiKey_End ) )
     {
-        start_ts = events.back().ts - m_graph.length_ts + MSECS_PER_SEC;
+        start_ts = events.back().ts - m_graph.length_ts + NSECS_PER_MSEC;
     }
 
     start_ts -= m_eventlist.tsoffset;
     if ( start_ts != m_graph.start_ts )
     {
         m_graph.start_ts = start_ts;
-        m_graph.do_start_timestr = true;
+        m_graph.recalc_timebufs = true;
     }
 }
 
@@ -1784,7 +1787,7 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
     gi.visible_graph_height = valf;
 }
 
-void TraceWin::graph_render_process()
+void TraceWin::graph_render()
 {
     graph_info_t gi;
 
@@ -2158,8 +2161,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
                 {
                     m_graph.start_ts = m_graph.saved_locs[ i ].first;
                     m_graph.length_ts = m_graph.saved_locs[ i ].second;
-                    m_graph.do_start_timestr = true;
-                    m_graph.do_length_timestr = true;
+                    m_graph.recalc_timebufs = true;
                 }
             }
         }
@@ -2212,8 +2214,7 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
 
             m_graph.start_ts = event_ts0 - m_eventlist.tsoffset;
             m_graph.length_ts = event_ts1 - event_ts0;
-            m_graph.do_start_timestr = true;
-            m_graph.do_length_timestr = true;
+            m_graph.recalc_timebufs = true;
         }
     }
     else if ( m_graph.mouse_captured == MOUSE_CAPTURED_PAN )
@@ -2225,7 +2226,7 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
             int64_t tsdiff = gi.dx_to_ts( dx );
 
             m_graph.start_ts -= tsdiff;
-            m_graph.do_start_timestr = true;
+            m_graph.recalc_timebufs = true;
 
             m_graph.start_y += gi.mouse_pos.y - m_graph.mouse_capture_pos.y;
 

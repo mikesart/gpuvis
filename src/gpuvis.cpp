@@ -1202,12 +1202,12 @@ int64_t TraceWin::timestr_to_ts( const char *buf, int64_t tsoffset )
     if ( sscanf( buf, "%lf", &val ) != 1 )
         val = 0.0;
 
-    return tsoffset + ( int64_t )( val * MSECS_PER_SEC );
+    return tsoffset + ( int64_t )( val * NSECS_PER_MSEC );
 }
 
 std::string TraceWin::ts_to_timestr( int64_t event_ts, int64_t tsoffset, int precision )
 {
-    double val = ( event_ts - tsoffset ) * ( 1.0 / MSECS_PER_SEC );
+    double val = ( event_ts - tsoffset ) * ( 1.0 / NSECS_PER_MSEC );
 
     return string_format( "%.*lf", precision, val );
 }
@@ -1317,12 +1317,12 @@ const char *filter_get_keyval_func( const trace_event_t *event, const char *name
     }
     else if ( !strcasecmp( name, "ts" ) )
     {
-        snprintf_safe( buf, "%.6f", event->ts * ( 1.0 / MSECS_PER_SEC ) );
+        snprintf_safe( buf, "%.6f", event->ts * ( 1.0 / NSECS_PER_MSEC ) );
         return buf;
     }
     else if ( !strcasecmp( name, "duration" ) )
     {
-        snprintf_safe( buf, "%.6f", event->duration * ( 1.0 / MSECS_PER_SEC ) );
+        snprintf_safe( buf, "%.6f", event->duration * ( 1.0 / NSECS_PER_MSEC ) );
         return buf;
     }
 
@@ -1824,10 +1824,9 @@ bool TraceWin::render()
 
         int64_t last_ts = m_trace_events.m_events.back().ts;
 
-        m_graph.do_start_timestr = true;
-        m_graph.do_length_timestr = true;
-        m_graph.length_ts = std::min< int64_t >( last_ts, 40 * MSECS_PER_SEC );
+        m_graph.length_ts = std::min< int64_t >( last_ts, 40 * NSECS_PER_MSEC );
         m_graph.start_ts = last_ts - m_eventlist.tsoffset - m_graph.length_ts;
+        m_graph.recalc_timebufs = true;
 
         m_eventlist.do_gotoevent = true;
         m_eventlist.goto_eventid = ts_to_eventid( m_graph.start_ts + m_graph.length_ts / 2 );
@@ -1835,12 +1834,22 @@ bool TraceWin::render()
 
     if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        if ( imgui_input_text2( "Start:", m_graph.time_start_buf ) )
+        ImGui::PushItemWidth( imgui_scale( 120.0f ) );
+        if ( ImGui::InputText( "##Start", m_graph.time_start_buf, sizeof( m_graph.time_start_buf ),
+                               ImGuiInputTextFlags_EnterReturnsTrue ) )
+        {
             m_graph.start_ts = timestr_to_ts( m_graph.time_start_buf );
+            m_graph.recalc_timebufs = true;
+        }
+        ImGui::PopItemWidth();
 
         ImGui::SameLine();
-        if ( imgui_input_text2( "Length:", m_graph.time_length_buf ) )
+        if ( imgui_input_text2( "Length:", m_graph.time_length_buf, 120.0f,
+             ImGuiInputTextFlags_EnterReturnsTrue ) )
+        {
             m_graph.length_ts = timestr_to_ts( m_graph.time_length_buf );
+            m_graph.recalc_timebufs = true;
+        }
 
         for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
         {
@@ -1878,12 +1887,35 @@ bool TraceWin::render()
             graph_zoom( ts0, m_graph.start_ts, m_do_graph_zoom_in );
         }
 
-        if ( m_graph.do_start_timestr )
+        {
+            ImGui::SameLine();
+            ImGui::PushItemWidth( imgui_scale( 120.0f ) );
+
+            float posx = ImGui::GetCursorPosX();
+            float newposx = ImGui::GetContentRegionMax().x - imgui_scale( 120.0f );
+
+            ImGui::SetCursorPosX( std::max< float >( posx, newposx ) );
+
+            if ( ImGui::InputText( "##End", m_graph.time_end_buf, sizeof( m_graph.time_end_buf ),
+                                   ImGuiInputTextFlags_EnterReturnsTrue ) )
+            {
+                m_graph.length_ts = timestr_to_ts( m_graph.time_end_buf ) - m_graph.start_ts;
+                m_graph.recalc_timebufs = true;
+            }
+
+            ImGui::PopItemWidth();
+        }
+
+        if ( m_graph.recalc_timebufs )
+        {
             snprintf_safe( m_graph.time_start_buf, "%s ms", ts_to_timestr( m_graph.start_ts, 0, 4 ).c_str() );
-        if ( m_graph.do_length_timestr )
+            snprintf_safe( m_graph.time_end_buf, "%s ms", ts_to_timestr( m_graph.start_ts + m_graph.length_ts, 0, 4 ).c_str() );
             snprintf_safe( m_graph.time_length_buf, "%s ms", ts_to_timestr( m_graph.length_ts, 0, 4 ).c_str() );
 
-        graph_render_process();
+            m_graph.recalc_timebufs = false;
+        }
+
+        graph_render();
     }
 
     ImGuiTreeNodeFlags eventslist_flags = s_opts().getb( OPT_ShowEventList ) ?
@@ -2097,7 +2129,7 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
     {
         m_eventlist.selected_eventid = event.id;
         m_graph.start_ts = event.ts - m_eventlist.tsoffset - m_graph.length_ts / 2;
-        m_graph.do_start_timestr = true;
+        m_graph.recalc_timebufs = true;
     }
 
     if ( ImGui::BeginMenu( "Set Marker" ) )

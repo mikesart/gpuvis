@@ -40,7 +40,8 @@ using std::placeholders::_3;
 using std::placeholders::_4;
 using std::placeholders::_5;
 
-#define MSECS_PER_SEC 1000000LL
+#define NSECS_PER_MSEC 1000000LL
+#define NSECS_PER_SEC  1000000000LL
 
 // Timer routines. Use like:
 //   util_time_t t0 = util_get_time();

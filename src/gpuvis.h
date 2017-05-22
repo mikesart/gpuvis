@@ -424,8 +424,8 @@ protected:
     bool events_list_handle_mouse( const trace_event_t &event, uint32_t i );
 
 protected:
-    // Render the process graph
-    void graph_render_process();
+    // Render graph
+    void graph_render();
     // Render regular graph row
     void graph_render_row( class graph_info_t &gi );
 
@@ -581,14 +581,12 @@ public:
         char new_row_buf[ 512 ] = { 0 };
         std::string new_row_errstr;
 
-        // Graph Start
-        bool do_start_timestr = false;
+        // Graph start & length
         int64_t start_ts = 0;
-        char time_start_buf[ 32 ] = { 0 };
-
-        // Graph Length
-        bool do_length_timestr = false;
         int64_t length_ts = INT64_MAX;
+        bool recalc_timebufs = false;
+        char time_start_buf[ 32 ] = { 0 };
+        char time_end_buf[ 32 ] = { 0 };
         char time_length_buf[ 32 ] = { 0 };
 
         // Graph vertical panning
@@ -606,7 +604,7 @@ public:
         ImVec2 mouse_capture_pos;
 
         const int64_t s_min_length = 100;
-        const int64_t s_max_length = 7500 * MSECS_PER_SEC;
+        const int64_t s_max_length = 7500 * NSECS_PER_MSEC;
     } m_graph;
 
     friend class graph_info_t;
