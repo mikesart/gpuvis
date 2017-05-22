@@ -21,27 +21,30 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include <stdio.h>
-#include <string.h>
-
+#include <string>
+#include <vector>
 #include <algorithm>
 #include <future>
 #include <set>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unordered_map>
-#include <vector>
-#include <array>
 
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 
-#include "GL/gl3w.h"
-
 #define YA_GETOPT_NO_COMPAT_MACRO
 #include "ya_getopt.h"
-#include "gpuvis.h"
+
+#include "GL/gl3w.h"
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_sdl_gl3.h"
+
 #include "tdopexpr.h"
+#include "trace-cmd/trace-read.h"
+
+#include "gpuvis_macros.h"
+#include "stlini.h"
+#include "gpuvis_utils.h"
+#include "gpuvis.h"
 
 // https://github.com/ocornut/imgui/issues/88
 #if defined( USE_GTK3 )

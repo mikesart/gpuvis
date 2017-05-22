@@ -45,15 +45,14 @@
 #include <unistd.h>
 #endif
 
-#include <SDL.h>
-
 extern "C"
 {
     #include "event-parse.h"
     #include "kbuffer.h"
 }
 
-#include "../gpuvis.h"
+#include "../gpuvis_macros.h"
+#include "trace-read.h"
 
 enum
 {
@@ -146,6 +145,8 @@ typedef struct tracecmd_input
 
     std::jmp_buf jump_buffer;
 } tracecmd_input_t;
+
+void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
 
 [[noreturn]] static void die( tracecmd_input_t *handle, const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
 [[noreturn]] static void die( tracecmd_input_t *handle, const char *fmt, ... )

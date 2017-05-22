@@ -21,9 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include <string>
 #include <vector>
@@ -37,7 +35,9 @@
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_freetype.h"
+
 #include "gpuvis_macros.h"
+#include "stlini.h"
 #include "gpuvis_utils.h"
 
 #include "proggy_tiny.cpp"

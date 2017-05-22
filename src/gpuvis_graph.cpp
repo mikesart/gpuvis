@@ -32,10 +32,16 @@
 #include <unordered_map>
 #include <vector>
 #include <array>
+#include <limits.h>
 
 #include <SDL.h>
 
-#include "GL/gl3w.h"
+#include "imgui/imgui.h"
+
+#include "gpuvis_macros.h"
+#include "stlini.h"
+#include "trace-cmd/trace-read.h"
+#include "gpuvis_utils.h"
 #include "gpuvis.h"
 
 /*

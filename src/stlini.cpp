@@ -56,8 +56,8 @@
 #include <SDL.h>
 #endif
 
-#include "gpuvis_macros.h"
 #include "imgui/imgui.h"
+#include "gpuvis_macros.h"
 #include "stlini.h"
 
 const char *CIniFile::m_settings = "$settings$";

@@ -25,8 +25,6 @@
 #ifndef _GPUVIS_UTILS_H
 #define _GPUVIS_UTILS_H
 
-#include "stlini.h"
-
 // ini file singleton
 CIniFile &s_ini();
 
@@ -141,62 +139,6 @@ inline char *strncasestr( const char *haystack, const char *needle, size_t needl
    }
    return NULL;
 }
-
-template < typename K, typename V >
-class util_umap
-{
-public:
-    util_umap() {}
-    ~util_umap() {}
-
-    V *get_val( const K key, const V &defval )
-    {
-        auto res = m_map.emplace( key, defval );
-        return &res.first->second;
-    }
-
-    V *get_val( const K key )
-    {
-        auto i = m_map.find( key );
-        if ( i != m_map.end() )
-            return &i->second;
-        return NULL;
-    }
-
-    void set_val( const K key, const V &val )
-    {
-        auto res = m_map.emplace( key, val );
-
-       /*
-        * If the insertion takes place (because no other element existed with the
-        * same key), the function returns a pair object, whose first component is an
-        * iterator to the inserted element, and whose second component is true.
-        *
-        * Otherwise, the pair object returned has as first component an iterator
-        * pointing to the element in the container with the same key, and false as its
-        * second component.
-        */
-        if ( !res.second )
-            res.first->second = val;
-    }
-
-public:
-    typedef std::unordered_map< K, V > map_t;
-    map_t m_map;
-};
-
-class StrPool
-{
-public:
-    StrPool() {}
-    ~StrPool() {}
-
-    const char *getstr( const char *str, size_t len = ( size_t )-1 );
-    const char *findstr( uint32_t hashval );
-
-public:
-    util_umap< uint32_t, std::string > m_pool;
-};
 
 class FontInfo
 {
