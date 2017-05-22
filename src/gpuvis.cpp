@@ -2196,7 +2196,7 @@ static float get_keyboard_scroll_lines( float visible_rows )
         if ( imgui_key_pressed( ImGuiKey_PageDown ) )
             scroll_lines = std::max< float>( visible_rows - 5, 1 );
         else if ( imgui_key_pressed( ImGuiKey_PageUp ) )
-            scroll_lines = std::min< float >( -visible_rows, -1 );
+            scroll_lines = std::min< float >( -( visible_rows - 5), -1 );
         else if ( imgui_key_pressed( ImGuiKey_DownArrow ) )
             scroll_lines = 1;
         else if ( imgui_key_pressed( ImGuiKey_UpArrow ) )
