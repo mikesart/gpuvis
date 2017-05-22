@@ -89,6 +89,43 @@ void imgui_text_bg( const char *str, const ImVec4 &bgcolor );
 bool imgui_push_smallfont();
 void imgui_pop_smallfont();
 
+// Does ImGui InputText with two new flags to put label on left or have label be a button.
+#define ImGuiInputText2FlagsLeft_LabelOnRight  ( 1 << 29 )
+#define ImGuiInputText2FlagsLeft_LabelIsButton ( 1 << 30 )
+template < size_t T >
+bool imgui_input_text2( const char *label, char ( &buf ) [ T ], float w = 120.0f,
+                        ImGuiInputTextFlags flags = 0, ImGuiTextEditCallback callback = NULL,
+                        void *user_data = NULL )
+{
+    bool ret;
+
+    ImGui::PushID( label );
+
+    if ( flags & ImGuiInputText2FlagsLeft_LabelIsButton )
+    {
+        ret = ImGui::Button( label );
+        label = "##imgui_input_text2";
+    }
+    else if ( !( flags & ImGuiInputText2FlagsLeft_LabelOnRight ) )
+    {
+        ImGui::AlignFirstTextHeightToWidgets();
+        ImGui::Text( "%s", label );
+        label = "##imgui_input_text2";
+    }
+    flags &= ~( ImGuiInputText2FlagsLeft_LabelIsButton | ImGuiInputText2FlagsLeft_LabelOnRight );
+
+    ImGui::SameLine();
+
+    if ( w )
+        ImGui::PushItemWidth( imgui_scale( w ) );
+    ret |= ImGui::InputText( label, buf, sizeof( buf ), flags, callback, user_data );
+    if ( w )
+        ImGui::PopItemWidth();
+
+    ImGui::PopID();
+    return ret;
+}
+
 #define IM_COL32_R( _x ) ( ( ( _x ) >> IM_COL32_R_SHIFT ) & 0xFF )
 #define IM_COL32_G( _x ) ( ( ( _x ) >> IM_COL32_G_SHIFT ) & 0xFF )
 #define IM_COL32_B( _x ) ( ( ( _x ) >> IM_COL32_B_SHIFT ) & 0xFF )

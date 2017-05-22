@@ -658,6 +658,7 @@ static void plot_input_text( const char *label, char ( &buf )[ T ], float x, flo
     ImGui::PushItemWidth( w );
     ImGui::SetCursorPos( { x, ImGui::GetCursorPos().y } );
     ImGui::InputText( "##plot_input_text", buf, sizeof( buf ), flags, callback );
+    ImGui::PopItemWidth();
 
     ImGui::PopID();
 }
@@ -2012,12 +2013,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     }
 
     {
-        ImGui::AlignFirstTextHeightToWidgets();
-        ImGui::Text( "New Graph Row:" );
-
-        ImGui::SameLine();
-        if ( ImGui::InputText( "##new_graph_row", m_graph.new_row_buf, sizeof( m_graph.new_row_buf ),
-                               ImGuiInputTextFlags_EnterReturnsTrue ) )
+        if ( imgui_input_text2( "New Graph Row:", m_graph.new_row_buf, 0, ImGuiInputTextFlags_EnterReturnsTrue ) )
         {
             m_graph.new_row_errstr.clear();
 
@@ -2076,12 +2072,8 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
                 *slash = 0;
         }
 
-        ImGui::AlignFirstTextHeightToWidgets();
-        ImGui::Text( "Rename '%s':", m_graph.mouse_over_row_name.c_str() );
-
-        ImGui::SameLine();
-        if ( ImGui::InputText( "##rename_comm", m_graph.rename_comm_buf, sizeof( m_graph.rename_comm_buf ),
-                               ImGuiInputTextFlags_EnterReturnsTrue ) )
+        std::string label = string_format( "Rename '%s':", m_graph.mouse_over_row_name.c_str() );
+        if ( imgui_input_text2( label.c_str(), m_graph.rename_comm_buf, 0, ImGuiInputTextFlags_EnterReturnsTrue ) )
         {
             if ( rename_comm_event( m_graph.mouse_over_row_name.c_str(), m_graph.rename_comm_buf ) )
                 ImGui::CloseCurrentPopup();

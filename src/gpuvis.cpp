@@ -90,39 +90,6 @@ static bool imgui_input_int( int *val, float w, const char *label, const char *l
     return ret;
 }
 
-enum
-{
-    InputText_EnterReturnsTrue = 0x0001,
-    InputText_NoButton = 0x0002,
-};
-template < size_t T >
-static bool imgui_input_text( const char *button_label, const char *text_label,
-                              char ( &buf )[ T ], float w, int flags = 0)
-{
-    bool ret = false;
-    ImGuiInputTextFlags imgui_flags = ( flags & InputText_NoButton ) ?
-            ImGuiInputTextFlags_EnterReturnsTrue : 0;
-
-    if ( flags & InputText_NoButton )
-    {
-        ImGui::AlignFirstTextHeightToWidgets();
-        ImGui::Text( "%s", button_label );
-    }
-    else
-    {
-        ret = ImGui::Button( button_label );
-    }
-
-    ImGui::SameLine();
-    ImGui::PushItemWidth( imgui_scale( w ) );
-
-    ret |= ImGui::InputText( text_label, buf, T, imgui_flags, 0 );
-
-    ImGui::PopItemWidth();
-
-    return ret;
-}
-
 static int imgui_ini_save_settings_cb( int index, const ImGuiIniData &data )
 {
     std::string value = string_format( "%.2f,%.2f,%.2f,%.2f",
@@ -1868,11 +1835,11 @@ bool TraceWin::render()
 
     if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        if ( imgui_input_text( "Start:", "##GraphStart", m_graph.time_start_buf, 120.0f, InputText_NoButton ) )
+        if ( imgui_input_text2( "Start:", m_graph.time_start_buf ) )
             m_graph.start_ts = timestr_to_ts( m_graph.time_start_buf );
 
         ImGui::SameLine();
-        if ( imgui_input_text( "Length:", "##GraphLength", m_graph.time_length_buf, 120.0f, InputText_NoButton ) )
+        if ( imgui_input_text2( "Length:", m_graph.time_length_buf ) )
             m_graph.length_ts = timestr_to_ts( m_graph.time_length_buf );
 
         for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
@@ -1884,7 +1851,7 @@ bool TraceWin::render()
 
                 ImGui::PushID( i );
                 ImGui::SameLine();
-                if ( imgui_input_text( label, "##MarkStart", m_graph.marker_bufs[ i ], 120.0f, InputText_NoButton ) )
+                if ( imgui_input_text2( label, m_graph.marker_bufs[ i ] ) )
                     graph_marker_set( i, 0, m_graph.marker_bufs[ i ] );
                 ImGui::PopID();
             }
@@ -1892,7 +1859,7 @@ bool TraceWin::render()
         if ( graph_marker_valid( 0 ) && graph_marker_valid( 1 ) )
         {
             ImGui::SameLine();
-            if ( imgui_input_text( "AB Delta:", "##MarkerDelta", m_graph.marker_delta_buf, 120.0f, InputText_NoButton ) )
+            if ( imgui_input_text2( "AB Delta:", m_graph.marker_delta_buf ) )
                 graph_marker_set( 1, m_graph.ts_markers[ 0 ] + timestr_to_ts( m_graph.marker_delta_buf ) );
         }
 
@@ -1929,7 +1896,7 @@ bool TraceWin::render()
         m_eventlist.do_gotoevent |= imgui_input_int( &m_eventlist.goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
 
         ImGui::SameLine();
-        if ( imgui_input_text( "Goto Time:", "##GotoTime", m_eventlist.timegoto_buf, 120.0f ) )
+        if ( imgui_input_text2( "Goto Time:", m_eventlist.timegoto_buf, 120.0f, ImGuiInputText2FlagsLeft_LabelIsButton ) )
         {
             m_eventlist.do_gotoevent = true;
             m_eventlist.goto_eventid = timestr_to_eventid( m_eventlist.timegoto_buf, m_eventlist.tsoffset );
@@ -1938,13 +1905,13 @@ bool TraceWin::render()
         //$ TODO mikesart: Let's kill this. Can use Marker A/B to check distances now.
 #if 0
         ImGui::SameLine();
-        if ( imgui_input_text( "Time Offset:", "##TimeOffset", m_eventlist.timeoffset_buf, 120.0f ) )
+        if ( imgui_input_text2( "Time Offset:", m_eventlist.timeoffset_buf, 120.0f, ImGuiInputText2FlagsLeft_LabelIsButton ) )
             m_eventlist.tsoffset = timestr_to_ts( m_eventlist.timeoffset_buf );
 #endif
 
         if ( m_eventlist.do_filter ||
-             imgui_input_text( "Event Filter:", "##Event Filter", m_eventlist.filter_buf, 500.0f,
-                               InputText_EnterReturnsTrue ) )
+             imgui_input_text2( "Event Filter:", m_eventlist.filter_buf, 500.0f,
+                               ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputText2FlagsLeft_LabelIsButton ) )
         {
             m_eventlist.filtered_events.clear();
             m_eventlist.filtered_events_str.clear();
