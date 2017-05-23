@@ -792,23 +792,40 @@ bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
 
     if ( plocs )
     {
-        ParsePlotStr parse_plot_str;
-
-        if ( parse_plot_str.init( m_scanf_str.c_str() ) )
+        if ( scanf_str == "$duration" )
         {
             for ( uint32_t idx : *plocs )
             {
                 const trace_event_t &event = trace_events.m_events[ idx ];
-                const char *buf = get_event_field_val( event, "buf" );
 
-                if ( parse_plot_str.parse( buf ) )
+                float valf = event.duration * ( 1.0 / NSECS_PER_MSEC );
+
+                m_minval = std::min< float >( m_minval, valf );
+                m_maxval = std::max< float >( m_maxval, valf );
+
+                m_plotdata.push_back( { event.ts, event.id, valf } );
+            }
+        }
+        else
+        {
+            ParsePlotStr parse_plot_str;
+
+            if ( parse_plot_str.init( m_scanf_str.c_str() ) )
+            {
+                for ( uint32_t idx : *plocs )
                 {
-                    float valf = parse_plot_str.m_valf;
+                    const trace_event_t &event = trace_events.m_events[ idx ];
+                    const char *buf = get_event_field_val( event, "buf" );
 
-                    m_minval = std::min< float >( m_minval, valf );
-                    m_maxval = std::max< float >( m_maxval, valf );
+                    if ( parse_plot_str.parse( buf ) )
+                    {
+                        float valf = parse_plot_str.m_valf;
 
-                    m_plotdata.push_back( { event.ts, event.id, valf } );
+                        m_minval = std::min< float >( m_minval, valf );
+                        m_maxval = std::max< float >( m_maxval, valf );
+
+                        m_plotdata.push_back( { event.ts, event.id, valf } );
+                    }
                 }
             }
         }
