@@ -58,3 +58,5 @@ stlini has e-mail author & credit license: [stlini](http://source.robertk.com/)
 ya_getopt is 2-clause BSD-style licensed: [ya_getopt](https://github.com/kubo/ya_getopt/blob/master/README.md)
 
 noc_file_dialog.h is MIT licensed: [noc](https://github.com/guillaumechereau/noc)
+
+ucm cmake macros are MIT licensed: [ucm](https://github.com/onqtam/ucm)
