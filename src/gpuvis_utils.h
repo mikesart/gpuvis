@@ -85,6 +85,8 @@ ImU32 imgui_col_complement( ImU32 col );
 
 void imgui_text_bg( const char *str, const ImVec4 &bgcolor );
 
+bool imgui_mousepos_valid( const ImVec2 &pos );
+
 bool imgui_push_smallfont();
 void imgui_pop_smallfont();
 

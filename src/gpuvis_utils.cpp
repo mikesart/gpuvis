@@ -419,6 +419,12 @@ void imgui_text_bg( const char *str, const ImVec4 &bgcolor )
     ImGui::PopStyleColor();
 }
 
+bool imgui_mousepos_valid( const ImVec2 &pos )
+{
+    return ( pos.x > ImGui::GetIO().MousePosInvalid.x ) &&
+            ( pos.y > ImGui::GetIO().MousePosInvalid.y );
+}
+
 bool imgui_push_smallfont()
 {
     ImFontAtlas *atlas = ImGui::GetIO().Fonts;

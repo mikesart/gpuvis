@@ -438,7 +438,7 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
     tsdxrcp = 1.0 / tsdx;
 
     mouse_pos = ImGui::IsRootWindowOrAnyChildFocused() ?
-                ImGui::GetMousePos() : ImVec2( -1024, -1024 );
+                ImGui::GetMousePos() : ImGui::GetIO().MousePosInvalid;
 
     // Check if we're supposed to render filtered events only
     graph_only_filtered = s_opts().getb( OPT_GraphOnlyFiltered ) &&
@@ -1914,7 +1914,7 @@ void TraceWin::graph_render()
     ImGui::Button( "##resize_graph", ImVec2( ImGui::GetContentRegionAvailWidth(), imgui_scale( 4.0f ) ) );
     if ( ImGui::IsItemHovered() )
         ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeNS );
-    if ( ImGui::IsItemActive() )
+    if ( ImGui::IsItemActive() && imgui_mousepos_valid( gi.mouse_pos ) )
     {
         option_id_t opt = gi.prinfo_zoom ? OPT_GraphHeightZoomed : OPT_GraphHeight;
 
@@ -2226,7 +2226,7 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
     else if ( m_graph.mouse_captured == MOUSE_CAPTURED_PAN )
     {
         // click: pan
-        if ( is_mouse_down )
+        if ( is_mouse_down && imgui_mousepos_valid( gi.mouse_pos ) )
         {
             float dx = gi.mouse_pos.x - m_graph.mouse_capture_pos.x;
             int64_t tsdiff = gi.dx_to_ts( dx );

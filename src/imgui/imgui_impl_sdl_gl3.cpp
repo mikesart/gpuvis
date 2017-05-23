@@ -405,19 +405,34 @@ void ImGui_ImplSdlGL3_NewFrame(SDL_Window* window, bool *use_freetype)
     io.DeltaTime = g_Time > 0.0 ? (float)(current_time - g_Time) : (float)(1.0f / 60.0f);
     g_Time = current_time;
 
-    // Setup inputs
-    // (we already got mouse wheel, keyboard keys & characters from SDL_PollEvent())
     int mx, my;
     Uint32 mouseMask = SDL_GetMouseState(&mx, &my);
-    if (SDL_GetWindowFlags(window) & SDL_WINDOW_MOUSE_FOCUS)
-        io.MousePos = ImVec2((float)mx, (float)my);   // Mouse position, in pixels (set to -1,-1 if no mouse / on another screen, etc.)
-    else
-        io.MousePos = ImVec2(-1, -1);
 
-    io.MouseDown[0] = g_MousePressed[0] || (mouseMask & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;		// If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events that are shorter than 1 frame.
-    io.MouseDown[1] = g_MousePressed[1] || (mouseMask & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0;
-    io.MouseDown[2] = g_MousePressed[2] || (mouseMask & SDL_BUTTON(SDL_BUTTON_MIDDLE)) != 0;
+    io.MouseDown[0] = g_MousePressed[0] || (mouseMask & SDL_BUTTON_LMASK) != 0;		// If a mouse press event came, always pass it as "mouse held this frame", so we don't miss click-release events that are shorter than 1 frame.
+    io.MouseDown[1] = g_MousePressed[1] || (mouseMask & SDL_BUTTON_RMASK) != 0;
+    io.MouseDown[2] = g_MousePressed[2] || (mouseMask & SDL_BUTTON_MMASK) != 0;
     g_MousePressed[0] = g_MousePressed[1] = g_MousePressed[2] = false;
+
+    // Setup inputs
+    // (we already got mouse wheel, keyboard keys & characters from SDL_PollEvent())
+    if (SDL_GetWindowFlags(window) & SDL_WINDOW_MOUSE_FOCUS)
+    {
+        io.MousePos = ImVec2((float)mx, (float)my);
+    }
+    else if (io.MouseDown[0] || io.MouseDown[1] || io.MouseDown[2])
+    {
+        int gx, gy;
+        int posx, posy;
+
+        SDL_GetGlobalMouseState(&gx, &gy);
+        SDL_GetWindowPosition(window, &posx, &posy);
+
+        io.MousePos = ImVec2((float)(gx - posx), (float)(gy - posy));
+    }
+    else
+    {
+        io.MousePos = io.MousePosInvalid;
+    }
 
     io.MouseWheel = g_MouseWheel;
     g_MouseWheel = 0.0f;
