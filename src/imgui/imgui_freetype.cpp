@@ -377,10 +377,12 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas )
             dst_font->Ascent = ascent;
             dst_font->Descent = descent;
             dst_font->Glyphs.resize( 0 );
+            dst_font->MetricsTotalSurface = 0;
         }
         dst_font->ConfigDataCount++;
 
-        float off_y = ( cfg.MergeMode && cfg.MergeGlyphCenterV ) ? ( ascent - dst_font->Ascent ) * 0.5f : 0.0f;
+        float off_x = cfg.GlyphOffset.x;
+        float off_y = cfg.GlyphOffset.y;
 
         // Always clear fallback so FindGlyph can return NULL. It will be set again in BuildLookupTable()
         dst_font->FallbackGlyph = NULL;
@@ -413,10 +415,11 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas )
                 ImFont::Glyph &glyph = dst_font->Glyphs.back();
 
                 glyph.Codepoint = ( ImWchar )codepoint;
-                glyph.X0 = glyphInfo.offsetX;
-                glyph.Y0 = glyphInfo.offsetY;
-                glyph.X1 = glyph.X0 + glyphInfo.width;
-                glyph.Y1 = glyph.Y0 + glyphInfo.height;
+
+                glyph.X0 = glyphInfo.offsetX + off_x;
+                glyph.Y0 = glyphInfo.offsetY + off_y;
+                glyph.X1 = glyph.X0 + glyphInfo.width + off_x;
+                glyph.Y1 = glyph.Y0 + glyphInfo.height + off_y;
                 glyph.U0 = rect.x / ( float )atlas->TexWidth;
                 glyph.V0 = rect.y / ( float )atlas->TexHeight;
                 glyph.U1 = ( rect.x + glyphInfo.width ) / ( float )atlas->TexWidth;
