@@ -27,6 +27,7 @@
 #include <future>
 #include <set>
 #include <unordered_map>
+#include <functional>
 
 #define SDL_MAIN_HANDLED
 #include <SDL.h>

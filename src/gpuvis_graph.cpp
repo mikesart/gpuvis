@@ -33,6 +33,7 @@
 #include <vector>
 #include <array>
 #include <limits.h>
+#include <functional>
 
 #include <SDL.h>
 
