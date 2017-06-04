@@ -30,6 +30,7 @@
 #include <cctype>
 #include <sstream>
 #include <unordered_map>
+#include <functional>
 
 #include <SDL.h>
 
