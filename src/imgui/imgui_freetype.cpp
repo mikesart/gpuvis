@@ -83,8 +83,8 @@ public:
     FreeTypeFont() {}
     ~FreeTypeFont();
 
-    // Initialize from imgui font config struct.
-    void Init( ImFontConfig &cfg );
+    // Initialize from imgui font config struct
+    bool Init( ImFontConfig &cfg );
 
     // Generate glyph image and get glyph information.
     bool GetGlyphInfo( uint32_t codepoint, GlyphInfo &glyphInfo );
@@ -127,7 +127,7 @@ FreeTypeFont::~FreeTypeFont()
     }
 }
 
-void FreeTypeFont::Init( ImFontConfig &cfg )
+bool FreeTypeFont::Init( ImFontConfig &cfg )
 {
     int faceIndex = cfg.FontNo;
     float pixelHeight  = cfg.SizePixels;
@@ -138,11 +138,19 @@ void FreeTypeFont::Init( ImFontConfig &cfg )
     FT_Error error = FT_Init_FreeType( &m_library );
     IM_ASSERT( error == 0 );
 
-    error = FT_New_Memory_Face( m_library, data, dataSize, faceIndex, &m_face );
-    IM_ASSERT( error == 0 );
+    if ( !error )
+    {
+        error = FT_New_Memory_Face( m_library, data, dataSize, faceIndex, &m_face );
+        IM_ASSERT( error == 0 );
 
-    error = FT_Select_Charmap( m_face, FT_ENCODING_UNICODE );
-    IM_ASSERT( error == 0 );
+        if ( !error )
+        {
+            error = FT_Select_Charmap( m_face, FT_ENCODING_UNICODE );
+            IM_ASSERT( error == 0 );
+        }
+    }
+    if ( error )
+        return false;
 
     // I'm not sure how to deal with font sizes properly.
     // As far as I understand, currently ImGui assumes that the 'pixelHeight' is a maximum height of an any given glyph,
@@ -183,6 +191,8 @@ void FreeTypeFont::Init( ImFontConfig &cfg )
 
     m_oblique = !!( flags & ImGuiFreeType::Oblique );
     m_bold = !!( flags & ImGuiFreeType::Bold );
+
+    return true;
 }
 
 bool FreeTypeFont::GetGlyphInfo( uint32_t codepoint, GlyphInfo &glyphInfo )
@@ -296,7 +306,8 @@ bool ImGuiFreeType::BuildFontAtlas( ImFontAtlas *atlas )
         if ( !cfg.GlyphRanges )
             cfg.GlyphRanges = atlas->GetGlyphRangesDefault();
 
-        fontFace.Init( cfg );
+        if ( !fontFace.Init( cfg ) )
+            return false;
 
         maxGlyphSize.x = ImMax( maxGlyphSize.x, fontFace.m_maxAdvanceWidth );
         maxGlyphSize.y = ImMax( maxGlyphSize.y, fontFace.m_ascender - fontFace.m_descender );
