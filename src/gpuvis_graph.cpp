@@ -987,13 +987,6 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
     row_draw_info.resize( row_count + 1 );
 
-    if ( m_trace_events.m_rect_size_max_x == -1.0f )
-    {
-        m_trace_events.update_ftraceprint_colors(
-                    s_clrs().getalpha( col_Graph_PrintLabelSat ),
-                    s_clrs().getalpha( col_Graph_PrintLabelAlpha ) );
-    }
-
     // We need to start drawing to the left of 0 for timeline_labels
     int64_t ts = timeline_labels ? gi.screenx_to_ts( gi.x - m_trace_events.m_rect_size_max_x ) : gi.ts0;
     uint32_t eventstart = ts_to_eventid( ts );
@@ -1814,6 +1807,17 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
 void TraceWin::graph_render()
 {
     graph_info_t gi;
+
+    if ( m_trace_events.m_rect_size_max_x == -1.0f )
+    {
+        imgui_push_smallfont();
+
+        m_trace_events.update_ftraceprint_colors(
+                    s_clrs().getalpha( col_Graph_PrintLabelSat ),
+                    s_clrs().getalpha( col_Graph_PrintLabelAlpha ) );
+
+        imgui_pop_smallfont();
+    }
 
     // Initialize our row size, location, etc information based on our graph rows
     gi.init_row_info( this, m_graph.rows.m_graph_rows_list );
