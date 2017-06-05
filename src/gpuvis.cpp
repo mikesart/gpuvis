@@ -2393,7 +2393,7 @@ void TraceWin::events_list_render()
         }
 
         float scrolly = ImGui::GetScrollY();
-        uint32_t start_idx = std::max< float >( scrolly / lineh, 1.0f ) - 1;
+        uint32_t start_idx = Clamp< uint32_t >( scrolly / lineh, 1, event_count ) - 1;
         uint32_t end_idx = std::min< uint32_t >( start_idx + 2 + visible_rows, event_count );
 
         // Draw columns
