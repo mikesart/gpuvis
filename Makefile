@@ -15,32 +15,18 @@
 
 NAME = gpuvis
 
-CFG ?= release
 USE_GTK3 ?= 1
-
-# Use gcc-6 / gcc-5 if it exists and CC is the default cc
-ifeq ($(CC),cc)
-    ifneq ("$(wildcard /usr/bin/gcc-6)","")
-        ifeq ($(CFG), debug)
-            ASAN ?= 1
-        endif
-		CC = gcc-6
-		CXX = g++-6
-		WSHADOW = -Wshadow
-	else ifneq ("$(wildcard /usr/bin/gcc-5)","")
-        ifeq ($(CFG), debug)
-            ASAN ?= 1
-        endif
-        CC = gcc-5
-		CXX = g++-5
-		WSHADOW = -Wshadow
-	endif
+CFG ?= release
+ifeq ($(CFG), debug)
+    ASAN ?= 1
 endif
 
 LD = $(CC)
 RM = rm -f
 MKDIR = mkdir -p
 VERBOSE ?= 0
+
+COMPILER = $(shell $(CC) -v 2>&1 | grep -q "clang version" && echo clang || echo gcc)
 
 SDL2FLAGS=$(shell sdl2-config --cflags)
 SDL2LIBS=$(shell sdl2-config --static-libs)
@@ -50,7 +36,11 @@ GTK3FLAGS=$(shell pkg-config --cflags gtk+-3.0) -DUSE_GTK3
 GTK3LIBS=$(shell pkg-config --libs gtk+-3.0)
 endif
 
-WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wsuggest-attribute=format $(WSHADOW) -Wno-unused-parameter -Wno-missing-field-initializers -DUSE_FREETYPE
+WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wshadow -Wno-unused-parameter -Wno-missing-field-initializers -DUSE_FREETYPE
+ifneq ($(COMPILER),clang)
+  WARNINGS += -Wsuggest-attribute=format
+endif
+
 CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 $(SDL2FLAGS) $(GTK3FLAGS) -I/usr/include/freetype2
 CXXFLAGS = -fno-rtti -Woverloaded-virtual
 LDFLAGS = -march=native -gdwarf-4 -g2 -Wl,--build-id=sha1
