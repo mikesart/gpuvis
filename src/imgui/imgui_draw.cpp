@@ -1048,7 +1048,7 @@ ImFontConfig::ImFontConfig()
     GlyphRanges = NULL;
     MergeMode = false;
     DstFont = NULL;
-    FreetypeFlags = ImGuiFreeType::ForceAutoHint;
+    FreetypeFlags = ImGuiFreeType::LightHinting;
     Brighten = 0.0f;
     memset(Name, 0, sizeof(Name));
 }

@@ -236,7 +236,7 @@ void Opts::init()
     init_opt( OPT_GraphHeightZoomed, "Zoomed Graph Size: %.1f", "graph_height_zoomed", 0, 0, 1, OPT_Float | OPT_Hidden );
     init_opt( OPT_EventListRowCount, "Event List Size: %.0f", "eventlist_rows", 0, 0, 100, OPT_Int | OPT_Hidden );
     init_opt( OPT_Scale, "Font Scale: %.1f", "scale", 2.0f, 0.25f, 6.0f, OPT_Float | OPT_Hidden );
-    init_opt_bool( OPT_UseFreetype, "Use Freetype", "use_freetype", false, OPT_Hidden );
+    init_opt_bool( OPT_UseFreetype, "Use Freetype", "use_freetype", true, OPT_Hidden );
 
     for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
@@ -879,10 +879,10 @@ void TraceLoader::load_fonts()
     ImGui::GetIO().Fonts->Clear();
 
     // Add main font
-    m_font_main.load_font( "$imgui_font_main$", "Proggy Clean (13)", 13.0f );
+    m_font_main.load_font( "$imgui_font_main$", "Roboto Regular", 14.0f );
 
     // Add small font
-    m_font_small.load_font( "$imgui_font_small$", "Proggy Tiny (10)", 10.0f );
+    m_font_small.load_font( "$imgui_font_small$", "Roboto Condensed", 14.0f );
 
     // Reset max rect size for the print events so they'll redo the CalcTextSize for the
     //  print graph row backgrounds (in graph_render_print_timeline).
