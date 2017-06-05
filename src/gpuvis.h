@@ -458,7 +458,7 @@ public:
 
         // Marker A and B
         int64_t ts_markers[ 2 ] = { INT64_MAX, INT64_MAX };
-        char marker_bufs[ 2 ][ 32 ] = { 0 };
+        char marker_bufs[ 2 ][ 32 ] = { { 0 } };
         char marker_delta_buf[ 32 ] = { 0 };
 
         float resize_graph_click_pos = 0.0f;

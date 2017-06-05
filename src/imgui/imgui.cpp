@@ -694,7 +694,6 @@ static void             LoadIniSettingsFromDisk(const char* ini_filename);
 static void             SaveIniSettingsToDisk(const char* ini_filename);
 static void             MarkIniSettingsDirty();
 
-static void             PushColumnClipRect(int column_index = -1);
 static ImRect           GetVisibleRect();
 
 static bool             BeginPopupEx(const char* str_id, ImGuiWindowFlags extra_flags);
