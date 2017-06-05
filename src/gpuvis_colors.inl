@@ -27,13 +27,13 @@ _XTAG( col_ClearColor, IM_COL32( 114, 144, 154, 255 ), "Window background clear 
 
 _XTAG( col_VBlank0, 0xd9ff00db, "VBlank crtc0" )
 _XTAG( col_VBlank1, 0x80fff300, "VBlank crtc1" )
-_XTAG( col_FtracePrintText, IM_COL32( 0xFF, 0xFF, 0, 0xFF ), "Ftrace print text color" )
-_XTAG( col_BrightText, IM_COL32( 0xFF, 0xFF, 0, 0xFF ), "Gpuvis bright text color" )
+_XTAG( col_FtracePrintText, 0xffcca014, "Ftrace print text color" )
+_XTAG( col_BrightText, 0xffcca014, "Gpuvis bright text color" )
 
 // Event list colors
 _XTAG( col_EventList_Text, 0xffe6e6e6, "Event list text" )
 _XTAG( col_EventList_Sel, 0xd9aa00ff, "Event list selected text" )
-_XTAG( col_EventList_Hov, IM_COL32( 0xFF, 0x70, 0x60, 100 ), "Event list hovered graph events" )
+_XTAG( col_EventList_Hov, 0xff241c04, "Event list hovered graph events" )
 
 // Graph colors
 _XTAG( col_Graph_Bk, IM_COL32( 0x2F, 0x4F, 0x4F, 255 ), "Graph Background" )
