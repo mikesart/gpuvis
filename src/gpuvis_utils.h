@@ -98,7 +98,7 @@ bool imgui_input_text2( const char *label, char ( &buf ) [ T ], float w = 120.0f
                         ImGuiInputTextFlags flags = 0, ImGuiTextEditCallback callback = NULL,
                         void *user_data = NULL )
 {
-    bool ret;
+    bool ret = false;
 
     ImGui::PushID( label );
 
