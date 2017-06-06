@@ -419,16 +419,19 @@ void ImGui_ImplSdlGL3_NewFrame(SDL_Window* window, bool *use_freetype)
     {
         io.MousePos = ImVec2((float)mx, (float)my);
     }
+#if SDL_VERSIONNUM( SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL ) >= SDL_VERSIONNUM( 2, 0, 4 )
     else if (io.MouseDown[0] || io.MouseDown[1] || io.MouseDown[2])
     {
         int gx, gy;
         int posx, posy;
 
+        // SDL_GetGlobalMouseState was added in v2.0.4
         SDL_GetGlobalMouseState(&gx, &gy);
         SDL_GetWindowPosition(window, &posx, &posy);
 
         io.MousePos = ImVec2((float)(gx - posx), (float)(gy - posy));
     }
+#endif
     else
     {
         io.MousePos = io.MousePosInvalid;
