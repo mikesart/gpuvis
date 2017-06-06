@@ -113,14 +113,15 @@ const std::vector< char * > &logf_get()
 
 void logf( const char *fmt, ... )
 {
+    int ret;
     va_list args;
     char *buf = NULL;
 
     va_start( args, fmt );
-    vasprintf( &buf, fmt, args );
+    ret = vasprintf( &buf, fmt, args );
     va_end( args );
 
-    if ( buf )
+    if ( ret >= 0 )
     {
         if ( SDL_ThreadID() == g_main_tid )
         {
@@ -982,20 +983,20 @@ bool Clrs::is_imgui_color( colors_t col )
     return false;
 }
 
-void TextClrs::set( std::string &str, ImU32 color )
+void TextClrs::set( std::string &strin, ImU32 color )
 {
-    str.resize( 5 );
+    strin.resize( 5 );
 
-    str[ 0 ] = '\033';
-    str[ 1 ] = std::max< uint8_t >( IM_COL32_R( color ), 1 );
-    str[ 2 ] = std::max< uint8_t >( IM_COL32_G( color ), 1 );
-    str[ 3 ] = std::max< uint8_t >( IM_COL32_B( color ), 1 );
-    str[ 4 ] = std::max< uint8_t >( IM_COL32_A( color ), 1 );
+    strin[ 0 ] = '\033';
+    strin[ 1 ] = std::max< uint8_t >( IM_COL32_R( color ), 1 );
+    strin[ 2 ] = std::max< uint8_t >( IM_COL32_G( color ), 1 );
+    strin[ 3 ] = std::max< uint8_t >( IM_COL32_B( color ), 1 );
+    strin[ 4 ] = std::max< uint8_t >( IM_COL32_A( color ), 1 );
 }
 
-const std::string TextClrs::mstr( text_colors_t clr, const std::string &str )
+const std::string TextClrs::mstr( text_colors_t clr, const std::string &strin )
 {
-    return m_buf[ clr ] + str + m_buf[ TClr_Def ];
+    return m_buf[ clr ] + strin + m_buf[ TClr_Def ];
 }
 
 void TextClrs::update_colors()

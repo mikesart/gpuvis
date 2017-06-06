@@ -151,15 +151,19 @@ void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
 [[noreturn]] static void die( tracecmd_input_t *handle, const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
 [[noreturn]] static void die( tracecmd_input_t *handle, const char *fmt, ... )
 {
+    int ret;
     va_list ap;
     char *buf = NULL;
 
     va_start( ap, fmt );
-    vasprintf( &buf, fmt, ap );
+    ret = vasprintf( &buf, fmt, ap );
     va_end( ap );
 
-    logf( "%s", buf );
-    free( buf );
+    if ( ret >= 0 )
+    {
+        logf( "%s", buf );
+        free( buf );
+    }
 
     std::longjmp( handle->jump_buffer, -1 );
 }

@@ -187,8 +187,8 @@ public:
     ~TextClrs() {}
 
     const char *str( text_colors_t clr )                        { return m_buf[ clr ].c_str(); }
-    const std::string bright_str( const std::string &str )      { return mstr( TClr_Bright, str ); }
-    const std::string ftraceprint_str( const std::string &str ) { return mstr( TClr_FtracePrint, str ); }
+    const std::string bright_str( const std::string &str_in )      { return mstr( TClr_Bright, str_in ); }
+    const std::string ftraceprint_str( const std::string &str_in ) { return mstr( TClr_FtracePrint, str_in); }
 
     void update_colors();
 
