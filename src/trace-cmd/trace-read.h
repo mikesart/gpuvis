@@ -92,6 +92,13 @@ struct trace_info_t
     std::string uname;
     bool timestamp_in_us;
     std::vector< std::string > cpustats;
+
+    // Map tgid to vector of child pids
+    util_umap< int, std::vector< int > > tgid_pids;
+    // Map pid to tgid
+    util_umap< int, int > pid_tgid_map;
+    // Map pid to comm
+    util_umap< int, const char * > pid_comm_map;
 };
 
 struct event_field_t
@@ -148,7 +155,6 @@ struct trace_event_t
 
     bool is_filtered_out;
     int pid;                    // event process id
-    int tgid;                   // event thread group (or 0)
     int crtc;                   // drm_vblank_event crtc (or -1)
 
     uint32_t id;                // event id

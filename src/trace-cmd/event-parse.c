@@ -5379,7 +5379,7 @@ int pevent_data_tgid_from_pid(struct pevent *pevent, int pid)
 {
 	if (pid < pevent->tgid_count)
 		return pevent->tgid_map[pid];
-	return 0;
+	return -1;
 }
 
 static struct cmdline *

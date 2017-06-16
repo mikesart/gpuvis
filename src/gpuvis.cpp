@@ -1295,7 +1295,8 @@ const char *filter_get_key_func( StrPool *strpool, const char *name, size_t len 
     return strpool->getstr( name, len );
 }
 
-const char *filter_get_keyval_func( const trace_event_t *event, const char *name, char ( &buf )[ 64 ] )
+const char *filter_get_keyval_func( trace_info_t *trace_info, const trace_event_t *event,
+                                    const char *name, char ( &buf )[ 64 ] )
 {
     if ( !strcasecmp( name, "name" ) )
     {
@@ -1317,6 +1318,13 @@ const char *filter_get_keyval_func( const trace_event_t *event, const char *name
     else if ( !strcasecmp( name, "pid" ) )
     {
         snprintf_safe( buf, "%d", event->pid );
+        return buf;
+    }
+    else if ( !strcasecmp( name, "tgid" ) )
+    {
+        int *tgid = trace_info->pid_tgid_map.get_val( event->pid );
+
+        snprintf_safe( buf, "%d", tgid ? *tgid : 0 );
         return buf;
     }
     else if ( !strcasecmp( name, "ts" ) )
@@ -1374,7 +1382,7 @@ const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name,
             for ( trace_event_t &event : m_events )
             {
                 const char *ret;
-                tdop_get_keyval_func get_keyval_func = std::bind( filter_get_keyval_func, &event, _1, _2 );
+                tdop_get_keyval_func get_keyval_func = std::bind( filter_get_keyval_func, &m_trace_info, &event, _1, _2 );
 
                 ret = tdopexpr_exec( tdop_expr, get_keyval_func );
                 if ( ret[ 0 ] )
@@ -1964,7 +1972,8 @@ bool TraceWin::render()
                 {
                     for ( trace_event_t &event : m_trace_events.m_events )
                     {
-                        tdop_get_keyval_func get_keyval_func = std::bind( filter_get_keyval_func, &event, _1, _2 );
+                        tdop_get_keyval_func get_keyval_func = std::bind( filter_get_keyval_func,
+                                                                          &m_trace_events.m_trace_info, &event, _1, _2 );
 
                         const char *ret = tdopexpr_exec( tdop_expr, get_keyval_func );
 
@@ -2112,6 +2121,35 @@ void TraceWin::trace_render_info()
 
                 ImGui::EndColumns();
             }
+        }
+
+        if ( !m_trace_events.m_trace_info.tgid_pids.m_map.empty() &&
+             ( ImGui::CollapsingHeader( "Thread Group Info" ) ) )
+        {
+            ImGui::Indent();
+
+            for ( auto &entry : m_trace_events.m_trace_info.tgid_pids.m_map )
+            {
+                int tgid = entry.first;
+                std::vector< int > &pids = entry.second;
+                const char *tgid_comm = m_trace_events.m_trace_info.pid_comm_map.m_map[ tgid ];
+                std::string label = string_format( "%s-%d (%lu thread%s)", tgid_comm, tgid, pids.size(),
+                                                   ( pids.size() > 1 ) ? "s" : "");
+
+                if ( ImGui::TreeNode( label.c_str() ) )
+                {
+                    for ( int pid : pids )
+                    {
+                        const char *comm = m_trace_events.m_trace_info.pid_comm_map.m_map[ pid ];
+
+                        ImGui::BulletText( "%s-%d", comm, pid );
+                    }
+
+                    ImGui::TreePop();
+                }
+            }
+
+            ImGui::Unindent();
         }
 
         ImGui::Unindent();

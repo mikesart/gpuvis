@@ -1569,7 +1569,6 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
         trace_event_t trace_event;
         struct format_field *format;
         int pid = pevent_data_pid( pevent, record );
-        int tgid = pevent_data_tgid_from_pid( pevent, pid );
         const char *comm = pevent_data_comm_from_pid( pevent, pid );
         bool is_ftrace_function = !strcmp( "ftrace", event->system ) && !strcmp( "function", event->name );
         bool is_printk_function = !strcmp( "ftrace", event->system ) && !strcmp( "print", event->name );
@@ -1580,7 +1579,6 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
 
         trace_event.id = 0;
         trace_event.pid = pid;
-        trace_event.tgid = tgid;
         trace_event.cpu = record->cpu;
 
         trace_seq_printf( &seq, "%s-%u", comm, pid );
@@ -1803,6 +1801,28 @@ int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
     trace_info.file = handle->file;
     trace_info.uname = handle->uname;
     trace_info.timestamp_in_us = is_timestamp_in_us( handle->pevent->trace_clock, handle->use_trace_clock );
+
+    for ( int pid = 0;; pid++ )
+    {
+        int tgid = pevent_data_tgid_from_pid( handle->pevent, pid );
+
+        if ( tgid == -1 )
+            break;
+        if ( tgid > 0 )
+        {
+            const char *comm = pevent_data_comm_from_pid( handle->pevent, pid );
+            std::vector< int > *pids = trace_info.tgid_pids.get_val( tgid, std::vector< int >() );
+
+            // Tgid --> array of pids
+            pids->push_back( pid );
+
+            // Pid --> tgid
+            trace_info.pid_tgid_map.get_val( pid, tgid );
+
+            // Pid --> comm
+            trace_info.pid_comm_map.get_val( pid, strpool.getstr( comm ) );
+        }
+    }
 
     for ( ;; )
     {
