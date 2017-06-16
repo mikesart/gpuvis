@@ -148,6 +148,7 @@ struct trace_event_t
 
     bool is_filtered_out;
     int pid;                    // event process id
+    int tgid;                   // event thread group (or 0)
     int crtc;                   // drm_vblank_event crtc (or -1)
 
     uint32_t id;                // event id

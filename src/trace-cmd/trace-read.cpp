@@ -64,6 +64,7 @@ enum
     TRACECMD_OPTION_UNAME,
     TRACECMD_OPTION_HOOK,
     TRACECMD_OPTION_OFFSET,
+    TRACECMD_OPTION_TGID,
 };
 
 enum
@@ -1101,6 +1102,26 @@ static int init_cpu( tracecmd_input_t *handle, int cpu )
     return 0;
 }
 
+static void tracecmd_parse_tgids(struct pevent *pevent,
+                                 char *file, int size __maybe_unused)
+{
+    char *next = NULL;
+    int pid, tgid;
+    char *endptr;
+    char *line;
+
+    line = strtok_r(file, "\n", &next);
+    while (line) {
+        pid = strtol(line, &endptr, 10);
+        if (endptr && *endptr == ' ') {
+            tgid = strtol(endptr + 1, NULL, 10);
+            pevent_register_tgid(pevent, tgid, pid);
+        }
+        line = strtok_r(NULL, "\n", &next);
+    }
+}
+
+
 static int handle_options( tracecmd_input_t *handle )
 {
     for ( ;; )
@@ -1179,6 +1200,9 @@ static int handle_options( tracecmd_input_t *handle )
         case TRACECMD_OPTION_HOOK:
             // Used by trace-cmd report --profile. We don't need it.
             //   hook = tracecmd_create_event_hook( buf );
+            break;
+        case TRACECMD_OPTION_TGID:
+            tracecmd_parse_tgids(handle->pevent, buf, size);
             break;
         default:
             die( handle, "%s: unknown option %d\n", __func__, option );
@@ -1545,6 +1569,7 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
         trace_event_t trace_event;
         struct format_field *format;
         int pid = pevent_data_pid( pevent, record );
+        int tgid = pevent_data_tgid_from_pid( pevent, pid );
         const char *comm = pevent_data_comm_from_pid( pevent, pid );
         bool is_ftrace_function = !strcmp( "ftrace", event->system ) && !strcmp( "function", event->name );
         bool is_printk_function = !strcmp( "ftrace", event->system ) && !strcmp( "print", event->name );
@@ -1555,6 +1580,7 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
 
         trace_event.id = 0;
         trace_event.pid = pid;
+        trace_event.tgid = tgid;
         trace_event.cpu = record->cpu;
 
         trace_seq_printf( &seq, "%s-%u", comm, pid );

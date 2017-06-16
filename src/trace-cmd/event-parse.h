@@ -307,6 +307,7 @@ enum pevent_flag {
 	PEVENT_NSEC_OUTPUT		= 1,	/* output in NSECS */
 	PEVENT_DISABLE_SYS_PLUGINS	= 1 << 1,
 	PEVENT_DISABLE_PLUGINS		= 1 << 2,
+	PEVENT_SHOW_TGIDS            = 1 << 3,
 };
 
 #define PEVENT_ERRORS 							      \
@@ -406,6 +407,8 @@ struct pevent {
 	struct printk_list *printklist;
 	unsigned int printk_count;
 
+	int *tgid_map;
+	unsigned int tgid_count;
 
 	struct event_format **events;
 	int nr_events;
@@ -536,6 +539,7 @@ int pevent_set_function_resolver(struct pevent *pevent,
 				 pevent_func_resolver_t *func, void *priv);
 void pevent_reset_function_resolver(struct pevent *pevent);
 int pevent_register_comm(struct pevent *pevent, const char *comm, int pid);
+int pevent_register_tgid(struct pevent *pevent, int tgid, int pid);
 int pevent_register_trace_clock(struct pevent *pevent, const char *trace_clock);
 int pevent_register_function(struct pevent *pevent, char *name,
 			     unsigned long long addr, char *mod);
@@ -629,6 +633,7 @@ struct event_format *pevent_data_event_from_type(struct pevent *pevent, int type
 int pevent_data_pid(struct pevent *pevent, struct pevent_record *rec);
 int pevent_data_pc(struct pevent *pevent, struct pevent_record *rec);
 int pevent_data_flags(struct pevent *pevent, struct pevent_record *rec);
+int pevent_data_tgid_from_pid(struct pevent *pevent, int pid);
 const char *pevent_data_comm_from_pid(struct pevent *pevent, int pid);
 struct cmdline;
 struct cmdline *pevent_data_pid_from_comm(struct pevent *pevent, const char *comm,
@@ -724,5 +729,6 @@ unsigned long long pevent_get_input_buf_ptr(void);
 /* for debugging */
 void pevent_print_funcs(struct pevent *pevent);
 void pevent_print_printk(struct pevent *pevent);
+void pevent_print_tgids(struct pevent *pevent);
 
 #endif /* _PARSE_EVENTS_H */
