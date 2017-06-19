@@ -388,8 +388,8 @@ std::string comp_str_create_val( uint32_t val )
 
 ImU32 imgui_col_from_hashval( uint32_t hashval, float sat, float alpha )
 {
-    float h = ( hashval & 0xffffff ) / 16777215.0f;
-    float v = ( hashval >> 24 ) / ( 2.0f * 255.0f ) + 0.5f;
+    float h = ( hashval & 0xff ) / 255.0f;
+    float v = ( ( hashval >> 8 ) & 0xff ) / ( 2.0f * 255.0f ) + 0.5f;
 
     return imgui_hsv( h, sat, v, alpha );
 }

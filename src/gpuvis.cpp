@@ -1505,7 +1505,11 @@ void TraceEvents::calculate_event_print_info()
         // If we can find a colon, use everything before it
         const char *buf_end = strrchr( buf, ':' );
 
-        if ( !buf_end )
+        if ( buf_end )
+        {
+            buf_end++;
+        }
+        else
         {
             // No colon - try to find one of our buf prefixes
             for ( size_t i = 0; i < ARRAY_SIZE( s_buf_prefixes ); i++ )
