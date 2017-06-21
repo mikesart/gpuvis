@@ -63,6 +63,9 @@ _XTAG( col_Graph_BarHwRunning, 0xd9ffaa00, "Graph timeline hw running bar" )
 _XTAG( col_Graph_BarSelRect, 0xd9fff300, "Graph timeline selected bar rectangle" )
 _XTAG( col_Graph_BarText, IM_COL32( 0xff, 0xff, 0xff, 255 ), "Graph timeline bar text" )
 
+_XTAG( col_Graph_TaskRunning, 0x4fff00ff, "Sched_switch task running block" )
+_XTAG( col_Graph_TaskSleeping, 0x4fffff00, "Sched_switch task sleeping block" )
+
 // ImGui colors
 _XTAG( col_ImGui_Text, 0xffe6e6e6, "ImGui text" )
 _XTAG( col_ImGui_TextDisabled, 0xff666666, "ImGui disabled text" )

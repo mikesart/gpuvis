@@ -22,6 +22,9 @@
  * THE SOFTWARE.
  */
 
+// Mask for sched_switch prev_state field
+#define TASK_STATE_MAX  1024
+
 #define INVALID_ID ( ( uint32_t )-1 )
 
 inline bool is_valid_id( uint32_t id )

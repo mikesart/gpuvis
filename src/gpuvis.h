@@ -177,6 +177,9 @@ public:
     const std::vector< uint32_t > *get_timeline_locs( const char *name );
     // Pass a string like "gfx_249_91446"
     const std::vector< uint32_t > *get_gfxcontext_locs( const char *name );
+    // Return vec of locations for sched_switch events.
+    enum switch_t { SCHED_SWITCH_PREV, SCHED_SWITCH_NEXT };
+    const std::vector< uint32_t > *get_sched_switch_locs( const char *name, switch_t switch_type );
 
     // Rename a comm event
     bool rename_comm( const char *comm_old, const char *comm_new );
@@ -234,6 +237,10 @@ public:
 
     // Map of timeline (gfx, sdma0, etc) event locations.
     TraceLocations m_timeline_locations;
+
+    // Map of comm sched_switch event locations.
+    TraceLocations m_sched_switch_prev_locations;
+    TraceLocations m_sched_switch_next_locations;
 
     struct event_print_info_t
     {
@@ -640,6 +647,7 @@ protected:
     static int new_event_cb( TraceLoader *loader, const trace_info_t &info,
                          const trace_event_t &event );
     int init_new_event( trace_event_t &event, const trace_info_t &info );
+    void init_sched_switch_event( trace_event_t &event );
 
 public:
     std::string m_filename;

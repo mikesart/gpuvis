@@ -547,6 +547,53 @@ static bool is_timeline_event( const trace_event_t &event )
              !strcmp( event.name, "amdgpu_sched_run_job" ) );
 }
 
+void TraceLoader::init_sched_switch_event( trace_event_t &event )
+{
+    const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
+    const char *next_pid_str = get_event_field_val( event, "next_pid" );
+    const char *prev_comm = get_event_field_val( event, "prev_comm" );
+    const char *next_comm = get_event_field_val( event, "next_comm" );
+
+    if ( *prev_pid_str && *next_pid_str && *prev_comm && *next_comm )
+    {
+        char pcomm[ 64 ];
+        char ncomm[ 64 ];
+        int prev_pid = atoi( prev_pid_str );
+        int next_pid = atoi( next_pid_str );
+        const std::vector< uint32_t > *plocs;
+
+        snprintf_safe( pcomm, "%s-%d", prev_comm, prev_pid );
+        snprintf_safe( ncomm, "%s-%d", next_comm, next_pid );
+
+        // Look in the sched_switch next queue for an event that said we were starting up.
+        plocs = m_trace_events->get_sched_switch_locs( pcomm, TraceEvents::SCHED_SWITCH_NEXT );
+        if ( plocs )
+        {
+            const trace_event_t &event_prev = m_trace_events->m_events[ plocs->back() ];
+
+            // TASK_RUNNING: On the run queue
+            // TASK_INTERRUPTABLE: Sleeping but can be woken up
+            // TASK_UNINTERRUPTABLE: Sleeping but can't be woken up by a signal
+            // TASK_ZOMBIE: Finished but waiting for parent to call wait() to cleanup
+            // TASK_STOPPED: Stopped process by job control signal or ptrace
+            int prev_state = atoi( get_event_field_val( event, "prev_state" ) );
+            bool prev_running = !( prev_state & ( TASK_STATE_MAX - 1 ) );
+            colors_t col = prev_running ? col_Graph_TaskRunning : col_Graph_TaskSleeping;
+
+            event.duration = event.ts - event_prev.ts;
+            event.color = s_clrs().get( col );
+        }
+
+        if ( strcmp( pcomm, event.comm ) )
+            m_trace_events->m_comm_locations.add_location_str( m_trace_events->m_strpool.getstr( pcomm ), event.id );
+        if ( strcmp( ncomm, event.comm ) )
+            m_trace_events->m_comm_locations.add_location_str( m_trace_events->m_strpool.getstr( ncomm ), event.id );
+
+        m_trace_events->m_sched_switch_prev_locations.add_location_str( pcomm, event.id );
+        m_trace_events->m_sched_switch_next_locations.add_location_str( ncomm, event.id );
+    }
+}
+
 int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info )
 {
     if ( event.id == 0 )
@@ -592,8 +639,11 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
     if ( event.is_vblank() )
         m_trace_events->m_tdopexpr_locations.add_location_str( "$name=drm_vblank_event", event.id );
 
-    // Add this event comm to our comm locations map
+    // Add this event comm to our comm locations map (ie, 'thread_main-1152')
     m_trace_events->m_comm_locations.add_location_str( event.comm, event.id );
+
+    if ( !strcmp( event.name, "sched_switch" ) )
+        TraceLoader::init_sched_switch_event( event );
 
     if ( is_timeline_event( event ) )
     {
@@ -1404,6 +1454,13 @@ const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name,
 const std::vector< uint32_t > *TraceEvents::get_comm_locs( const char *name )
 {
     return m_comm_locations.get_locations_str( name );
+}
+
+const std::vector< uint32_t > *TraceEvents::get_sched_switch_locs( const char *name, switch_t switch_type )
+{
+    return ( switch_type == SCHED_SWITCH_PREV ) ?
+                m_sched_switch_prev_locations.get_locations_str( name ) :
+                m_sched_switch_next_locations.get_locations_str( name );
 }
 
 const std::vector< uint32_t > *TraceEvents::get_timeline_locs( const char *name )

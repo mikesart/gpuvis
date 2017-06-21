@@ -113,6 +113,47 @@
          <idle>-0    475.1690: fence_signaled:       driver=amd_sched timeline=gfx context=249 seqno=91446
  */
 
+/*
+    Linux scheduler events:
+
+    sched_switch (scheduler context-switch)
+      prev_comm: thread_1
+      prev_pid: 1154
+      prev_state: [0|1|64] TASK_RUNNING:0, TASK_INTERRUPTABLE:1, TASK_UNINTERRUPTIBLE:2, TASK_DEAD:64, etc.
+      next_comm: swapper/2
+      next_pid: 0
+
+    sched_wakeup / sched_wakeup_new (tracepoint called when task is actually woken)
+      pid: 1144
+      success: 1
+      target_cpu: 4
+
+    sched_migrate_task (task migrated to new cpu)
+      com: rcu_sched
+      pid: 8
+      orig_cpu: 1
+      dest_cpu: 4
+
+    sched_process_exec (exec)
+      filename: /home/mikesart/dev/amdgpu/pthreads
+      pid: 1152
+      old_pid: 1152
+
+    sched_process_fork (do_fork)
+      parent_comm: thread_main
+      parent_pid: 1152
+      child_comm: thread_main
+      child_pid: 1154
+
+    sched_process_exit (task exiting)
+      Comm: thread_1-1154
+      comm: thread_1
+      pid: 1154
+
+    sched_wait_task (waiting on task to unschedule)
+    sched_process_wait (waiting task)
+ */
+
 class event_renderer_t
 {
 public:
@@ -1313,6 +1354,37 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
                     ImVec2( x, gi.y + gi.h / 2.0f ),
                     imgui_scale( 5.0f ),
                     s_clrs().get( col_Graph_SelEvent ) );
+    }
+
+    if ( gi.prinfo_cur->row_type == TraceEvents::LOC_TYPE_Comm )
+    {
+        // Grab all the sched_switch events that have our comm listed as prev_comm
+        const std::vector< uint32_t > *plocs = m_trace_events.get_sched_switch_locs(
+                    gi.prinfo_cur->row_name.c_str(), TraceEvents::SCHED_SWITCH_PREV );
+
+        if ( plocs )
+        {
+            for ( size_t idx = vec_find_eventid( *plocs, gi.eventstart );
+                  idx < plocs->size();
+                  idx++ )
+            {
+                float y = gi.y + 4 + gi.h / 2;
+                float row_h = gi.h - 8 - gi.h / 2;
+                const trace_event_t &sched_switch = get_event( plocs->at( idx ) );
+
+                if ( sched_switch.duration )
+                {
+                    float x0 = gi.ts_to_screenx( sched_switch.ts - sched_switch.duration );
+                    float x1 = gi.ts_to_screenx( sched_switch.ts );
+
+                    // Bail if we're off the right side of our graph
+                    if ( x0 > gi.x + gi.w )
+                        break;
+
+                    imgui_drawrect( x0, x1 - x0, y, row_h, sched_switch.color );
+                }
+            }
+        }
     }
 
     return num_events;
