@@ -26,6 +26,9 @@
 
 #ifndef WIN32
 #include <unistd.h>
+#else
+#define WIN32_LEAN_AND_MEAN 1
+#include <windows.h>
 #endif
 
 #include <string>
@@ -368,18 +371,14 @@ bool copy_file( const char *filename, const char *newfilename )
 
     if ( !filename[ 0 ] || !newfilename[ 0 ] )
         return false;
+    if ( !strcasecmp( filename, newfilename ) )
+        return false;
 
 #if defined( WIN32 )
 
-    if ( !strncasecmp( filename, newfilename ) )
-        return false;
-
-    success = CopyFile( filename, newfilename, FALSE );
+    success = !!CopyFile( filename, newfilename, FALSE );
 
 #else
-
-    if ( !strcasecmp( filename, newfilename ) )
-        return false;
 
     char buf[ BUFSIZ ];
     int source = TEMP_FAILURE_RETRY( open( filename, O_RDONLY, 0 ) );
