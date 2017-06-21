@@ -624,6 +624,7 @@ public:
     void close_event_file( TraceEvents *trace_events, bool close_file  );
 
     void render();
+    void render_save_filename();
     void render_menu();
 
     void load_fonts();
@@ -674,6 +675,10 @@ public:
 
     colors_t m_selected_color = 0;
     ColorPicker m_colorpicker;
+
+    char m_save_filename_buf[ PATH_MAX ] = { 0 };
+    std::string m_save_filename;
+    std::string m_save_filename_errstr;
 
     bool m_quit = false;
     bool m_show_gpuvis_console = true;

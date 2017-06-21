@@ -91,6 +91,10 @@ extern "C" uint32_t fnv_hashstr32( const char *str, size_t len = ( size_t )-1 );
 size_t get_file_size( const char *filename );
 const char *get_path_filename( const char *filename );
 
+std::string get_realpath( const char *filename );
+
+bool copy_file( const char *filename, const char *newfilename );
+
 std::string string_format( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
 std::string string_formatv( const char *fmt, va_list ap ) ATTRIBUTE_PRINTF( 1, 0 );
 

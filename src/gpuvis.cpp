@@ -28,6 +28,7 @@
 #include <set>
 #include <unordered_map>
 #include <functional>
+#include <sys/stat.h>
 
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
@@ -770,6 +771,80 @@ void TraceLoader::shutdown()
     m_trace_events_list.clear();
 }
 
+void TraceLoader::render_save_filename()
+{
+    struct stat st;
+    bool do_save = false;
+    bool close_popup = false;
+    float w = imgui_scale( 300.0f );
+
+    // Text label
+    ImGui::Text( "Save '%s' as:", m_save_filename.c_str() );
+
+    // New filename input text field
+    std::string newfilename = m_save_filename_buf;
+    if ( imgui_input_text2( "New Filename:", m_save_filename_buf, w,
+                            ImGuiInputTextFlags_EnterReturnsTrue ) )
+    {
+        do_save = true;
+    }
+
+    // Set focus to input text on first pass through
+    bool firstpass = ( ImGui::IsRootWindowOrAnyChildFocused() && !ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked( 0 ) );
+    if ( firstpass )
+        ImGui::SetKeyboardFocusHere( -1 );
+
+    // Spew out any error / warning messages
+    ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_save_filename_errstr.c_str() );
+
+    // Save button
+    ImGui::PushStyleColor( ImGuiCol_Text,
+                           ImGui::GetColorVec4( m_save_filename_buf[ 0 ] ? ImGuiCol_Text : ImGuiCol_TextDisabled ) );
+    do_save |= ImGui::Button( "Save", ImVec2( w / 3.0f, 0 ) );
+    ImGui::PopStyleColor();
+
+    // If we're saving or the new filename text field changed...
+    if ( firstpass || do_save || ( newfilename != m_save_filename_buf ) )
+    {
+        // Clear any old error strings
+        m_save_filename_errstr = "";
+
+        // Get fullpath for new filename
+        newfilename = m_save_filename_buf[ 0 ] ? get_realpath( m_save_filename_buf ) : "";
+
+        // Check if new file already exists
+        if ( !stat( newfilename.c_str(), &st ) )
+            m_save_filename_errstr = string_format( "WARNING: %s exists", newfilename.c_str() );
+    }
+
+    if ( do_save )
+    {
+        close_popup = copy_file( m_save_filename.c_str(), newfilename.c_str() );
+
+        if ( !close_popup )
+        {
+            m_save_filename_errstr = string_format( "ERROR: copy_file to %s failed",
+                                                    newfilename.c_str() );
+        }
+    }
+
+    // Cancel button (or escape key)
+    ImGui::SameLine();
+    if ( ImGui::Button( "Cancel", ImVec2( w / 3.0f, 0 ) ) ||
+         imgui_key_pressed( ImGuiKey_Escape ) )
+    {
+        close_popup = true;
+    }
+
+    if ( close_popup )
+    {
+        ImGui::CloseCurrentPopup();
+
+        m_save_filename.clear();
+        m_save_filename_errstr.clear();
+    }
+}
+
 void TraceLoader::render()
 {
     if ( !m_trace_windows_list.empty() )
@@ -872,6 +947,18 @@ void TraceLoader::render()
             m_show_scale_popup = false;
         }
 
+        ImGui::EndPopup();
+    }
+
+    if ( !m_save_filename.empty() && !ImGui::IsPopupOpen( "Save Filename" ) )
+    {
+        ImGui::OpenPopup( "Save Filename" );
+
+        strcpy_safe( m_save_filename_buf, "blah.dat" );
+    }
+    if ( ImGui::BeginPopupModal( "Save Filename", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
+    {
+        render_save_filename();
         ImGui::EndPopup();
     }
 
@@ -3020,6 +3107,19 @@ void TraceLoader::render_menu()
                 m_inputfiles.push_back( file );
         }
 #endif
+
+        if ( m_save_filename.empty() &&
+             !m_trace_windows_list.empty() &&
+             !m_trace_windows_list[ 0 ]->m_trace_events.m_filename.empty() )
+        {
+            TraceEvents &trace_events = m_trace_windows_list[ 0 ]->m_trace_events;
+            std::string &filename = trace_events.m_filename;
+            const char *basename = get_path_filename( filename.c_str() );
+            std::string label = string_format( "Save %s as...", basename );
+
+            if ( ImGui::MenuItem( label.c_str() ) )
+                m_save_filename = get_realpath( filename.c_str() );
+        }
 
         if ( ImGui::MenuItem( "Quit" ) )
         {

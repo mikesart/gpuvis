@@ -21,7 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include <fcntl.h>
 #include <sys/stat.h>
+
+#ifndef WIN32
+#include <unistd.h>
+#endif
 
 #include <string>
 #include <vector>
@@ -333,6 +338,88 @@ const char *get_path_filename( const char *filename )
             filename = str + 1;
     }
     return filename;
+}
+
+std::string get_realpath( const char *filename )
+{
+    char buf[ PATH_MAX ];
+
+#if defined( WIN32 )
+
+    char *basename;
+    DWORD len = GetFullPathName( filename, sizeof( buf ), buf, &basename );
+
+    if ( !len || ( len > sizeof( buf ) - 1 ) )
+        return filename;
+    return buf;
+
+#else
+
+    const char *rp = realpath( filename, buf );
+
+    return rp ? rp : filename;
+
+#endif
+}
+
+bool copy_file( const char *filename, const char *newfilename )
+{
+    bool success = false;
+
+    if ( !filename[ 0 ] || !newfilename[ 0 ] )
+        return false;
+
+#if defined( WIN32 )
+
+    if ( !strncasecmp( filename, newfilename ) )
+        return false;
+
+    success = CopyFile( filename, newfilename, FALSE );
+
+#else
+
+    if ( !strcasecmp( filename, newfilename ) )
+        return false;
+
+    char buf[ BUFSIZ ];
+    int source = TEMP_FAILURE_RETRY( open( filename, O_RDONLY, 0 ) );
+    int dest = TEMP_FAILURE_RETRY( open( newfilename, O_WRONLY | O_CREAT, 0644 ) );
+
+    if ( source < 0 )
+        logf( "ERROR: Opening file '%s' failed: %d", filename, errno );
+    else if ( dest < 0 )
+        logf ( "ERROR: Opening file '%s' failed: %d", newfilename, errno );
+    else
+    {
+        for ( ;; )
+        {
+            ssize_t size = TEMP_FAILURE_RETRY( read( source, buf, BUFSIZ ) );
+
+            if ( size > 0 )
+                size = TEMP_FAILURE_RETRY( write( dest, buf, size ) );
+
+            if ( size == 0 )
+            {
+                success = true;
+                break;
+            }
+
+            if ( size < 0 )
+            {
+                logf( "ERROR: copy_file failed: %d\n", errno );
+                break;
+            }
+        }
+    }
+
+    if ( source >= 0 )
+        close( source );
+    if ( dest >= 0 )
+        close( dest );
+
+#endif
+
+    return success;
 }
 
 // Parse a "comp_[1-2].[0-3].[0-8]" string. Returns true on success.
