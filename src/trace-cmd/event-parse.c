@@ -167,11 +167,6 @@ struct print_arg *alloc_arg(void)
 	return calloc(1, sizeof(struct print_arg));
 }
 
-struct cmdline {
-	char *comm;
-	int pid;
-};
-
 static int cmdline_cmp(const void *a, const void *b)
 {
 	const struct cmdline *ca = a;

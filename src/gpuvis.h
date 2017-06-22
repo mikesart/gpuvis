@@ -179,7 +179,7 @@ public:
     const std::vector< uint32_t > *get_gfxcontext_locs( const char *name );
     // Return vec of locations for sched_switch events.
     enum switch_t { SCHED_SWITCH_PREV, SCHED_SWITCH_NEXT };
-    const std::vector< uint32_t > *get_sched_switch_locs( const char *name, switch_t switch_type );
+    const std::vector< uint32_t > *get_sched_switch_locs( int pid, switch_t switch_type );
 
     // Rename a comm event
     bool rename_comm( const char *comm_old, const char *comm_new );
@@ -213,6 +213,20 @@ public:
         return m_graph_plots.m_map[ fnv_hashstr32( plot_name ) ];
     }
 
+    const char *comm_from_pid( int pid, const char *def = NULL )
+    {
+        const char *const *comm = m_trace_info.pid_comm_map.get_val( pid );
+
+        if ( comm )
+        {
+            char commbuf[ 64 ];
+
+            snprintf_safe( commbuf, "%s-%d", *comm, pid );
+            return m_strpool.getstr( commbuf );
+        }
+        return def;
+    }
+
 public:
     int64_t m_ts_min = 0;
     std::vector< uint32_t > m_cpucount;
@@ -238,7 +252,7 @@ public:
     // Map of timeline (gfx, sdma0, etc) event locations.
     TraceLocations m_timeline_locations;
 
-    // Map of comm sched_switch event locations.
+    // Map of pid to sched_switch event locations.
     TraceLocations m_sched_switch_prev_locations;
     TraceLocations m_sched_switch_next_locations;
 

@@ -552,22 +552,15 @@ void TraceLoader::init_sched_switch_event( trace_event_t &event )
 {
     const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
     const char *next_pid_str = get_event_field_val( event, "next_pid" );
-    const char *prev_comm = get_event_field_val( event, "prev_comm" );
-    const char *next_comm = get_event_field_val( event, "next_comm" );
 
-    if ( *prev_pid_str && *next_pid_str && *prev_comm && *next_comm )
+    if ( *prev_pid_str && *next_pid_str )
     {
-        char pcomm[ 64 ];
-        char ncomm[ 64 ];
         int prev_pid = atoi( prev_pid_str );
         int next_pid = atoi( next_pid_str );
         const std::vector< uint32_t > *plocs;
 
-        snprintf_safe( pcomm, "%s-%d", prev_comm, prev_pid );
-        snprintf_safe( ncomm, "%s-%d", next_comm, next_pid );
-
         // Look in the sched_switch next queue for an event that said we were starting up.
-        plocs = m_trace_events->get_sched_switch_locs( pcomm, TraceEvents::SCHED_SWITCH_NEXT );
+        plocs = m_trace_events->get_sched_switch_locs( prev_pid, TraceEvents::SCHED_SWITCH_NEXT );
         if ( plocs )
         {
             const trace_event_t &event_prev = m_trace_events->m_events[ plocs->back() ];
@@ -585,13 +578,21 @@ void TraceLoader::init_sched_switch_event( trace_event_t &event )
             event.color = s_clrs().get( col );
         }
 
-        if ( strcmp( pcomm, event.comm ) )
-            m_trace_events->m_comm_locations.add_location_str( m_trace_events->m_strpool.getstr( pcomm ), event.id );
-        if ( strcmp( ncomm, event.comm ) )
-            m_trace_events->m_comm_locations.add_location_str( m_trace_events->m_strpool.getstr( ncomm ), event.id );
+        m_trace_events->m_sched_switch_prev_locations.add_location_u32( prev_pid, event.id );
+        m_trace_events->m_sched_switch_next_locations.add_location_u32( next_pid, event.id );
 
-        m_trace_events->m_sched_switch_prev_locations.add_location_str( pcomm, event.id );
-        m_trace_events->m_sched_switch_next_locations.add_location_str( ncomm, event.id );
+        if ( prev_pid != event.pid )
+        {
+            const char *comm = m_trace_events->comm_from_pid( prev_pid );
+            if ( comm )
+                m_trace_events->m_comm_locations.add_location_str( comm, event.id );
+        }
+        if ( next_pid != event.pid )
+        {
+            const char *comm = m_trace_events->comm_from_pid( next_pid );
+            if ( comm )
+                m_trace_events->m_comm_locations.add_location_str( comm, event.id );
+        }
     }
 }
 
@@ -619,10 +620,11 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
     // Make sure our events are cleared
     event.flags &= ~( TRACE_FLAG_FENCE_SIGNALED |
                       TRACE_FLAG_FTRACE_PRINT |
-                      TRACE_FLAG_IS_VBLANK |
-                      TRACE_FLAG_IS_TIMELINE |
-                      TRACE_FLAG_IS_SW_QUEUE |
-                      TRACE_FLAG_IS_HW_QUEUE);
+                      TRACE_FLAG_VBLANK |
+                      TRACE_FLAG_TIMELINE |
+                      TRACE_FLAG_SW_QUEUE |
+                      TRACE_FLAG_HW_QUEUE |
+                      TRACE_FLAG_SCHED_SWITCH );
 
     // fence_signaled was renamed to dma_fence_signaled post v4.9
     if ( strstr( event.name, "fence_signaled" ) )
@@ -630,11 +632,13 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
     else if ( !strcmp( event.system, "ftrace-print" ) )
         event.flags |= TRACE_FLAG_FTRACE_PRINT;
     else if ( !strcmp( event.name, "drm_vblank_event" ) )
-        event.flags |= TRACE_FLAG_IS_VBLANK;
+        event.flags |= TRACE_FLAG_VBLANK;
     else if ( strstr( event.name, "amdgpu_cs_ioctl" ) )
-        event.flags |= TRACE_FLAG_IS_SW_QUEUE;
+        event.flags |= TRACE_FLAG_SW_QUEUE;
     else if ( strstr( event.name, "amdgpu_sched_run_job" ) )
-        event.flags |= TRACE_FLAG_IS_HW_QUEUE;
+        event.flags |= TRACE_FLAG_HW_QUEUE;
+    else if ( !strcmp( event.name, "sched_switch" ) )
+        event.flags |= TRACE_FLAG_SCHED_SWITCH;
 
     // Add this event name to our event locations map
     if ( event.is_vblank() )
@@ -643,7 +647,7 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
     // Add this event comm to our comm locations map (ie, 'thread_main-1152')
     m_trace_events->m_comm_locations.add_location_str( event.comm, event.id );
 
-    if ( !strcmp( event.name, "sched_switch" ) )
+    if ( event.is_sched_switch() )
         TraceLoader::init_sched_switch_event( event );
 
     if ( is_timeline_event( event ) )
@@ -678,7 +682,7 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
                 // Mark all the events in this series as timeline events
                 for ( uint32_t idx : *plocs )
                 {
-                    m_trace_events->m_events[ idx ].flags |= TRACE_FLAG_IS_TIMELINE;
+                    m_trace_events->m_events[ idx ].flags |= TRACE_FLAG_TIMELINE;
                 }
             }
         }
@@ -1543,11 +1547,11 @@ const std::vector< uint32_t > *TraceEvents::get_comm_locs( const char *name )
     return m_comm_locations.get_locations_str( name );
 }
 
-const std::vector< uint32_t > *TraceEvents::get_sched_switch_locs( const char *name, switch_t switch_type )
+const std::vector< uint32_t > *TraceEvents::get_sched_switch_locs( int pid, switch_t switch_type )
 {
     return ( switch_type == SCHED_SWITCH_PREV ) ?
-                m_sched_switch_prev_locations.get_locations_str( name ) :
-                m_sched_switch_next_locations.get_locations_str( name );
+                m_sched_switch_prev_locations.get_locations_u32( pid ) :
+                m_sched_switch_next_locations.get_locations_u32( pid );
 }
 
 const std::vector< uint32_t > *TraceEvents::get_timeline_locs( const char *name )

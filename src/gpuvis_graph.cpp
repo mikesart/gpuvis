@@ -1358,9 +1358,13 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 
     if ( gi.prinfo_cur->row_type == TraceEvents::LOC_TYPE_Comm )
     {
+        const char *row_name = gi.prinfo_cur->row_name.c_str();
+        const char *pidstr = strrchr( row_name, '-' );
+        int pid = pidstr ? atoi( pidstr + 1 ) : -1;
+
         // Grab all the sched_switch events that have our comm listed as prev_comm
         const std::vector< uint32_t > *plocs = m_trace_events.get_sched_switch_locs(
-                    gi.prinfo_cur->row_name.c_str(), TraceEvents::SCHED_SWITCH_PREV );
+                    pid, TraceEvents::SCHED_SWITCH_PREV );
 
         if ( plocs )
         {
@@ -2429,6 +2433,29 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
                 if ( buf[ 0 ] )
                     time_buf += " " + s_textclrs().ftraceprint_str( buf );
+            }
+
+            if ( event.is_sched_switch() )
+            {
+                const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
+                const char *next_pid_str = get_event_field_val( event, "next_pid" );
+
+                if ( prev_pid_str && next_pid_str )
+                {
+                    int prev_pid = atoi( prev_pid_str );
+                    int next_pid = atoi( next_pid_str );
+                    const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
+                    const char *next_comm = m_trace_events.comm_from_pid( next_pid, next_pid_str );
+
+                    time_buf += string_format( " prev:%s next:%s", prev_comm, next_comm );
+
+                    if ( event.duration )
+                    {
+                        std::string timestr = ts_to_timestr( event.duration, 0, 4 );
+
+                        time_buf += string_format( " prev-duration:%sms", timestr.c_str() );
+                    }
+                }
             }
         }
 

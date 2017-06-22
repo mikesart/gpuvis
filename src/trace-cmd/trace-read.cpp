@@ -1802,6 +1802,20 @@ int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
     trace_info.uname = handle->uname;
     trace_info.timestamp_in_us = is_timestamp_in_us( handle->pevent->trace_clock, handle->use_trace_clock );
 
+    // Make sure the cmdlines array is built
+    pevent_data_comm_from_pid( handle->pevent, 1 );
+    // Explicitly add idle thread at pid 0 
+    trace_info.pid_comm_map.get_val( 0, strpool.getstr( "<idle>" ) );
+    // Add comms for all other pids
+    for ( int i = 0; i < handle->pevent->cmdline_count; i++ )
+    {
+        int pid = handle->pevent->cmdlines[ i ].pid;
+        const char *comm = handle->pevent->cmdlines[ i ].comm;
+
+        // Pid --> comm map
+        trace_info.pid_comm_map.get_val( pid, strpool.getstr( comm ) );
+    }
+
     for ( int pid = 0;; pid++ )
     {
         int tgid = pevent_data_tgid_from_pid( handle->pevent, pid );
@@ -1810,7 +1824,6 @@ int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
             break;
         if ( tgid > 0 )
         {
-            const char *comm = pevent_data_comm_from_pid( handle->pevent, pid );
             std::vector< int > *pids = trace_info.tgid_pids.get_val( tgid, std::vector< int >() );
 
             // Tgid --> array of pids
@@ -1818,9 +1831,6 @@ int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
 
             // Pid --> tgid
             trace_info.pid_tgid_map.get_val( pid, tgid );
-
-            // Pid --> comm
-            trace_info.pid_comm_map.get_val( pid, strpool.getstr( comm ) );
         }
     }
 

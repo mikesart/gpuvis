@@ -52,6 +52,13 @@ public:
             return &i->second;
         return NULL;
     }
+    const V *get_val( const K key ) const
+    {
+        auto i = m_map.find( key );
+        if ( i != m_map.end() )
+            return &i->second;
+        return NULL;
+    }
 
     void set_val( const K key, const V &val )
     {
@@ -117,38 +124,28 @@ enum trace_flag_type_t {
     // TRACE_FLAG_HARDIRQ = 0x08, // inside an interrupt handler
     // TRACE_FLAG_SOFTIRQ = 0x10, // inside a softirq handler
 
-    TRACE_FLAG_FTRACE_PRINT = 0x100,
-    TRACE_FLAG_IS_VBLANK = 0x200,
-    TRACE_FLAG_IS_TIMELINE = 0x400,
-
-    TRACE_FLAG_IS_SW_QUEUE = 0x1000, // amdgpu_cs_ioctl
-    TRACE_FLAG_IS_HW_QUEUE = 0x2000, // amdgpu_sched_run_job
-    TRACE_FLAG_FENCE_SIGNALED = 0x4000, // *fence_signaled
+    TRACE_FLAG_FTRACE_PRINT   = 0x0100,
+    TRACE_FLAG_VBLANK         = 0x0200,
+    TRACE_FLAG_TIMELINE       = 0x0400,
+    TRACE_FLAG_SW_QUEUE       = 0x0800, // amdgpu_cs_ioctl
+    TRACE_FLAG_HW_QUEUE       = 0x1000, // amdgpu_sched_run_job
+    TRACE_FLAG_FENCE_SIGNALED = 0x2000, // *fence_signaled
+    TRACE_FLAG_SCHED_SWITCH   = 0x4000, // sched_switch
 };
 
 struct trace_event_t
 {
-    bool is_fence_signaled() const
-    {
-        return !!( flags & TRACE_FLAG_FENCE_SIGNALED );
-    }
-    bool is_ftrace_print() const
-    {
-        return !!( flags & TRACE_FLAG_FTRACE_PRINT );
-    }
-    bool is_vblank() const
-    {
-        return !!( flags & TRACE_FLAG_IS_VBLANK );
-    }
-    bool is_timeline() const
-    {
-        return !!( flags & TRACE_FLAG_IS_TIMELINE );
-    }
+    bool is_fence_signaled() const  { return !!( flags & TRACE_FLAG_FENCE_SIGNALED ); }
+    bool is_ftrace_print() const    { return !!( flags & TRACE_FLAG_FTRACE_PRINT ); }
+    bool is_vblank() const          { return !!( flags & TRACE_FLAG_VBLANK ); }
+    bool is_timeline() const        { return !!( flags & TRACE_FLAG_TIMELINE ); }
+    bool is_sched_switch() const    { return !!( flags & TRACE_FLAG_SCHED_SWITCH ); }
+
     const char *get_timeline_name( const char *def = NULL ) const
     {
-        if ( flags & TRACE_FLAG_IS_SW_QUEUE )
+        if ( flags & TRACE_FLAG_SW_QUEUE )
             return "SW queue";
-        else if ( flags & TRACE_FLAG_IS_HW_QUEUE )
+        else if ( flags & TRACE_FLAG_HW_QUEUE )
             return "HW queue";
         else if ( is_fence_signaled() )
             return "Execution";

@@ -372,6 +372,11 @@ struct func_resolver;
 typedef char *(pevent_func_resolver_t)(void *priv,
 				       unsigned long long *addrp, char **modp);
 
+struct cmdline {
+	char *comm;
+	int pid;
+};
+
 struct pevent {
 	int ref_count;
 
