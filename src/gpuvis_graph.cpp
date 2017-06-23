@@ -63,6 +63,20 @@
     a graph row of any type, which would then stay like 10x zoomed out
     compared to your real zoom level, and shows you where you are in there
     in the middle? Does that make any sense?
+
+  Feedback:
+    - having a way to only look at a single frame and fade out the rest
+    would be useful. Alex's proposed workflow was to point at a recurring
+    event and tell gpuvis that this is the frame boundary. Then everything
+    submitted inside that boundary would be displayed normally, while the
+    rest would be faded out. And then you could advance from one frame to
+    the next with a hotkey or button; you could always have the current
+    frame centered on screen to compare patterns.
+
+    - the gfx waterfall view was confusing to everyone, zoomed in or not.
+    They were all expecting something like the gpuview "stacked" view where
+    it only overlaps if it has to. Not sure if it's just a matter of habit
+    or if we should have it as an alternate method.
 */
 
 /*
