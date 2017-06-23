@@ -2222,7 +2222,7 @@ void TraceWin::trace_render_info()
 
         if ( !m_graph.rows.m_graph_rows_list.empty() )
         {
-            if ( ImGui::CollapsingHeader( "Graph Row Info", ImGuiTreeNodeFlags_DefaultOpen ) )
+            if ( ImGui::CollapsingHeader( "Graph Row Info" ) )
             {
                 if ( imgui_begin_columns( "row_info", { "Name", "Events" } ) )
                     ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
@@ -2282,22 +2282,26 @@ void TraceWin::trace_render_info()
 
             for ( auto &entry : m_trace_events.m_trace_info.tgid_pids.m_map )
             {
-                int tgid = entry.first;
                 std::vector< int > &pids = entry.second;
-                const char *tgid_comm = m_trace_events.m_trace_info.pid_comm_map.m_map[ tgid ];
-                std::string label = string_format( "%s-%d (%lu thread%s)", tgid_comm, tgid, pids.size(),
-                                                   ( pids.size() > 1 ) ? "s" : "");
 
-                if ( ImGui::TreeNode( label.c_str() ) )
+                if ( pids.size() > 1 )
                 {
-                    for ( int pid : pids )
+                    int tgid = entry.first;
+                    const char *tgid_comm = m_trace_events.m_trace_info.pid_comm_map.m_map[ tgid ];
+                    std::string label = string_format( "%s-%d (%lu threads)", tgid_comm ? tgid_comm : "<...>",
+                            tgid, pids.size() );
+
+                    if ( ImGui::TreeNode( label.c_str() ) )
                     {
-                        const char *comm = m_trace_events.m_trace_info.pid_comm_map.m_map[ pid ];
+                        for ( int pid : pids )
+                        {
+                            const char *comm = m_trace_events.m_trace_info.pid_comm_map.m_map[ pid ];
 
-                        ImGui::BulletText( "%s-%d", comm, pid );
+                            ImGui::BulletText( "%s-%d", comm, pid );
+                        }
+
+                        ImGui::TreePop();
                     }
-
-                    ImGui::TreePop();
                 }
             }
 
