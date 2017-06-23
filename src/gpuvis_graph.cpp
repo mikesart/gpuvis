@@ -77,6 +77,16 @@
     They were all expecting something like the gpuview "stacked" view where
     it only overlaps if it has to. Not sure if it's just a matter of habit
     or if we should have it as an alternate method.
+
+  DanG on tgids:
+    My normal workflow in gpuview is "Hide All Processes" then click the one or two
+    processes I care about (vrcompositor.exe + whateverapp) and show those. Within
+    those, I think it’s just showing the threads involved in graphics submission,
+    correct?
+
+    I think the thing I’d care most about at a high level is that I could see the
+    process name and then hierarchically see which threads are associated with that
+    process.
 */
 
 /*
