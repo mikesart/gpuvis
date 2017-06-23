@@ -375,7 +375,7 @@ protected:
 
     // graph keyboard handling
     void graph_handle_hotkeys( class graph_info_t &gi );
-    void graph_handle_keyboard_scroll();
+    void graph_handle_keyboard_scroll( class graph_info_t &gi );
 
     // Make sure m_graph.start_ts and m_graph.length_ts are legit
     void graph_range_check_times();

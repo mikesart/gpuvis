@@ -1805,7 +1805,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
     }
 }
 
-void TraceWin::graph_handle_keyboard_scroll()
+void TraceWin::graph_handle_keyboard_scroll( graph_info_t &gi )
 {
     if ( !ImGui::IsWindowFocused() )
         return;
@@ -1820,6 +1820,14 @@ void TraceWin::graph_handle_keyboard_scroll()
     else if ( imgui_key_pressed( ImGuiKey_DownArrow ) )
     {
         m_graph.start_y -= ImGui::GetTextLineHeightWithSpacing() * 4;
+    }
+    if ( imgui_key_pressed( ImGuiKey_PageUp ) )
+    {
+        m_graph.start_y += ( gi.h - ImGui::GetTextLineHeightWithSpacing() * 4 );
+    }
+    else if ( imgui_key_pressed( ImGuiKey_PageDown ) )
+    {
+        m_graph.start_y -= ( gi.h - ImGui::GetTextLineHeightWithSpacing() * 4 );
     }
     else if ( imgui_key_pressed( ImGuiKey_LeftArrow ) )
     {
@@ -1998,7 +2006,7 @@ void TraceWin::graph_render()
         graph_render_row_labels( gi );
 
         // Handle right, left, pgup, pgdown, etc in graph
-        graph_handle_keyboard_scroll();
+        graph_handle_keyboard_scroll( gi );
 
         // Handle hotkeys. Ie: Ctrl+Shift+1, etc
         graph_handle_hotkeys( gi );
