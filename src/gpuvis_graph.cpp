@@ -1990,7 +1990,6 @@ void TraceWin::graph_render()
         {
             m_graph.mouse_over_row_name = "";
             m_graph.mouse_over_row_type = TraceEvents::LOC_TYPE_Max;
-            m_graph.rename_comm_buf[ 0 ] = 0;
         }
 
         // If we have a gfx graph and we're zoomed, render only that
@@ -2214,25 +2213,6 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
             if ( ImGui::MenuItem( plot_label.c_str() ) )
                 m_create_plot_eventid = event.id;
-        }
-    }
-
-    if ( m_trace_events.get_comm_locs( m_graph.mouse_over_row_name.c_str() ) )
-    {
-        if ( !m_graph.rename_comm_buf[ 0 ] )
-        {
-            strcpy_safe( m_graph.rename_comm_buf, m_graph.mouse_over_row_name.c_str() );
-
-            char *slash = strrchr( m_graph.rename_comm_buf, '-' );
-            if ( slash )
-                *slash = 0;
-        }
-
-        std::string label = string_format( "Rename '%s':", m_graph.mouse_over_row_name.c_str() );
-        if ( imgui_input_text2( label.c_str(), m_graph.rename_comm_buf, 0, ImGuiInputTextFlags_EnterReturnsTrue ) )
-        {
-            if ( rename_comm_event( m_graph.mouse_over_row_name.c_str(), m_graph.rename_comm_buf ) )
-                ImGui::CloseCurrentPopup();
         }
     }
 

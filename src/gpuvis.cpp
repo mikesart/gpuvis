@@ -1358,18 +1358,6 @@ void GraphRows::init( TraceEvents &trace_events )
     }
 }
 
-void GraphRows::rename_row( const char *comm_old, const char *comm_new )
-{
-    for ( graph_rows_info_t &row_info : m_graph_rows_list )
-    {
-        if ( row_info.row_name == comm_old )
-        {
-            row_info.row_name = comm_new;
-            break;
-        }
-    }
-}
-
 void GraphRows::add_row( TraceEvents &trace_events, const std::string &name )
 {
     TraceEvents::loc_type_t type;
@@ -1463,24 +1451,6 @@ void TraceWin::graph_marker_set( size_t index, int64_t ts, const char *str )
         snprintf_safe( m_graph.marker_delta_buf, "%s ms",
                        ts_to_timestr( m_graph.ts_markers[ 1 ] - m_graph.ts_markers[ 0 ], 0, 4 ).c_str() );
     }
-}
-
-bool TraceWin::rename_comm_event( const char *comm_old, const char *comm_new )
-{
-    while( isspace( *comm_old ) )
-        comm_old++;
-    while ( isspace( *comm_new ) )
-        comm_new++;
-
-    if ( m_trace_events.rename_comm( comm_old, comm_new ) )
-    {
-        m_graph.rows.rename_row( comm_old, comm_new );
-
-        s_ini().PutStr( comm_old, comm_new, "$rename_comm$" );
-        return true;
-    }
-
-    return false;
 }
 
 int TraceWin::ts_to_eventid( int64_t ts )
@@ -1649,42 +1619,6 @@ const std::vector< uint32_t > *TraceEvents::get_timeline_locs( const char *name 
 const std::vector< uint32_t > *TraceEvents::get_gfxcontext_locs( const char *name )
 {
     return m_gfxcontext_locations.get_locations_str( name );
-}
-
-bool TraceEvents::rename_comm( const char *comm_old, const char *comm_new )
-{
-    if ( !comm_old[ 0 ] ||
-         !comm_new[ 0 ] ||
-         !strcasecmp( comm_old, comm_new ) )
-    {
-        return false;
-    }
-
-    const std::vector< uint32_t > *plocs = get_comm_locs( comm_old );
-
-    if ( plocs )
-    {
-        const char *commstr_old = m_strpool.getstr( comm_old );
-        const char *commstr_new = m_strpool.getstr( comm_new );
-
-        for ( trace_event_t &event : m_events )
-        {
-            if ( event.comm == commstr_old )
-                event.comm = commstr_new;
-            if ( event.user_comm == commstr_old )
-                event.user_comm = commstr_new;
-
-        }
-
-        uint32_t hashval_new = fnv_hashstr32( comm_new );
-        uint32_t hashval_old = fnv_hashstr32( comm_old );
-
-        m_comm_locations.m_locs.set_val( hashval_new, *plocs );
-        m_comm_locations.m_locs.m_map.erase( hashval_old );
-        return true;
-    }
-
-    return false;
 }
 
 /*
@@ -2070,8 +2004,6 @@ bool TraceWin::render()
 
     if ( !m_inited )
     {
-        std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$rename_comm$" );
-
         // Init event durations
         m_trace_events.calculate_event_durations();
         // Init print column information
@@ -2082,9 +2014,6 @@ bool TraceWin::render()
 
         // Initialize our graph rows first time through.
         m_graph.rows.init( m_trace_events );
-
-        for ( INIEntry &entry : entries )
-            rename_comm_event( entry.first.c_str(), entry.second.c_str() );
 
         int64_t last_ts = m_trace_events.m_events.back().ts;
 

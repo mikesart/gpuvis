@@ -181,9 +181,6 @@ public:
     enum switch_t { SCHED_SWITCH_PREV, SCHED_SWITCH_NEXT };
     const std::vector< uint32_t > *get_sched_switch_locs( int pid, switch_t switch_type );
 
-    // Rename a comm event
-    bool rename_comm( const char *comm_old, const char *comm_new );
-
     void calculate_event_durations();
     void calculate_event_print_info();
 
@@ -314,7 +311,6 @@ public:
     void show_row( const std::string &name, graph_rows_show_t show );
     void add_row( TraceEvents &trace_events, const std::string &name );
     void move_row( const std::string &name_src, const std::string &name_dest );
-    void rename_row( const char *comm_old, const char *comm_new );
 
     // Search in m_graph_rows_list for name. Returns index or -1 if not found.
     size_t find_row( const std::string &name, size_t not_found_val = ( size_t )-1 );
@@ -405,8 +401,6 @@ protected:
     void color_picker_render();
 
 protected:
-    // Rename a comm event
-    bool rename_comm_event( const char *comm_old, const char *comm_new );
     // Return an event id for a given time stamp
     int ts_to_eventid( int64_t ts );
     // Return an event id from a time string
@@ -506,7 +500,6 @@ public:
 
         std::vector< GraphRows::graph_rows_info_t > rows_hidden_rows;
 
-        char rename_comm_buf[ 512 ] = { 0 };
         char new_row_buf[ 512 ] = { 0 };
         std::string new_row_errstr;
 
