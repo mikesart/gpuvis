@@ -1802,32 +1802,33 @@ int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
     trace_info.uname = handle->uname;
     trace_info.timestamp_in_us = is_timestamp_in_us( handle->pevent->trace_clock, handle->use_trace_clock );
 
-    // Make sure the cmdlines array is built
-    pevent_data_comm_from_pid( handle->pevent, 1 );
     // Explicitly add idle thread at pid 0 
     trace_info.pid_comm_map.get_val( 0, strpool.getstr( "<idle>" ) );
-    // Add comms for all other pids
-    for ( int i = 0; i < handle->pevent->cmdline_count; i++ )
-    {
-        int pid = handle->pevent->cmdlines[ i ].pid;
-        const char *comm = handle->pevent->cmdlines[ i ].comm;
 
-        // Pid --> comm map
-        trace_info.pid_comm_map.get_val( pid, strpool.getstr( comm ) );
-    }
-
-    for ( int pid = 0;; pid++ )
+    // Add comms for other pids
+    for ( cmdline_list *cmdlist = handle->pevent->cmdlist;
+          cmdlist;
+          cmdlist = cmdlist->next )
     {
+        int pid = cmdlist->pid;
+        const char *comm = cmdlist->comm;
         int tgid = pevent_data_tgid_from_pid( handle->pevent, pid );
 
-        if ( tgid == -1 )
-            break;
+        // Add to our pid --> comm map
+        trace_info.pid_comm_map.get_val( pid, strpool.getstr( comm ) );
+
         if ( tgid > 0 )
         {
-            std::vector< int > *pids = trace_info.tgid_pids.get_val( tgid, std::vector< int >() );
+            tgid_info_t *tgid_info = trace_info.tgid_pids.get_val( tgid, tgid_info_t() );
 
-            // Tgid --> array of pids
-            pids->push_back( pid );
+            // Add pid to the tgid array of pids: main thread at start, others at back
+            if ( pid == tgid )
+                tgid_info->pids.insert( tgid_info->pids.begin(), pid );
+            else
+                tgid_info->pids.push_back( pid );
+
+            tgid_info->tgid = tgid;
+            tgid_info->hashval += fnv_hashstr32( comm );
 
             // Pid --> tgid
             trace_info.pid_tgid_map.get_val( pid, tgid );

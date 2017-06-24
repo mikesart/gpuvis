@@ -216,6 +216,10 @@ struct row_info_t
     TraceEvents::loc_type_t row_type;
     const std::vector< uint32_t > *plocs;
 
+    // Only set for LOC_TYPE_Comm rows
+    int pid = -1;
+    const tgid_info_t *tgid_info = NULL;
+
     RenderGraphRowCallback render_cb;
 };
 
@@ -468,6 +472,18 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         else
         {
             // LOC_Type_Comm or LOC_TYPE_Tdopexpr hopefully
+
+            if ( rinfo.row_type == TraceEvents::LOC_TYPE_Comm )
+            {
+                const char *pidstr = strrchr( row_name.c_str(), '-' );
+
+                if ( pidstr )
+                {
+                    rinfo.pid = atoi( pidstr + 1 );
+                    rinfo.tgid_info = win->m_trace_events.tgid_from_pid( rinfo.pid );
+                }
+            }
+
             rinfo.render_cb = std::bind( &TraceWin::graph_render_row_events, win, _1 );
         }
 
@@ -1380,15 +1396,11 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
                     s_clrs().get( col_Graph_SelEvent ) );
     }
 
-    if ( gi.prinfo_cur->row_type == TraceEvents::LOC_TYPE_Comm )
+    if ( gi.prinfo_cur->pid >= 0 )
     {
-        const char *row_name = gi.prinfo_cur->row_name.c_str();
-        const char *pidstr = strrchr( row_name, '-' );
-        int pid = pidstr ? atoi( pidstr + 1 ) : -1;
-
         // Grab all the sched_switch events that have our comm listed as prev_comm
         const std::vector< uint32_t > *plocs = m_trace_events.get_sched_switch_locs(
-                    pid, TraceEvents::SCHED_SWITCH_PREV );
+                    gi.prinfo_cur->pid, TraceEvents::SCHED_SWITCH_PREV );
 
         if ( plocs )
         {
@@ -1637,19 +1649,24 @@ void TraceWin::graph_render_eventlist_selection( class graph_info_t &gi )
 
 static void render_row_label( float x, float y, row_info_t &ri )
 {
+    ImU32 col = s_clrs().get( col_Graph_RowLabelText );
+
+    if ( ri.tgid_info && ri.tgid_info->pids.size() > 1 )
+        col = ri.tgid_info->color;
+
     std::string label = string_format( "%u) %s", ri.id, ri.row_name.c_str() );
-    imgui_draw_text( x, y, label.c_str(), s_clrs().get( col_Graph_RowLabelText ), true );
+    imgui_draw_text( x, y, label.c_str(), col, true );
     y += ImGui::GetTextLineHeight();
 
     if ( ri.minval <= ri.maxval )
     {
         label = string_format( "min:%.2f max:%.2f", ri.minval, ri.maxval );
-        imgui_draw_text( x, y, label.c_str(), s_clrs().get( col_Graph_RowLabelText ), true );
+        imgui_draw_text( x, y, label.c_str(), col, true );
     }
     else if ( ri.num_events )
     {
         label = string_format( "%u events", ri.num_events );
-        imgui_draw_text( x, y, label.c_str(), s_clrs().get( col_Graph_RowLabelText ), true );
+        imgui_draw_text( x, y, label.c_str(), col, true );
     }
 }
 

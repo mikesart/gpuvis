@@ -191,6 +191,7 @@ public:
     void update_ftraceprint_colors( float label_sat, float label_alpha );
 
     void update_fence_signaled_timeline_colors( float label_sat, float label_alpha );
+    void update_tgid_colors( float label_sat, float label_alpha );
 
     enum loc_type_t
     {
@@ -215,16 +216,28 @@ public:
 
     const char *comm_from_pid( int pid, const char *def = NULL )
     {
+        char commbuf[ 64 ];
         const char *const *comm = m_trace_info.pid_comm_map.get_val( pid );
 
-        if ( comm )
-        {
-            char commbuf[ 64 ];
+        if ( !comm && !def )
+            return NULL;
 
-            snprintf_safe( commbuf, "%s-%d", *comm, pid );
-            return m_strpool.getstr( commbuf );
-        }
-        return def;
+        snprintf_safe( commbuf, "%s-%d", comm ? *comm : def, pid );
+        return m_strpool.getstr( commbuf );
+    }
+
+    tgid_info_t *tgid_from_pid( int pid )
+    {
+        int *tgid = m_trace_info.pid_tgid_map.get_val( pid );
+
+        return tgid ? m_trace_info.tgid_pids.get_val( *tgid ) : NULL;
+    }
+
+    tgid_info_t *tgid_from_pidstr( const char *comm )
+    {
+        const char *pidstr = comm ? strrchr( comm, '-' ) : NULL;
+
+        return pidstr ? tgid_from_pid( atoi( pidstr + 1 ) ) : NULL;
     }
 
 public:

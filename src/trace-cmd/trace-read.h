@@ -95,6 +95,15 @@ public:
     util_umap< uint32_t, std::string > m_pool;
 };
 
+struct tgid_info_t
+{
+    int tgid;
+    std::vector< int > pids;
+
+    uint32_t hashval = 0;
+    uint32_t color = 0;
+};
+
 struct trace_info_t
 {
     uint32_t cpus = 0;
@@ -103,8 +112,8 @@ struct trace_info_t
     bool timestamp_in_us;
     std::vector< std::string > cpustats;
 
-    // Map tgid to vector of child pids
-    util_umap< int, std::vector< int > > tgid_pids;
+    // Map tgid to vector of child pids and color
+    util_umap< int, tgid_info_t > tgid_pids;
     // Map pid to tgid
     util_umap< int, int > pid_tgid_map;
     // Map pid to comm

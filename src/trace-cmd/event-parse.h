@@ -377,6 +377,12 @@ struct cmdline {
 	int pid;
 };
 
+struct cmdline_list {
+	struct cmdline_list	*next;
+	char			*comm;
+	int			pid;
+};
+
 struct pevent {
 	int ref_count;
 

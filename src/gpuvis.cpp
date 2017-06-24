@@ -1123,6 +1123,95 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
     }
 }
 
+static int pid_from_row_name( const std::string &row_name )
+{
+    const char *dash = strrchr( row_name.c_str(), '-' );
+
+    return dash ? atoi( dash + 1 ) : -1;
+}
+
+class row_cmp_t
+{
+public:
+    row_cmp_t( TraceEvents &trace_events ) : m_trace_events( trace_events ) {}
+    ~row_cmp_t() {}
+
+    uint64_t get_comm_index( const char *row_name ) const
+    {
+        static const char *comms_loprio[] =
+        {
+            "<...>",            // lowest priority
+            "trace-cmd",
+            "sh-",
+            "kill-",
+            "watchdog",
+            "chrome",
+            "kworker",
+            "mysqld",           // medium priority
+        };
+        static const char *comms_hiprio[] =
+        {
+            "steam",           // high priority
+            "QXcbEventReader",
+            "UIEngineAnimati",
+            "UIEngineRenderT",
+            "Connection",
+            "LightHouse",
+            "RenderThread",     // high priority
+        };
+
+        for ( size_t i = 0; i < ARRAY_SIZE( comms_hiprio ); i++ )
+        {
+            if ( !strncasecmp( comms_hiprio[ i ], row_name, strlen( comms_hiprio[ i ] ) ) )
+                return ARRAY_SIZE( comms_loprio ) + i + 2;
+        }
+        for ( size_t i = 0; i < ARRAY_SIZE( comms_loprio ); i++ )
+        {
+            if ( !strncasecmp( comms_loprio[ i ], row_name, strlen( comms_loprio[ i ] ) ) )
+                return i + 1;
+        }
+        return ARRAY_SIZE( comms_loprio ) + 1;
+    }
+
+    uint64_t get_row_val( const GraphRows::graph_rows_info_t &ri ) const
+    {
+        // 0xffffff ffff ffffff
+        //     tgid comm  count
+
+        // 24 low bits for event count
+        uint64_t event_count = std::min< uint32_t >( ri.event_count, 0xffffff );
+
+        // If we have tgid info, group all those together at highest prio
+        int pid = pid_from_row_name( ri.row_name );
+        const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( pid );
+
+        if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
+        {
+            // 24 high bits for tgid
+            uint32_t tgid = std::min< uint32_t >( tgid_info->tgid, 0x7fffff );
+            // main process gets +1 so it's shown first
+            uint64_t val = ( tgid << 1 ) + ( tgid == ( uint32_t )pid );
+
+            return event_count + ( val << 40 );
+        }
+
+        // Group by whatever comm index we come up with
+        return event_count + ( get_comm_index( ri.row_name.c_str() ) << 24 );
+    }
+
+    bool operator()( const GraphRows::graph_rows_info_t &lx,
+                     const GraphRows::graph_rows_info_t &rx ) const
+    {
+        uint64_t lval = get_row_val( lx );
+        uint64_t rval = get_row_val( rx );
+
+        return ( rval < lval );
+    }
+
+public:
+    TraceEvents &m_trace_events;
+};
+
 // Initialize m_graph_rows_list
 void GraphRows::init( TraceEvents &trace_events )
 {
@@ -1218,12 +1307,9 @@ void GraphRows::init( TraceEvents &trace_events )
         comms.push_back( { TraceEvents::LOC_TYPE_Comm, item.second.size(), comm, false } );
     }
 
-    // Sort by count of events
-    std::sort( comms.begin(), comms.end(),
-               [=]( const graph_rows_info_t &lx, const graph_rows_info_t &rx )
-    {
-        return rx.event_count < lx.event_count;
-    } );
+    // Sort by tgids, count of events, and comm name...
+    row_cmp_t row_cmp( trace_events );
+    std::sort( comms.begin(), comms.end(), row_cmp );
 
     // Add the sorted comm events to our m_graph_rows_list array
     m_graph_rows_list.insert( m_graph_rows_list.end(), comms.begin(), comms.end() );
@@ -1746,6 +1832,17 @@ void TraceEvents::update_fence_signaled_timeline_colors( float label_sat, float 
     }
 }
 
+void TraceEvents::update_tgid_colors( float label_sat, float label_alpha )
+{
+    for ( auto &it : m_trace_info.tgid_pids.m_map )
+    {
+        tgid_info_t &tgid_info = it.second;
+
+        tgid_info.color = imgui_col_from_hashval( tgid_info.hashval,
+                                                  label_sat, label_alpha );
+    }
+}
+
 // Go through gfx, sdma0, sdma1, etc. timelines and calculate event durations
 void TraceEvents::calculate_event_durations()
 {
@@ -1979,6 +2076,9 @@ bool TraceWin::render()
         m_trace_events.calculate_event_durations();
         // Init print column information
         m_trace_events.calculate_event_print_info();
+        // Update tgid colors
+        m_trace_events.update_tgid_colors( s_clrs().getalpha( col_Graph_PrintLabelSat ),
+                                           s_clrs().getalpha( col_Graph_PrintLabelAlpha ) );
 
         // Initialize our graph rows first time through.
         m_graph.rows.init( m_trace_events );
@@ -2229,7 +2329,20 @@ void TraceWin::trace_render_info()
 
                 for ( const GraphRows::graph_rows_info_t &info : m_graph.rows.m_graph_rows_list )
                 {
+                    ImU32 col = ImGui::GetColorU32( ImGuiCol_Text );
+
+                    if ( info.type == TraceEvents::LOC_TYPE_Comm )
+                    {
+                        const tgid_info_t *tgid_info = m_trace_events.tgid_from_pidstr( info.row_name.c_str() );
+
+                        if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
+                            col = tgid_info->color;
+                    }
+
+                    ImGui::PushStyleColor( ImGuiCol_Text, ( ImColor )col );
                     ImGui::Text( "%s", info.row_name.c_str() );
+                    ImGui::PopStyleColor();
+
                     ImGui::NextColumn();
                     ImGui::Text( "%lu", info.event_count );
 
@@ -2274,7 +2387,9 @@ void TraceWin::trace_render_info()
                 ImGui::EndColumns();
             }
         }
-
+        
+        // We're drawing the Graph Row Info w/ tgid colors. Don't think we still need this...
+#if 0
         if ( !m_trace_events.m_trace_info.tgid_pids.m_map.empty() &&
              ( ImGui::CollapsingHeader( "Thread Group Info" ) ) )
         {
@@ -2282,31 +2397,35 @@ void TraceWin::trace_render_info()
 
             for ( auto &entry : m_trace_events.m_trace_info.tgid_pids.m_map )
             {
-                std::vector< int > &pids = entry.second;
+                tgid_info_t &tgid_info = entry.second;
 
-                if ( pids.size() > 1 )
+                if ( tgid_info.pids.size() > 1 )
                 {
-                    int tgid = entry.first;
-                    const char *tgid_comm = m_trace_events.m_trace_info.pid_comm_map.m_map[ tgid ];
-                    std::string label = string_format( "%s-%d (%lu threads)", tgid_comm ? tgid_comm : "<...>",
-                            tgid, pids.size() );
+                    ImGui::PushStyleColor( ImGuiCol_Text, ( ImColor )tgid_info.color );
+
+                    const char *tgid_comm = m_trace_events.comm_from_pid( tgid_info.tgid, "<...>" );
+                    std::string label = string_format( "%s (%lu threads)", tgid_comm, tgid_info.pids.size() );
 
                     if ( ImGui::TreeNode( label.c_str() ) )
                     {
-                        for ( int pid : pids )
+                        for ( int pid : tgid_info.pids )
                         {
-                            const char *comm = m_trace_events.m_trace_info.pid_comm_map.m_map[ pid ];
+                            const char *comm = m_trace_events.comm_from_pid( pid, "<...>" );
+                            const std::vector< uint32_t > *plocs = m_trace_events.get_comm_locs( comm );
 
-                            ImGui::BulletText( "%s-%d", comm, pid );
+                            ImGui::BulletText( "%s (%lu events)", comm, plocs ? plocs->size() : 0 );
                         }
 
                         ImGui::TreePop();
                     }
+
+                    ImGui::PopStyleColor();
                 }
             }
 
             ImGui::Unindent();
         }
+#endif
 
         ImGui::Unindent();
     }
@@ -2981,7 +3100,13 @@ void TraceLoader::render_color_picker()
         case col_Graph_PrintLabelAlpha:
             // ftrace print label color changes - invalidate current colors
             for ( TraceEvents *trace_event : m_trace_events_list )
+            {
                 trace_event->invalidate_ftraceprint_colors();
+
+                trace_event->update_tgid_colors(
+                            s_clrs().getalpha( col_Graph_PrintLabelSat ),
+                            s_clrs().getalpha( col_Graph_PrintLabelAlpha ) );
+            }
             break;
 
         case col_Graph_TimelineLabelSat:

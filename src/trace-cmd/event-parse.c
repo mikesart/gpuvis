@@ -180,12 +180,6 @@ static int cmdline_cmp(const void *a, const void *b)
 	return 0;
 }
 
-struct cmdline_list {
-	struct cmdline_list	*next;
-	char			*comm;
-	int			pid;
-};
-
 static int cmdline_init(struct pevent *pevent)
 {
 	struct cmdline_list *cmdlist = pevent->cmdlist;
