@@ -1531,7 +1531,10 @@ const char *filter_get_keyval_func( trace_info_t *trace_info, const trace_event_
     }
     else if ( !strcasecmp( name, "duration" ) )
     {
-        snprintf_safe( buf, "%.6f", event->duration * ( 1.0 / NSECS_PER_MSEC ) );
+        if ( event->duration == ( uint32_t )-1 )
+            buf[ 0 ] = 0;
+        else
+            snprintf_safe( buf, "%.6f", event->duration * ( 1.0 / NSECS_PER_MSEC ) );
         return buf;
     }
 
@@ -2738,7 +2741,7 @@ void TraceWin::events_list_render()
 
                 // column 4: duration
                 {
-                    if ( event.duration )
+                    if ( event.duration != ( uint32_t )-1 )
                         ImGui::Text( "%sms", ts_to_timestr( event.duration, 0, 4 ).c_str() );
                     ImGui::NextColumn();
                 }

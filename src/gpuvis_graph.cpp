@@ -880,12 +880,15 @@ bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
             {
                 const trace_event_t &event = trace_events.m_events[ idx ];
 
-                float valf = event.duration * ( 1.0 / NSECS_PER_MSEC );
+                if ( event.duration != ( uint32_t )-1 )
+                {
+                    float valf = event.duration * ( 1.0 / NSECS_PER_MSEC );
 
-                m_minval = std::min< float >( m_minval, valf );
-                m_maxval = std::max< float >( m_maxval, valf );
+                    m_minval = std::min< float >( m_minval, valf );
+                    m_maxval = std::max< float >( m_maxval, valf );
 
-                m_plotdata.push_back( { event.ts, event.id, valf } );
+                    m_plotdata.push_back( { event.ts, event.id, valf } );
+                }
             }
         }
         else
@@ -1412,7 +1415,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
                 float row_h = gi.h - 8 - gi.h / 2;
                 const trace_event_t &sched_switch = get_event( plocs->at( idx ) );
 
-                if ( sched_switch.duration )
+                if ( sched_switch.duration != ( uint32_t )-1 )
                 {
                     float x0 = gi.ts_to_screenx( sched_switch.ts - sched_switch.duration );
                     float x1 = gi.ts_to_screenx( sched_switch.ts );
@@ -2478,7 +2481,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
                     time_buf += string_format( " prev:%s next:%s", prev_comm, next_comm );
 
-                    if ( event.duration )
+                    if ( event.duration != ( uint32_t )-1 )
                     {
                         std::string timestr = ts_to_timestr( event.duration, 0, 4 );
 
