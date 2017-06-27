@@ -230,7 +230,7 @@ public:
         return tgid ? m_trace_info.tgid_pids.get_val( *tgid ) : NULL;
     }
 
-    tgid_info_t *tgid_from_pidstr( const char *comm )
+    tgid_info_t *tgid_from_commstr( const char *comm )
     {
         const char *pidstr = comm ? strrchr( comm, '-' ) : NULL;
 

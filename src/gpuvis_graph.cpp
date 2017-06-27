@@ -1447,6 +1447,14 @@ void TraceWin::graph_render_row( graph_info_t &gi )
         ImVec2( gi.x + gi.w, gi.y + gi.h ),
         s_clrs().get( col_Graph_RowBk ) );
 
+    if ( gi.prinfo_cur->tgid_info && gi.prinfo_cur->tgid_info->pids.size() > 1 )
+    {
+        ImGui::GetWindowDrawList()->AddLine(
+                    ImVec2( gi.x, gi.y + gi.h + 1 ),
+                    ImVec2( gi.x + gi.w, gi.y + gi.h + 1 ),
+                    gi.prinfo_cur->tgid_info->color );
+    }
+
     // Call the render callback function
     gi.prinfo_cur->num_events = gi.prinfo_cur->render_cb ? gi.prinfo_cur->render_cb( gi ) : 0;
 }
@@ -2384,6 +2392,22 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
     std::string time_buf = "Time: " + ts_to_timestr( mouse_ts, m_eventlist.tsoffset );
     bool sync_event_list_to_graph = s_opts().getb( OPT_SyncEventListToGraph ) &&
             s_opts().getb( OPT_ShowEventList );
+
+    if ( !m_graph.mouse_over_row_name.empty() &&
+         ( m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Comm ) )
+    {
+        const std::string &row_name = m_graph.mouse_over_row_name;
+        const tgid_info_t *tgid_info = m_trace_events.tgid_from_commstr( row_name.c_str() );
+
+        if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
+        {
+            const char *tgid_comm = m_trace_events.comm_from_pid( tgid_info->tgid, "<...>" );
+            const std::string colorstr = s_textclrs().colorstr( tgid_info->color );
+
+            time_buf += string_format( "\n%sTgid: %s%s", colorstr.c_str(),
+                                       tgid_comm, s_textclrs().str( TClr_Def ) );
+        }
+    }
 
     m_eventlist.highlight_ids.clear();
 

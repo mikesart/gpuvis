@@ -2265,7 +2265,7 @@ void TraceWin::trace_render_info()
 
                     if ( info.type == TraceEvents::LOC_TYPE_Comm )
                     {
-                        const tgid_info_t *tgid_info = m_trace_events.tgid_from_pidstr( info.row_name.c_str() );
+                        const tgid_info_t *tgid_info = m_trace_events.tgid_from_commstr( info.row_name.c_str() );
 
                         if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
                             col = tgid_info->color;

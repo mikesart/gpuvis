@@ -192,8 +192,16 @@ public:
 
     void update_colors();
 
+    std::string colorstr( ImU32 color )
+    {
+        std::string str;
+
+        TextClrs::set( str, color );
+        return str;
+    }
+
 private:
-    void set( std::string &str, ImU32 color );
+    static void set( std::string &str, ImU32 color );
     const std::string mstr( text_colors_t clr, const std::string &str );
 
 public:
