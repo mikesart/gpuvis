@@ -6957,6 +6957,8 @@ void pevent_free(struct pevent *pevent)
 		printklist = printknext;
 	}
 
+	free(pevent->tgid_map);
+
 	for (i = 0; i < pevent->nr_events; i++)
 		pevent_free_format(pevent->events[i]);
 
