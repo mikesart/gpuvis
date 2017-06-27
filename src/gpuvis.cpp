@@ -1152,12 +1152,21 @@ public:
         static const char *comms_hiprio[] =
         {
             "steam",           // high priority
+            "gfx",
+            "amdgpu",
+            "sdma",
+            "vrcompositor",
+            "vrdashboard",
+            "vrserver",
+            "vrmonitor",
+            "GlobPool",
             "QXcbEventReader",
             "UIEngineAnimati",
             "UIEngineRenderT",
             "Connection",
             "LightHouse",
-            "RenderThread",     // high priority
+            "VKRenderThread",
+            "RenderThread",     // highest priority
         };
 
         for ( size_t i = 0; i < ARRAY_SIZE( comms_hiprio ); i++ )
