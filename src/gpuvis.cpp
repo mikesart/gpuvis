@@ -1809,19 +1809,34 @@ const char *TraceEvents::comm_from_commstr( const char *comm )
     if ( pidstr )
     {
         int pid = atoi( pidstr + 1 );
-        tgid_info_t *tgid_info = tgid_from_pid( pid );
+        const char **mapped_comm = m_pid_commstr_map.get_val( pid );
 
-        if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
+        if ( mapped_comm )
         {
-            char commbuf[ 128 ];
-            const char *comm_tgid = comm_from_pid( tgid_info->tgid, "<...>" );
-            const std::string colorstr = s_textclrs().colorstr( tgid_info->color );
+            return *mapped_comm;
+        }
+        else
+        {
+            tgid_info_t *tgid_info = tgid_from_pid( pid );
 
-            snprintf_safe( commbuf, "%s (%s%s%s)",
-                           comm, colorstr.c_str(), comm_tgid, s_textclrs().str( TClr_Def ) );
-            return m_strpool.getstr( commbuf );
+            if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
+            {
+                char commbuf[ 128 ];
+                const char *comm_tgid = comm_from_pid( tgid_info->tgid, "<...>" );
+                const std::string colorstr = s_textclrs().colorstr( tgid_info->color );
+
+                snprintf_safe( commbuf, "%s (%s%s%s)",
+                               comm, colorstr.c_str(), comm_tgid, s_textclrs().str( TClr_Def ) );
+                comm = m_strpool.getstr( commbuf );
+            }
+            else
+            {
+                comm = m_strpool.getstr( comm );
+            }
         }
 
+        // Add pid / comm mapping
+        m_pid_commstr_map.get_val( pid, comm );
     }
 
     return comm;

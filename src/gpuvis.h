@@ -263,6 +263,9 @@ public:
     // plot name to GraphPlot
     util_umap< uint32_t, GraphPlot > m_graph_plots;
 
+    // map of pid to 'thread1-1234 (mainthread-1233)'
+    util_umap< int, const char * > m_pid_commstr_map;
+
     // 0: events loaded, 1+: loading events, -1: error
     SDL_atomic_t m_eventsloaded = { 0 };
 };
