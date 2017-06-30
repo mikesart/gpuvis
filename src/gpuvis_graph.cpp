@@ -52,6 +52,10 @@
 
   Configurable hotkeys?
 
+  Pierre-Loup:
+    i think anywhere where you show a thread name now, showing process+thread
+    would be better
+
   From Pierre-Loup:
     * Since I find myself zooming in and out a lot to situate myself in the
     larger trace and analyze parts of it, I'm thinking one of the next big
@@ -2397,16 +2401,9 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
          ( m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Comm ) )
     {
         const std::string &row_name = m_graph.mouse_over_row_name;
-        const tgid_info_t *tgid_info = m_trace_events.tgid_from_commstr( row_name.c_str() );
+        const char *comm = m_trace_events.comm_from_commstr( row_name.c_str() );
 
-        if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
-        {
-            const char *tgid_comm = m_trace_events.comm_from_pid( tgid_info->tgid, "<...>" );
-            const std::string colorstr = s_textclrs().colorstr( tgid_info->color );
-
-            time_buf += string_format( "\n%sTgid: %s%s", colorstr.c_str(),
-                                       tgid_comm, s_textclrs().str( TClr_Def ) );
-        }
+        time_buf += std::string( "\n" ) + comm;
     }
 
     m_eventlist.highlight_ids.clear();

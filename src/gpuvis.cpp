@@ -1789,6 +1789,58 @@ void TraceEvents::update_tgid_colors( float label_sat, float label_alpha )
     }
 }
 
+const char *TraceEvents::comm_from_pid( int pid, const char *def )
+{
+    char commbuf[ 64 ];
+    const char *const *comm = m_trace_info.pid_comm_map.get_val( pid );
+
+    if ( !comm && !def )
+        return NULL;
+
+    snprintf_safe( commbuf, "%s-%d", comm ? *comm : def, pid );
+    return m_strpool.getstr( commbuf );
+}
+
+const char *TraceEvents::comm_from_commstr( const char *comm )
+{
+    // Parse comm string to get pid. Ie: mainthread-1324
+    const char *pidstr = comm ? strrchr( comm, '-' ) : NULL;
+
+    if ( pidstr )
+    {
+        int pid = atoi( pidstr + 1 );
+        tgid_info_t *tgid_info = tgid_from_pid( pid );
+
+        if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
+        {
+            char commbuf[ 128 ];
+            const char *comm_tgid = comm_from_pid( tgid_info->tgid, "<...>" );
+            const std::string colorstr = s_textclrs().colorstr( tgid_info->color );
+
+            snprintf_safe( commbuf, "%s (%s%s%s)",
+                           comm, colorstr.c_str(), comm_tgid, s_textclrs().str( TClr_Def ) );
+            return m_strpool.getstr( commbuf );
+        }
+
+    }
+
+    return comm;
+}
+
+tgid_info_t *TraceEvents::tgid_from_pid( int pid )
+{
+    int *tgid = m_trace_info.pid_tgid_map.get_val( pid );
+
+    return tgid ? m_trace_info.tgid_pids.get_val( *tgid ) : NULL;
+}
+
+tgid_info_t *TraceEvents::tgid_from_commstr( const char *comm )
+{
+    const char *pidstr = comm ? strrchr( comm, '-' ) : NULL;
+
+    return pidstr ? tgid_from_pid( atoi( pidstr + 1 ) ) : NULL;
+}
+
 // Go through gfx, sdma0, sdma1, etc. timelines and calculate event durations
 void TraceEvents::calculate_event_durations()
 {

@@ -211,31 +211,16 @@ public:
         return m_graph_plots.m_map[ fnv_hashstr32( plot_name ) ];
     }
 
-    const char *comm_from_pid( int pid, const char *def = NULL )
-    {
-        char commbuf[ 64 ];
-        const char *const *comm = m_trace_info.pid_comm_map.get_val( pid );
+    // Return "foorbarapp-1234" comm string for specified pid
+    const char *comm_from_pid( int pid, const char *def = NULL );
+    // Return "thread1-1234 (mainthread-1233)" string from "thread1-1234" comm string
+    // If no tgid info, return comm
+    const char *comm_from_commstr( const char *comm );
 
-        if ( !comm && !def )
-            return NULL;
-
-        snprintf_safe( commbuf, "%s-%d", comm ? *comm : def, pid );
-        return m_strpool.getstr( commbuf );
-    }
-
-    tgid_info_t *tgid_from_pid( int pid )
-    {
-        int *tgid = m_trace_info.pid_tgid_map.get_val( pid );
-
-        return tgid ? m_trace_info.tgid_pids.get_val( *tgid ) : NULL;
-    }
-
-    tgid_info_t *tgid_from_commstr( const char *comm )
-    {
-        const char *pidstr = comm ? strrchr( comm, '-' ) : NULL;
-
-        return pidstr ? tgid_from_pid( atoi( pidstr + 1 ) ) : NULL;
-    }
+    // Return tgid info for a specified pid (or NULL)
+    tgid_info_t *tgid_from_pid( int pid );
+    // Parse a "foorbarapp-1234" comm string and return tgid info (or NULL)
+    tgid_info_t *tgid_from_commstr( const char *comm );
 
 public:
     int64_t m_ts_min = 0;
