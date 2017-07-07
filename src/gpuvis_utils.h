@@ -177,7 +177,6 @@ enum text_colors_t
     TClr_Def,
     TClr_Bright,
     TClr_BrightComp,
-    TClr_FtracePrint,
     TClr_Max
 };
 class TextClrs
@@ -186,19 +185,31 @@ public:
     TextClrs() {}
     ~TextClrs() {}
 
-    const char *str( text_colors_t clr )                           { return m_buf[ clr ]; }
-    const std::string bright_str( const std::string &str_in )      { return mstr( TClr_Bright, str_in ); }
-    const std::string ftraceprint_str( const std::string &str_in ) { return mstr( TClr_FtracePrint, str_in); }
+    const char *str( text_colors_t clr )
+        { return m_buf[ clr ]; }
+
+    const std::string mstr( const std::string &str_in, ImU32 color );
+    const std::string bright_str( const std::string &str_in )
+        {  return m_buf[ TClr_Bright ] + str_in + m_buf[ TClr_Def ]; }
 
     void update_colors();
 
     static char *set( char ( &dest )[ 6 ], ImU32 color );
 
-private:
-    const std::string mstr( text_colors_t clr, const std::string &str );
-
 public:
     char m_buf[ TClr_Max ][ 6 ];
+};
+
+class TextClr
+{
+public:
+    TextClr( ImU32 color ) { TextClrs::set( m_buf, color ); }
+    ~TextClr() {}
+
+    const char *str() { return m_buf; }
+
+public:
+    char m_buf[ 6 ];
 };
 
 typedef uint32_t colors_t;

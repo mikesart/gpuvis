@@ -1742,7 +1742,7 @@ void TraceEvents::update_ftraceprint_colors( float label_sat, float label_alpha 
 
         if ( !print_info.buf_end )
         {
-            event.color = IM_COL32( 0xff, 0, 0, label_alpha * 255 );
+            event.color = s_clrs().get( col_FtracePrintText, label_alpha * 255 );
         }
         else
         {
@@ -1821,14 +1821,12 @@ const char *TraceEvents::comm_from_commstr( const char *comm )
 
             if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
             {
-                char clrbuf[ 6 ];
                 char commbuf[ 128 ];
+                TextClr clr( tgid_info->color );
                 const char *comm_tgid = comm_from_pid( tgid_info->tgid, "<...>" );
 
-                s_textclrs().set( clrbuf, tgid_info->color );
-
                 snprintf_safe( commbuf, "%s (%s%s%s)",
-                               comm, clrbuf, comm_tgid, s_textclrs().str( TClr_Def ) );
+                               comm, clr.str(), comm_tgid, s_textclrs().str( TClr_Def ) );
                 comm = m_strpool.getstr( commbuf );
             }
             else
@@ -2533,12 +2531,16 @@ std::string get_event_fields_str( const trace_event_t &event, const char *eqstr,
 
     for ( const event_field_t &field : fields )
     {
-        std::string str = string_format( "%s%s%s%c", field.key, eqstr, field.value, sep );
+        std::string buf;
+        const char *value = field.value;
 
         if ( event.is_ftrace_print() && !strcmp( field.key, "buf" ) )
-            fieldstr += s_textclrs().ftraceprint_str( str.c_str() );
-        else
-            fieldstr += str;
+        {
+            buf = s_textclrs().mstr( value, event.color );
+            value = buf.c_str();
+        }
+
+        fieldstr += string_format( "%s%s%s%c", field.key, eqstr, value, sep );
     }
 
     fieldstr += string_format( "%s%s%s", "system", eqstr, event.system );
@@ -2828,7 +2830,7 @@ void TraceWin::events_list_render()
                 {
                     if ( event.is_ftrace_print() )
                     {
-                        ImGui::TextColored( s_clrs().getv4( col_FtracePrintText ), "%s", get_event_field_val( event, "buf" ) );
+                        ImGui::TextColored( ImColor( event.color ), "%s", get_event_field_val( event, "buf" ) );
                     }
                     else
                     {

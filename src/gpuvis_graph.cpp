@@ -2485,7 +2485,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
                 const char *buf = get_event_field_val( event, "buf" );
 
                 if ( buf[ 0 ] )
-                    time_buf += " " + s_textclrs().ftraceprint_str( buf );
+                    time_buf += " " + s_textclrs().mstr( buf, event.color );
             }
 
             if ( event.is_sched_switch() )
@@ -2540,7 +2540,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
                 m_eventlist.highlight_ids.push_back( id );
 
             time_buf += string_format( "\n  %u %s duration: %s", event.id, name,
-                                       s_textclrs().ftraceprint_str( timestr + "ms" ).c_str() );
+                                       s_textclrs().mstr( timestr + "ms", event.color ).c_str() );
         }
 
         if ( sync_event_list_to_graph && !m_eventlist.do_gotoevent )

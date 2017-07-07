@@ -1081,11 +1081,6 @@ char *TextClrs::set( char ( &dest )[ 6 ], ImU32 color )
     return dest;
 }
 
-const std::string TextClrs::mstr( text_colors_t clr, const std::string &strin )
-{
-    return m_buf[ clr ] + strin + m_buf[ TClr_Def ];
-}
-
 void TextClrs::update_colors()
 {
     ImU32 col_bright = s_clrs().get( col_BrightText );
@@ -1094,7 +1089,13 @@ void TextClrs::update_colors()
     set( m_buf[ TClr_Def ], ImGui::GetColorU32( ImGuiCol_Text ) );
     set( m_buf[ TClr_Bright ], col_bright );
     set( m_buf[ TClr_BrightComp ], col_bright_comp );
-    set( m_buf[ TClr_FtracePrint ], s_clrs().get( col_FtracePrintText ) );
+}
+
+const std::string TextClrs::mstr( const std::string &str_in, ImU32 color )
+{
+    char buf[ 6 ];
+
+    return set( buf, color ) + str_in + m_buf[ TClr_Def ];
 }
 
 #if defined( WIN32 )
