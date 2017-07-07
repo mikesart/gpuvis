@@ -186,26 +186,19 @@ public:
     TextClrs() {}
     ~TextClrs() {}
 
-    const char *str( text_colors_t clr )                        { return m_buf[ clr ].c_str(); }
+    const char *str( text_colors_t clr )                           { return m_buf[ clr ]; }
     const std::string bright_str( const std::string &str_in )      { return mstr( TClr_Bright, str_in ); }
     const std::string ftraceprint_str( const std::string &str_in ) { return mstr( TClr_FtracePrint, str_in); }
 
     void update_colors();
 
-    std::string colorstr( ImU32 color )
-    {
-        std::string str;
-
-        TextClrs::set( str, color );
-        return str;
-    }
+    static char *set( char ( &dest )[ 6 ], ImU32 color );
 
 private:
-    static void set( std::string &str, ImU32 color );
     const std::string mstr( text_colors_t clr, const std::string &str );
 
 public:
-    std::string m_buf[ TClr_Max ];
+    char m_buf[ TClr_Max ][ 6 ];
 };
 
 typedef uint32_t colors_t;

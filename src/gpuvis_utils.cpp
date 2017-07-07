@@ -1069,15 +1069,16 @@ bool Clrs::is_imgui_color( colors_t col )
     return false;
 }
 
-void TextClrs::set( std::string &strin, ImU32 color )
+char *TextClrs::set( char ( &dest )[ 6 ], ImU32 color )
 {
-    strin.resize( 5 );
+    dest[ 0 ] = '\033';
+    dest[ 1 ] = std::max< uint8_t >( IM_COL32_R( color ), 1 );
+    dest[ 2 ] = std::max< uint8_t >( IM_COL32_G( color ), 1 );
+    dest[ 3 ] = std::max< uint8_t >( IM_COL32_B( color ), 1 );
+    dest[ 4 ] = std::max< uint8_t >( IM_COL32_A( color ), 1 );
+    dest[ 5 ] = 0;
 
-    strin[ 0 ] = '\033';
-    strin[ 1 ] = std::max< uint8_t >( IM_COL32_R( color ), 1 );
-    strin[ 2 ] = std::max< uint8_t >( IM_COL32_G( color ), 1 );
-    strin[ 3 ] = std::max< uint8_t >( IM_COL32_B( color ), 1 );
-    strin[ 4 ] = std::max< uint8_t >( IM_COL32_A( color ), 1 );
+    return dest;
 }
 
 const std::string TextClrs::mstr( text_colors_t clr, const std::string &strin )

@@ -1821,12 +1821,14 @@ const char *TraceEvents::comm_from_commstr( const char *comm )
 
             if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
             {
+                char clrbuf[ 6 ];
                 char commbuf[ 128 ];
                 const char *comm_tgid = comm_from_pid( tgid_info->tgid, "<...>" );
-                const std::string colorstr = s_textclrs().colorstr( tgid_info->color );
+
+                s_textclrs().set( clrbuf, tgid_info->color );
 
                 snprintf_safe( commbuf, "%s (%s%s%s)",
-                               comm, colorstr.c_str(), comm_tgid, s_textclrs().str( TClr_Def ) );
+                               comm, clrbuf, comm_tgid, s_textclrs().str( TClr_Def ) );
                 comm = m_strpool.getstr( commbuf );
             }
             else
