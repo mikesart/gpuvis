@@ -2748,7 +2748,7 @@ void TraceWin::events_list_render()
         uint32_t end_idx = std::min< uint32_t >( start_idx + 2 + visible_rows, event_count );
 
         // Draw columns
-        imgui_begin_columns( "event_list", { "Id", "Time Stamp", "Task", "Event", "Duration", "Info" },
+        imgui_begin_columns( "event_list", { "Id", "Time Stamp", "Task", "Cpu", "Event", "Duration", "Info" },
                              &m_eventlist.columns_resized );
         {
             bool popup_shown = false;
@@ -2835,24 +2835,35 @@ void TraceWin::events_list_render()
 
                 // column 2: comm
                 {
-                    ImGui::Text( "%s (%u)", event.comm, event.cpu );
+                    const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( event.pid );
+
+                    if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
+                        ImGui::Text( "%s (%s)", event.comm, tgid_info->commstr );
+                    else
+                        ImGui::Text( "%s", event.comm );
                     ImGui::NextColumn();
                 }
 
-                // column 3: event name
+                // column 3: cpu
+                {
+                    ImGui::Text( "%u", event.cpu );
+                    ImGui::NextColumn();
+                }
+
+                // column 4: event name
                 {
                     ImGui::Text( "%s", event.name );
                     ImGui::NextColumn();
                 }
 
-                // column 4: duration
+                // column 5: duration
                 {
                     if ( event.duration != ( uint32_t )-1 )
                         ImGui::Text( "%sms", ts_to_timestr( event.duration, 0, 4 ).c_str() );
                     ImGui::NextColumn();
                 }
 
-                // column 5: event fields
+                // column 6: event fields
                 {
                     if ( event.is_ftrace_print() )
                     {
