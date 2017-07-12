@@ -2130,6 +2130,19 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         if ( ImGui::MenuItem( label.c_str() ) )
             m_graph.rows.show_row( m_graph.mouse_over_row_name, GraphRows::HIDE_ROW );
 
+        if ( m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Comm )
+        {
+            const tgid_info_t *tgid_info;
+            const char *comm_tgid = m_trace_events.tgid_comm_from_commstr( m_graph.mouse_over_row_name.c_str(), &tgid_info );
+
+            if ( comm_tgid )
+            {
+                label = string_format( "Hide rows for process '%s'", comm_tgid );
+                if ( ImGui::MenuItem( label.c_str() ) )
+                    m_graph.rows.show_tgid( tgid_info, GraphRows::HIDE_ROW );
+            }
+        }
+
         label = string_format( "Hide row '%s' and below", m_graph.mouse_over_row_name.c_str() );
         if ( ImGui::MenuItem( label.c_str() ) )
             m_graph.rows.show_row( m_graph.mouse_over_row_name, GraphRows::HIDE_ROW_AND_ALL_BELOW );
@@ -2189,7 +2202,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
             if ( m_trace_events.get_tdopexpr_locs( m_graph.new_row_buf, &m_graph.new_row_errstr ) )
             {
-                m_graph.rows.add_row( m_trace_events, m_graph.new_row_buf );
+                m_graph.rows.add_row( m_graph.new_row_buf );
                 ImGui::CloseCurrentPopup();
             }
             else if ( m_graph.new_row_errstr.empty() )

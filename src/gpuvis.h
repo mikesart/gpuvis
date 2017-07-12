@@ -213,6 +213,8 @@ public:
 
     // Return "foorbarapp-1234" comm string for specified pid
     const char *comm_from_pid( int pid, const char *def = NULL );
+    // Return "foorbartgid-1200" comm string for specified pid
+    const char *tgid_comm_from_commstr( const char *comm, const tgid_info_t **tgid_info );
     // Return "thread1-1234 (mainthread-1233)" string from "thread1-1234" comm string
     // If no tgid info, return comm
     const char *comm_from_commstr( const char *comm );
@@ -297,13 +299,17 @@ public:
         HIDE_ROW_AND_ALL_BELOW
     };
     void show_row( const std::string &name, graph_rows_show_t show );
-    void add_row( TraceEvents &trace_events, const std::string &name );
+    void add_row( const std::string &name );
     void move_row( const std::string &name_src, const std::string &name_dest );
+
+    void show_tgid( const tgid_info_t *tgid_info, graph_rows_show_t show );
 
     // Search in m_graph_rows_list for name. Returns index or -1 if not found.
     size_t find_row( const std::string &name, size_t not_found_val = ( size_t )-1 );
 
 public:
+    TraceEvents *m_trace_events = nullptr;
+
     // List of graph rows
     std::vector< graph_rows_info_t > m_graph_rows_list;
     // List of graph rows we need to hide

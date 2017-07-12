@@ -1071,6 +1071,17 @@ const std::vector< GraphRows::graph_rows_info_t > GraphRows::get_hidden_rows_lis
     return hidden_rows;
 }
 
+void GraphRows::show_tgid( const tgid_info_t *tgid_info, graph_rows_show_t show )
+{
+    for ( int pid : tgid_info->pids )
+    {
+        const char *comm = m_trace_events->comm_from_pid( pid );
+
+        if ( comm )
+            show_row( comm, show );
+    }
+}
+
 void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
 {
     if ( show == GraphRows::SHOW_ALL_ROWS )
@@ -1227,6 +1238,8 @@ void GraphRows::init( TraceEvents &trace_events )
     if ( !m_graph_rows_list.empty() )
         return;
 
+    m_trace_events = &trace_events;
+
     // Order: gfx -> compute -> gfx hw -> compute hw -> sdma -> sdma hw
     TraceEvents::loc_type_t type;
     const std::vector< uint32_t > *plocs;
@@ -1329,7 +1342,7 @@ void GraphRows::init( TraceEvents &trace_events )
         std::vector< std::string > rows_add = string_explode( graph_rows_add_str, ',' );
 
         for ( const std::string &name : rows_add )
-            add_row( trace_events, name );
+            add_row( name );
     }
 
     {
@@ -1367,10 +1380,10 @@ void GraphRows::init( TraceEvents &trace_events )
     }
 }
 
-void GraphRows::add_row( TraceEvents &trace_events, const std::string &name )
+void GraphRows::add_row( const std::string &name )
 {
     TraceEvents::loc_type_t type;
-    const std::vector< uint32_t > *plocs = trace_events.get_locs( name.c_str(), &type );
+    const std::vector< uint32_t > *plocs = m_trace_events->get_locs( name.c_str(), &type );
     size_t size = plocs ? plocs->size() : 0;
 
     // Add expression to our added rows list
@@ -1799,6 +1812,26 @@ const char *TraceEvents::comm_from_pid( int pid, const char *def )
 
     snprintf_safe( commbuf, "%s-%d", comm ? *comm : def, pid );
     return m_strpool.getstr( commbuf );
+}
+
+const char *TraceEvents::tgid_comm_from_commstr( const char *comm, const tgid_info_t **tgid_info_ret )
+{
+    const char *pidstr = strrchr( comm, '-' );
+
+    if ( pidstr )
+    {
+        int pid = atoi( pidstr + 1 );
+        const tgid_info_t *tgid_info = tgid_from_pid( pid );
+
+        if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
+        {
+            if ( tgid_info_ret )
+                *tgid_info_ret = tgid_info;
+            return comm_from_pid( tgid_info->tgid, "<...>" );
+        }
+    }
+
+    return NULL;
 }
 
 const char *TraceEvents::comm_from_commstr( const char *comm )
