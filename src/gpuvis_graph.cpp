@@ -2130,26 +2130,28 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         if ( ImGui::MenuItem( label.c_str() ) )
             m_graph.rows.show_row( m_graph.mouse_over_row_name, GraphRows::HIDE_ROW );
 
+        label = string_format( "Hide row '%s' and below", m_graph.mouse_over_row_name.c_str() );
+        if ( ImGui::MenuItem( label.c_str() ) )
+            m_graph.rows.show_row( m_graph.mouse_over_row_name, GraphRows::HIDE_ROW_AND_ALL_BELOW );
+
         if ( m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Comm )
         {
-            const tgid_info_t *tgid_info;
-            const char *comm_tgid = m_trace_events.tgid_comm_from_commstr( m_graph.mouse_over_row_name.c_str(), &tgid_info );
+            const tgid_info_t *tgid_info = m_trace_events.tgid_from_commstr( m_graph.mouse_over_row_name.c_str() );
 
-            if ( comm_tgid )
+            if ( tgid_info )
             {
-                label = string_format( "Hide rows for process '%s'", comm_tgid );
+                label = string_format( "Hide rows for process '%s'", tgid_info->commstr );
+
                 if ( ImGui::MenuItem( label.c_str() ) )
                     m_graph.rows.show_tgid( tgid_info, GraphRows::HIDE_ROW );
             }
         }
-
-        label = string_format( "Hide row '%s' and below", m_graph.mouse_over_row_name.c_str() );
-        if ( ImGui::MenuItem( label.c_str() ) )
-            m_graph.rows.show_row( m_graph.mouse_over_row_name, GraphRows::HIDE_ROW_AND_ALL_BELOW );
     }
 
     if ( !m_graph.rows_hidden_rows.empty() )
     {
+        std::vector< const tgid_info_t * > tgids_hidden;
+
         if ( ImGui::BeginMenu( "Show row" ) )
         {
             if ( ImGui::MenuItem( "All Rows" ) )
@@ -2159,8 +2161,35 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
             for ( const GraphRows::graph_rows_info_t &entry : m_graph.rows_hidden_rows )
             {
+                const tgid_info_t *tgid_info;
+
+                if ( ( entry.type == TraceEvents::LOC_TYPE_Comm ) &&
+                     ( tgid_info = m_trace_events.tgid_from_commstr( entry.row_name.c_str() ) ) )
+                {
+                    if ( std::find( tgids_hidden.begin(), tgids_hidden.end(), tgid_info ) == tgids_hidden.end() )
+                    {
+                        std::string label = string_format( "Process '%s' (%lu threads)",
+                                                           tgid_info->commstr,
+                                                           tgid_info->pids.size() );
+
+                        if ( ImGui::MenuItem( label.c_str() ) )
+                            m_graph.rows.show_tgid( tgid_info, GraphRows::SHOW_ROW );
+
+                        tgids_hidden.push_back( tgid_info );
+                    }
+                }
+            }
+
+            if ( tgids_hidden.size() )
+                ImGui::Separator();
+
+            for ( const GraphRows::graph_rows_info_t &entry : m_graph.rows_hidden_rows )
+            {
+                const char *commstr = ( entry.type == TraceEvents::LOC_TYPE_Comm ) ?
+                            m_trace_events.comm_from_commstr( entry.row_name.c_str() ) :
+                            entry.row_name.c_str();
                 const std::string label = string_format( "%s (%lu events)",
-                                                         entry.row_name.c_str(), entry.event_count );
+                                                         commstr, entry.event_count );
 
                 if ( ImGui::MenuItem( label.c_str() ) )
                 {
@@ -2414,9 +2443,9 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
          ( m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Comm ) )
     {
         const std::string &row_name = m_graph.mouse_over_row_name;
-        const char *comm = m_trace_events.comm_from_commstr( row_name.c_str() );
+        const char *commstr = m_trace_events.comm_from_commstr( row_name.c_str() );
 
-        time_buf += std::string( "\n" ) + comm;
+        time_buf += std::string( "\n" ) + commstr;
     }
 
     m_eventlist.highlight_ids.clear();

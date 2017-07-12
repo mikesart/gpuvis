@@ -1799,6 +1799,13 @@ void TraceEvents::update_tgid_colors( float label_sat, float label_alpha )
 
         tgid_info.color = imgui_col_from_hashval( tgid_info.hashval,
                                                   label_sat, label_alpha );
+
+        TextClr clr( tgid_info.color );
+        std::string commstr = string_format( "%s%s%s", clr.str(),
+                                             comm_from_pid( tgid_info.tgid, "<...>" ),
+                                             s_textclrs().str( TClr_Def ) );
+
+        tgid_info.commstr = m_strpool.getstr( commstr.c_str() );
     }
 }
 
@@ -1812,26 +1819,6 @@ const char *TraceEvents::comm_from_pid( int pid, const char *def )
 
     snprintf_safe( commbuf, "%s-%d", comm ? *comm : def, pid );
     return m_strpool.getstr( commbuf );
-}
-
-const char *TraceEvents::tgid_comm_from_commstr( const char *comm, const tgid_info_t **tgid_info_ret )
-{
-    const char *pidstr = strrchr( comm, '-' );
-
-    if ( pidstr )
-    {
-        int pid = atoi( pidstr + 1 );
-        const tgid_info_t *tgid_info = tgid_from_pid( pid );
-
-        if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
-        {
-            if ( tgid_info_ret )
-                *tgid_info_ret = tgid_info;
-            return comm_from_pid( tgid_info->tgid, "<...>" );
-        }
-    }
-
-    return NULL;
 }
 
 const char *TraceEvents::comm_from_commstr( const char *comm )
@@ -1850,16 +1837,13 @@ const char *TraceEvents::comm_from_commstr( const char *comm )
         }
         else
         {
-            tgid_info_t *tgid_info = tgid_from_pid( pid );
+            const tgid_info_t *tgid_info = tgid_from_pid( pid );
 
             if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
             {
                 char commbuf[ 128 ];
-                TextClr clr( tgid_info->color );
-                const char *comm_tgid = comm_from_pid( tgid_info->tgid, "<...>" );
 
-                snprintf_safe( commbuf, "%s (%s%s%s)",
-                               comm, clr.str(), comm_tgid, s_textclrs().str( TClr_Def ) );
+                snprintf_safe( commbuf, "%s (%s)", comm, tgid_info->commstr );
                 comm = m_strpool.getstr( commbuf );
             }
             else
@@ -1875,18 +1859,27 @@ const char *TraceEvents::comm_from_commstr( const char *comm )
     return comm;
 }
 
-tgid_info_t *TraceEvents::tgid_from_pid( int pid )
+const tgid_info_t *TraceEvents::tgid_from_pid( int pid )
 {
     int *tgid = m_trace_info.pid_tgid_map.get_val( pid );
 
     return tgid ? m_trace_info.tgid_pids.get_val( *tgid ) : NULL;
 }
 
-tgid_info_t *TraceEvents::tgid_from_commstr( const char *comm )
+const tgid_info_t *TraceEvents::tgid_from_commstr( const char *comm )
 {
     const char *pidstr = comm ? strrchr( comm, '-' ) : NULL;
 
-    return pidstr ? tgid_from_pid( atoi( pidstr + 1 ) ) : NULL;
+    if ( pidstr )
+    {
+        int pid = atoi( pidstr + 1 );
+        const tgid_info_t *tgid_info = tgid_from_pid( pid );
+
+        if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
+            return tgid_info;
+    }
+
+    return NULL;
 }
 
 // Go through gfx, sdma0, sdma1, etc. timelines and calculate event durations

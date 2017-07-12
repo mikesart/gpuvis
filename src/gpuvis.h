@@ -213,16 +213,15 @@ public:
 
     // Return "foorbarapp-1234" comm string for specified pid
     const char *comm_from_pid( int pid, const char *def = NULL );
-    // Return "foorbartgid-1200" comm string for specified pid
-    const char *tgid_comm_from_commstr( const char *comm, const tgid_info_t **tgid_info );
+
     // Return "thread1-1234 (mainthread-1233)" string from "thread1-1234" comm string
     // If no tgid info, return comm
     const char *comm_from_commstr( const char *comm );
 
     // Return tgid info for a specified pid (or NULL)
-    tgid_info_t *tgid_from_pid( int pid );
+    const tgid_info_t *tgid_from_pid( int pid );
     // Parse a "foorbarapp-1234" comm string and return tgid info (or NULL)
-    tgid_info_t *tgid_from_commstr( const char *comm );
+    const tgid_info_t *tgid_from_commstr( const char *comm );
 
 public:
     int64_t m_ts_min = 0;
