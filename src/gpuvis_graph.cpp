@@ -1952,9 +1952,7 @@ void TraceWin::graph_render()
     {
         imgui_push_smallfont();
 
-        m_trace_events.update_ftraceprint_colors(
-                    s_clrs().getalpha( col_Graph_PrintLabelSat ),
-                    s_clrs().getalpha( col_Graph_PrintLabelAlpha ) );
+        m_trace_events.update_ftraceprint_colors();
 
         imgui_pop_smallfont();
     }

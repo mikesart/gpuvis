@@ -185,10 +185,10 @@ public:
     void calculate_event_print_info();
 
     void invalidate_ftraceprint_colors();
-    void update_ftraceprint_colors( float label_sat, float label_alpha );
+    void update_ftraceprint_colors();
 
-    void update_fence_signaled_timeline_colors( float label_sat, float label_alpha );
-    void update_tgid_colors( float label_sat, float label_alpha );
+    void update_fence_signaled_timeline_colors();
+    void update_tgid_colors();
 
     void remove_single_tgids();
 
@@ -224,6 +224,10 @@ public:
     const tgid_info_t *tgid_from_pid( int pid );
     // Parse a "foorbarapp-1234" comm string and return tgid info (or NULL)
     const tgid_info_t *tgid_from_commstr( const char *comm );
+
+public:
+    // Called once on background thread after all events loaded.
+    void init();
 
 public:
     int64_t m_ts_min = 0;

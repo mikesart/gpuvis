@@ -728,6 +728,8 @@ int SDLCALL TraceLoader::thread_func( void *data )
 
     logf( "Events read: %lu", trace_events->m_events.size() );
 
+    trace_events->init();
+
     SDL_AtomicSet( &trace_events->m_eventsloaded, 0 );
     loader->set_state( State_Loaded );
     return 0;
@@ -736,6 +738,7 @@ int SDLCALL TraceLoader::thread_func( void *data )
 void TraceLoader::init( int argc, char **argv )
 {
     ImGuiIO &io = ImGui::GetIO();
+
     m_imguiwindow_entries = s_ini().GetSectionEntries( "$imguiwindows$" );
     io.IniLoadSettingCB = std::bind( imgui_ini_load_settings_cb, &m_imguiwindow_entries, _1, _2 );
     io.IniSaveSettingCB = std::bind( imgui_ini_save_settings_cb, _1, _2 );
@@ -1740,8 +1743,11 @@ void TraceEvents::calculate_event_print_info()
     m_rect_size_max_x = -1.0f;
 }
 
-void TraceEvents::update_ftraceprint_colors( float label_sat, float label_alpha )
+void TraceEvents::update_ftraceprint_colors()
 {
+    float label_sat = s_clrs().getalpha( col_Graph_PrintLabelSat );
+    float label_alpha = s_clrs().getalpha( col_Graph_PrintLabelAlpha );
+
     m_rect_size_max_x = -1.0f;
 
     for ( auto &entry : m_print_buf_info.m_map )
@@ -1771,8 +1777,11 @@ void TraceEvents::invalidate_ftraceprint_colors()
     m_rect_size_max_x = -1.0f;
 }
 
-void TraceEvents::update_fence_signaled_timeline_colors( float label_sat, float label_alpha )
+void TraceEvents::update_fence_signaled_timeline_colors()
 {
+    float label_sat = s_clrs().getalpha( col_Graph_TimelineLabelSat );
+    float label_alpha = s_clrs().getalpha( col_Graph_TimelineLabelAlpha );
+
     for ( auto &timeline_locs : m_timeline_locations.m_locs.m_map )
     {
         std::vector< uint32_t > &locs = timeline_locs.second;
@@ -1791,8 +1800,11 @@ void TraceEvents::update_fence_signaled_timeline_colors( float label_sat, float 
     }
 }
 
-void TraceEvents::update_tgid_colors( float label_sat, float label_alpha )
+void TraceEvents::update_tgid_colors()
 {
+    float label_sat = s_clrs().getalpha( col_Graph_PrintLabelSat );
+    float label_alpha = s_clrs().getalpha( col_Graph_PrintLabelAlpha );
+
     for ( auto &it : m_trace_info.tgid_pids.m_map )
     {
         tgid_info_t &tgid_info = it.second;
@@ -1880,6 +1892,21 @@ const tgid_info_t *TraceEvents::tgid_from_commstr( const char *comm )
     return NULL;
 }
 
+void TraceEvents::init()
+{
+    // Init event durations
+    calculate_event_durations();
+
+    // Init print column information
+    calculate_event_print_info();
+
+    // Remove tgid groups with single threads
+    remove_single_tgids();
+
+    // Update tgid colors
+    update_tgid_colors();
+}
+
 void TraceEvents::remove_single_tgids()
 {
     std::unordered_map< int, tgid_info_t > &tgid_pids = m_trace_info.tgid_pids.m_map;
@@ -1914,7 +1941,8 @@ void TraceEvents::calculate_event_durations()
         // Erase all timeline events with single entries or no fence_signaled
         locs.erase( std::remove_if( locs.begin(), locs.end(),
                                     [&events]( const uint32_t index )
-                                        { return !events[ index ].is_timeline(); } ),
+                                        { return !events[ index ].is_timeline(); }
+                                  ),
                     locs.end() );
 
         if ( locs.empty() )
@@ -2123,20 +2151,10 @@ bool TraceWin::render()
 
     if ( !m_inited )
     {
-        // Init event durations
-        m_trace_events.calculate_event_durations();
-        // Init print column information
-        m_trace_events.calculate_event_print_info();
-        // Remove tgid groups with single threads
-        m_trace_events.remove_single_tgids();
-        // Update tgid colors
-        m_trace_events.update_tgid_colors( s_clrs().getalpha( col_Graph_PrintLabelSat ),
-                                           s_clrs().getalpha( col_Graph_PrintLabelAlpha ) );
+        int64_t last_ts = m_trace_events.m_events.back().ts;
 
         // Initialize our graph rows first time through.
         m_graph.rows.init( m_trace_events );
-
-        int64_t last_ts = m_trace_events.m_events.back().ts;
 
         m_graph.length_ts = std::min< int64_t >( last_ts, 40 * NSECS_PER_MSEC );
         m_graph.start_ts = last_ts - m_eventlist.tsoffset - m_graph.length_ts;
@@ -3168,9 +3186,7 @@ void TraceLoader::render_color_picker()
             {
                 trace_event->invalidate_ftraceprint_colors();
 
-                trace_event->update_tgid_colors(
-                            s_clrs().getalpha( col_Graph_PrintLabelSat ),
-                            s_clrs().getalpha( col_Graph_PrintLabelAlpha ) );
+                trace_event->update_tgid_colors();
             }
             break;
 
@@ -3178,11 +3194,7 @@ void TraceLoader::render_color_picker()
         case col_Graph_TimelineLabelAlpha:
             // fence_signaled event color change - update event fence_signaled colors
             for ( TraceEvents *trace_event : m_trace_events_list )
-            {
-                trace_event->update_fence_signaled_timeline_colors(
-                            s_clrs().getalpha( col_Graph_TimelineLabelSat ),
-                            s_clrs().getalpha( col_Graph_TimelineLabelAlpha ) );
-            }
+                trace_event->update_fence_signaled_timeline_colors();
             break;
         }
 
