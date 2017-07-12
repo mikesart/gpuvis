@@ -2303,7 +2303,7 @@ bool TraceWin::render()
 
             tooltip += s_textclrs().bright_str( "Event Filter\n\n" );
             tooltip += "Vars: Any field in Info column plus:\n";
-            tooltip += "      $name, $comm, $user_comm, $id, $pid, $ts\n";
+            tooltip += "    $name, $comm, $user_comm, $id, $pid, $tgid, $ts, $duration\n";
             tooltip += "Operators: &&, ||, !=, =, >, >=, <, <=, =~\n\n";
 
             tooltip += "Examples:\n";
