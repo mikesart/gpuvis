@@ -190,6 +190,8 @@ public:
     void update_fence_signaled_timeline_colors( float label_sat, float label_alpha );
     void update_tgid_colors( float label_sat, float label_alpha );
 
+    void remove_single_tgids();
+
     enum loc_type_t
     {
         LOC_TYPE_Comm,

@@ -1451,7 +1451,7 @@ void TraceWin::graph_render_row( graph_info_t &gi )
         ImVec2( gi.x + gi.w, gi.y + gi.h ),
         s_clrs().get( col_Graph_RowBk ) );
 
-    if ( gi.prinfo_cur->tgid_info && gi.prinfo_cur->tgid_info->pids.size() > 1 )
+    if ( gi.prinfo_cur->tgid_info )
     {
         ImGui::GetWindowDrawList()->AddLine(
                     ImVec2( gi.x, gi.y + gi.h + 1 ),
@@ -1666,7 +1666,7 @@ static void render_row_label( float x, float y, row_info_t &ri )
 {
     ImU32 col = s_clrs().get( col_Graph_RowLabelText );
 
-    if ( ri.tgid_info && ri.tgid_info->pids.size() > 1 )
+    if ( ri.tgid_info )
         col = ri.tgid_info->color;
 
     std::string label = string_format( "%u) %s", ri.id, ri.row_name.c_str() );

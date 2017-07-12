@@ -1205,7 +1205,7 @@ public:
         int pid = pid_from_row_name( ri.row_name );
         const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( pid );
 
-        if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
+        if ( tgid_info )
         {
             // 24 high bits for tgid
             uint32_t tgid = std::min< uint32_t >( tgid_info->tgid, 0x7fffff );
@@ -1839,7 +1839,7 @@ const char *TraceEvents::comm_from_commstr( const char *comm )
         {
             const tgid_info_t *tgid_info = tgid_from_pid( pid );
 
-            if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
+            if ( tgid_info )
             {
                 char commbuf[ 128 ];
 
@@ -1873,13 +1873,27 @@ const tgid_info_t *TraceEvents::tgid_from_commstr( const char *comm )
     if ( pidstr )
     {
         int pid = atoi( pidstr + 1 );
-        const tgid_info_t *tgid_info = tgid_from_pid( pid );
 
-        if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
-            return tgid_info;
+        return tgid_from_pid( pid );
     }
 
     return NULL;
+}
+
+void TraceEvents::remove_single_tgids()
+{
+    std::unordered_map< int, tgid_info_t > &tgid_pids = m_trace_info.tgid_pids.m_map;
+
+    for ( auto it = tgid_pids.begin(); it != tgid_pids.end(); )
+    {
+        tgid_info_t &tgid_info = it->second;
+
+        // If this tgid has only itself as a thread, remove it
+        if ( ( tgid_info.pids.size() == 1 ) && ( tgid_info.pids[ 0 ] == tgid_info.tgid ) )
+            it = tgid_pids.erase( it );
+        else
+            it++;
+    }
 }
 
 // Go through gfx, sdma0, sdma1, etc. timelines and calculate event durations
@@ -2113,6 +2127,8 @@ bool TraceWin::render()
         m_trace_events.calculate_event_durations();
         // Init print column information
         m_trace_events.calculate_event_print_info();
+        // Remove tgid groups with single threads
+        m_trace_events.remove_single_tgids();
         // Update tgid colors
         m_trace_events.update_tgid_colors( s_clrs().getalpha( col_Graph_PrintLabelSat ),
                                            s_clrs().getalpha( col_Graph_PrintLabelAlpha ) );
@@ -2369,7 +2385,7 @@ void TraceWin::trace_render_info()
                     {
                         const tgid_info_t *tgid_info = m_trace_events.tgid_from_commstr( info.row_name.c_str() );
 
-                        if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
+                        if ( tgid_info )
                             col = tgid_info->color;
                     }
 
@@ -2837,7 +2853,7 @@ void TraceWin::events_list_render()
                 {
                     const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( event.pid );
 
-                    if ( tgid_info && ( tgid_info->pids.size() > 1 ) )
+                    if ( tgid_info )
                         ImGui::Text( "%s (%s)", event.comm, tgid_info->commstr );
                     else
                         ImGui::Text( "%s", event.comm );
