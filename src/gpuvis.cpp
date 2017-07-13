@@ -1833,7 +1833,31 @@ const char *TraceEvents::comm_from_pid( int pid, const char *def )
     return m_strpool.getstr( commbuf );
 }
 
-const char *TraceEvents::comm_from_commstr( const char *comm )
+const char *TraceEvents::tgidcomm_from_pid( int pid )
+{
+    const char **mapped_comm = m_pid_commstr_map.get_val( pid );
+
+    if ( mapped_comm )
+        return *mapped_comm;
+
+    const tgid_info_t *tgid_info = tgid_from_pid( pid );
+    const char *comm = comm_from_pid( pid, "<...>" );
+
+    if ( tgid_info )
+    {
+        char commbuf[ 128 ];
+
+        snprintf_safe( commbuf, "%s (%s)", comm, tgid_info->commstr );
+        comm = m_strpool.getstr( commbuf );
+    }
+
+    // Add pid / comm mapping
+    m_pid_commstr_map.get_val( pid, comm );
+
+    return comm;
+}
+
+const char *TraceEvents::tgidcomm_from_commstr( const char *comm )
 {
     // Parse comm string to get pid. Ie: mainthread-1324
     const char *pidstr = comm ? strrchr( comm, '-' ) : NULL;
@@ -1841,31 +1865,8 @@ const char *TraceEvents::comm_from_commstr( const char *comm )
     if ( pidstr )
     {
         int pid = atoi( pidstr + 1 );
-        const char **mapped_comm = m_pid_commstr_map.get_val( pid );
 
-        if ( mapped_comm )
-        {
-            return *mapped_comm;
-        }
-        else
-        {
-            const tgid_info_t *tgid_info = tgid_from_pid( pid );
-
-            if ( tgid_info )
-            {
-                char commbuf[ 128 ];
-
-                snprintf_safe( commbuf, "%s (%s)", comm, tgid_info->commstr );
-                comm = m_strpool.getstr( commbuf );
-            }
-            else
-            {
-                comm = m_strpool.getstr( comm );
-            }
-        }
-
-        // Add pid / comm mapping
-        m_pid_commstr_map.get_val( pid, comm );
+        return tgidcomm_from_pid( pid );
     }
 
     return comm;
@@ -2655,9 +2656,10 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
         else
         {
             // Otherwise show a tooltip.
+            std::string graph_markers;
             std::string ts_str = ts_to_timestr( event.ts, m_eventlist.tsoffset );
             std::string fieldstr = get_event_fields_str( event, ": ", '\n' );
-            std::string graph_markers;
+            const char *commstr = m_trace_events.tgidcomm_from_pid( event.pid );
 
             if ( graph_marker_valid( 0 ) )
                 graph_markers += "Marker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - event.ts, 0, 2 ) + "ms\n";
@@ -2666,9 +2668,9 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
             if ( !graph_markers.empty() )
                 graph_markers += "\n";
 
-            ImGui::SetTooltip( "%sId: %u\nTime: %s\nComm: %s\n%s",
+            ImGui::SetTooltip( "%sId: %u\nTime: %s\nComm: %s\n\n%s",
                                graph_markers.c_str(), event.id,
-                               ts_str.c_str(), event.comm, fieldstr.c_str() );
+                               ts_str.c_str(), commstr, fieldstr.c_str() );
         }
     }
 

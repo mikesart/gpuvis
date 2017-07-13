@@ -2184,7 +2184,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             for ( const GraphRows::graph_rows_info_t &entry : m_graph.rows_hidden_rows )
             {
                 const char *commstr = ( entry.type == TraceEvents::LOC_TYPE_Comm ) ?
-                            m_trace_events.comm_from_commstr( entry.row_name.c_str() ) :
+                            m_trace_events.tgidcomm_from_commstr( entry.row_name.c_str() ) :
                             entry.row_name.c_str();
                 const std::string label = string_format( "%s (%lu events)",
                                                          commstr, entry.event_count );
@@ -2441,7 +2441,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
          ( m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Comm ) )
     {
         const std::string &row_name = m_graph.mouse_over_row_name;
-        const char *commstr = m_trace_events.comm_from_commstr( row_name.c_str() );
+        const char *commstr = m_trace_events.tgidcomm_from_commstr( row_name.c_str() );
 
         time_buf += std::string( "\n" ) + commstr;
     }

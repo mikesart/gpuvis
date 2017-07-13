@@ -218,7 +218,8 @@ public:
 
     // Return "thread1-1234 (mainthread-1233)" string from "thread1-1234" comm string
     // If no tgid info, return comm
-    const char *comm_from_commstr( const char *comm );
+    const char *tgidcomm_from_pid( int pid );
+    const char *tgidcomm_from_commstr( const char *comm );
 
     // Return tgid info for a specified pid (or NULL)
     const tgid_info_t *tgid_from_pid( int pid );
