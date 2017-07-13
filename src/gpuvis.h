@@ -334,6 +334,7 @@ public:
 
 public:
     bool render();
+    void trace_render_info();
 
     trace_event_t &get_event( uint32_t id )
     {
@@ -393,12 +394,6 @@ protected:
 
     bool is_graph_row_zoomable();
     void zoom_graph_row();
-
-protected:
-    // Render trace information header
-    void trace_render_info();
-    // Render graph color picker
-    void color_picker_render();
 
 protected:
     // Return an event id for a given time stamp
@@ -709,4 +704,6 @@ public:
     bool m_show_color_picker = false;
     bool m_show_scale_popup = false;
     bool m_show_help = false;
+
+    std::string m_show_trace_info;
 };

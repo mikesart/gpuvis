@@ -475,6 +475,7 @@ bool TraceLoader::load_file( const char *filename )
     m_trace_events->m_filesize = filesize;
     m_trace_events->m_title = title;
 
+    // 1+ means loading events
     SDL_AtomicSet( &m_trace_events->m_eventsloaded, 1 );
 
     m_thread = SDL_CreateThread( thread_func, "eventloader", ( void * )this );
@@ -688,6 +689,7 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
         }
     }
 
+    // 1+ means loading events
     SDL_AtomicAdd( &m_trace_events->m_eventsloaded, 1 );
 
     if ( get_state() == State_CancelLoading )
@@ -721,6 +723,7 @@ int SDLCALL TraceLoader::thread_func( void *data )
     {
         logf( "[Error]: read_trace_file(%s) failed.", filename );
 
+        // -1 means loading error
         SDL_AtomicSet( &trace_events->m_eventsloaded, -1 );
         loader->set_state( State_Idle );
         return -1;
@@ -730,6 +733,7 @@ int SDLCALL TraceLoader::thread_func( void *data )
 
     trace_events->init();
 
+    // 0 means events loaded
     SDL_AtomicSet( &trace_events->m_eventsloaded, 0 );
     loader->set_state( State_Loaded );
     return 0;
@@ -928,6 +932,23 @@ void TraceLoader::render()
         ImGui::Begin( "Color Configuration", &m_show_color_picker );
         render_color_picker();
         ImGui::End();
+    }
+
+    if ( !m_show_trace_info.empty() )
+    {
+        bool show_trace_info = !m_trace_windows_list.empty();
+
+        if ( show_trace_info )
+        {
+            ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
+
+            ImGui::Begin( m_show_trace_info.c_str(), &show_trace_info );
+            m_trace_windows_list[ 0 ]->trace_render_info();
+            ImGui::End();
+        }
+
+        if ( !show_trace_info )
+            m_show_trace_info.clear();
     }
 
     if ( m_show_scale_popup && !ImGui::IsPopupOpen( "Display Scaling" ) )
@@ -2141,9 +2162,6 @@ bool TraceWin::render()
 
     m_loader.render_menu();
 
-    if ( ImGui::CollapsingHeader( "Trace Info" ) )
-        trace_render_info();
-
     if ( m_trace_events.m_events.empty() )
     {
         ImGui::End();
@@ -2382,12 +2400,14 @@ void TraceWin::trace_render_info()
     if ( event_count )
     {
         const trace_info_t &trace_info = m_trace_events.m_trace_info;
+
+        ImGui::Text( "Trace time: %s ms",
+                     ts_to_timestr( m_trace_events.m_events.back().ts, 0, 4 ).c_str() );
+
         ImGui::Text( "Trace cpus: %u", trace_info.cpus );
 
         if ( !trace_info.uname.empty() )
             ImGui::Text( "Trace uname: %s", trace_info.uname.c_str() );
-
-        ImGui::Indent();
 
         if ( !m_graph.rows.m_graph_rows_list.empty() )
         {
@@ -2456,14 +2476,12 @@ void TraceWin::trace_render_info()
                 ImGui::EndColumns();
             }
         }
-        
+
         // We're drawing the Graph Row Info w/ tgid colors. Don't think we still need this...
 #if 0
         if ( !m_trace_events.m_trace_info.tgid_pids.m_map.empty() &&
              ( ImGui::CollapsingHeader( "Thread Group Info" ) ) )
         {
-            ImGui::Indent();
-
             for ( auto &entry : m_trace_events.m_trace_info.tgid_pids.m_map )
             {
                 tgid_info_t &tgid_info = entry.second;
@@ -2491,12 +2509,8 @@ void TraceWin::trace_render_info()
                     ImGui::PopStyleColor();
                 }
             }
-
-            ImGui::Unindent();
         }
 #endif
-
-        ImGui::Unindent();
     }
 }
 
@@ -2982,6 +2996,23 @@ void TraceLoader::render_menu_options()
         {
             ImGui::SetWindowFocus( "Color Configuration" );
             m_show_color_picker = true;
+        }
+
+        // If we have a trace window and the events are loaded, show Trace Info menu item
+        if ( !m_trace_windows_list.empty() &&
+             !SDL_AtomicGet( &m_trace_windows_list[ 0 ]->m_trace_events.m_eventsloaded ) )
+        {
+            TraceEvents &trace_events = m_trace_windows_list[ 0 ]->m_trace_events;
+            const char *basename = get_path_filename( trace_events.m_filename.c_str() );
+            std::string label = string_format( "Info for '%s'", s_textclrs().bright_str( basename ).c_str() );
+
+            ImGui::Separator();
+
+            if ( ImGui::MenuItem( label.c_str() ) )
+            {
+                ImGui::SetWindowFocus( label.c_str() );
+                m_show_trace_info = label;
+            }
         }
 
         ImGui::Separator();
