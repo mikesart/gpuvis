@@ -2671,6 +2671,7 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
         {
             // Otherwise show a tooltip.
             std::string graph_markers;
+            std::string durationstr;
             std::string ts_str = ts_to_timestr( event.ts, m_eventlist.tsoffset );
             std::string fieldstr = get_event_fields_str( event, ": ", '\n' );
             const char *commstr = m_trace_events.tgidcomm_from_pid( event.pid );
@@ -2682,9 +2683,13 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
             if ( !graph_markers.empty() )
                 graph_markers += "\n";
 
-            ImGui::SetTooltip( "%sId: %u\nTime: %s\nComm: %s\n\n%s",
+            if ( event.duration != ( uint32_t )-1 )
+                durationstr = "Duration: " + ts_to_timestr( event.duration, 0, 4 ) + "ms\n";
+
+            ImGui::SetTooltip( "%sId: %u\nTime: %s\nComm: %s\n%s\n%s",
                                graph_markers.c_str(), event.id,
-                               ts_str.c_str(), commstr, fieldstr.c_str() );
+                               ts_str.c_str(), commstr, durationstr.c_str(),
+                               fieldstr.c_str() );
         }
     }
 
