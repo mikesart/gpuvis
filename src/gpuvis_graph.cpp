@@ -52,10 +52,6 @@
 
   Configurable hotkeys?
 
-  Pierre-Loup:
-    i think anywhere where you show a thread name now, showing process+thread
-    would be better
-
   From Pierre-Loup:
     * Since I find myself zooming in and out a lot to situate myself in the
     larger trace and analyze parts of it, I'm thinking one of the next big
@@ -2570,7 +2566,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
                 m_eventlist.highlight_ids.push_back( id );
 
             time_buf += string_format( "\n  %u %s duration: %s", event.id, name,
-                                       s_textclrs().mstr( timestr + "ms", event.color ).c_str() );
+                                       s_textclrs().mstr( timestr + "ms", event_hov.color ).c_str() );
         }
 
         if ( sync_event_list_to_graph && !m_eventlist.do_gotoevent )
