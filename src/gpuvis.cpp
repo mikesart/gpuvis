@@ -2696,6 +2696,8 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
     // If we've got an active popup menu, render it.
     if ( m_eventlist.popup_eventid == i )
     {
+        ImGui::PushStyleColor( ImGuiCol_Text, s_clrs().getv4( col_ImGui_Text ) );
+
         uint32_t eventid = !m_eventlist.filtered_events.empty() ?
                     m_eventlist.filtered_events[ m_eventlist.popup_eventid ] :
                     m_eventlist.popup_eventid;
@@ -2704,6 +2706,8 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
             m_eventlist.popup_eventid = INVALID_ID;
 
         popup_shown = true;
+
+        ImGui::PopStyleColor();
     }
 
     return popup_shown;
