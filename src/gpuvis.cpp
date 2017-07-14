@@ -2835,6 +2835,7 @@ void TraceWin::events_list_render()
             // Loop through and draw events
             for ( uint32_t i = start_idx; i < end_idx; i++ )
             {
+                std::string markerbuf;
                 trace_event_t &event = filtered_events ?
                         m_trace_events.m_events[ m_eventlist.filtered_events[ i ] ] :
                         m_trace_events.m_events[ i ];
@@ -2844,12 +2845,18 @@ void TraceWin::events_list_render()
 
                 ImGui::PushID( i );
 
+                if ( event.ts == m_graph.ts_markers[ 1 ] )
+                {
+                    color = s_clrs().getv4( col_Graph_MarkerB );
+                    markerbuf = s_textclrs().mstr( "(B)", ( ImColor )color );
+                }
+                if ( event.ts == m_graph.ts_markers[ 0 ] )
+                {
+                    color = s_clrs().getv4( col_Graph_MarkerA );
+                    markerbuf = s_textclrs().mstr( "(A)", ( ImColor )color ) + markerbuf;
+                }
                 if ( event.is_vblank() )
                     color = s_clrs().getv4( ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0 );
-                else if ( event.ts == m_graph.ts_markers[ 0 ] )
-                    color = s_clrs().getv4( col_Graph_MarkerA );
-                else if ( event.ts == m_graph.ts_markers[ 1 ] )
-                    color = s_clrs().getv4( col_Graph_MarkerB );
 
                 ImGui::PushStyleColor( ImGuiCol_Text, color );
 
@@ -2861,7 +2868,8 @@ void TraceWin::events_list_render()
 
                 // column 0: event id
                 {
-                    if ( ImGui::Selectable( std::to_string( event.id ).c_str(),
+                    std::string label = std::to_string( event.id ) + markerbuf;
+                    if ( ImGui::Selectable( label.c_str(),
                                             highlight || selected, ImGuiSelectableFlags_SpanAllColumns ) )
                     {
                         m_eventlist.selected_eventid = event.id;
