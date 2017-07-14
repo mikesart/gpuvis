@@ -1575,6 +1575,11 @@ const char *filter_get_keyval_func( trace_info_t *trace_info, const trace_event_
         snprintf_safe( buf, "%.6f", event->ts * ( 1.0 / NSECS_PER_MSEC ) );
         return buf;
     }
+    else if ( !strcasecmp( name, "cpu" ) )
+    {
+        snprintf_safe( buf, "%u", event->cpu );
+        return buf;
+    }
     else if ( !strcasecmp( name, "duration" ) )
     {
         if ( event->duration == ( uint32_t )-1 )
@@ -2340,7 +2345,7 @@ bool TraceWin::render()
 
             tooltip += s_textclrs().bright_str( "Event Filter\n\n" );
             tooltip += "Vars: Any field in Info column plus:\n";
-            tooltip += "    $name, $comm, $user_comm, $id, $pid, $tgid, $ts, $duration\n";
+            tooltip += "    $name, $comm, $user_comm, $id, $pid, $tgid, $ts, $cpu, $duration\n";
             tooltip += "Operators: &&, ||, !=, =, >, >=, <, <=, =~\n\n";
 
             tooltip += "Examples:\n";
