@@ -2554,7 +2554,8 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
         std::string context = get_event_gfxcontext_str( event_hov );
         const std::vector< uint32_t > *plocs = m_trace_events.get_gfxcontext_locs( context.c_str() );
 
-        time_buf += string_format( "\n\n%s", event_hov.user_comm );
+        time_buf += string_format( "\n\n%s",
+                                   m_trace_events.tgidcomm_from_commstr( event_hov.user_comm ) );
 
         for ( uint32_t id : *plocs )
         {
