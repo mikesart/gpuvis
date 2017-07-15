@@ -1043,7 +1043,9 @@ void TraceLoader::render()
             { "ctrl + shift + 1..9", "save location" },
             { "Ctrl + 1..9", "restore location" },
             { NULL, NULL },
-            { "ctrl + click on ImGui sliders", "edit value with keyboard" },
+            { "event list double click", "center selected event in graph" },
+            { NULL, NULL },
+            { "ctrl + click on ImGui sliders", "edit ImGui value with keyboard" },
         };
 
         for ( size_t i = 0; i < ARRAY_SIZE( s_text ); i++ )
@@ -2539,6 +2541,16 @@ void TraceWin::trace_render_info()
     }
 }
 
+void TraceWin::graph_center_event( uint32_t eventid )
+{
+    trace_event_t &event = get_event( eventid );
+
+    m_eventlist.selected_eventid = event.id;
+    m_graph.start_ts = event.ts - m_eventlist.tsoffset - m_graph.length_ts / 2;
+    m_graph.recalc_timebufs = true;
+    m_graph.show_row_name = event.comm;
+}
+
 bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
 {
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
@@ -2551,15 +2563,7 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
 
     std::string label = string_format( "Center event %u on graph", event.id );
     if ( ImGui::MenuItem( label.c_str() ) )
-    {
-        m_eventlist.selected_eventid = event.id;
-        m_graph.start_ts = event.ts - m_eventlist.tsoffset - m_graph.length_ts / 2;
-        m_graph.recalc_timebufs = true;
-
-        m_graph.show_row_name = event.comm;
-    }
-
-    //$ TODO: Center row on graph?
+        graph_center_event( eventid );
 
     if ( ImGui::BeginMenu( "Set Marker" ) )
     {
@@ -2898,9 +2902,13 @@ void TraceWin::events_list_render()
                 // column 0: event id
                 {
                     std::string label = std::to_string( event.id ) + markerbuf;
-                    if ( ImGui::Selectable( label.c_str(),
-                                            highlight || selected, ImGuiSelectableFlags_SpanAllColumns ) )
+                    ImGuiSelectableFlags flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick;
+
+                    if ( ImGui::Selectable( label.c_str(), highlight || selected, flags ) )
                     {
+                        if ( ImGui::IsMouseDoubleClicked( 0 ) )
+                            graph_center_event( event.id );
+
                         m_eventlist.selected_eventid = event.id;
                     }
 

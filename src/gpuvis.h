@@ -398,6 +398,8 @@ protected:
     bool is_graph_row_zoomable();
     void zoom_graph_row();
 
+    void graph_center_event( uint32_t eventid );
+
 protected:
     // Return an event id for a given time stamp
     int ts_to_eventid( int64_t ts );
