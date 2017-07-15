@@ -641,9 +641,29 @@ int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info 
     else if ( !strcmp( event.name, "sched_switch" ) )
         event.flags |= TRACE_FLAG_SCHED_SWITCH;
 
-    // Add this event name to our event locations map
     if ( event.is_vblank() )
+    {
+        // See if we have a drm_vblank_event_queued with the same seq number
+        uint32_t seqno = strtoul( get_event_field_val( event, "seq" ), NULL, 10 );
+        uint32_t *vblank_queued_id = m_trace_events->m_drm_vblank_event_queued.get_val( seqno );
+
+        if ( vblank_queued_id )
+        {
+            trace_event_t &event_vblank_queued = m_trace_events->m_events[ *vblank_queued_id ];
+
+            // If so, set the vblank queued time
+            event_vblank_queued.duration = event.ts - event_vblank_queued.ts;
+        }
+
         m_trace_events->m_tdopexpr_locations.add_location_str( "$name=drm_vblank_event", event.id );
+    }
+    else if ( !strcmp( event.name, "drm_vblank_event_queued" ) )
+    {
+        uint32_t seqno = strtoul( get_event_field_val( event, "seq" ), NULL, 10 );
+
+        if ( seqno )
+            m_trace_events->m_drm_vblank_event_queued.set_val( seqno, event.id );
+    }
 
     // Add this event comm to our comm locations map (ie, 'thread_main-1152')
     m_trace_events->m_comm_locations.add_location_str( event.comm, event.id );

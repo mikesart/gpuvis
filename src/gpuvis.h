@@ -259,6 +259,9 @@ public:
     TraceLocations m_sched_switch_prev_locations;
     TraceLocations m_sched_switch_next_locations;
 
+    // Map vblank seq to m_drm_vblank_event_queued event id
+    util_umap< uint32_t, uint32_t > m_drm_vblank_event_queued;
+
     struct event_print_info_t
     {
         const char *buf;
