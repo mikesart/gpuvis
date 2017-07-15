@@ -273,6 +273,9 @@ public:
     float row_h;
     float visible_graph_height;
     float total_graph_height;
+
+    // row_info id we need to make sure is visible
+    size_t show_row_id = ( size_t )-1;
 };
 
 static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
@@ -471,6 +474,12 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
                 {
                     rinfo.pid = atoi( pidstr + 1 );
                     rinfo.tgid_info = win->m_trace_events.tgid_from_pid( rinfo.pid );
+                }
+
+                if ( win->m_graph.show_row_name && ( row_name == win->m_graph.show_row_name ) )
+                {
+                    show_row_id = id;
+                    win->m_graph.show_row_name = NULL;
                 }
             }
 
@@ -1980,6 +1989,17 @@ void TraceWin::graph_render()
         // Initialize our graphics info struct
         gi.init( this, windowpos.x, windowsize.x );
 
+        // If we have a show row id, make sure it's visible
+        if ( gi.show_row_id != ( size_t )-1 )
+        {
+            const row_info_t &rinfo = gi.row_info[ gi.show_row_id ];
+
+            if ( ( rinfo.row_y < -m_graph.start_y ) ||
+                 ( rinfo.row_y + rinfo.row_h > gi.visible_graph_height - m_graph.start_y ) )
+            {
+                m_graph.start_y = -rinfo.row_y + gi.visible_graph_height / 3;
+            }
+        }
         // Range check mouse pan values
         m_graph.start_y = Clamp< float >( m_graph.start_y,
                                           gi.visible_graph_height - gi.total_graph_height, 0.0f );
@@ -2068,6 +2088,8 @@ void TraceWin::graph_render()
 
         s_opts().setf( opt, m_graph.resize_graph_click_pos + ImGui::GetMouseDragDelta( 0 ).y );
     }
+
+    m_graph.show_row_name = NULL;
 }
 
 bool TraceWin::graph_render_popupmenu( graph_info_t &gi )

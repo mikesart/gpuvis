@@ -509,6 +509,9 @@ public:
         char time_end_buf[ 32 ] = { 0 };
         char time_length_buf[ 32 ] = { 0 };
 
+        // Name of row to make visible in graph
+        const char *show_row_name = nullptr;
+
         // Graph vertical panning
         float start_y = 0.0f;
 

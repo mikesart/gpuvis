@@ -2555,7 +2555,11 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
         m_eventlist.selected_eventid = event.id;
         m_graph.start_ts = event.ts - m_eventlist.tsoffset - m_graph.length_ts / 2;
         m_graph.recalc_timebufs = true;
+
+        m_graph.show_row_name = event.comm;
     }
+
+    //$ TODO: Center row on graph?
 
     if ( ImGui::BeginMenu( "Set Marker" ) )
     {
