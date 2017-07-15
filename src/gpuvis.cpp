@@ -2894,12 +2894,9 @@ void TraceWin::events_list_render()
                 {
                     std::string ts_str = ts_to_timestr( event.ts, m_eventlist.tsoffset ) + "ms";
 
-                    if ( event.id > 0 )
-                    {
-                        // Add time delta from previous event
-                        const trace_event_t &event0 = get_event( event.id - 1 );
-                        ts_str += " (+" + ts_to_timestr( event.ts - event0.ts, 0, 4 ) + ")";
-                    }
+                    // Show time delta from previous event
+                    if ( prev_ts != INT64_MIN )
+                        ts_str += " (+" + ts_to_timestr( event.ts - prev_ts, 0, 4 ) + ")";
 
                     ImGui::Text( "%s", ts_str.c_str() );
                     ImGui::NextColumn();
