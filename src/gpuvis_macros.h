@@ -175,11 +175,11 @@ char *strcpy_safe( char ( &dest )[ T ], const std::string &src )
 }
 
 template < size_t T >
-void strcat_safe( char ( &dest )[ T ], const char *src )
+char *strcat_safe( char ( &dest )[ T ], const char *src )
 {
     size_t i;
 
-    for ( i = strlen( dest ); ( i < T - 1 ) && *src; i++ )
+    for ( i = strlen( dest ); ( i < T - 1 ) && *src; )
         dest[ i++ ] = *src++;
 
     dest[ i ] = '\0';
