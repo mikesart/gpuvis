@@ -2515,8 +2515,9 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             m_eventlist.highlight_ids.push_back( event.id );
 
             // Add event id and distance from cursor to this event
-            time_buf += string_format( "\n%u %c%sms",
-                                       hov.eventid, hov.neg ? '-' : ' ',
+            time_buf += string_format( "\n%s%u%s %c%sms",
+                                       s_textclrs().str( TClr_Bright ), hov.eventid, s_textclrs().str( TClr_Def ),
+                                       hov.neg ? '-' : ' ',
                                        ts_to_timestr( hov.dist_ts, 0, 4 ).c_str() );
 
             // If this isn't an ftrace print event, add the event name
