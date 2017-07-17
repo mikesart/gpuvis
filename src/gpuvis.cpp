@@ -2381,7 +2381,7 @@ bool TraceWin::render()
         }
 
         ImGui::SameLine();
-        if ( ImGui::SmallButton( "Clear Filter" ) )
+        if ( ImGui::Button( "Clear Filter" ) )
         {
             m_eventlist.filtered_events.clear();
             m_eventlist.filtered_events_str.clear();
@@ -2551,6 +2551,33 @@ void TraceWin::graph_center_event( uint32_t eventid )
     m_graph.show_row_name = event.comm;
 }
 
+template < size_t T >
+static void add_event_filter( char ( &dest )[ T ], const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
+template < size_t T >
+static void add_event_filter( char ( &dest )[ T ], const char *fmt, ... )
+{
+    va_list args;
+    char buf[ T ];
+
+    va_start( args, fmt );
+    vsnprintf( buf, sizeof( buf ), fmt, args );
+    va_end(args);
+
+    buf[ sizeof( buf ) - 1 ] = 0;
+
+    if ( dest[ 0 ] )
+    {
+        char dest2[ T ];
+
+        strcpy_safe( dest2, dest );
+        snprintf_safe( dest, "(%s) && (%s)", dest2, buf );
+    }
+    else
+    {
+        strcpy_safe( dest, buf );
+    }
+}
+
 bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
 {
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
@@ -2595,24 +2622,58 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
 
     ImGui::Separator();
 
-    label = string_format( "Filter pid %d events", event.pid );
+    label = string_format( "Show only '%s' events", event.name );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
-        snprintf_safe( m_eventlist.filter_buf, "$pid == %d", event.pid );
+        add_event_filter( m_eventlist.filter_buf, "$name == \"%s\"", event.name );
+        m_eventlist.do_filter = true;
+    }
+    label = string_format( "Hide '%s' events", event.name );
+    if ( ImGui::MenuItem( label.c_str() ) )
+    {
+        add_event_filter( m_eventlist.filter_buf, "$name != \"%s\"", event.name );
         m_eventlist.do_filter = true;
     }
 
-    label = string_format( "Filter '%s' events", event.name );
+    label = string_format( "Show only pid %d events", event.pid );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
-        snprintf_safe( m_eventlist.filter_buf, "$name == %s", event.name );
+        add_event_filter( m_eventlist.filter_buf, "$pid == %d", event.pid );
+        m_eventlist.do_filter = true;
+    }
+    label = string_format( "Hide pid %d events", event.pid );
+    if ( ImGui::MenuItem( label.c_str() ) )
+    {
+        add_event_filter( m_eventlist.filter_buf, "$pid != %d", event.pid );
         m_eventlist.do_filter = true;
     }
 
-    if ( !m_eventlist.filtered_events.empty() && ImGui::MenuItem( "Clear Filter" ) )
+    const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( event.pid );
+    if ( tgid_info )
     {
-        m_eventlist.filter_buf[ 0 ] = 0;
-        m_eventlist.do_filter = true;
+        label = string_format( "Show only process '%s' events", tgid_info->commstr );
+        if ( ImGui::MenuItem( label.c_str() ) )
+        {
+            add_event_filter( m_eventlist.filter_buf, "$tgid == %d", tgid_info->tgid );
+            m_eventlist.do_filter = true;
+        }
+        label = string_format( "Hide process '%s' events", tgid_info->commstr );
+        if ( ImGui::MenuItem( label.c_str() ) )
+        {
+            add_event_filter( m_eventlist.filter_buf, "$tgid != %d", tgid_info->tgid );
+            m_eventlist.do_filter = true;
+        }
+    }
+
+    if ( !m_eventlist.filtered_events.empty() )
+    {
+        ImGui::Separator();
+
+        if ( ImGui::MenuItem( "Clear Filter" ) )
+        {
+            m_eventlist.filter_buf[ 0 ] = 0;
+            m_eventlist.do_filter = true;
+        }
     }
 
     const char *plot_str = CreatePlotDlg::get_plot_str( event );
