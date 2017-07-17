@@ -887,13 +887,19 @@ bool ColorPicker::render( colors_t idx, ImU32 *pcolor )
     const float w = imgui_scale( 125.0f );
 
     {
+        float h, s, v;
+        ImVec4 col = ( ImColor )( *pcolor );
+
         static const char s_text[] = "Lorem ipsum dolor sit amet, consectetur adipiscing elit";
         const ImVec2 size = ImGui::CalcTextSize( s_text );
         const ImVec2 size2 = ImGui::CalcTextSize( " ffffffff" );
 
-        ImGui::BeginChild( "color_sample", ImVec2( 0, size.y * 4 ), true );
-        ImGui::Text( "%08x", *pcolor );
-        ImGui::SameLine();
+        ImGui::ColorConvertRGBtoHSV( col.x, col.y, col.z, h, s, v );
+
+        ImGui::BeginChild( "color_sample", ImVec2( 0, size.y * 6 ), true );
+
+        ImGui::Text( "RGB: %08x", *pcolor );
+        ImGui::Text( "HSV: %.2f,%.2f,%.2f", h, s, v );
         ImGui::TextColored( ImColor( *pcolor ), s_text );
 
         const ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -932,8 +938,8 @@ bool ColorPicker::render( colors_t idx, ImU32 *pcolor )
 
     for ( int i = 0; i < 64; i++ )
     {
-        float h = i / 63.0f;
-        ImColor colv4 = ImColor::HSV( h, m_s, m_v, m_a );
+        float hue = i / 63.0f;
+        ImColor colv4 = ImColor::HSV( hue, m_s, m_v, m_a );
         ImU32 colu32 = ( ImU32 )colv4;
         std::string name = string_format( "%08x", colu32 );
 
@@ -948,6 +954,14 @@ bool ColorPicker::render( colors_t idx, ImU32 *pcolor )
         {
             ret = true;
             *pcolor = colu32;
+        }
+        if ( ImGui::IsItemHovered() )
+        {
+            float h, s, v;
+            ImVec4 col = ( ImColor )colu32;
+
+            ImGui::ColorConvertRGBtoHSV( col.x, col.y, col.z, h, s, v );
+            ImGui::SetTooltip( "HSV: %.2f,%.2f,%.2f", h, s, v );
         }
 
         ImGui::PopStyleColor( 2 );

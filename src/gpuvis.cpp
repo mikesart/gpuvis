@@ -2954,18 +2954,26 @@ void TraceWin::events_list_render()
 
                 ImGui::PushStyleColor( ImGuiCol_Text, color );
 
-                // If this event is in the highlighted list, give it a bit of a colored background
-                bool highlight = !selected && std::binary_search(
-                            m_eventlist.highlight_ids.begin(), m_eventlist.highlight_ids.end(), event.id );
-                if ( highlight )
-                    ImGui::PushStyleColor( ImGuiCol_Header, s_clrs().getv4( col_EventList_Hov ) );
+                if ( selected )
+                {
+                    ImGui::PushStyleColor( ImGuiCol_Header, s_clrs().getv4( col_EventList_Sel ) );
+                }
+                else
+                {
+                    // If this event is in the highlighted list, give it a bit of a colored background
+                    selected = std::binary_search(
+                                m_eventlist.highlight_ids.begin(), m_eventlist.highlight_ids.end(), event.id );
+
+                    if ( selected )
+                        ImGui::PushStyleColor( ImGuiCol_Header, s_clrs().getv4( col_EventList_Hov ) );
+                }
 
                 // column 0: event id
                 {
                     std::string label = std::to_string( event.id ) + markerbuf;
                     ImGuiSelectableFlags flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick;
 
-                    if ( ImGui::Selectable( label.c_str(), highlight || selected, flags ) )
+                    if ( ImGui::Selectable( label.c_str(), selected, flags ) )
                     {
                         if ( ImGui::IsMouseDoubleClicked( 0 ) )
                             graph_center_event( event.id );
@@ -3059,7 +3067,7 @@ void TraceWin::events_list_render()
                     }
                 }
 
-                ImGui::PopStyleColor( 1 + highlight );
+                ImGui::PopStyleColor( 1 + selected );
                 ImGui::PopID();
 
                 prev_ts = event.ts;
