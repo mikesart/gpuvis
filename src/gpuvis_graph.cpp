@@ -2589,7 +2589,9 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             if ( gi.hovered_items.empty() )
                 m_eventlist.highlight_ids.push_back( id );
 
-            time_buf += string_format( "\n  %u %s duration: %s", event.id, name,
+            time_buf += string_format( "\n  %s%u%s %s duration: %s",
+                                       s_textclrs().str( TClr_Bright ), event.id, s_textclrs().str( TClr_Def ),
+                                       name,
                                        s_textclrs().mstr( timestr + "ms", event_hov.color ).c_str() );
         }
 
