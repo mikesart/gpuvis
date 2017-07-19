@@ -1182,11 +1182,28 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
                     if ( label )
                         size = ImGui::CalcTextSize( ++label );
                 }
+
                 if ( size.x + imgui_scale( 4 ) < x1 - x0 )
                 {
+                    const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( fence_signaled.pid );
+
                     ImGui::GetWindowDrawList()->AddText(
                                 ImVec2( x0 + imgui_scale( 2.0f ), y + imgui_scale( 2.0f ) ),
                                 s_clrs().get( col_Graph_BarText ), label );
+
+                    if ( tgid_info )
+                    {
+                        const ImVec2 rect_min( x0, y );
+                        const ImVec2 rect_max( x1, y + row_h );
+
+                        ImGui::PushClipRect( rect_min, rect_max, true );
+
+                        ImGui::GetWindowDrawList()->AddText(
+                                    ImVec2( x0 + imgui_scale( 2.0f ), y + size.y + imgui_scale( 2.0f ) ),
+                                    s_clrs().get( col_Graph_BarText ), tgid_info->commstr );
+
+                        ImGui::PopClipRect();
+                    }
                 }
             }
 
