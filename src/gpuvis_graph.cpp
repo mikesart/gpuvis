@@ -1982,6 +1982,8 @@ void TraceWin::graph_render()
         ImVec2 windowpos = ImVec2( ImGui::GetWindowClipRectMin().x, ImGui::GetWindowPos().y );
         ImVec2 windowsize = ImGui::GetWindowSize();
 
+        m_graph.has_focus = ImGui::IsWindowFocused();
+
         // Clear graph background
         imgui_drawrect( windowpos.x, windowsize.x,
                         windowpos.y, windowsize.y, s_clrs().get( col_Graph_Bk ) );

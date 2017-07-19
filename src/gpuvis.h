@@ -467,6 +467,7 @@ public:
 
         // Whether event list columns have been resized.
         bool columns_resized = false;
+        bool has_focus = false;
     } m_eventlist;
 
     enum mouse_captured_t
@@ -492,6 +493,7 @@ public:
         float resize_graph_click_pos = 0.0f;
 
         bool popupmenu = false;
+        bool has_focus = false;
 
         std::pair< int64_t, int64_t > zoom_loc = { INT64_MAX, INT64_MAX };
         std::string zoom_row_name;

@@ -2210,7 +2210,10 @@ bool TraceWin::render()
         m_eventlist.goto_eventid = ts_to_eventid( m_graph.start_ts + m_graph.length_ts / 2 );
     }
 
-    if ( ImGui::CollapsingHeader( "Events Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
+    const std::string graph_label = m_graph.has_focus ?
+                s_textclrs().bright_str( "Events Graph" ) : "Events Graph";
+    m_graph.has_focus = false;
+    if ( ImGui::CollapsingHeader( graph_label.c_str(), ImGuiTreeNodeFlags_DefaultOpen ) )
     {
         ImGui::PushItemWidth( imgui_scale( 120.0f ) );
         if ( ImGui::InputText( "##Start", m_graph.time_start_buf, sizeof( m_graph.time_start_buf ),
@@ -2299,7 +2302,10 @@ bool TraceWin::render()
     ImGuiTreeNodeFlags eventslist_flags = s_opts().getb( OPT_ShowEventList ) ?
         ImGuiTreeNodeFlags_DefaultOpen : 0;
 
-    s_opts().setb( OPT_ShowEventList, ImGui::CollapsingHeader( "Events List", eventslist_flags ) );
+    const std::string eventlist_label = m_eventlist.has_focus ?
+                s_textclrs().bright_str( "Events List" ) : "Events List";
+    m_eventlist.has_focus = false;
+    s_opts().setb( OPT_ShowEventList, ImGui::CollapsingHeader( eventlist_label.c_str(), eventslist_flags ) );
 
     if ( s_opts().getb( OPT_ShowEventList ) )
     {
@@ -2849,6 +2855,8 @@ void TraceWin::events_list_render()
 
         ImGui::SetNextWindowContentSize( { 0.0f, ( event_count + 1 ) * lineh + 1 } );
         ImGui::BeginChild( "eventlistbox", ImVec2( 0.0f, sizey ) );
+
+        m_eventlist.has_focus = ImGui::IsWindowFocused();
 
         float winh = ImGui::GetWindowHeight();
         uint32_t visible_rows = ( winh + 1 ) / lineh;
