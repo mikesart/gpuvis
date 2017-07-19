@@ -1185,7 +1185,7 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
 
                 if ( size.x + imgui_scale( 4 ) < x1 - x0 )
                 {
-                    const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( fence_signaled.pid );
+                    const tgid_info_t *tgid_info = m_trace_events.tgid_from_commstr( fence_signaled.user_comm );
 
                     ImGui::GetWindowDrawList()->AddText(
                                 ImVec2( x0 + imgui_scale( 2.0f ), y + imgui_scale( 2.0f ) ),
