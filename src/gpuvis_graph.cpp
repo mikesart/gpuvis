@@ -1851,7 +1851,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             }
         }
     }
-    else if ( ImGui::IsWindowFocused() && ImGui::IsKeyPressed( 'z' ) )
+    else if ( m_graph.has_focus && ImGui::IsKeyPressed( 'z' ) )
     {
         if ( m_graph.zoom_loc.first != INT64_MAX )
         {
@@ -1875,7 +1875,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
 
 void TraceWin::graph_handle_keyboard_scroll( graph_info_t &gi )
 {
-    if ( !ImGui::IsWindowFocused() )
+    if ( !m_graph.has_focus )
         return;
 
     int64_t start_ts = m_graph.start_ts + m_eventlist.tsoffset;
