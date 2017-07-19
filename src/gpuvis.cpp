@@ -1201,8 +1201,11 @@ public:
             "trace-cmd",
             "sh-",
             "kill-",
+            "pidof-",
+            "sleep-",
             "watchdog",
             "chrome",
+            "ksoftirqd",
             "kworker",
             "mysqld",           // medium priority
         };
