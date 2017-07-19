@@ -1193,14 +1193,16 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
 
                     if ( tgid_info )
                     {
+                        char tgidstr[ 64 ];
                         const ImVec2 rect_min( x0, y );
                         const ImVec2 rect_max( x1, y + row_h );
 
                         ImGui::PushClipRect( rect_min, rect_max, true );
 
+                        snprintf_safe( tgidstr, "(%s)", tgid_info->commstr );
                         ImGui::GetWindowDrawList()->AddText(
                                     ImVec2( x0 + imgui_scale( 2.0f ), y + size.y + imgui_scale( 2.0f ) ),
-                                    s_clrs().get( col_Graph_BarText ), tgid_info->commstr );
+                                    s_clrs().get( col_Graph_BarText ), tgidstr );
 
                         ImGui::PopClipRect();
                     }
@@ -1311,8 +1313,25 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
 
                     if ( x_hw_end - x_text >= size.x )
                     {
+                        const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( cs_ioctl.pid );
+
                         ImGui::GetWindowDrawList()->AddText( ImVec2( x_text, y + imgui_scale( 1.0f ) ),
                                                              s_clrs().get( col_Graph_BarText ), cs_ioctl.user_comm );
+
+                        if ( tgid_info )
+                        {
+                            char tgidstr[ 64 ];
+                            const ImVec2 rect_min( x_text, y + imgui_scale( 1.0f ) );
+                            const ImVec2 rect_max( x_hw_end, rect_min.y + size.y );
+
+                            ImGui::PushClipRect( rect_min, rect_max, true );
+
+                            snprintf_safe( tgidstr, "  (%s)", tgid_info->commstr );
+                            ImGui::GetWindowDrawList()->AddText( ImVec2( x_text + size.x, y + imgui_scale( 1.0f ) ),
+                                                                 s_clrs().get( col_Graph_BarText ), tgidstr );
+
+                            ImGui::PopClipRect();
+                        }
                     }
                 }
 
@@ -2165,7 +2184,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
             if ( tgid_info )
             {
-                label = string_format( "Hide rows for process '%s'", tgid_info->commstr );
+                label = string_format( "Hide rows for process '%s'", tgid_info->commstr_clr );
 
                 if ( ImGui::MenuItem( label.c_str() ) )
                     m_graph.rows.show_tgid( tgid_info, GraphRows::HIDE_ROW );
@@ -2194,7 +2213,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
                     if ( std::find( tgids_hidden.begin(), tgids_hidden.end(), tgid_info ) == tgids_hidden.end() )
                     {
                         std::string label = string_format( "Process '%s' (%lu threads)",
-                                                           tgid_info->commstr,
+                                                           tgid_info->commstr_clr,
                                                            tgid_info->pids.size() );
 
                         if ( ImGui::MenuItem( label.c_str() ) )

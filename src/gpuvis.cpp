@@ -1870,11 +1870,12 @@ void TraceEvents::update_tgid_colors()
                                                   label_sat, label_alpha );
 
         TextClr clr( tgid_info.color );
-        std::string commstr = string_format( "%s%s%s", clr.str(),
-                                             comm_from_pid( tgid_info.tgid, "<...>" ),
-                                             s_textclrs().str( TClr_Def ) );
+        const char *commstr = comm_from_pid( tgid_info.tgid, "<...>" );
+        std::string commstr_col = string_format( "%s%s%s", clr.str(),
+                                                 commstr, s_textclrs().str( TClr_Def ) );
 
-        tgid_info.commstr = m_strpool.getstr( commstr.c_str() );
+        tgid_info.commstr_clr = m_strpool.getstr( commstr_col.c_str() );
+        tgid_info.commstr = commstr;
     }
 }
 
@@ -1904,7 +1905,7 @@ const char *TraceEvents::tgidcomm_from_pid( int pid )
     {
         char commbuf[ 128 ];
 
-        snprintf_safe( commbuf, "%s (%s)", comm, tgid_info->commstr );
+        snprintf_safe( commbuf, "%s (%s)", comm, tgid_info->commstr_clr );
         comm = m_strpool.getstr( commbuf );
     }
 
@@ -2666,13 +2667,13 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
     const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( event.pid );
     if ( tgid_info )
     {
-        label = string_format( "Show only process '%s' events", tgid_info->commstr );
+        label = string_format( "Show only process '%s' events", tgid_info->commstr_clr );
         if ( ImGui::MenuItem( label.c_str() ) )
         {
             add_event_filter( m_eventlist.filter_buf, "$tgid == %d", tgid_info->tgid );
             m_eventlist.do_filter = true;
         }
-        label = string_format( "Hide process '%s' events", tgid_info->commstr );
+        label = string_format( "Hide process '%s' events", tgid_info->commstr_clr );
         if ( ImGui::MenuItem( label.c_str() ) )
         {
             add_event_filter( m_eventlist.filter_buf, "$tgid != %d", tgid_info->tgid );
@@ -3025,7 +3026,7 @@ void TraceWin::events_list_render()
                     const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( event.pid );
 
                     if ( tgid_info )
-                        ImGui::Text( "%s (%s)", event.comm, tgid_info->commstr );
+                        ImGui::Text( "%s (%s)", event.comm, tgid_info->commstr_clr );
                     else
                         ImGui::Text( "%s", event.comm );
                     ImGui::NextColumn();

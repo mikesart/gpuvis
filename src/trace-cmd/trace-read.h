@@ -101,6 +101,7 @@ struct tgid_info_t
     std::vector< int > pids;
 
     // Colored 'foobarapp-1234' string for tgid
+    const char *commstr_clr;
     const char *commstr;
 
     uint32_t hashval = 0;
