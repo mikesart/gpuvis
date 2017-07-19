@@ -31,6 +31,7 @@ CIniFile &s_ini();
 // Color singletons
 class Clrs &s_clrs();
 class TextClrs &s_textclrs();
+class Keybd &s_keybd();
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -270,6 +271,39 @@ public:
     float m_s = 0.9f;
     float m_v = 0.9f;
     float m_a = 1.0f;
+};
+
+
+// Useful SDL functions:
+//   const char *SDL_GetKeyName( SDL_Keycode key );
+//   const char *SDL_GetScancodeName( SDL_Scancode scancode );
+class Keybd
+{
+public:
+    Keybd() { clear(); }
+    ~Keybd() {}
+
+    // SDL_SCANCODE_A, SDL_SCANCODE_F1, etc
+    bool scancode_down( SDL_Scancode code );
+
+    // '0', 'a', SDLK_F1, SDLK_PAGEUP, SDLK_UP, etc
+    bool key_down( SDL_Keycode key );
+
+    // KMOD_CTRL, KMOD_SHIFT, KMOD_ALT mask, etc
+    SDL_Keymod mod_state();
+
+public:
+    // Called once per frame to update key states
+    void update();
+    void clear();
+
+    void print_status();
+
+public:
+    SDL_Keymod m_modstate = KMOD_NONE;
+
+    int m_keystate_cur = 0;
+    Uint8 m_keystate[ 2 ][ SDL_NUM_SCANCODES ];
 };
 
 #endif // _GPUVIS_UTILS_H

@@ -1112,6 +1112,71 @@ const std::string TextClrs::mstr( const std::string &str_in, ImU32 color )
     return set( buf, color ) + str_in + m_buf[ TClr_Def ];
 }
 
+void Keybd::update()
+{
+    int numkeys;
+    const Uint8 *keystate = SDL_GetKeyboardState( &numkeys );
+
+    m_modstate = SDL_GetModState();
+
+    m_keystate_cur ^= 1;
+    memcpy( m_keystate[ m_keystate_cur ], keystate, numkeys );
+}
+
+void Keybd::clear()
+{
+    m_modstate = KMOD_NONE;
+
+    memset( m_keystate[ 0 ], 0, sizeof( m_keystate[ 0 ] ) );
+    memset( m_keystate[ 1 ], 0, sizeof( m_keystate[ 1 ] ) );
+}
+
+// SDL_SCANCODE_A, SDL_SCANCODE_F1, etc
+bool Keybd::scancode_down( SDL_Scancode code )
+{
+    // Return true if the key is currently down and it wasn't previously
+    return m_keystate[ m_keystate_cur ][ code ] &&
+            !m_keystate[ m_keystate_cur ^ 1 ][ code ];
+}
+
+// '0', 'a', SDLK_F1, SDLK_PAGEUP, SDLK_UP, etc
+bool Keybd::key_down( SDL_Keycode key )
+{
+    SDL_Scancode code = SDL_GetScancodeFromKey( key );
+
+    return scancode_down( code );
+}
+
+SDL_Keymod Keybd::mod_state()
+{
+    // KMOD_CTRL, KMOD_SHIFT, KMOD_ALT, etc
+    return m_modstate;
+}
+
+void Keybd::print_status()
+{
+    std::string modstr;
+    SDL_Keymod mod = s_keybd().mod_state();
+
+    if ( mod & KMOD_CTRL )
+        modstr += "(ctrl)";
+    if ( mod & KMOD_ALT )
+        modstr += "(alt)";
+    if ( mod & KMOD_SHIFT )
+        modstr += "(shift)";
+
+    for ( SDL_Scancode code = SDL_SCANCODE_UNKNOWN; code <= SDL_SCANCODE_APP2; code = ( SDL_Scancode )( code + 1 ) )
+    {
+        if ( s_keybd().scancode_down( code ) )
+        {
+            const char *name = SDL_GetScancodeName( code );
+
+            printf( "%s '%s' key down\n", modstr.c_str(), name );
+        }
+    }
+
+}
+
 #if defined( WIN32 )
 
 #include <shlwapi.h>

@@ -83,6 +83,12 @@ TextClrs &s_textclrs()
     return s_textclrs;
 }
 
+Keybd &s_keybd()
+{
+    static Keybd s_keybd;
+    return s_keybd;
+}
+
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
 {
     bool ret = ImGui::Button( label );
@@ -3655,12 +3661,20 @@ int main( int argc, char **argv )
         {
             ImGui_ImplSdlGL3_ProcessEvent( &event );
 
-            if ( event.type == SDL_QUIT )
+            if ( ( event.type == SDL_WINDOWEVENT ) && ( event.window.event == SDL_WINDOWEVENT_FOCUS_LOST ) )
+                s_keybd().clear();
+            else if ( event.type == SDL_QUIT )
                 done = true;
         }
         bool use_freetype = s_opts().getb( OPT_UseFreetype );
         ImGui_ImplSdlGL3_NewFrame( window, &use_freetype );
         s_opts().setb( OPT_UseFreetype, use_freetype );
+
+        // Update keyboard state
+        s_keybd().update();
+#if 0
+        s_keybd().print_status();
+#endif
 
         // Check for logf() calls from background threads.
         logf_update();
