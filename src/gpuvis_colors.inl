@@ -32,7 +32,7 @@ _XTAG( col_BrightText, 0xffcca014, "Gpuvis bright text color" )
 
 // Event list colors
 _XTAG( col_EventList_Text, 0xffe6e6e6, "Event list text" )
-_XTAG( col_EventList_Sel, 0xd9aa00ff, "Event list selected text" )
+_XTAG( col_EventList_Sel, 0xff7a1822, "Event list selected text" )
 _XTAG( col_EventList_Hov, 0xff78490b, "Event list hovered graph events" )
 
 // Graph colors
