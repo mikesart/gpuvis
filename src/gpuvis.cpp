@@ -3519,7 +3519,7 @@ void TraceLoader::render_menu()
                 m_save_filename = get_realpath( filename.c_str() );
         }
 
-        if ( ImGui::MenuItem( "Quit" ) )
+        if ( ImGui::MenuItem( "Quit", "Ctrl+Q" ) )
         {
             SDL_Event event;
 
@@ -3545,6 +3545,14 @@ void TraceLoader::handle_hotkeys()
     {
         ImGui::SetWindowFocus( "GpuVis Help" );
         m_show_help = true;
+    }
+
+    if ( s_actions().get( action_quit ) )
+    {
+        SDL_Event event;
+
+        event.type = SDL_QUIT;
+        SDL_PushEvent( &event );
     }
 }
 

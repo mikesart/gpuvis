@@ -312,6 +312,10 @@ public:
 enum action_t
 {
     action_nil,
+
+    action_help,
+    action_quit,
+
     action_scroll_up,
     action_scroll_down,
     action_scroll_left,
@@ -343,8 +347,6 @@ enum action_t
 
     action_focus_graph,
     action_focus_eventlist,
-
-    action_help,
 
     action_max
 };

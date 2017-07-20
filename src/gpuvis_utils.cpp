@@ -1213,6 +1213,8 @@ void Actions::init()
     m_actionmap.push_back( { action_focus_eventlist, KMOD_CTRL | KMOD_SHIFT, SDLK_e, "Set focus to event list" } );
 
     m_actionmap.push_back( { action_help, KMOD_NONE, SDLK_F1, "Display help" } );
+
+    m_actionmap.push_back( { action_quit, KMOD_CTRL, SDLK_q, "Quit GpuVis" } );
 }
 
 void Actions::update()
