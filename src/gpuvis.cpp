@@ -2853,8 +2853,11 @@ void TraceWin::events_list_render()
                 events.size() : m_eventlist.filtered_events.size();
 
     // Set focus on event list first time we open.
-    if ( !m_inited && ImGui::IsWindowFocused() )
+    if ( s_actions().get( action_focus_eventlist ) ||
+         ( !m_inited && ImGui::IsWindowFocused() ) )
+    {
         ImGui::SetNextWindowFocus();
+    }
 
     // Events list
     {

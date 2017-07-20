@@ -341,6 +341,9 @@ enum action_t
     action_graph_restore_location4,
     action_graph_restore_location5,
 
+    action_focus_graph,
+    action_focus_eventlist,
+
     action_max
 };
 

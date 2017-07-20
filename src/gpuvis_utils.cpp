@@ -1208,6 +1208,9 @@ void Actions::init()
     m_actionmap.push_back( { action_graph_restore_location3, KMOD_CTRL, SDLK_3, "Restore graph location 3" } );
     m_actionmap.push_back( { action_graph_restore_location4, KMOD_CTRL, SDLK_4, "Restore graph location 4" } );
     m_actionmap.push_back( { action_graph_restore_location5, KMOD_CTRL, SDLK_5, "Restore graph location 5" } );
+
+    m_actionmap.push_back( { action_focus_graph, KMOD_CTRL | KMOD_SHIFT, SDLK_g, "Set focus to graph" } );
+    m_actionmap.push_back( { action_focus_eventlist, KMOD_CTRL | KMOD_SHIFT, SDLK_e, "Set focus to event list" } );
 }
 
 void Actions::update()

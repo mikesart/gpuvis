@@ -2026,6 +2026,9 @@ void TraceWin::graph_render()
     // Make sure ts start and length values are mostly sane
     graph_range_check_times();
 
+    if ( s_actions().get( action_focus_graph ) )
+        ImGui::SetNextWindowFocus();
+
     ImGui::BeginChild( "EventGraph", ImVec2( 0, gi.visible_graph_height ), true );
     {
         ImVec2 windowpos = ImVec2( ImGui::GetWindowClipRectMin().x, ImGui::GetWindowPos().y );
