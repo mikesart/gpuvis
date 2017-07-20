@@ -1185,6 +1185,26 @@ void Actions::init()
 
     m_actionmap.push_back( { action_scroll_home, KMOD_NONE, SDLK_HOME, "Scroll graph / event list home" } );
     m_actionmap.push_back( { action_scroll_end, KMOD_NONE, SDLK_END, "Scroll graph / event list end" } );
+
+    m_actionmap.push_back( { action_graph_zoom_row, KMOD_CTRL | KMOD_SHIFT, SDLK_z, "Zoom hovered graph row" } );
+    m_actionmap.push_back( { action_graph_zoom_mouse, KMOD_NONE, SDLK_z, "Zoom / unzoom mouse graph location" } );
+
+    m_actionmap.push_back( { action_graph_set_markerA, KMOD_CTRL | KMOD_SHIFT, SDLK_a, "Set graph marker A" } );
+    m_actionmap.push_back( { action_graph_set_markerB, KMOD_CTRL | KMOD_SHIFT, SDLK_b, "Set graph marker B" } );
+    m_actionmap.push_back( { action_graph_goto_markerA, KMOD_CTRL, SDLK_a, "Goto graph marker A" } );
+    m_actionmap.push_back( { action_graph_goto_markerB, KMOD_CTRL, SDLK_b, "Goto graph marker B" } );
+
+    m_actionmap.push_back( { action_graph_save_location1, KMOD_CTRL | KMOD_SHIFT, SDLK_1, "Save graph location 1" } );
+    m_actionmap.push_back( { action_graph_save_location2, KMOD_CTRL | KMOD_SHIFT, SDLK_2, "Save graph location 2" } );
+    m_actionmap.push_back( { action_graph_save_location3, KMOD_CTRL | KMOD_SHIFT, SDLK_3, "Save graph location 3" } );
+    m_actionmap.push_back( { action_graph_save_location4, KMOD_CTRL | KMOD_SHIFT, SDLK_4, "Save graph location 4" } );
+    m_actionmap.push_back( { action_graph_save_location5, KMOD_CTRL | KMOD_SHIFT, SDLK_5, "Save graph location 5" } );
+
+    m_actionmap.push_back( { action_graph_restore_location1, KMOD_CTRL, SDLK_1, "Restore graph location 1" } );
+    m_actionmap.push_back( { action_graph_restore_location2, KMOD_CTRL, SDLK_2, "Restore graph location 2" } );
+    m_actionmap.push_back( { action_graph_restore_location3, KMOD_CTRL, SDLK_3, "Restore graph location 3" } );
+    m_actionmap.push_back( { action_graph_restore_location4, KMOD_CTRL, SDLK_4, "Restore graph location 4" } );
+    m_actionmap.push_back( { action_graph_restore_location5, KMOD_CTRL, SDLK_5, "Restore graph location 5" } );
 }
 
 void Actions::update()
@@ -1219,6 +1239,11 @@ bool Actions::get( action_t action )
     }
 
     return false;
+}
+
+size_t Actions::count()
+{
+    return m_actions.size();
 }
 
 #if defined( WIN32 )

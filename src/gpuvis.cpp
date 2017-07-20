@@ -59,15 +59,6 @@
   #include "noc_file_dialog.h"
 #endif
 
-//$ TODO mikesart: replaces these with s_keybd()
-//   ImGui::IsKeyPressed( 'z' )
-//   ImGui::GetIO().KeyShift
-//   ImGui::GetIO().KeyCtrl
-//
-//   ImGui::IsMouseClicked( 0 )
-//   ImGui::IsMouseDoubleClicked( 0 )
-//   ImGui::IsMouseDown( 0 )
-
 CIniFile &s_ini()
 {
     static CIniFile s_inifile;
@@ -2163,6 +2154,8 @@ TraceWin::TraceWin( TraceLoader &loader, TraceEvents &trace_events, std::string 
         strcpy_safe( m_eventlist.filter_buf, event_filter.c_str() );
         m_eventlist.do_filter = true;
     }
+
+    m_graph.saved_locs.resize( action_graph_save_location5 - action_graph_save_location1 + 1 );
 }
 
 TraceWin::~TraceWin()
@@ -2752,7 +2745,7 @@ static float get_keyboard_scroll_lines( float visible_rows )
 {
     float scroll_lines = 0.0f;
 
-    if ( ImGui::IsWindowFocused() )
+    if ( ImGui::IsWindowFocused() && s_actions().count() )
     {
         if ( s_actions().get( action_scroll_pagedown ) )
             scroll_lines = std::max< float>( visible_rows - 5, 1 );

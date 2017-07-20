@@ -288,6 +288,10 @@ public:
     // '0', 'a', SDLK_F1, SDLK_PAGEUP, SDLK_UP, etc
     bool key_down( SDL_Keycode key );
 
+    bool ctrl_down() { return !!( m_modstate & KMOD_CTRL ); }
+    bool alt_down() { return !!( m_modstate & KMOD_ALT ); }
+    bool shift_down() { return !!( m_modstate & KMOD_SHIFT ); }
+
     // KMOD_CTRL, KMOD_SHIFT, KMOD_ALT mask, etc
     SDL_Keymod mod_state();
 
@@ -316,6 +320,26 @@ enum action_t
     action_scroll_pagedown,
     action_scroll_home,
     action_scroll_end,
+
+    action_graph_zoom_row,
+    action_graph_zoom_mouse,
+
+    action_graph_set_markerA,
+    action_graph_set_markerB,
+    action_graph_goto_markerA,
+    action_graph_goto_markerB,
+
+    action_graph_save_location1,
+    action_graph_save_location2,
+    action_graph_save_location3,
+    action_graph_save_location4,
+    action_graph_save_location5,
+
+    action_graph_restore_location1,
+    action_graph_restore_location2,
+    action_graph_restore_location3,
+    action_graph_restore_location4,
+    action_graph_restore_location5,
 };
 
 class Actions
@@ -327,6 +351,7 @@ public:
     void init();
     void update();
 
+    size_t count();
     bool get( action_t action );
 
 public:

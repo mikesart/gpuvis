@@ -1064,7 +1064,8 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
     uint32_t num_events = 0;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
-    bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) && !ImGui::GetIO().KeyAlt;
+    bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
+            !s_keybd().alt_down();
 
     uint32_t row_count = std::max< uint32_t >( 1, gi.h / gi.text_h - 1 );
 
@@ -1151,7 +1152,7 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
     ImRect hov_rect;
     ImU32 last_color = 0;
     float y = gi.y;
-    bool draw_label = !ImGui::GetIO().KeyAlt;
+    bool draw_label = !s_keybd().alt_down();
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
@@ -1252,7 +1253,8 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
     uint32_t timeline_row_count = gi.h / gi.text_h;
 
     bool render_timeline_events = s_opts().getb( OPT_TimelineEvents );
-    bool render_timeline_labels = s_opts().getb( OPT_TimelineLabels ) && !ImGui::GetIO().KeyAlt;
+    bool render_timeline_labels = s_opts().getb( OPT_TimelineLabels ) &&
+            !s_keybd().alt_down();
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -1817,60 +1819,20 @@ void TraceWin::zoom_graph_row()
 
 void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
 {
-    if ( m_graph.saved_locs.size() < 9 )
-        m_graph.saved_locs.resize( 9 );
+    // If there are no actions, bail.
+    if ( !s_actions().count() )
+        return;
 
-    if ( ImGui::GetIO().KeyCtrl )
+    if ( s_actions().get( action_graph_zoom_row ) )
     {
-        bool keyshift = ImGui::GetIO().KeyShift;
-
-        if ( keyshift && ImGui::IsKeyPressed( 'z' ) )
-        {
-            if ( !m_graph.zoom_row_name.empty() )
-                m_graph.zoom_row_name.clear();
-            else if ( is_graph_row_zoomable() )
-                zoom_graph_row();
-        }
-        else  if ( ImGui::IsKeyPressed( 'a' ) || ImGui::IsKeyPressed( 'b' ) )
-        {
-            int index = ImGui::IsKeyPressed( 'a' ) ? 0 : 1;
-
-            if ( keyshift )
-            {
-                graph_marker_set( index, m_graph.ts_marker_mouse );
-            }
-            else if ( graph_marker_valid( index ) )
-            {
-                m_graph.start_ts = m_graph.ts_markers[ index ] - m_graph.length_ts / 2;
-                m_graph.recalc_timebufs = true;
-            }
-        }
-        else
-        {
-            for ( int key = '1'; key <= '9'; key++ )
-            {
-                if ( ImGui::IsKeyPressed( key ) )
-                {
-                    int index = key - '1';
-
-                    if ( keyshift )
-                    {
-                        // ctrl+shift+#: save location
-                        m_graph.saved_locs[ index ] = std::make_pair( m_graph.start_ts, m_graph.length_ts );
-                    }
-                    else if ( m_graph.saved_locs[ index ].second )
-                    {
-                        // ctrl+#: goto location
-                        m_graph.start_ts = m_graph.saved_locs[ index ].first;
-                        m_graph.length_ts = m_graph.saved_locs[ index ].second;
-                        m_graph.recalc_timebufs = true;
-                    }
-                    break;
-                }
-            }
-        }
+        if ( !m_graph.zoom_row_name.empty() )
+            m_graph.zoom_row_name.clear();
+        else if ( is_graph_row_zoomable() )
+            zoom_graph_row();
     }
-    else if ( m_graph.has_focus && ImGui::IsKeyPressed( 'z' ) )
+
+    if ( m_graph.is_mouse_over &&
+         s_actions().get( action_graph_zoom_mouse ) )
     {
         if ( m_graph.zoom_loc.first != INT64_MAX )
         {
@@ -1890,11 +1852,62 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             graph_zoom( mouse_ts, gi.ts0, false, newlen );
         }
     }
+
+    if ( m_graph.has_focus )
+    {
+        bool gotoA = s_actions().get( action_graph_goto_markerA );
+        bool gotoB = s_actions().get( action_graph_goto_markerB );
+
+        if ( gotoA || gotoB )
+        {
+            int idx = gotoA ? 0 : 1;
+
+            if ( graph_marker_valid( idx ) )
+            {
+                m_graph.start_ts = m_graph.ts_markers[ idx ] - m_graph.length_ts / 2;
+                m_graph.recalc_timebufs = true;
+            }
+        }
+
+        if ( m_graph.is_mouse_over )
+        {
+            if ( s_actions().get( action_graph_set_markerA ) )
+                graph_marker_set( 0, m_graph.ts_marker_mouse );
+            if ( s_actions().get( action_graph_set_markerB ) )
+                graph_marker_set( 1, m_graph.ts_marker_mouse );
+        }
+    }
+
+    if ( m_graph.has_focus )
+    {
+        for ( int action = action_graph_save_location1; action <= action_graph_save_location5; action++ )
+        {
+            if ( s_actions().get( ( action_t )action ) )
+            {
+                int index = action - action_graph_save_location1;
+
+                m_graph.saved_locs[ index ] = std::make_pair( m_graph.start_ts, m_graph.length_ts );
+            }
+        }
+
+        for ( int action = action_graph_restore_location1; action <= action_graph_restore_location5; action++ )
+        {
+            int index = action - action_graph_restore_location1;
+
+            if ( m_graph.saved_locs[ index ].second && s_actions().get( ( action_t )action ) )
+            {
+                m_graph.start_ts = m_graph.saved_locs[ index ].first;
+                m_graph.length_ts = m_graph.saved_locs[ index ].second;
+                m_graph.recalc_timebufs = true;
+            }
+        }
+    }
 }
 
 void TraceWin::graph_handle_keyboard_scroll( graph_info_t &gi )
 {
-    if ( !m_graph.has_focus )
+    // If we don't have focus or there are no actions, bail
+    if ( !m_graph.has_focus || !s_actions().count() )
         return;
 
     int64_t start_ts = m_graph.start_ts + m_eventlist.tsoffset;
@@ -2142,6 +2155,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         auto &pair = m_graph.saved_locs[ i ];
         std::string start = ts_to_timestr( pair.first );
         std::string len = ts_to_timestr( pair.second );
+
         return string_format( "Start:%s Length:%s", start.c_str(), len.c_str() );
     };
 
@@ -2681,14 +2695,14 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
         // Check for clicking, wheeling, etc.
         if ( ImGui::IsMouseClicked( 0 ) )
         {
-            if ( ImGui::GetIO().KeyCtrl )
+            if ( s_keybd().ctrl_down() )
             {
                 // ctrl + click: select area
                 m_graph.mouse_captured = MOUSE_CAPTURED_SELECT_AREA;
                 ImGui::CaptureMouseFromApp( true );
                 m_graph.mouse_capture_pos = gi.mouse_pos;
             }
-            else if ( ImGui::GetIO().KeyShift )
+            else if ( s_keybd().shift_down() )
             {
                 // shift + click: zoom
                 m_graph.mouse_captured = MOUSE_CAPTURED_ZOOM;
