@@ -543,11 +543,6 @@ void imgui_set_scale( float val )
     g_scale = Clamp< float >( val, 0.25f, 6.0f );
 }
 
-bool imgui_key_pressed( ImGuiKey key )
-{
-    return ImGui::IsKeyPressed( ImGui::GetKeyIndex( key ) );
-}
-
 static colors_t col_index_from_imguicol( ImGuiCol col )
 {
     switch ( col )
@@ -1175,6 +1170,55 @@ void Keybd::print_status()
         }
     }
 
+}
+
+void Actions::init()
+{
+    m_actionmap.push_back( { action_scroll_up, KMOD_NONE, SDLK_UP, "Scroll graph / event list up" } );
+    m_actionmap.push_back( { action_scroll_down, KMOD_NONE, SDLK_DOWN, "Scroll graph / event list down" } );
+
+    m_actionmap.push_back( { action_scroll_left, KMOD_NONE, SDLK_LEFT, "Scroll graph / event list left" } );
+    m_actionmap.push_back( { action_scroll_right, KMOD_NONE, SDLK_RIGHT, "Scroll graph / event list right" } );
+
+    m_actionmap.push_back( { action_scroll_pageup, KMOD_NONE, SDLK_PAGEUP, "Page graph / event list up" } );
+    m_actionmap.push_back( { action_scroll_pagedown, KMOD_NONE, SDLK_PAGEDOWN, "Page graph / event list down" } );
+
+    m_actionmap.push_back( { action_scroll_home, KMOD_NONE, SDLK_HOME, "Scroll graph / event list home" } );
+    m_actionmap.push_back( { action_scroll_end, KMOD_NONE, SDLK_END, "Scroll graph / event list end" } );
+}
+
+void Actions::update()
+{
+    int modstate = 0;
+
+    if ( s_keybd().mod_state() & KMOD_CTRL )
+        modstate |= KMOD_CTRL;
+    if ( s_keybd().mod_state() & KMOD_SHIFT )
+        modstate |= KMOD_SHIFT;
+    if ( s_keybd().mod_state() & KMOD_ALT )
+        modstate |= KMOD_ALT;
+
+    m_actions.clear();
+
+    for ( const actionmap_t &map : m_actionmap )
+    {
+        if ( s_keybd().key_down( map.key ) && ( modstate == map.modstate ) )
+            m_actions.push_back( map.action );
+    }
+}
+
+bool Actions::get( action_t action )
+{
+    for ( size_t i = 0; i < m_actions.size(); i++ )
+    {
+        if ( m_actions[ i ] == action )
+        {
+            m_actions[ i ] = action_nil;
+            return true;
+        }
+    }
+
+    return false;
 }
 
 #if defined( WIN32 )

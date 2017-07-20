@@ -59,6 +59,15 @@
   #include "noc_file_dialog.h"
 #endif
 
+//$ TODO mikesart: replaces these with s_keybd()
+//   ImGui::IsKeyPressed( 'z' )
+//   ImGui::GetIO().KeyShift
+//   ImGui::GetIO().KeyCtrl
+//
+//   ImGui::IsMouseClicked( 0 )
+//   ImGui::IsMouseDoubleClicked( 0 )
+//   ImGui::IsMouseDown( 0 )
+
 CIniFile &s_ini()
 {
     static CIniFile s_inifile;
@@ -87,6 +96,12 @@ Keybd &s_keybd()
 {
     static Keybd s_keybd;
     return s_keybd;
+}
+
+Actions &s_actions()
+{
+    static Actions s_actions;
+    return s_actions;
 }
 
 static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
@@ -868,7 +883,7 @@ void TraceLoader::render_save_filename()
     // Cancel button (or escape key)
     ImGui::SameLine();
     if ( ImGui::Button( "Cancel", ImVec2( w / 3.0f, 0 ) ) ||
-         imgui_key_pressed( ImGuiKey_Escape ) )
+         s_keybd().key_down( SDLK_ESCAPE ) )
     {
         close_popup = true;
     }
@@ -2739,17 +2754,17 @@ static float get_keyboard_scroll_lines( float visible_rows )
 
     if ( ImGui::IsWindowFocused() )
     {
-        if ( imgui_key_pressed( ImGuiKey_PageDown ) )
+        if ( s_actions().get( action_scroll_pagedown ) )
             scroll_lines = std::max< float>( visible_rows - 5, 1 );
-        else if ( imgui_key_pressed( ImGuiKey_PageUp ) )
+        else if ( s_actions().get( action_scroll_pageup ) )
             scroll_lines = std::min< float >( -( visible_rows - 5), -1 );
-        else if ( imgui_key_pressed( ImGuiKey_DownArrow ) )
+        else if ( s_actions().get( action_scroll_down ) )
             scroll_lines = 1;
-        else if ( imgui_key_pressed( ImGuiKey_UpArrow ) )
+        else if ( s_actions().get( action_scroll_up ) )
             scroll_lines = -1;
-        else if ( imgui_key_pressed( ImGuiKey_Home ) )
+        else if ( s_actions().get( action_scroll_home ) )
             scroll_lines = -ImGui::GetScrollMaxY();
-        else if ( imgui_key_pressed( ImGuiKey_End ) )
+        else if ( s_actions().get( action_scroll_end ) )
             scroll_lines = ImGui::GetScrollMaxY();
     }
 
@@ -3611,6 +3626,9 @@ int main( int argc, char **argv )
     s_clrs().init();
     // Init opts singleton
     s_opts().init();
+    // Init actions singleton
+    s_actions().init();
+
     // Init loader
     loader.init( argc, argv );
     // Setup imgui default text color
@@ -3671,11 +3689,12 @@ int main( int argc, char **argv )
         ImGui_ImplSdlGL3_NewFrame( window, &use_freetype );
         s_opts().setb( OPT_UseFreetype, use_freetype );
 
-        // Update keyboard state
+        // Update keyboard state and actions
         s_keybd().update();
 #if 0
         s_keybd().print_status();
 #endif
+        s_actions().update();
 
         // Check for logf() calls from background threads.
         logf_update();

@@ -834,7 +834,7 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
         ImGui::PopStyleColor();
 
     ImGui::SameLine();
-    if ( ImGui::Button( "Cancel", button_size ) || imgui_key_pressed( ImGuiKey_Escape ) )
+    if ( ImGui::Button( "Cancel", button_size ) || s_keybd().key_down( SDLK_ESCAPE ) )
         ImGui::CloseCurrentPopup();
 
     ImGui::EndPopup();
@@ -1900,37 +1900,37 @@ void TraceWin::graph_handle_keyboard_scroll( graph_info_t &gi )
     int64_t start_ts = m_graph.start_ts + m_eventlist.tsoffset;
     const std::vector< trace_event_t > &events = m_trace_events.m_events;
 
-    if ( imgui_key_pressed( ImGuiKey_UpArrow ) )
+    if ( s_actions().get( action_scroll_up ) )
     {
         m_graph.start_y += ImGui::GetTextLineHeightWithSpacing() * 4;
     }
-    else if ( imgui_key_pressed( ImGuiKey_DownArrow ) )
+    else if ( s_actions().get( action_scroll_down ) )
     {
         m_graph.start_y -= ImGui::GetTextLineHeightWithSpacing() * 4;
     }
-    if ( imgui_key_pressed( ImGuiKey_PageUp ) )
+    else if ( s_actions().get( action_scroll_pageup ) )
     {
         m_graph.start_y += ( gi.h - ImGui::GetTextLineHeightWithSpacing() * 4 );
     }
-    else if ( imgui_key_pressed( ImGuiKey_PageDown ) )
+    else if ( s_actions().get( action_scroll_pagedown ) )
     {
         m_graph.start_y -= ( gi.h - ImGui::GetTextLineHeightWithSpacing() * 4 );
     }
-    else if ( imgui_key_pressed( ImGuiKey_LeftArrow ) )
+    else if ( s_actions().get( action_scroll_left ) )
     {
         start_ts = std::max< int64_t >( start_ts - 9 * m_graph.length_ts / 10,
                                         -NSECS_PER_MSEC );
     }
-    else if ( imgui_key_pressed( ImGuiKey_RightArrow ) )
+    else if ( s_actions().get( action_scroll_right ) )
     {
         start_ts = std::min< int64_t >( start_ts + 9 * m_graph.length_ts / 10,
                                         events.back().ts - m_graph.length_ts + NSECS_PER_MSEC );
     }
-    else if ( imgui_key_pressed( ImGuiKey_Home ) )
+    else if ( s_actions().get( action_scroll_home ) )
     {
         start_ts = events.front().ts - NSECS_PER_MSEC;
     }
-    else if ( imgui_key_pressed( ImGuiKey_End ) )
+    else if ( s_actions().get( action_scroll_end ) )
     {
         start_ts = events.back().ts - m_graph.length_ts + NSECS_PER_MSEC;
     }
@@ -2414,7 +2414,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
 {
     // Uncapture mouse if user hits escape
-    if ( m_graph.mouse_captured && imgui_key_pressed( ImGuiKey_Escape ) )
+    if ( m_graph.mouse_captured && s_keybd().key_down( SDLK_ESCAPE ) )
     {
         m_graph.mouse_captured = MOUSE_NOT_CAPTURED;
         ImGui::CaptureMouseFromApp( false );

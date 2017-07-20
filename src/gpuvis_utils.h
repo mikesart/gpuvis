@@ -32,6 +32,7 @@ CIniFile &s_ini();
 class Clrs &s_clrs();
 class TextClrs &s_textclrs();
 class Keybd &s_keybd();
+class Actions &s_actions();
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -76,7 +77,6 @@ uint32_t comp_abc_to_val( uint32_t a, uint32_t b, uint32_t c );
 
 float imgui_scale( float val );
 void imgui_set_scale( float val );
-bool imgui_key_pressed( ImGuiKey key );
 
 void imgui_set_custom_style( float alpha );
 
@@ -273,7 +273,6 @@ public:
     float m_a = 1.0f;
 };
 
-
 // Useful SDL functions:
 //   const char *SDL_GetKeyName( SDL_Keycode key );
 //   const char *SDL_GetScancodeName( SDL_Scancode scancode );
@@ -304,6 +303,43 @@ public:
 
     int m_keystate_cur = 0;
     Uint8 m_keystate[ 2 ][ SDL_NUM_SCANCODES ];
+};
+
+enum action_t
+{
+    action_nil,
+    action_scroll_up,
+    action_scroll_down,
+    action_scroll_left,
+    action_scroll_right,
+    action_scroll_pageup,
+    action_scroll_pagedown,
+    action_scroll_home,
+    action_scroll_end,
+};
+
+class Actions
+{
+public:
+    Actions() {}
+    ~Actions() {}
+
+    void init();
+    void update();
+
+    bool get( action_t action );
+
+public:
+    struct actionmap_t
+    {
+        action_t action;
+        int modstate;
+        SDL_Keycode key;
+        const char *desc;
+    };
+
+    std::vector< action_t > m_actions;
+    std::vector< actionmap_t > m_actionmap;
 };
 
 #endif // _GPUVIS_UTILS_H
