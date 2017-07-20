@@ -652,6 +652,8 @@ public:
     void render_save_filename();
     void render_menu();
 
+    void handle_hotkeys();
+
     void load_fonts();
 
     void get_window_pos( int &x, int &y, int &w, int &h );

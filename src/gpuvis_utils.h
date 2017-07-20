@@ -344,6 +344,8 @@ enum action_t
     action_focus_graph,
     action_focus_eventlist,
 
+    action_help,
+
     action_max
 };
 

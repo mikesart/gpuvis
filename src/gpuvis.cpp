@@ -1068,6 +1068,12 @@ void TraceLoader::render()
                 ImGui::Text( "%s: %s", s_textclrs().bright_str( s_text[ i ].keys ).c_str(), s_text[ i ].descr );
         }
 
+        if ( s_keybd().key_down( SDLK_ESCAPE ) )
+        {
+            m_show_help = false;
+            ImGui::CloseCurrentPopup();
+        }
+
         ImGui::EndPopup();
     }
 }
@@ -3123,7 +3129,7 @@ void TraceLoader::render_menu_options()
         ImGui::TextColored( s_clrs().getv4( col_BrightText ), "%s", "Windows" );
         ImGui::Indent();
 
-        if ( ImGui::MenuItem( "GpuVis Help" ) )
+        if ( ImGui::MenuItem( "GpuVis Help", "F1" ) )
         {
             ImGui::SetWindowFocus( "GpuVis Help" );
             m_show_help = true;
@@ -3533,6 +3539,15 @@ void TraceLoader::render_menu()
     ImGui::EndMenuBar();
 }
 
+void TraceLoader::handle_hotkeys()
+{
+    if ( s_actions().get( action_help ) )
+    {
+        ImGui::SetWindowFocus( "GpuVis Help" );
+        m_show_help = true;
+    }
+}
+
 void TraceLoader::parse_cmdline( int argc, char **argv )
 {
     static struct option long_opts[] =
@@ -3694,6 +3709,9 @@ int main( int argc, char **argv )
 
         // Check for logf() calls from background threads.
         logf_update();
+
+        // Handle global hotkeys
+        loader.handle_hotkeys();
 
         // Render trace windows
         loader.render();
