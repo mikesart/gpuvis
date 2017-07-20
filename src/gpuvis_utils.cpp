@@ -1174,6 +1174,9 @@ void Keybd::print_status()
 
 void Actions::init()
 {
+    m_action_count = 0;
+    memset( m_actions, 0, sizeof( m_actions ) );
+
     m_actionmap.push_back( { action_scroll_up, KMOD_NONE, SDLK_UP, "Scroll graph / event list up" } );
     m_actionmap.push_back( { action_scroll_down, KMOD_NONE, SDLK_DOWN, "Scroll graph / event list down" } );
 
@@ -1218,32 +1221,39 @@ void Actions::update()
     if ( s_keybd().mod_state() & KMOD_ALT )
         modstate |= KMOD_ALT;
 
-    m_actions.clear();
+    m_action_count = 0;
+    memset( m_actions, 0, sizeof( m_actions ) );
 
     for ( const actionmap_t &map : m_actionmap )
     {
         if ( s_keybd().key_down( map.key ) && ( modstate == map.modstate ) )
-            m_actions.push_back( map.action );
+        {
+            m_action_count++;
+            m_actions[ map.action ] = true;
+        }
     }
 }
 
 bool Actions::get( action_t action )
 {
-    for ( size_t i = 0; i < m_actions.size(); i++ )
+    if ( m_actions[ action ] )
     {
-        if ( m_actions[ i ] == action )
-        {
-            m_actions[ i ] = action_nil;
-            return true;
-        }
+        m_action_count--;
+        m_actions[ action ] = false;
+        return true;
     }
 
     return false;
 }
 
+bool Actions::peek( action_t action )
+{
+    return m_actions[ action ];
+}
+
 size_t Actions::count()
 {
-    return m_actions.size();
+    return m_action_count;
 }
 
 #if defined( WIN32 )

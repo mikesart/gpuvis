@@ -340,6 +340,8 @@ enum action_t
     action_graph_restore_location3,
     action_graph_restore_location4,
     action_graph_restore_location5,
+
+    action_max
 };
 
 class Actions
@@ -353,6 +355,7 @@ public:
 
     size_t count();
     bool get( action_t action );
+    bool peek( action_t action );
 
 public:
     struct actionmap_t
@@ -363,8 +366,10 @@ public:
         const char *desc;
     };
 
-    std::vector< action_t > m_actions;
     std::vector< actionmap_t > m_actionmap;
+
+    uint32_t m_action_count = 0;
+    bool m_actions[ action_max ];
 };
 
 #endif // _GPUVIS_UTILS_H
