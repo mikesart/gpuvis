@@ -1263,6 +1263,30 @@ size_t Actions::count()
     return m_action_count;
 }
 
+const std::string Actions::hotkey_str( action_t action )
+{
+    for ( const actionmap_t &map : m_actionmap )
+    {
+        if ( map.action == action )
+        {
+            std::string str;
+
+            if ( map.modstate & KMOD_CTRL )
+                str += "Ctrl+";
+            if ( map.modstate & KMOD_ALT )
+                str += "Alt+";
+            if ( map.modstate & KMOD_SHIFT )
+                str += "Shift+";
+
+            str += SDL_GetKeyName( map.key );
+
+            return str;
+        }
+    }
+
+    return "";
+}
+
 #if defined( WIN32 )
 
 #include <shlwapi.h>

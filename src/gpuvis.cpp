@@ -3129,7 +3129,7 @@ void TraceLoader::render_menu_options()
         ImGui::TextColored( s_clrs().getv4( col_BrightText ), "%s", "Windows" );
         ImGui::Indent();
 
-        if ( ImGui::MenuItem( "GpuVis Help", "F1" ) )
+        if ( ImGui::MenuItem( "GpuVis Help", s_actions().hotkey_str( action_help ).c_str() ) )
         {
             ImGui::SetWindowFocus( "GpuVis Help" );
             m_show_help = true;
@@ -3519,7 +3519,7 @@ void TraceLoader::render_menu()
                 m_save_filename = get_realpath( filename.c_str() );
         }
 
-        if ( ImGui::MenuItem( "Quit", "Ctrl+Q" ) )
+        if ( ImGui::MenuItem( "Quit", s_actions().hotkey_str( action_quit ).c_str() ) )
         {
             SDL_Event event;
 

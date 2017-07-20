@@ -364,6 +364,8 @@ public:
     bool get( action_t action );
     bool peek( action_t action );
 
+    const std::string hotkey_str( action_t action );
+
 public:
     struct actionmap_t
     {
