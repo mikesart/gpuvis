@@ -3496,7 +3496,7 @@ void TraceLoader::render_menu()
     if ( ImGui::BeginMenu( "File" ) )
     {
 #if defined( NOC_FILE_DIALOG_IMPLEMENTATION )
-        if ( ImGui::MenuItem( "Open Trace File..." ) )
+        if ( ImGui::MenuItem( "Open Trace File...", s_actions().hotkey_str( action_open ).c_str() ) )
         {
             const char *file = noc_file_dialog_open( NOC_FILE_DIALOG_OPEN,
                 "trace-cmd files (*.dat)\0*.dat\0", NULL, "trace.dat" );
@@ -3546,6 +3546,17 @@ void TraceLoader::handle_hotkeys()
         ImGui::SetWindowFocus( "GpuVis Help" );
         m_show_help = true;
     }
+
+#if defined( NOC_FILE_DIALOG_IMPLEMENTATION )
+    if ( s_actions().get( action_open ) )
+    {
+        const char *file = noc_file_dialog_open( NOC_FILE_DIALOG_OPEN,
+            "trace-cmd files (*.dat)\0*.dat\0", NULL, "trace.dat" );
+
+        if ( file && file[ 0 ] )
+            m_inputfiles.push_back( file );
+    }
+#endif
 
     if ( s_actions().get( action_quit ) )
     {

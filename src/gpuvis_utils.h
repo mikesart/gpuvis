@@ -314,6 +314,7 @@ enum action_t
     action_nil,
 
     action_help,
+    action_open,
     action_quit,
 
     action_scroll_up,
