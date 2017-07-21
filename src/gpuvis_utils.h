@@ -284,31 +284,17 @@ public:
     Keybd() { clear(); }
     ~Keybd() {}
 
-    // SDL_SCANCODE_A, SDL_SCANCODE_F1, etc
-    bool scancode_down( SDL_Scancode code );
-
-    // '0', 'a', SDLK_F1, SDLK_PAGEUP, SDLK_UP, etc
-    bool key_down( SDL_Keycode key );
-
-    bool ctrl_down() { return !!( m_modstate & KMOD_CTRL ); }
-    bool alt_down() { return !!( m_modstate & KMOD_ALT ); }
-    bool shift_down() { return !!( m_modstate & KMOD_SHIFT ); }
-
-    // KMOD_CTRL, KMOD_SHIFT, KMOD_ALT mask, etc
-    SDL_Keymod mod_state();
-
-public:
-    // Called once per frame to update key states
-    void update();
     void clear();
+    void update( const SDL_KeyboardEvent &key );
 
-    void print_status();
+    bool is_ctrl_down() { return !!( SDL_GetModState() & KMOD_CTRL ); }
+    bool is_alt_down() { return !!( SDL_GetModState() & KMOD_ALT ); }
+    bool is_shift_down() { return !!( SDL_GetModState() & KMOD_SHIFT ); }
+    bool is_escape_down() { return is_key_down( SDLK_ESCAPE ); }
+    bool is_key_down( SDL_Keycode key );
 
 public:
-    SDL_Keymod m_modstate = KMOD_NONE;
-
-    int m_keystate_cur = 0;
-    Uint8 m_keystate[ 2 ][ SDL_NUM_SCANCODES ];
+    uint32_t m_keystate[ SDL_NUM_SCANCODES ];
 };
 
 enum action_t
@@ -363,23 +349,26 @@ public:
     ~Actions() {}
 
     void init();
-    void update();
+    void clear();
 
-    size_t count();
     bool get( action_t action );
-    bool peek( action_t action );
+    size_t count() { return m_action_count; }
 
     const std::string hotkey_str( action_t action );
 
+    void keydown( SDL_Keycode keycode, uint32_t modstate, bool repeat );
+
 public:
+    // modstate actionmap bit for allowing repeating keys
+    #define KMOD_REPEAT 0x80000000
+
     struct actionmap_t
     {
         action_t action;
-        int modstate;
+        uint32_t modstate;
         SDL_Keycode key;
         const char *desc;
     };
-
     std::vector< actionmap_t > m_actionmap;
 
     uint32_t m_action_count = 0;

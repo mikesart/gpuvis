@@ -1122,75 +1122,36 @@ const std::string TextClrs::mstr( const std::string &str_in, ImU32 color )
     return set( buf, color ) + str_in + m_buf[ TClr_Def ];
 }
 
-void Keybd::update()
+void Keybd::update( const SDL_KeyboardEvent &key )
 {
-    int numkeys;
-    const Uint8 *keystate = SDL_GetKeyboardState( &numkeys );
+    if ( key.type == SDL_KEYDOWN )
+    {
+        // Mark keystate as down w/ mod state
+        m_keystate[ key.keysym.scancode ] = 0x80000000 | key.keysym.mod;
 
-    m_modstate = SDL_GetModState();
-
-    m_keystate_cur ^= 1;
-    memcpy( m_keystate[ m_keystate_cur ], keystate, numkeys );
+        // Tell action handler we got a keydown
+        s_actions().keydown( key.keysym.sym, key.keysym.mod, !!key.repeat );
+    }
+    else if ( key.type == SDL_KEYUP )
+    {
+        // Clear key state
+        m_keystate[ key.keysym.scancode ] = 0;
+    }
 }
 
 void Keybd::clear()
 {
-    m_modstate = KMOD_NONE;
-
-    memset( m_keystate[ 0 ], 0, sizeof( m_keystate[ 0 ] ) );
-    memset( m_keystate[ 1 ], 0, sizeof( m_keystate[ 1 ] ) );
+    memset( m_keystate, 0, sizeof( m_keystate ) );
 }
 
-// SDL_SCANCODE_A, SDL_SCANCODE_F1, etc
-bool Keybd::scancode_down( SDL_Scancode code )
+bool Keybd::is_key_down( SDL_Keycode key )
 {
-    // Return true if the key is currently down and it wasn't previously
-    return m_keystate[ m_keystate_cur ][ code ] &&
-            !m_keystate[ m_keystate_cur ^ 1 ][ code ];
-}
-
-// '0', 'a', SDLK_F1, SDLK_PAGEUP, SDLK_UP, etc
-bool Keybd::key_down( SDL_Keycode key )
-{
-    SDL_Scancode code = SDL_GetScancodeFromKey( key );
-
-    return scancode_down( code );
-}
-
-SDL_Keymod Keybd::mod_state()
-{
-    // KMOD_CTRL, KMOD_SHIFT, KMOD_ALT, etc
-    return m_modstate;
-}
-
-void Keybd::print_status()
-{
-    std::string modstr;
-    SDL_Keymod mod = s_keybd().mod_state();
-
-    if ( mod & KMOD_CTRL )
-        modstr += "(ctrl)";
-    if ( mod & KMOD_ALT )
-        modstr += "(alt)";
-    if ( mod & KMOD_SHIFT )
-        modstr += "(shift)";
-
-    for ( SDL_Scancode code = SDL_SCANCODE_UNKNOWN; code <= SDL_SCANCODE_APP2; code = ( SDL_Scancode )( code + 1 ) )
-    {
-        if ( s_keybd().scancode_down( code ) )
-        {
-            const char *name = SDL_GetScancodeName( code );
-
-            printf( "%s '%s' key down\n", modstr.c_str(), name );
-        }
-    }
-
+    return !!m_keystate[ SDL_GetScancodeFromKey( key ) ];
 }
 
 void Actions::init()
 {
-    m_action_count = 0;
-    memset( m_actions, 0, sizeof( m_actions ) );
+    clear();
 
     m_actionmap.push_back( { action_help, KMOD_NONE, SDLK_F1, "Display help" } );
 #if defined( USE_GTK3 ) || defined( WIN32 )
@@ -1200,7 +1161,7 @@ void Actions::init()
     m_actionmap.push_back( { action_menu_options, KMOD_ALT, SDLK_o, "Display Options Menu" } );
     m_actionmap.push_back( { action_quit, KMOD_CTRL, SDLK_q, "Quit GpuVis" } );
 
-    m_actionmap.push_back( { action_focus_graph, KMOD_CTRL | KMOD_SHIFT, SDLK_g, "Set focus to graph" } );
+    m_actionmap.push_back( { action_focus_graph, KMOD_CTRL | KMOD_SHIFT, SDLK_g, "Set focus to events graph" } );
     m_actionmap.push_back( { action_focus_eventlist, KMOD_CTRL | KMOD_SHIFT, SDLK_e, "Set focus to event list" } );
 
     m_actionmap.push_back( { action_graph_zoom_row, KMOD_CTRL | KMOD_SHIFT, SDLK_z, "Toggle hovered graph row timeline fullscreen" } );
@@ -1223,36 +1184,43 @@ void Actions::init()
     m_actionmap.push_back( { action_graph_restore_location4, KMOD_CTRL, SDLK_4, "Restore graph location 4" } );
     m_actionmap.push_back( { action_graph_restore_location5, KMOD_CTRL, SDLK_5, "Restore graph location 5" } );
 
-    m_actionmap.push_back( { action_scroll_up, KMOD_NONE, SDLK_UP, "Scroll graph / event list up" } );
-    m_actionmap.push_back( { action_scroll_down, KMOD_NONE, SDLK_DOWN, "Scroll graph / event list down" } );
+    m_actionmap.push_back( { action_scroll_up, KMOD_REPEAT, SDLK_UP, "Scroll graph / event list up" } );
+    m_actionmap.push_back( { action_scroll_down, KMOD_REPEAT, SDLK_DOWN, "Scroll graph / event list down" } );
 
-    m_actionmap.push_back( { action_scroll_left, KMOD_NONE, SDLK_LEFT, "Scroll graph / event list left" } );
-    m_actionmap.push_back( { action_scroll_right, KMOD_NONE, SDLK_RIGHT, "Scroll graph / event list right" } );
+    m_actionmap.push_back( { action_scroll_left, KMOD_REPEAT, SDLK_LEFT, "Scroll graph / event list left" } );
+    m_actionmap.push_back( { action_scroll_right, KMOD_REPEAT, SDLK_RIGHT, "Scroll graph / event list right" } );
 
-    m_actionmap.push_back( { action_scroll_pageup, KMOD_NONE, SDLK_PAGEUP, "Page graph / event list up" } );
-    m_actionmap.push_back( { action_scroll_pagedown, KMOD_NONE, SDLK_PAGEDOWN, "Page graph / event list down" } );
+    m_actionmap.push_back( { action_scroll_pageup, KMOD_REPEAT, SDLK_PAGEUP, "Page graph / event list up" } );
+    m_actionmap.push_back( { action_scroll_pagedown, KMOD_REPEAT, SDLK_PAGEDOWN, "Page graph / event list down" } );
 
     m_actionmap.push_back( { action_scroll_home, KMOD_NONE, SDLK_HOME, "Scroll graph / event list to start" } );
     m_actionmap.push_back( { action_scroll_end, KMOD_NONE, SDLK_END, "Scroll graph / event list to end" } );
 }
 
-void Actions::update()
+void Actions::clear()
 {
-    int modstate = 0;
-
-    if ( s_keybd().mod_state() & KMOD_CTRL )
-        modstate |= KMOD_CTRL;
-    if ( s_keybd().mod_state() & KMOD_SHIFT )
-        modstate |= KMOD_SHIFT;
-    if ( s_keybd().mod_state() & KMOD_ALT )
-        modstate |= KMOD_ALT;
-
     m_action_count = 0;
     memset( m_actions, 0, sizeof( m_actions ) );
+}
+
+void Actions::keydown( SDL_Keycode keycode, uint32_t modstate, bool repeat )
+{
+    if ( modstate & KMOD_CTRL )
+        modstate |= KMOD_CTRL;
+    if ( modstate & KMOD_ALT )
+        modstate |= KMOD_ALT;
+    if ( modstate & KMOD_SHIFT )
+        modstate |= KMOD_SHIFT;
 
     for ( const actionmap_t &map : m_actionmap )
     {
-        if ( s_keybd().key_down( map.key ) && ( modstate == map.modstate ) )
+        // If this is a repeat key and the action handler doesn't have bit set, bail
+        if ( repeat && !( map.modstate & KMOD_REPEAT ) )
+            continue;
+
+        if ( !m_actions[ map.action ] &&
+             ( map.key == keycode ) &&
+             ( ( map.modstate & ~KMOD_REPEAT ) == modstate ) )
         {
             m_action_count++;
             m_actions[ map.action ] = true;
@@ -1270,16 +1238,6 @@ bool Actions::get( action_t action )
     }
 
     return false;
-}
-
-bool Actions::peek( action_t action )
-{
-    return m_actions[ action ];
-}
-
-size_t Actions::count()
-{
-    return m_action_count;
 }
 
 const std::string Actions::hotkey_str( action_t action )

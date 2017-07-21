@@ -874,7 +874,7 @@ void TraceLoader::render_save_filename()
     // Cancel button (or escape key)
     ImGui::SameLine();
     if ( ImGui::Button( "Cancel", ImVec2( w / 3.0f, 0 ) ) ||
-         s_keybd().key_down( SDLK_ESCAPE ) )
+         s_keybd().is_escape_down() )
     {
         close_popup = true;
     }
@@ -1045,7 +1045,7 @@ void TraceLoader::render()
 
         ImGui::EndColumns();
 
-        if ( s_keybd().key_down( SDLK_ESCAPE ) )
+        if ( s_keybd().is_escape_down() )
         {
             m_show_help = false;
             ImGui::CloseCurrentPopup();
@@ -3096,7 +3096,7 @@ void TraceWin::events_list_render()
 
 void TraceLoader::render_menu_options()
 {
-    if ( s_keybd().key_down( SDLK_ESCAPE ) )
+    if ( s_keybd().is_escape_down() )
         ImGui::CloseCurrentPopup();
 
     {
@@ -3482,7 +3482,7 @@ void TraceLoader::render_menu( const char *str_id )
 
     if ( ImGui::BeginMenu( "File" ) )
     {
-        if ( s_keybd().key_down( SDLK_ESCAPE ) )
+        if ( s_keybd().is_escape_down() )
             ImGui::CloseCurrentPopup();
 
 #if defined( NOC_FILE_DIALOG_IMPLEMENTATION )
@@ -3690,6 +3690,9 @@ int main( int argc, char **argv )
     {
         SDL_Event event;
 
+        // Clear keyboard actions.
+        s_actions().clear();
+
         if ( mouse_cursor != ImGui::GetMouseCursor() )
         {
             mouse_cursor = ImGui::GetMouseCursor();
@@ -3702,21 +3705,17 @@ int main( int argc, char **argv )
         {
             ImGui_ImplSdlGL3_ProcessEvent( &event );
 
-            if ( ( event.type == SDL_WINDOWEVENT ) && ( event.window.event == SDL_WINDOWEVENT_FOCUS_LOST ) )
+            if ( ( event.type == SDL_KEYDOWN ) || ( event.type == SDL_KEYUP ) )
+                s_keybd().update( event.key );
+            else if ( ( event.type == SDL_WINDOWEVENT ) && ( event.window.event == SDL_WINDOWEVENT_FOCUS_LOST ) )
                 s_keybd().clear();
             else if ( event.type == SDL_QUIT )
                 done = true;
         }
+
         bool use_freetype = s_opts().getb( OPT_UseFreetype );
         ImGui_ImplSdlGL3_NewFrame( window, &use_freetype );
         s_opts().setb( OPT_UseFreetype, use_freetype );
-
-        // Update keyboard state and actions
-        s_keybd().update();
-#if 0
-        s_keybd().print_status();
-#endif
-        s_actions().update();
 
         // Check for logf() calls from background threads.
         logf_update();

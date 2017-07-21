@@ -834,7 +834,7 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
         ImGui::PopStyleColor();
 
     ImGui::SameLine();
-    if ( ImGui::Button( "Cancel", button_size ) || s_keybd().key_down( SDLK_ESCAPE ) )
+    if ( ImGui::Button( "Cancel", button_size ) || s_keybd().is_escape_down() )
         ImGui::CloseCurrentPopup();
 
     ImGui::EndPopup();
@@ -1065,7 +1065,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     uint32_t num_events = 0;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
-            !s_keybd().alt_down();
+            !s_keybd().is_alt_down();
 
     uint32_t row_count = std::max< uint32_t >( 1, gi.h / gi.text_h - 1 );
 
@@ -1152,7 +1152,7 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
     ImRect hov_rect;
     ImU32 last_color = 0;
     float y = gi.y;
-    bool draw_label = !s_keybd().alt_down();
+    bool draw_label = !s_keybd().is_alt_down();
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
@@ -1254,7 +1254,7 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
 
     bool render_timeline_events = s_opts().getb( OPT_TimelineEvents );
     bool render_timeline_labels = s_opts().getb( OPT_TimelineLabels ) &&
-            !s_keybd().alt_down();
+            !s_keybd().is_alt_down();
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -2431,7 +2431,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
 {
     // Uncapture mouse if user hits escape
-    if ( m_graph.mouse_captured && s_keybd().key_down( SDLK_ESCAPE ) )
+    if ( m_graph.mouse_captured && s_keybd().is_escape_down() )
     {
         m_graph.mouse_captured = MOUSE_NOT_CAPTURED;
         ImGui::CaptureMouseFromApp( false );
@@ -2698,14 +2698,14 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
         // Check for clicking, wheeling, etc.
         if ( ImGui::IsMouseClicked( 0 ) )
         {
-            if ( s_keybd().ctrl_down() )
+            if ( s_keybd().is_ctrl_down() )
             {
                 // ctrl + click: select area
                 m_graph.mouse_captured = MOUSE_CAPTURED_SELECT_AREA;
                 ImGui::CaptureMouseFromApp( true );
                 m_graph.mouse_capture_pos = gi.mouse_pos;
             }
-            else if ( s_keybd().shift_down() )
+            else if ( s_keybd().is_shift_down() )
             {
                 // shift + click: zoom
                 m_graph.mouse_captured = MOUSE_CAPTURED_ZOOM;
