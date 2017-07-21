@@ -1177,20 +1177,19 @@ void Actions::init()
     m_action_count = 0;
     memset( m_actions, 0, sizeof( m_actions ) );
 
-    m_actionmap.push_back( { action_scroll_up, KMOD_NONE, SDLK_UP, "Scroll graph / event list up" } );
-    m_actionmap.push_back( { action_scroll_down, KMOD_NONE, SDLK_DOWN, "Scroll graph / event list down" } );
+    m_actionmap.push_back( { action_help, KMOD_NONE, SDLK_F1, "Display help" } );
+#if defined( USE_GTK3 ) || defined( WIN32 )
+    m_actionmap.push_back( { action_open, KMOD_CTRL | KMOD_SHIFT, SDLK_o, "Display Open Trace File dialog" } );
+#endif
+    m_actionmap.push_back( { action_menu_file, KMOD_ALT, SDLK_f, "Display File Menu" } );
+    m_actionmap.push_back( { action_menu_options, KMOD_ALT, SDLK_o, "Display Options Menu" } );
+    m_actionmap.push_back( { action_quit, KMOD_CTRL, SDLK_q, "Quit GpuVis" } );
 
-    m_actionmap.push_back( { action_scroll_left, KMOD_NONE, SDLK_LEFT, "Scroll graph / event list left" } );
-    m_actionmap.push_back( { action_scroll_right, KMOD_NONE, SDLK_RIGHT, "Scroll graph / event list right" } );
+    m_actionmap.push_back( { action_focus_graph, KMOD_CTRL | KMOD_SHIFT, SDLK_g, "Set focus to graph" } );
+    m_actionmap.push_back( { action_focus_eventlist, KMOD_CTRL | KMOD_SHIFT, SDLK_e, "Set focus to event list" } );
 
-    m_actionmap.push_back( { action_scroll_pageup, KMOD_NONE, SDLK_PAGEUP, "Page graph / event list up" } );
-    m_actionmap.push_back( { action_scroll_pagedown, KMOD_NONE, SDLK_PAGEDOWN, "Page graph / event list down" } );
-
-    m_actionmap.push_back( { action_scroll_home, KMOD_NONE, SDLK_HOME, "Scroll graph / event list home" } );
-    m_actionmap.push_back( { action_scroll_end, KMOD_NONE, SDLK_END, "Scroll graph / event list end" } );
-
-    m_actionmap.push_back( { action_graph_zoom_row, KMOD_CTRL | KMOD_SHIFT, SDLK_z, "Zoom hovered graph row" } );
-    m_actionmap.push_back( { action_graph_zoom_mouse, KMOD_NONE, SDLK_z, "Zoom / unzoom mouse graph location" } );
+    m_actionmap.push_back( { action_graph_zoom_row, KMOD_CTRL | KMOD_SHIFT, SDLK_z, "Toggle hovered graph row timeline fullscreen" } );
+    m_actionmap.push_back( { action_graph_zoom_mouse, KMOD_NONE, SDLK_z, "Toggle hovered graph location zoom to 3ms / restore pre-zoom" } );
 
     m_actionmap.push_back( { action_graph_set_markerA, KMOD_CTRL | KMOD_SHIFT, SDLK_a, "Set graph marker A" } );
     m_actionmap.push_back( { action_graph_set_markerB, KMOD_CTRL | KMOD_SHIFT, SDLK_b, "Set graph marker B" } );
@@ -1209,17 +1208,17 @@ void Actions::init()
     m_actionmap.push_back( { action_graph_restore_location4, KMOD_CTRL, SDLK_4, "Restore graph location 4" } );
     m_actionmap.push_back( { action_graph_restore_location5, KMOD_CTRL, SDLK_5, "Restore graph location 5" } );
 
-    m_actionmap.push_back( { action_focus_graph, KMOD_CTRL | KMOD_SHIFT, SDLK_g, "Set focus to graph" } );
-    m_actionmap.push_back( { action_focus_eventlist, KMOD_CTRL | KMOD_SHIFT, SDLK_e, "Set focus to event list" } );
+    m_actionmap.push_back( { action_scroll_up, KMOD_NONE, SDLK_UP, "Scroll graph / event list up" } );
+    m_actionmap.push_back( { action_scroll_down, KMOD_NONE, SDLK_DOWN, "Scroll graph / event list down" } );
 
-    m_actionmap.push_back( { action_help, KMOD_NONE, SDLK_F1, "Display help" } );
-#if defined( USE_GTK3 ) || defined( WIN32 )
-    m_actionmap.push_back( { action_open, KMOD_CTRL | KMOD_SHIFT, SDLK_o, "Display Open Trace File dialog" } );
-#endif
-    m_actionmap.push_back( { action_quit, KMOD_CTRL, SDLK_q, "Quit GpuVis" } );
+    m_actionmap.push_back( { action_scroll_left, KMOD_NONE, SDLK_LEFT, "Scroll graph / event list left" } );
+    m_actionmap.push_back( { action_scroll_right, KMOD_NONE, SDLK_RIGHT, "Scroll graph / event list right" } );
 
-    m_actionmap.push_back( { action_menu_file, KMOD_ALT, SDLK_f, "File Menu" } );
-    m_actionmap.push_back( { action_menu_options, KMOD_ALT, SDLK_o, "Options Menu" } );
+    m_actionmap.push_back( { action_scroll_pageup, KMOD_NONE, SDLK_PAGEUP, "Page graph / event list up" } );
+    m_actionmap.push_back( { action_scroll_pagedown, KMOD_NONE, SDLK_PAGEDOWN, "Page graph / event list down" } );
+
+    m_actionmap.push_back( { action_scroll_home, KMOD_NONE, SDLK_HOME, "Scroll graph / event list to start" } );
+    m_actionmap.push_back( { action_scroll_end, KMOD_NONE, SDLK_END, "Scroll graph / event list to end" } );
 }
 
 void Actions::update()

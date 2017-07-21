@@ -1026,47 +1026,24 @@ void TraceLoader::render()
         ImGui::OpenPopup( "GpuVis Help" );
     if ( ImGui::BeginPopupModal( "GpuVis Help", &m_show_help, ImGuiWindowFlags_AlwaysAutoResize ) )
     {
-        static const struct
-        {
-            const char *keys;
-            const char *descr;
-        } s_text[] =
-        {
-            { "Up arrow", "pan graph up" },
-            { "Down arrow", "pan graph down" },
-            { "Left arrow", "pan graph left" },
-            { "Right arrow", "pan graph right" },
-            { "Home", "move to start of graph" },
-            { "End", "move to end of graph" },
-            { NULL, NULL },
-            { "shift + click + drag", "zoom to mouse selection on release ('z' restores location)" },
-            { "ctrl + click + drag", "select area to see time" },
-            { "click + drag", "pan graph" },
-            { "alt key", "hide all graph labels" },
-            { NULL, NULL },
-            { "z", "zoom graph to 3ms / restore pre-zoom graph location" },
-            { "ctrl + shift + z", "toggle displaying hovered row timeline fullscreen" },
-            { NULL, NULL },
-            { "ctrl + shift + a", "set marker A" },
-            { "ctrl + shift + b", "set marker B" },
-            { "ctrl + a", "center marker A" },
-            { "ctrl + b", "center marker B" },
-            { NULL, NULL },
-            { "ctrl + shift + 1..9", "save location" },
-            { "Ctrl + 1..9", "restore location" },
-            { NULL, NULL },
-            { "event list double click", "center selected event in graph" },
-            { NULL, NULL },
-            { "ctrl + click on ImGui sliders", "edit ImGui value with keyboard" },
-        };
+        if ( imgui_begin_columns( "cpu_stats", { "Hotkey", "Description" } ) )
+            ImGui::SetColumnWidth( 0, imgui_scale( 170.0f ) );
 
-        for ( size_t i = 0; i < ARRAY_SIZE( s_text ); i++ )
+        for ( const Actions::actionmap_t &map : s_actions().m_actionmap )
         {
-            if ( !s_text[ i ].keys )
-                ImGui::NewLine();
-            else
-                ImGui::Text( "%s: %s", s_textclrs().bright_str( s_text[ i ].keys ).c_str(), s_text[ i ].descr );
+            std::string hotkey = s_actions().hotkey_str( map.action );
+
+            ImGui::Text( "%s", s_textclrs().bright_str( hotkey ).c_str() );
+            ImGui::NextColumn();
+
+            //$ TODO mikesart: Last chars of description were getting truncated, so add trailing spaces
+            ImGui::Text( "%s  ", map.desc );
+            ImGui::NextColumn();
+
+            ImGui::Separator();
         }
+
+        ImGui::EndColumns();
 
         if ( s_keybd().key_down( SDLK_ESCAPE ) )
         {
