@@ -2211,7 +2211,7 @@ bool TraceWin::render()
 
     ImGui::Begin( m_title.c_str(), &m_open, ImGuiWindowFlags_MenuBar );
 
-    m_loader.render_menu();
+    m_loader.render_menu( "menu_tracewin" );
 
     if ( m_trace_events.m_events.empty() )
     {
@@ -3125,6 +3125,9 @@ void TraceWin::events_list_render()
 
 void TraceLoader::render_menu_options()
 {
+    if ( s_keybd().key_down( SDLK_ESCAPE ) )
+        ImGui::CloseCurrentPopup();
+
     {
         ImGui::TextColored( s_clrs().getv4( col_BrightText ), "%s", "Windows" );
         ImGui::Indent();
@@ -3478,7 +3481,7 @@ void TraceLoader::render_console()
         return;
     }
 
-    render_menu();
+    render_menu( "menu_console" );
 
     ImGui::Text( "%.2f ms/frame (%.1f FPS)",
                  1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
@@ -3488,13 +3491,29 @@ void TraceLoader::render_console()
     ImGui::End();
 }
 
-void TraceLoader::render_menu()
+void TraceLoader::render_menu( const char *str_id )
 {
+    ImGui::PushID( str_id );
+
     if ( !ImGui::BeginMenuBar() )
+    {
+        ImGui::PopID();
         return;
+    }
+
+    if ( ImGui::IsRootWindowOrAnyChildFocused() )
+    {
+        if ( s_actions().get( action_menu_file ) )
+            ImGui::OpenPopup( "File" );
+        else if ( s_actions().get( action_menu_options ) )
+            ImGui::OpenPopup( "Options" );
+    }
 
     if ( ImGui::BeginMenu( "File" ) )
     {
+        if ( s_keybd().key_down( SDLK_ESCAPE ) )
+            ImGui::CloseCurrentPopup();
+
 #if defined( NOC_FILE_DIALOG_IMPLEMENTATION )
         if ( ImGui::MenuItem( "Open Trace File...", s_actions().hotkey_str( action_open ).c_str() ) )
         {
@@ -3537,6 +3556,8 @@ void TraceLoader::render_menu()
     }
 
     ImGui::EndMenuBar();
+
+    ImGui::PopID();
 }
 
 void TraceLoader::handle_hotkeys()

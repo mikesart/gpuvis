@@ -650,7 +650,7 @@ public:
 
     void render();
     void render_save_filename();
-    void render_menu();
+    void render_menu( const char *str_id );
 
     void handle_hotkeys();
 

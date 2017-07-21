@@ -316,6 +316,8 @@ enum action_t
     action_help,
     action_open,
     action_quit,
+    action_menu_file,
+    action_menu_options,
 
     action_scroll_up,
     action_scroll_down,
