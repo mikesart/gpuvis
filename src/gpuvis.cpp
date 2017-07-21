@@ -2677,12 +2677,12 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
         }
     }
 
-    const char *plot_str = CreatePlotDlg::get_plot_str( event );
-    if ( plot_str )
+    const std::string plot_str = CreatePlotDlg::get_plot_str( event );
+    if ( !plot_str.empty() )
     {
         ImGui::Separator();
 
-        std::string plot_label = std::string( "Create Plot for " ) + s_textclrs().bright_str( plot_str );
+        std::string plot_label = std::string( "Create Plot for " ) + plot_str;
         if ( ImGui::MenuItem( plot_label.c_str() ) )
             m_create_plot_eventid = event.id;
     }

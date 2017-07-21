@@ -660,17 +660,21 @@ static size_t str_get_digit_loc( const char *str )
     return 0;
 }
 
-const char *CreatePlotDlg::get_plot_str( const trace_event_t &event )
+const std::string CreatePlotDlg::get_plot_str( const trace_event_t &event )
 {
     if ( event.is_ftrace_print() )
     {
         const char *buf = get_event_field_val( event, "buf" );
 
         if ( str_get_digit_loc( buf ) )
-            return buf;
+            return s_textclrs().bright_str( buf ) + "...";
+    }
+    else if ( event.duration != ( uint32_t )-1 )
+    {
+        return s_textclrs().bright_str( event.name ) + " duration...";
     }
 
-    return NULL;
+    return "";
 }
 
 bool CreatePlotDlg::init( TraceEvents &trace_events, uint32_t eventid )
@@ -682,13 +686,16 @@ bool CreatePlotDlg::init( TraceEvents &trace_events, uint32_t eventid )
         return false;
 
     const trace_event_t &event = trace_events.m_events[ eventid ];
-    const char *buf = get_event_field_val( event, "buf" );
-    size_t digit_loc = str_get_digit_loc( buf );
 
-    m_plot_buf = buf;
-    m_plot_err_str.clear();
+    if ( event.is_ftrace_print() )
+    {
+        const char *buf = get_event_field_val( event, "buf" );
+        size_t digit_loc = str_get_digit_loc( buf );
 
-    /*
+        m_plot_buf = buf;
+        m_plot_err_str.clear();
+
+        /*
            [Compositor] NewFrame idx=2776
            [Compositor Client] WaitGetPoses End ThreadId=5125
            [Compositor] frameTimeout( 27 ms )
@@ -699,33 +706,45 @@ bool CreatePlotDlg::init( TraceEvents &trace_events, uint32_t eventid )
            [Compositor] Re-predicting( -28.942781 ms )
            [Compositor] TimeSinceLastVSync: 0.076272(79975)
         */
-    if ( digit_loc )
-    {
-        std::string shortstr;
-        std::string fullstr = string_ltrimmed( std::string( buf, digit_loc ) );
-
-        // Skip the [Blah blah] section for the plot name
-        if ( fullstr[ 0 ] == '[' )
+        if ( digit_loc )
         {
-            char *right_bracket = strchr( &fullstr[ 0 ], ']' );
+            std::string shortstr;
+            std::string fullstr = string_ltrimmed( std::string( buf, digit_loc ) );
 
-            if ( right_bracket )
-                shortstr = std::string( right_bracket + 1 );
+            // Skip the [Blah blah] section for the plot name
+            if ( fullstr[ 0 ] == '[' )
+            {
+                char *right_bracket = strchr( &fullstr[ 0 ], ']' );
+
+                if ( right_bracket )
+                    shortstr = std::string( right_bracket + 1 );
+            }
+            if ( shortstr.empty() )
+                shortstr = fullstr;
+
+            std::string namestr = string_trimmed( string_remove_punct( shortstr ) );
+            strcpy_safe( m_plot_name_buf, namestr.c_str() );
+
+            std::string filter_str = string_format( "$buf =~ \"%s\"", fullstr.c_str() );
+            strcpy_safe( m_plot_filter_buf, filter_str.c_str() );
+
+            fullstr += "%f";
+            strcpy_safe( m_plot_scanf_buf, fullstr.c_str() );
+
+            ImGui::OpenPopup( "Create Plot" );
+            return true;
         }
-        if ( shortstr.empty() )
-            shortstr = fullstr;
+    }
+    else if ( event.duration != ( uint32_t )-1 )
+    {
+        m_plot_buf = s_textclrs().bright_str( event.name ) + " duration";
+        m_plot_err_str.clear();
 
-        std::string namestr = string_trimmed( string_remove_punct( shortstr ) );
-        strcpy_safe( m_plot_name_buf, namestr.c_str() );
-
-        std::string filter_str = string_format( "$buf =~ \"%s\"", fullstr.c_str() );
-        strcpy_safe( m_plot_filter_buf, filter_str.c_str() );
-
-        fullstr += "%f";
-        strcpy_safe( m_plot_scanf_buf, fullstr.c_str() );
+        snprintf_safe( m_plot_name_buf, "%s duration", event.name );
+        snprintf_safe( m_plot_filter_buf, "$name = \"%s\"", event.name );
+        strcpy_safe( m_plot_scanf_buf, "$duration" );
 
         ImGui::OpenPopup( "Create Plot" );
-        return true;
     }
 
     return false;
@@ -989,7 +1008,8 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
     points.reserve( index1 - index0 + 10 );
 
     uint32_t idx0 = gi.prinfo_cur->plocs->front();
-    ImU32 color_line = m_trace_events.m_events[ idx0 ].color;
+    ImU32 color_line = m_trace_events.m_events[ idx0 ].color ?
+                m_trace_events.m_events[ idx0 ].color : 0xffffffff;
     ImU32 color_point = imgui_col_complement( color_line );
 
     for ( size_t idx = index0; idx < plot.m_plotdata.size(); idx++ )
@@ -2323,11 +2343,11 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
          strncmp( m_graph.mouse_over_row_name.c_str(), "plot:", 5 ) )
     {
         const trace_event_t &event = m_trace_events.m_events[ m_graph.hovered_eventid ];
-        const char *plot_str = CreatePlotDlg::get_plot_str( event );
+        const std::string plot_str = CreatePlotDlg::get_plot_str( event );
 
-        if ( plot_str )
+        if ( !plot_str.empty() )
         {
-            std::string plot_label = std::string( "Create Plot for " ) + s_textclrs().bright_str( plot_str );
+            std::string plot_label = std::string( "Create Plot for " ) + plot_str;
 
             if ( ImGui::MenuItem( plot_label.c_str() ) )
                 m_create_plot_eventid = event.id;

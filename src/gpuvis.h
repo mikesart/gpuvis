@@ -149,7 +149,7 @@ public:
     bool render_dlg( TraceEvents &trace_events );
     void add_plot( class GraphRows &rows );
 
-    static const char *get_plot_str( const trace_event_t &event );
+    static const std::string get_plot_str( const trace_event_t &event );
 
 public:
     GraphPlot *m_plot = nullptr;
