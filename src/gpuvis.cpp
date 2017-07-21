@@ -2211,10 +2211,7 @@ bool TraceWin::render()
         m_eventlist.goto_eventid = ts_to_eventid( m_graph.start_ts + m_graph.length_ts / 2 );
     }
 
-    const std::string graph_label = m_graph.has_focus ?
-                s_textclrs().bright_str( "Events Graph" ) : "Events Graph";
-    m_graph.has_focus = false;
-    if ( ImGui::CollapsingHeader( graph_label.c_str(), ImGuiTreeNodeFlags_DefaultOpen ) )
+    if ( imgui_collapsingheader( "Events Graph", &m_graph.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
     {
         ImGui::PushItemWidth( imgui_scale( 120.0f ) );
         if ( ImGui::InputText( "##Start", m_graph.time_start_buf, sizeof( m_graph.time_start_buf ),
@@ -2300,15 +2297,12 @@ bool TraceWin::render()
         graph_render();
     }
 
-    ImGuiTreeNodeFlags eventslist_flags = s_opts().getb( OPT_ShowEventList ) ?
+    ImGuiTreeNodeFlags eventlist_flags = s_opts().getb( OPT_ShowEventList ) ?
         ImGuiTreeNodeFlags_DefaultOpen : 0;
+    bool show_event_list = imgui_collapsingheader( "Event List", &m_eventlist.has_focus, eventlist_flags );
 
-    const std::string eventlist_label = m_eventlist.has_focus ?
-                s_textclrs().bright_str( "Events List" ) : "Events List";
-    m_eventlist.has_focus = false;
-    s_opts().setb( OPT_ShowEventList, ImGui::CollapsingHeader( eventlist_label.c_str(), eventslist_flags ) );
-
-    if ( s_opts().getb( OPT_ShowEventList ) )
+    s_opts().setb( OPT_ShowEventList, show_event_list );
+    if ( show_event_list )
     {
         m_eventlist.do_gotoevent |= imgui_input_int( &m_eventlist.goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
 

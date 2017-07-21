@@ -534,6 +534,21 @@ void imgui_pop_smallfont()
         ImGui::PopFont();
 }
 
+bool imgui_collapsingheader( const char *label, bool *has_focus, ImGuiTreeNodeFlags flags )
+{
+    bool ret;
+
+    if ( *has_focus )
+        ImGui::PushStyleColor( ImGuiCol_Header, ImGui::GetColorVec4( ImGuiCol_HeaderHovered ) );
+
+    ret = ImGui::CollapsingHeader( label, flags );
+
+    ImGui::PopStyleColor( *has_focus );
+
+    *has_focus = false;
+    return ret;
+}
+
 float imgui_scale( float val )
 {
     return val * g_scale;
