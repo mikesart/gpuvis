@@ -1160,6 +1160,7 @@ void Actions::init()
     m_actionmap.push_back( { action_menu_file, KMOD_ALT, SDLK_f, "Display File Menu" } );
     m_actionmap.push_back( { action_menu_options, KMOD_ALT, SDLK_o, "Display Options Menu" } );
     m_actionmap.push_back( { action_quit, KMOD_CTRL, SDLK_q, "Quit GpuVis" } );
+    m_actionmap.push_back( { action_trace_info, KMOD_CTRL | KMOD_SHIFT, SDLK_i, "Display trace information" } );
 
     m_actionmap.push_back( { action_focus_graph, KMOD_CTRL | KMOD_SHIFT, SDLK_g, "Set focus to events graph" } );
     m_actionmap.push_back( { action_focus_eventlist, KMOD_CTRL | KMOD_SHIFT, SDLK_e, "Set focus to event list" } );

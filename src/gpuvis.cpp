@@ -859,6 +859,9 @@ void TraceLoader::render()
             ImGui::Begin( m_show_trace_info.c_str(), &show_trace_info );
             m_trace_windows_list[ 0 ]->trace_render_info();
             ImGui::End();
+
+            if ( s_keybd().is_escape_down() )
+                show_trace_info = false;
         }
 
         if ( !show_trace_info )
@@ -3124,6 +3127,13 @@ void TraceWin::events_list_render()
     }
 }
 
+static const std::string trace_info_label( TraceEvents &trace_events )
+{
+    const char *basename = get_path_filename( trace_events.m_filename.c_str() );
+
+    return string_format( "Info for '%s'", s_textclrs().bright_str( basename ).c_str() );
+}
+
 void TraceLoader::render_menu_options()
 {
     if ( s_keybd().is_escape_down() )
@@ -3162,12 +3172,11 @@ void TraceLoader::render_menu_options()
              !SDL_AtomicGet( &m_trace_windows_list[ 0 ]->m_trace_events.m_eventsloaded ) )
         {
             TraceEvents &trace_events = m_trace_windows_list[ 0 ]->m_trace_events;
-            const char *basename = get_path_filename( trace_events.m_filename.c_str() );
-            std::string label = string_format( "Info for '%s'", s_textclrs().bright_str( basename ).c_str() );
+            const std::string label = trace_info_label( trace_events );
 
             ImGui::Separator();
 
-            if ( ImGui::MenuItem( label.c_str() ) )
+            if ( ImGui::MenuItem( label.c_str(), s_actions().hotkey_str( action_trace_info ).c_str() ) )
             {
                 ImGui::SetWindowFocus( label.c_str() );
                 m_show_trace_info = label;
@@ -3586,6 +3595,16 @@ void TraceLoader::handle_hotkeys()
 
         event.type = SDL_QUIT;
         SDL_PushEvent( &event );
+    }
+
+    if ( !m_trace_windows_list.empty() &&
+         s_actions().get( action_trace_info ) )
+    {
+        TraceEvents &trace_events = m_trace_windows_list[ 0 ]->m_trace_events;
+        const std::string label = trace_info_label( trace_events );
+
+        ImGui::SetWindowFocus( label.c_str() );
+        m_show_trace_info = label;
     }
 }
 

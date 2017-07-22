@@ -304,6 +304,8 @@ enum action_t
     action_help,
     action_open,
     action_quit,
+    action_trace_info,
+
     action_menu_file,
     action_menu_options,
 
