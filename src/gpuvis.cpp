@@ -1076,14 +1076,17 @@ public:
         {
             "<...>",            // lowest priority
             "trace-cmd",
+            "snapd",
             "sh-",
             "kill-",
             "pidof-",
             "sleep-",
+            "xfce4-",
             "watchdog",
             "chrome",
             "ksoftirqd",
             "kworker",
+            "gpu-trace",
             "mysqld",           // medium priority
         };
         static const char *comms_hiprio[] =
