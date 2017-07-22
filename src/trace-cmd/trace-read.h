@@ -122,6 +122,8 @@ struct trace_info_t
     util_umap< int, int > pid_tgid_map;
     // Map pid to comm
     util_umap< int, const char * > pid_comm_map;
+    // Map pid from sched_switch event prev_pid, next_pid fields to comm
+    util_umap< int, const char * > sched_switch_pid_comm_map;
 };
 
 struct event_field_t

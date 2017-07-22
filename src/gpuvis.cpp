@@ -561,185 +561,66 @@ static bool is_timeline_event( const trace_event_t &event )
              !strcmp( event.name, "amdgpu_sched_run_job" ) );
 }
 
-void TraceLoader::init_sched_switch_event( trace_event_t &event )
+void TraceLoader::add_sched_switch_pid_comm( const trace_event_t &event,
+                                             const char *pidstr, const char *commstr )
 {
-    const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
-    const char *next_pid_str = get_event_field_val( event, "next_pid" );
+    int pid = atoi( get_event_field_val( event, pidstr ) );
 
-    if ( *prev_pid_str && *next_pid_str )
+    if ( pid )
     {
-        int prev_pid = atoi( prev_pid_str );
-        int next_pid = atoi( next_pid_str );
-        const std::vector< uint32_t > *plocs;
+        trace_info_t &trace_info = m_trace_events->m_trace_info;
+        const char *comm = get_event_field_val( event, commstr );
 
-        // Look in the sched_switch next queue for an event that said we were starting up.
-        plocs = m_trace_events->get_sched_switch_locs( prev_pid, TraceEvents::SCHED_SWITCH_NEXT );
-        if ( plocs )
+        // If this pid is not in our pid_comm map or it is a sched_switch
+        //  pid we already added, then map the pid -> the latest comm value
+        if ( !trace_info.pid_comm_map.get_val( pid ) ||
+             trace_info.sched_switch_pid_comm_map.get_val( pid ) )
         {
-            const trace_event_t &event_prev = m_trace_events->m_events[ plocs->back() ];
+            // Add to pid_comm map
+            trace_info.pid_comm_map.get_val( pid, comm );
 
-            // TASK_RUNNING: On the run queue
-            // TASK_INTERRUPTABLE: Sleeping but can be woken up
-            // TASK_UNINTERRUPTABLE: Sleeping but can't be woken up by a signal
-            // TASK_ZOMBIE: Finished but waiting for parent to call wait() to cleanup
-            // TASK_STOPPED: Stopped process by job control signal or ptrace
-            int prev_state = atoi( get_event_field_val( event, "prev_state" ) );
-            bool prev_running = !( prev_state & ( TASK_STATE_MAX - 1 ) );
-            colors_t col = prev_running ? col_Graph_TaskRunning : col_Graph_TaskSleeping;
-
-            event.duration = event.ts - event_prev.ts;
-            event.color = s_clrs().get( col );
-        }
-
-        m_trace_events->m_sched_switch_prev_locations.add_location_u32( prev_pid, event.id );
-        m_trace_events->m_sched_switch_next_locations.add_location_u32( next_pid, event.id );
-
-        if ( prev_pid != event.pid )
-        {
-            const char *comm = m_trace_events->comm_from_pid( prev_pid );
-            if ( comm )
-                m_trace_events->m_comm_locations.add_location_str( comm, event.id );
-        }
-        if ( next_pid != event.pid )
-        {
-            const char *comm = m_trace_events->comm_from_pid( next_pid );
-            if ( comm )
-                m_trace_events->m_comm_locations.add_location_str( comm, event.id );
+            // And add to sched_switch pid_comm map
+            trace_info.sched_switch_pid_comm_map.get_val( pid, comm );
         }
     }
 }
 
-int TraceLoader::init_new_event( trace_event_t &event, const trace_info_t &info )
-{
-    if ( event.id == 0 )
-    {
-        m_trace_events->m_ts_min = event.ts;
-    }
-
-    if ( m_trace_events->m_cpucount.empty() )
-    {
-        m_trace_events->m_trace_info = info;
-        m_trace_events->m_cpucount.resize( info.cpus, 0 );
-    }
-
-    if ( event.cpu < m_trace_events->m_cpucount.size() )
-        m_trace_events->m_cpucount[ event.cpu ]++;
-
-    // Record the maximum crtc we've ever seen.
-    m_crtc_max = std::max< int >( m_crtc_max, event.crtc );
-
-    event.ts -= m_trace_events->m_ts_min;
-
-    // Make sure our events are cleared
-    event.flags &= ~( TRACE_FLAG_FENCE_SIGNALED |
-                      TRACE_FLAG_FTRACE_PRINT |
-                      TRACE_FLAG_VBLANK |
-                      TRACE_FLAG_TIMELINE |
-                      TRACE_FLAG_SW_QUEUE |
-                      TRACE_FLAG_HW_QUEUE |
-                      TRACE_FLAG_SCHED_SWITCH );
-
-    // fence_signaled was renamed to dma_fence_signaled post v4.9
-    if ( strstr( event.name, "fence_signaled" ) )
-        event.flags |= TRACE_FLAG_FENCE_SIGNALED;
-    else if ( !strcmp( event.system, "ftrace-print" ) )
-        event.flags |= TRACE_FLAG_FTRACE_PRINT;
-    else if ( !strcmp( event.name, "drm_vblank_event" ) )
-        event.flags |= TRACE_FLAG_VBLANK;
-    else if ( strstr( event.name, "amdgpu_cs_ioctl" ) )
-        event.flags |= TRACE_FLAG_SW_QUEUE;
-    else if ( strstr( event.name, "amdgpu_sched_run_job" ) )
-        event.flags |= TRACE_FLAG_HW_QUEUE;
-    else if ( !strcmp( event.name, "sched_switch" ) )
-        event.flags |= TRACE_FLAG_SCHED_SWITCH;
-
-    if ( event.is_vblank() )
-    {
-        // See if we have a drm_vblank_event_queued with the same seq number
-        uint32_t seqno = strtoul( get_event_field_val( event, "seq" ), NULL, 10 );
-        uint32_t *vblank_queued_id = m_trace_events->m_drm_vblank_event_queued.get_val( seqno );
-
-        if ( vblank_queued_id )
-        {
-            trace_event_t &event_vblank_queued = m_trace_events->m_events[ *vblank_queued_id ];
-
-            // If so, set the vblank queued time
-            event_vblank_queued.duration = event.ts - event_vblank_queued.ts;
-        }
-
-        m_trace_events->m_tdopexpr_locations.add_location_str( "$name=drm_vblank_event", event.id );
-    }
-    else if ( !strcmp( event.name, "drm_vblank_event_queued" ) )
-    {
-        uint32_t seqno = strtoul( get_event_field_val( event, "seq" ), NULL, 10 );
-
-        if ( seqno )
-            m_trace_events->m_drm_vblank_event_queued.set_val( seqno, event.id );
-    }
-
-    // Add this event comm to our comm locations map (ie, 'thread_main-1152')
-    m_trace_events->m_comm_locations.add_location_str( event.comm, event.id );
-
-    if ( event.is_sched_switch() )
-        TraceLoader::init_sched_switch_event( event );
-
-    if ( is_timeline_event( event ) )
-    {
-        const std::string gfxcontext = get_event_gfxcontext_str( event );
-
-        // Add this event under the "gfx", "sdma0", etc timeline map
-        m_trace_events->m_timeline_locations.add_location_str( event.timeline, event.id );
-
-        // Add this event under our "gfx_ctx_seq" or "sdma0_ctx_seq", etc. map
-        m_trace_events->m_gfxcontext_locations.add_location_str( gfxcontext.c_str(), event.id );
-
-        // Grab the event locations for this event context
-        const std::vector< uint32_t > *plocs = m_trace_events->get_gfxcontext_locs( gfxcontext.c_str() );
-        if ( plocs->size() > 1 )
-        {
-            // First event.
-            const trace_event_t &event0 = m_trace_events->m_events[ plocs->front() ];
-
-            // Event right before the event we just added.
-            auto it = plocs->rbegin() + 1;
-            const trace_event_t &event_prev = m_trace_events->m_events[ *it ];
-
-            // Assume the user comm is the first comm event in this set.
-            event.user_comm = event0.comm;
-
-            // Point the event we just added to the previous event in this series
-            event.id_start = event_prev.id;
-
-            if ( event.is_fence_signaled() )
-            {
-                // Mark all the events in this series as timeline events
-                for ( uint32_t idx : *plocs )
-                {
-                    m_trace_events->m_events[ idx ].flags |= TRACE_FLAG_TIMELINE;
-                }
-            }
-        }
-    }
-
-    // 1+ means loading events
-    SDL_AtomicAdd( &m_trace_events->m_eventsloaded, 1 );
-
-    if ( get_state() == State_CancelLoading )
-        return 1;
-
-    return 0;
-}
-
+// Callback from trace_read.cpp. We mostly just store the events in our array
+//  and then init_new_event() does the real work of initializing them later.
 int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
                                const trace_event_t &event )
 {
     TraceEvents *trace_events = loader->m_trace_events;
     size_t id = trace_events->m_events.size();
 
+    // Add event to our m_events array
     trace_events->m_events.push_back( event );
     trace_events->m_events.back().id = id;
 
-    return loader->init_new_event( trace_events->m_events.back(), info );
+    // Set m_trace_info if it hasn't been set yet
+    if ( trace_events->m_cpucount.empty() )
+    {
+        trace_events->m_trace_info = info;
+        trace_events->m_cpucount.resize( info.cpus, 0 );
+    }
+
+    // If this is a sched_switch event, see if it has comm info we don't know about.
+    // This is the reason we're initializing events in two passes to collect all this data.
+    if ( event.is_sched_switch() )
+    {
+        loader->add_sched_switch_pid_comm( event, "prev_pid", "prev_comm" );
+        loader->add_sched_switch_pid_comm( event, "next_pid", "next_comm" );
+    }
+
+    //$ TODO mikesart: move m_crtc_max to m_trace_info?
+    // Record the maximum crtc value we've ever seen
+    loader->m_crtc_max = std::max< int >( loader->m_crtc_max, event.crtc );
+
+    // 1+ means loading events
+    SDL_AtomicAdd( &trace_events->m_eventsloaded, 1 );
+
+    // Return 1 to cancel loading
+    return ( loader->get_state() == State_CancelLoading );
 }
 
 int SDLCALL TraceLoader::thread_func( void *data )
@@ -763,6 +644,7 @@ int SDLCALL TraceLoader::thread_func( void *data )
 
     logf( "Events read: %lu", trace_events->m_events.size() );
 
+    // Call TraceEvents::init() to initialize all events, etc.
     trace_events->init();
 
     // 0 means events loaded
@@ -1940,8 +1822,157 @@ const tgid_info_t *TraceEvents::tgid_from_commstr( const char *comm )
     return NULL;
 }
 
+void TraceEvents::init_sched_switch_event( trace_event_t &event )
+{
+    const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
+    const char *next_pid_str = get_event_field_val( event, "next_pid" );
+
+    if ( *prev_pid_str && *next_pid_str )
+    {
+        int prev_pid = atoi( prev_pid_str );
+        int next_pid = atoi( next_pid_str );
+        const std::vector< uint32_t > *plocs;
+
+        // Look in the sched_switch next queue for an event that said we were starting up.
+        plocs = get_sched_switch_locs( prev_pid, TraceEvents::SCHED_SWITCH_NEXT );
+        if ( plocs )
+        {
+            const trace_event_t &event_prev = m_events[ plocs->back() ];
+
+            // TASK_RUNNING: On the run queue
+            // TASK_INTERRUPTABLE: Sleeping but can be woken up
+            // TASK_UNINTERRUPTABLE: Sleeping but can't be woken up by a signal
+            // TASK_ZOMBIE: Finished but waiting for parent to call wait() to cleanup
+            // TASK_STOPPED: Stopped process by job control signal or ptrace
+            int prev_state = atoi( get_event_field_val( event, "prev_state" ) );
+            bool prev_running = !( prev_state & ( TASK_STATE_MAX - 1 ) );
+            colors_t col = prev_running ? col_Graph_TaskRunning : col_Graph_TaskSleeping;
+
+            event.duration = event.ts - event_prev.ts;
+            event.color = s_clrs().get( col );
+        }
+
+        m_sched_switch_prev_locations.add_location_u32( prev_pid, event.id );
+        m_sched_switch_next_locations.add_location_u32( next_pid, event.id );
+
+        //$ TODO mikesart: This is messing up the m_comm_locations event counts
+        if ( prev_pid != event.pid )
+        {
+            const char *comm = comm_from_pid( prev_pid );
+            if ( comm )
+                m_comm_locations.add_location_str( comm, event.id );
+        }
+        if ( next_pid != event.pid )
+        {
+            const char *comm = comm_from_pid( next_pid );
+            if ( comm )
+                m_comm_locations.add_location_str( comm, event.id );
+        }
+    }
+}
+
+// new_event_cb adds all events to array, this function initializes them.
+void TraceEvents::init_new_event( trace_event_t &event )
+{
+    if ( event.id == 0 )
+        m_ts_min = event.ts;
+    event.ts -= m_ts_min;
+
+    if ( event.cpu < m_cpucount.size() )
+        m_cpucount[ event.cpu ]++;
+
+    // If our pid is in the sched_switch pid map, update our comm to the sched_switch
+    // value that it recorded.
+    const char **comm = m_trace_info.sched_switch_pid_comm_map.get_val( event.pid );
+    if ( comm )
+    {
+        char buf[ 64 ];
+
+        snprintf_safe( buf, "%s-%d", *comm, event.pid );
+        event.comm = m_strpool.getstr( buf );
+    }
+
+    if ( event.is_vblank() )
+    {
+        // See if we have a drm_vblank_event_queued with the same seq number
+        uint32_t seqno = strtoul( get_event_field_val( event, "seq" ), NULL, 10 );
+        uint32_t *vblank_queued_id = m_drm_vblank_event_queued.get_val( seqno );
+
+        if ( vblank_queued_id )
+        {
+            trace_event_t &event_vblank_queued = m_events[ *vblank_queued_id ];
+
+            // If so, set the vblank queued time
+            event_vblank_queued.duration = event.ts - event_vblank_queued.ts;
+        }
+
+        m_tdopexpr_locations.add_location_str( "$name=drm_vblank_event", event.id );
+    }
+    else if ( !strcmp( event.name, "drm_vblank_event_queued" ) )
+    {
+        uint32_t seqno = strtoul( get_event_field_val( event, "seq" ), NULL, 10 );
+
+        if ( seqno )
+            m_drm_vblank_event_queued.set_val( seqno, event.id );
+    }
+
+    // Add this event comm to our comm locations map (ie, 'thread_main-1152')
+    m_comm_locations.add_location_str( event.comm, event.id );
+
+    if ( event.is_sched_switch() )
+        init_sched_switch_event( event );
+
+    if ( is_timeline_event( event ) )
+    {
+        const std::string gfxcontext = get_event_gfxcontext_str( event );
+
+        // Add this event under the "gfx", "sdma0", etc timeline map
+        m_timeline_locations.add_location_str( event.timeline, event.id );
+
+        // Add this event under our "gfx_ctx_seq" or "sdma0_ctx_seq", etc. map
+        m_gfxcontext_locations.add_location_str( gfxcontext.c_str(), event.id );
+
+        // Grab the event locations for this event context
+        const std::vector< uint32_t > *plocs = get_gfxcontext_locs( gfxcontext.c_str() );
+        if ( plocs->size() > 1 )
+        {
+            // First event.
+            const trace_event_t &event0 = m_events[ plocs->front() ];
+
+            // Event right before the event we just added.
+            auto it = plocs->rbegin() + 1;
+            const trace_event_t &event_prev = m_events[ *it ];
+
+            // Assume the user comm is the first comm event in this set.
+            event.user_comm = event0.comm;
+
+            // Point the event we just added to the previous event in this series
+            event.id_start = event_prev.id;
+
+            if ( event.is_fence_signaled() )
+            {
+                // Mark all the events in this series as timeline events
+                for ( uint32_t idx : *plocs )
+                {
+                    m_events[ idx ].flags |= TRACE_FLAG_TIMELINE;
+                }
+            }
+        }
+    }
+
+    // 1+ means loading events
+    SDL_AtomicAdd( &m_eventsloaded, 1 );
+}
+
 void TraceEvents::init()
 {
+    // Set m_eventsloaded initializing bit
+    SDL_AtomicSet( &m_eventsloaded, 0x40000000 );
+
+    // Initialize events...
+    for ( trace_event_t &event : m_events )
+        init_new_event( event );
+
     // Init event durations
     calculate_event_durations();
 
@@ -2167,16 +2198,19 @@ bool TraceWin::render()
 
     if ( eventsloaded > 0 )
     {
+        bool loading = !( eventsloaded & 0x40000000 );
+
         ImGui::Begin( m_title.c_str(), &m_open );
 
-        ImGui::Text( "Loading events %u...", eventsloaded );
+        ImGui::Text( "%s events %u...", loading ? "Loading" : "Initializing", eventsloaded & ~0x40000000 );
+
         if ( ImGui::Button( "Cancel" ) )
             m_loader.cancel_load_file();
 
         ImGui::End();
         return true;
     }
-    else if ( eventsloaded == -1 )
+    else if ( eventsloaded < 0 )
     {
         ImGui::Begin( m_title.c_str(), &m_open );
 

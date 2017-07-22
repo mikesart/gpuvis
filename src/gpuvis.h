@@ -230,6 +230,9 @@ public:
     // Called once on background thread after all events loaded.
     void init();
 
+    void init_new_event( trace_event_t &event );
+    void init_sched_switch_event( trace_event_t &event );
+
 public:
     int64_t m_ts_min = 0;
     std::vector< uint32_t > m_cpucount;
@@ -673,9 +676,9 @@ protected:
 
     static int SDLCALL thread_func( void *data );
     static int new_event_cb( TraceLoader *loader, const trace_info_t &info,
-                         const trace_event_t &event );
-    int init_new_event( trace_event_t &event, const trace_info_t &info );
-    void init_sched_switch_event( trace_event_t &event );
+                             const trace_event_t &event );
+    void add_sched_switch_pid_comm( const trace_event_t &event,
+                                    const char *pidstr, const char *commstr );
 
 public:
     std::string m_filename;

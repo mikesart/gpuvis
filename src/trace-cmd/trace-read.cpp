@@ -1555,6 +1555,32 @@ extern "C" void print_str_arg( struct trace_seq *s, void *data, int size,
               struct event_format *event, const char *format,
               int len_arg, struct print_arg *arg );
 
+static void init_event_flags( trace_event_t &event )
+{
+    // Make sure our event type bits are cleared
+    event.flags &= ~( TRACE_FLAG_FENCE_SIGNALED |
+                      TRACE_FLAG_FTRACE_PRINT |
+                      TRACE_FLAG_VBLANK |
+                      TRACE_FLAG_TIMELINE |
+                      TRACE_FLAG_SW_QUEUE |
+                      TRACE_FLAG_HW_QUEUE |
+                      TRACE_FLAG_SCHED_SWITCH );
+
+    // fence_signaled was renamed to dma_fence_signaled post v4.9
+    if ( strstr( event.name, "fence_signaled" ) )
+        event.flags |= TRACE_FLAG_FENCE_SIGNALED;
+    else if ( !strcmp( event.system, "ftrace-print" ) )
+        event.flags |= TRACE_FLAG_FTRACE_PRINT;
+    else if ( !strcmp( event.name, "drm_vblank_event" ) )
+        event.flags |= TRACE_FLAG_VBLANK;
+    else if ( strstr( event.name, "amdgpu_cs_ioctl" ) )
+        event.flags |= TRACE_FLAG_SW_QUEUE;
+    else if ( strstr( event.name, "amdgpu_sched_run_job" ) )
+        event.flags |= TRACE_FLAG_HW_QUEUE;
+    else if ( !strcmp( event.name, "sched_switch" ) )
+        event.flags |= TRACE_FLAG_SCHED_SWITCH;
+}
+
 static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_info_t &trace_info,
                              tracecmd_input_t *handle, pevent_record_t *record )
 {
@@ -1718,6 +1744,8 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
             field.value = strpool.getstr( seq.buffer );
             trace_event.fields.push_back( field );
         }
+
+        init_event_flags( trace_event );
 
         ret = cb( trace_info, trace_event );
 
