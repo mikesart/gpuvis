@@ -2479,23 +2479,16 @@ void TraceWin::trace_render_info()
             if ( ImGui::CollapsingHeader( "Graph Row Info" ) )
             {
                 if ( imgui_begin_columns( "row_info", { "Name", "Events" } ) )
-                    ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
+                    ImGui::SetColumnWidth( 0, imgui_scale( 250.0f ) );
 
                 for ( const GraphRows::graph_rows_info_t &info : m_graph.rows.m_graph_rows_list )
                 {
-                    ImU32 col = ImGui::GetColorU32( ImGuiCol_Text );
+                    const char *row_name = info.row_name.c_str();
 
                     if ( info.type == TraceEvents::LOC_TYPE_Comm )
-                    {
-                        const tgid_info_t *tgid_info = m_trace_events.tgid_from_commstr( info.row_name.c_str() );
+                        row_name = m_trace_events.tgidcomm_from_commstr( row_name );
 
-                        if ( tgid_info )
-                            col = tgid_info->color;
-                    }
-
-                    ImGui::PushStyleColor( ImGuiCol_Text, ( ImColor )col );
-                    ImGui::Text( "%s", info.row_name.c_str() );
-                    ImGui::PopStyleColor();
+                    ImGui::Text( "%s", row_name );
 
                     ImGui::NextColumn();
                     ImGui::Text( "%lu", info.event_count );
