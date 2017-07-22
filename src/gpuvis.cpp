@@ -2207,7 +2207,7 @@ bool TraceWin::render()
 
         ImGui::Text( "%s events %u...", loading ? "Loading" : "Initializing", eventsloaded & ~0x40000000 );
 
-        if ( ImGui::Button( "Cancel" ) )
+        if ( ImGui::Button( "Cancel" ) || s_keybd().is_escape_down() )
             m_loader.cancel_load_file();
 
         ImGui::End();
