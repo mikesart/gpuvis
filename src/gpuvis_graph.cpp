@@ -2185,12 +2185,42 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     imgui_text_bg( "Options", ImGui::GetColorVec4( ImGuiCol_Header ) );
     ImGui::Separator();
 
+    if ( m_graph.zoom_loc.first != INT64_MAX )
+    {
+        std::string len = ts_to_timestr( m_graph.zoom_loc.second, 0, 2 );
+        std::string label = string_format( "Zoom out to %sms", len.c_str() );
+
+        if ( ImGui::MenuItem( label.c_str(), s_actions().hotkey_str( action_graph_zoom_mouse ).c_str() ) )
+        {
+            m_graph.start_ts = m_graph.zoom_loc.first;
+            m_graph.length_ts = m_graph.zoom_loc.second;
+            m_graph.recalc_timebufs = true;
+
+            m_graph.zoom_loc = std::make_pair( INT64_MAX, INT64_MAX );
+        }
+    }
+    else if ( m_graph.is_mouse_over )
+    {
+        if ( ImGui::MenuItem( "Zoom in to 3.00ms", s_actions().hotkey_str( action_graph_zoom_mouse ).c_str() ) )
+        {
+            int64_t newlen = 3 * NSECS_PER_MSEC;
+            const ImVec2 pos = ImGui::GetWindowPos();
+            int64_t mouse_ts = gi.screenx_to_ts( pos.x );
+
+            m_graph.zoom_loc = std::make_pair( m_graph.start_ts, m_graph.length_ts );
+
+            graph_zoom( mouse_ts, gi.ts0, false, newlen );
+        }
+    }
+
     if ( !m_graph.zoom_row_name.empty() )
     {
         std::string label = string_format( "Unzoom row '%s'", m_graph.zoom_row_name.c_str() );
 
         if ( ImGui::MenuItem( label.c_str() ) )
+        {
             m_graph.zoom_row_name.clear();
+        }
     }
 
     if ( !m_graph.mouse_over_row_name.empty() )
