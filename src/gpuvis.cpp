@@ -612,7 +612,6 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
         loader->add_sched_switch_pid_comm( event, "next_pid", "next_comm" );
     }
 
-    //$ TODO mikesart: move m_crtc_max to m_trace_info?
     // Record the maximum crtc value we've ever seen
     loader->m_crtc_max = std::max< int >( loader->m_crtc_max, event.crtc );
 
