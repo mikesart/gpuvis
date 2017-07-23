@@ -2322,7 +2322,10 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             {
                 if ( !entry.hidden && ( entry.row_name != m_graph.mouse_over_row_name ) )
                 {
-                    if ( ImGui::MenuItem( entry.row_name.c_str() ) )
+                    const char *commstr = ( entry.type == TraceEvents::LOC_TYPE_Comm ) ?
+                                m_trace_events.tgidcomm_from_commstr( entry.row_name.c_str() ) :
+                                entry.row_name.c_str();
+                    if ( ImGui::MenuItem( commstr ) )
                     {
                         m_graph.rows.move_row( m_graph.mouse_over_row_name, entry.row_name );
                         ImGui::CloseCurrentPopup();
