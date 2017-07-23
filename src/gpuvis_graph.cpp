@@ -2201,7 +2201,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         {
             label = string_format( "Zoom row '%s'", m_graph.mouse_over_row_name.c_str() );
 
-            if ( ImGui::MenuItem( label.c_str() ) )
+            if ( ImGui::MenuItem( label.c_str(), s_actions().hotkey_str( action_graph_zoom_row ).c_str() ) )
                 zoom_graph_row();
         }
 
