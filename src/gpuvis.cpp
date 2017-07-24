@@ -1882,17 +1882,18 @@ void TraceEvents::init_sched_switch_event( trace_event_t &event )
         {
             const trace_event_t &event_prev = m_events[ plocs->back() ];
 
-            // TASK_RUNNING: On the run queue
-            // TASK_INTERRUPTABLE: Sleeping but can be woken up
-            // TASK_UNINTERRUPTABLE: Sleeping but can't be woken up by a signal
-            // TASK_ZOMBIE: Finished but waiting for parent to call wait() to cleanup
-            // TASK_STOPPED: Stopped process by job control signal or ptrace
+            // TASK_RUNNING (0): On the run queue
+            // TASK_INTERRUPTABLE (1): Sleeping but can be woken up
+            // TASK_UNINTERRUPTABLE (2): Sleeping but can't be woken up by a signal
+            // TASK_STOPPED (4): Stopped process by job control signal or ptrace
+            // TASK_ZOMBIE (32): Finished but waiting for parent to call wait() to cleanup
             int prev_state = atoi( get_event_field_val( event, "prev_state" ) );
-            bool prev_running = !( prev_state & ( TASK_STATE_MAX - 1 ) );
-            colors_t col = prev_running ? col_Graph_TaskRunning : col_Graph_TaskSleeping;
+            int task_state = prev_state & ( TASK_STATE_MAX - 1 );
+
+            if ( task_state == 0 )
+                event.flags |= TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING;
 
             event.duration = event.ts - event_prev.ts;
-            event.color = s_clrs().get( col );
         }
 
         m_sched_switch_prev_locations.add_location_u32( prev_pid, event.id );

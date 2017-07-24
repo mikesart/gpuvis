@@ -1564,7 +1564,8 @@ static void init_event_flags( trace_event_t &event )
                       TRACE_FLAG_TIMELINE |
                       TRACE_FLAG_SW_QUEUE |
                       TRACE_FLAG_HW_QUEUE |
-                      TRACE_FLAG_SCHED_SWITCH );
+                      TRACE_FLAG_SCHED_SWITCH |
+                      TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING );
 
     // fence_signaled was renamed to dma_fence_signaled post v4.9
     if ( strstr( event.name, "fence_signaled" ) )

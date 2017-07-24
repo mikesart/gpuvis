@@ -50,8 +50,6 @@
 
   Check if entire rows are clipped when drawing...
 
-  Configurable hotkeys?
-
   From Pierre-Loup:
     * Since I find myself zooming in and out a lot to situate myself in the
     larger trace and analyze parts of it, I'm thinking one of the next big
@@ -173,18 +171,19 @@ class event_renderer_t
 public:
     event_renderer_t( float y_in, float w_in, float h_in );
 
-    void add_event( float x );
+    void add_event( float x, ImU32 color );
     void done();
 
     void set_y( float y_in, float h_in );
 
 protected:
-    void start( float x );
+    void start( float x, ImU32 color );
     void draw();
 
 public:
     float x0, x1;
     uint32_t num_events;
+    ImU32 event_color;
 
     float y, w, h;
 };
@@ -326,7 +325,7 @@ event_renderer_t::event_renderer_t( float y_in, float w_in, float h_in )
     w = w_in;
     h = h_in;
 
-    start( -1.0f );
+    start( -1.0f, 0 );
 }
 
 void event_renderer_t::set_y( float y_in, float h_in )
@@ -340,26 +339,26 @@ void event_renderer_t::set_y( float y_in, float h_in )
     }
 }
 
-void event_renderer_t::add_event( float x )
+void event_renderer_t::add_event( float x, ImU32 color )
 {
     if ( x0 < 0.0f )
     {
         // First event
-        start( x );
+        start( x, color );
     }
-    else if ( x - x1 <= 1.0f )
+    else if ( ( x - x1 > 1.0f ) || ( event_color != color ) )
     {
-        // New event real close to last event
-        x1 = x;
-        num_events++;
-    }
-    else
-    {
-        // New event is away from current group, so draw.
+        // New event is away from current group or new color
         draw();
 
         // Start a new group
-        start( x );
+        start( x, color );
+    }
+    else
+    {
+        // New event real close to last event with same color
+        x1 = x;
+        num_events++;
     }
 }
 
@@ -368,13 +367,15 @@ void event_renderer_t::done()
     if ( x0 != -1 )
     {
         draw();
-        start( -1.0f );
+        start( -1.0f, 0 );
     }
 }
 
-void event_renderer_t::start( float x )
+void event_renderer_t::start( float x, ImU32 color )
 {
     num_events = 0;
+    event_color = color;
+
     x0 = x;
     x1 = x + .0001f;
 }
@@ -382,7 +383,7 @@ void event_renderer_t::start( float x )
 void event_renderer_t::draw()
 {
     int index = std::min< int >( col_Graph_1Event + num_events, col_Graph_6Event );
-    ImU32 color = s_clrs().get( index );
+    ImU32 color = event_color ? event_color : s_clrs().get( index );
     float min_width = std::min< float >( num_events + 1.0f, 4.0f );
     float width = std::max< float >( x1 - x0, min_width );
 
@@ -1428,7 +1429,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
         if ( gi.mouse_over )
             gi.add_mouse_hovered_event( x, event );
 
-        event_renderer.add_event( x );
+        event_renderer.add_event( x, event.color );
         num_events++;
     }
 
@@ -1464,6 +1465,11 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 
         if ( plocs )
         {
+            ImU32 colors[ 2 ] =
+            {
+                s_clrs().get( col_Graph_TaskRunning ),
+                s_clrs().get( col_Graph_TaskSleeping )
+            };
             for ( size_t idx = vec_find_eventid( *plocs, gi.eventstart );
                   idx < plocs->size();
                   idx++ )
@@ -1476,12 +1482,13 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
                 {
                     float x0 = gi.ts_to_screenx( sched_switch.ts - sched_switch.duration );
                     float x1 = gi.ts_to_screenx( sched_switch.ts );
+                    int running = !!( sched_switch.flags & TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING );
 
                     // Bail if we're off the right side of our graph
                     if ( x0 > gi.x + gi.w )
                         break;
 
-                    imgui_drawrect( x0, x1 - x0, y, row_h, sched_switch.color );
+                    imgui_drawrect( x0, x1 - x0, y, row_h, colors[ running ] );
                 }
             }
         }

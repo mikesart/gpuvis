@@ -23,6 +23,7 @@
  */
 
 // Mask for sched_switch prev_state field
+//   From include/linux/sched.h
 #define TASK_STATE_MAX  1024
 
 #define INVALID_ID ( ( uint32_t )-1 )
@@ -139,13 +140,14 @@ enum trace_flag_type_t {
     // TRACE_FLAG_HARDIRQ = 0x08, // inside an interrupt handler
     // TRACE_FLAG_SOFTIRQ = 0x10, // inside a softirq handler
 
-    TRACE_FLAG_FTRACE_PRINT   = 0x0100,
-    TRACE_FLAG_VBLANK         = 0x0200,
-    TRACE_FLAG_TIMELINE       = 0x0400,
-    TRACE_FLAG_SW_QUEUE       = 0x0800, // amdgpu_cs_ioctl
-    TRACE_FLAG_HW_QUEUE       = 0x1000, // amdgpu_sched_run_job
-    TRACE_FLAG_FENCE_SIGNALED = 0x2000, // *fence_signaled
-    TRACE_FLAG_SCHED_SWITCH   = 0x4000, // sched_switch
+    TRACE_FLAG_FTRACE_PRINT                 = 0x0100,
+    TRACE_FLAG_VBLANK                       = 0x0200,
+    TRACE_FLAG_TIMELINE                     = 0x0400,
+    TRACE_FLAG_SW_QUEUE                     = 0x0800, // amdgpu_cs_ioctl
+    TRACE_FLAG_HW_QUEUE                     = 0x1000, // amdgpu_sched_run_job
+    TRACE_FLAG_FENCE_SIGNALED               = 0x2000, // *fence_signaled
+    TRACE_FLAG_SCHED_SWITCH                 = 0x4000, // sched_switch
+    TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING    = 0x8000, // TASK_RUNNING
 };
 
 struct trace_event_t
