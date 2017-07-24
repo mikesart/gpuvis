@@ -2487,6 +2487,9 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     s_opts().render_imgui_options( m_loader.m_crtc_max );
 
+    if ( s_keybd().is_escape_down() )
+        ImGui::CloseCurrentPopup();
+
     ImGui::EndPopup();
     return true;
 }

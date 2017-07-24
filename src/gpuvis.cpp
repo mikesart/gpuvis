@@ -2762,6 +2762,9 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
             m_create_plot_eventid = event.id;
     }
 
+    if ( s_keybd().is_escape_down() )
+        ImGui::CloseCurrentPopup();
+
     ImGui::EndPopup();
     return true;
 }
