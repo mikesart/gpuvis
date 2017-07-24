@@ -1711,6 +1711,11 @@ void TraceEvents::calculate_event_print_info()
         m_print_buf_info.get_val( event.id, { buf, buf_end } );
     }
 
+    invalidate_ftraceprint_colors();
+}
+
+void TraceEvents::invalidate_ftraceprint_colors()
+{
     m_rect_size_max_x = -1.0f;
 }
 
@@ -1719,7 +1724,7 @@ void TraceEvents::update_ftraceprint_colors()
     float label_sat = s_clrs().getalpha( col_Graph_PrintLabelSat );
     float label_alpha = s_clrs().getalpha( col_Graph_PrintLabelAlpha );
 
-    m_rect_size_max_x = -1.0f;
+    invalidate_ftraceprint_colors();
 
     for ( auto &entry : m_print_buf_info.m_map )
     {
@@ -1743,11 +1748,6 @@ void TraceEvents::update_ftraceprint_colors()
     }
 }
 
-void TraceEvents::invalidate_ftraceprint_colors()
-{
-    m_rect_size_max_x = -1.0f;
-}
-
 void TraceEvents::update_fence_signaled_timeline_colors()
 {
     float label_sat = s_clrs().getalpha( col_Graph_TimelineLabelSat );
@@ -1767,6 +1767,28 @@ void TraceEvents::update_fence_signaled_timeline_colors()
                 uint32_t hashval = fnv_hashstr32( fence_signaled.user_comm );
                 fence_signaled.color = imgui_col_from_hashval( hashval, label_sat, label_alpha );
             }
+        }
+    }
+}
+
+void TraceEvents::update_vblank_colors()
+{
+    const std::vector< uint32_t > *vblank_locs = get_tdopexpr_locs( "$name=drm_vblank_event" );
+
+    if ( vblank_locs )
+    {
+        ImU32 colors[ 2 ] =
+        {
+            s_clrs().get( col_VBlank0 ),
+            s_clrs().get( col_VBlank1 ),
+        };
+
+        for ( uint32_t id : *vblank_locs )
+        {
+            trace_event_t &event = m_events[ id ];
+
+            if ( event.crtc == 0 || event.crtc == 1 )
+                event.color = colors[ event.crtc ];
         }
     }
 }
@@ -2028,6 +2050,9 @@ void TraceEvents::init()
 
     // Update tgid colors
     update_tgid_colors();
+
+    // Update vblank colors
+    update_vblank_colors();
 }
 
 void TraceEvents::remove_single_tgids()
@@ -3426,13 +3451,17 @@ void TraceLoader::render_color_picker()
     {
         switch( m_selected_color )
         {
+        case col_VBlank0:
+        case col_VBlank1:
+            for ( TraceEvents *trace_event : m_trace_events_list )
+                trace_event->update_vblank_colors();
+            break;
         case col_Graph_PrintLabelSat:
         case col_Graph_PrintLabelAlpha:
             // ftrace print label color changes - invalidate current colors
             for ( TraceEvents *trace_event : m_trace_events_list )
             {
                 trace_event->invalidate_ftraceprint_colors();
-
                 trace_event->update_tgid_colors();
             }
             break;

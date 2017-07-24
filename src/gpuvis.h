@@ -188,6 +188,7 @@ public:
     void update_ftraceprint_colors();
 
     void update_fence_signaled_timeline_colors();
+    void update_vblank_colors();
     void update_tgid_colors();
 
     void remove_single_tgids();
