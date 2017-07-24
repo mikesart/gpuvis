@@ -2463,114 +2463,119 @@ void TraceWin::trace_render_info()
     size_t event_count = m_trace_events.m_events.size();
 
     ImGui::Text( "Total Events: %lu\n", event_count );
+    if ( !event_count )
+        return;
 
-    if ( event_count )
+    const trace_info_t &trace_info = m_trace_events.m_trace_info;
+
+    ImGui::Text( "Trace time: %s ms",
+                 ts_to_timestr( m_trace_events.m_events.back().ts, 0, 4 ).c_str() );
+
+    ImGui::Text( "Trace cpus: %u", trace_info.cpus );
+
+    if ( !trace_info.uname.empty() )
+        ImGui::Text( "Trace uname: %s", trace_info.uname.c_str() );
+
+    if ( !m_graph.rows.m_graph_rows_list.empty() &&
+         ImGui::CollapsingHeader( "Graph Row Info" ) )
     {
-        const trace_info_t &trace_info = m_trace_events.m_trace_info;
+        int tree_tgid = -1;
+        bool display_event = true;
 
-        ImGui::Text( "Trace time: %s ms",
-                     ts_to_timestr( m_trace_events.m_events.back().ts, 0, 4 ).c_str() );
+        if ( imgui_begin_columns( "row_info", { "Name", "Events" } ) )
+            ImGui::SetColumnWidth( 0, imgui_scale( 250.0f ) );
 
-        ImGui::Text( "Trace cpus: %u", trace_info.cpus );
-
-        if ( !trace_info.uname.empty() )
-            ImGui::Text( "Trace uname: %s", trace_info.uname.c_str() );
-
-        if ( !m_graph.rows.m_graph_rows_list.empty() )
+        for ( const GraphRows::graph_rows_info_t &info : m_graph.rows.m_graph_rows_list )
         {
-            if ( ImGui::CollapsingHeader( "Graph Row Info" ) )
+            const tgid_info_t *tgid_info = NULL;
+            const char *row_name = info.row_name.c_str();
+
+            if ( info.type == TraceEvents::LOC_TYPE_Comm )
+                tgid_info = m_trace_events.tgid_from_commstr( info.row_name.c_str() );
+
+            if ( ( tree_tgid >= 0 ) &&
+                 ( !tgid_info || ( tgid_info->tgid != tree_tgid ) ) )
             {
-                if ( imgui_begin_columns( "row_info", { "Name", "Events" } ) )
-                    ImGui::SetColumnWidth( 0, imgui_scale( 250.0f ) );
+                // Close the tree node
+                if ( display_event )
+                    ImGui::TreePop();
 
-                for ( const GraphRows::graph_rows_info_t &info : m_graph.rows.m_graph_rows_list )
+                tree_tgid = -1;
+                display_event = true;
+            }
+
+            // If we have tgid_info and it isn't a current tree, create new treenode
+            if ( tgid_info && ( tgid_info->tgid != tree_tgid ) )
+            {
+                size_t count = tgid_info->pids.size();
+
+                // Store current tree tgid
+                tree_tgid = tgid_info->tgid;
+
+                display_event = ImGui::TreeNode( &info, "%s (%lu thread%s)",
+                                                 tgid_info->commstr_clr, count,
+                                                 ( count > 1 ) ? "s" : "" );
+                ImGui::NextColumn();
+                ImGui::NextColumn();
+            }
+
+            if ( display_event )
+            {
+                // Indent if we're in a tgid tree node
+                if ( tree_tgid >= 0 )
+                    ImGui::Indent();
+
+                ImGui::Text( "%s", row_name );
+
+                ImGui::NextColumn();
+                ImGui::Text( "%lu", info.event_count );
+
+                if ( info.type == TraceEvents::LOC_TYPE_Plot )
                 {
-                    const char *row_name = info.row_name.c_str();
+                    GraphPlot *plot = m_trace_events.get_plot_ptr( info.row_name.c_str() );
 
-                    if ( info.type == TraceEvents::LOC_TYPE_Comm )
-                        row_name = m_trace_events.tgidcomm_from_commstr( row_name );
+                    if ( plot )
+                    {
+                        ImGui::SameLine();
+                        ImGui::Text( "(minval:%.2f maxval:%.2f)", plot->m_minval, plot->m_maxval );
+                    }
+                }
+                ImGui::NextColumn();
 
-                    ImGui::Text( "%s", row_name );
+                if ( tree_tgid >= 0 )
+                    ImGui::Unindent();
+            }
+        }
 
+        if ( ( tree_tgid >= 0 ) && display_event )
+            ImGui::TreePop();
+
+        ImGui::EndColumns();
+    }
+
+    if ( !trace_info.cpustats.empty() )
+    {
+        if ( ImGui::CollapsingHeader( "CPU Info" ) )
+        {
+            if ( imgui_begin_columns( "cpu_stats", { "CPU", "Stats" } ) )
+                ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
+
+            for ( const std::string &str : trace_info.cpustats )
+            {
+                const char *lf = strchr( str.c_str(), '\n' );
+
+                if ( lf )
+                {
+                    ImGui::Text( "%.*s", ( int )( lf - str.c_str() ), str.c_str() );
                     ImGui::NextColumn();
-                    ImGui::Text( "%lu", info.event_count );
-
-                    if ( info.type == TraceEvents::LOC_TYPE_Plot )
-                    {
-                        GraphPlot *plot = m_trace_events.get_plot_ptr( info.row_name.c_str() );
-
-                        if ( plot )
-                        {
-                            ImGui::SameLine();
-                            ImGui::Text( "(minval:%.2f maxval:%.2f)", plot->m_minval, plot->m_maxval );
-                        }
-                    }
+                    ImGui::Text( "%s", lf + 1 );
                     ImGui::NextColumn();
-                }
-
-                ImGui::EndColumns();
-            }
-        }
-
-        if ( !trace_info.cpustats.empty() )
-        {
-            if ( ImGui::CollapsingHeader( "CPU Info" ) )
-            {
-                if ( imgui_begin_columns( "cpu_stats", { "CPU", "Stats" } ) )
-                    ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
-
-                for ( const std::string &str : trace_info.cpustats )
-                {
-                    const char *lf = strchr( str.c_str(), '\n' );
-
-                    if ( lf )
-                    {
-                        ImGui::Text( "%.*s", ( int )( lf - str.c_str() ), str.c_str() );
-                        ImGui::NextColumn();
-                        ImGui::Text( "%s", lf + 1 );
-                        ImGui::NextColumn();
-                        ImGui::Separator();
-                    }
-                }
-
-                ImGui::EndColumns();
-            }
-        }
-
-        // We're drawing the Graph Row Info w/ tgid colors. Don't think we still need this...
-#if 0
-        if ( !m_trace_events.m_trace_info.tgid_pids.m_map.empty() &&
-             ( ImGui::CollapsingHeader( "Thread Group Info" ) ) )
-        {
-            for ( auto &entry : m_trace_events.m_trace_info.tgid_pids.m_map )
-            {
-                tgid_info_t &tgid_info = entry.second;
-
-                if ( tgid_info.pids.size() > 1 )
-                {
-                    ImGui::PushStyleColor( ImGuiCol_Text, ( ImColor )tgid_info.color );
-
-                    const char *tgid_comm = m_trace_events.comm_from_pid( tgid_info.tgid, "<...>" );
-                    std::string label = string_format( "%s (%lu threads)", tgid_comm, tgid_info.pids.size() );
-
-                    if ( ImGui::TreeNode( label.c_str() ) )
-                    {
-                        for ( int pid : tgid_info.pids )
-                        {
-                            const char *comm = m_trace_events.comm_from_pid( pid, "<...>" );
-                            const std::vector< uint32_t > *plocs = m_trace_events.get_comm_locs( comm );
-
-                            ImGui::BulletText( "%s (%lu events)", comm, plocs ? plocs->size() : 0 );
-                        }
-
-                        ImGui::TreePop();
-                    }
-
-                    ImGui::PopStyleColor();
+                    ImGui::Separator();
                 }
             }
+
+            ImGui::EndColumns();
         }
-#endif
     }
 }
 
