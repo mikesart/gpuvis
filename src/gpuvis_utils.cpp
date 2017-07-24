@@ -1168,6 +1168,9 @@ void Actions::init()
     m_actionmap.push_back( { action_graph_zoom_row, KMOD_CTRL | KMOD_SHIFT, SDLK_z, "Toggle hovered graph row timeline fullscreen" } );
     m_actionmap.push_back( { action_graph_zoom_mouse, KMOD_NONE, SDLK_z, "Toggle hovered graph location zoom to 3ms / restore pre-zoom" } );
 
+    m_actionmap.push_back( { action_toggle_vblank0, KMOD_CTRL | KMOD_SHIFT, SDLK_m, "Toggle showing vblank 0 markers" } );
+    m_actionmap.push_back( { action_toggle_vblank1, KMOD_CTRL | KMOD_SHIFT, SDLK_n, "Toggle showing vblank 1 markers" } );
+
     m_actionmap.push_back( { action_graph_set_markerA, KMOD_CTRL | KMOD_SHIFT, SDLK_a, "Set graph marker A" } );
     m_actionmap.push_back( { action_graph_set_markerB, KMOD_CTRL | KMOD_SHIFT, SDLK_b, "Set graph marker B" } );
     m_actionmap.push_back( { action_graph_goto_markerA, KMOD_CTRL, SDLK_a, "Goto graph marker A" } );

@@ -318,6 +318,9 @@ enum action_t
     action_scroll_home,
     action_scroll_end,
 
+    action_toggle_vblank0,
+    action_toggle_vblank1,
+
     action_graph_zoom_row,
     action_graph_zoom_mouse,
 

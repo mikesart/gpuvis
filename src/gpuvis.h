@@ -580,6 +580,8 @@ struct option_t
     float valf;
     float valf_min = 0.0f;
     float valf_max = 1.0f;
+
+    action_t action = action_nil;
 };
 
 class Opts

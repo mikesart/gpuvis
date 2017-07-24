@@ -259,6 +259,10 @@ void Opts::init()
         init_opt_bool( i, desc.c_str(), inikey.c_str(), true );
     }
 
+    // Set up action mappings so we can display hotkeys in render_imgui_opt().
+    m_options[ OPT_RenderCrtc0 ].action = action_toggle_vblank0;
+    m_options[ OPT_RenderCrtc1 ].action = action_toggle_vblank1;
+
     add_opt_graph_rowsize( "gfx", 8 );
     add_opt_graph_rowsize( "print", 10 );
     add_opt_graph_rowsize( "sdma0" );
@@ -388,6 +392,15 @@ bool Opts::render_imgui_opt( option_id_t optid, float w )
         bool val = !!opt.valf;
 
         changed = ImGui::Checkbox( opt.desc.c_str(), &val );
+
+        if ( opt.action != action_nil )
+        {
+            ImGui::SameLine();
+            ImGui::PushStyleColor( ImGuiCol_Text, ImGui::GetColorVec4( ImGuiCol_TextDisabled ) );
+            ImGui::Text( "%s", s_actions().hotkey_str( opt.action ).c_str() );
+            ImGui::PopStyleColor();
+        }
+
         if ( changed )
             opt.valf = val;
     }
@@ -921,6 +934,7 @@ void TraceLoader::render()
         {
             { "Ctrl+click drag", "Select graph area" },
             { "Shift+click drag", "Zoom selected graph area" },
+            { "Mousewheel", "Zoom graph in / out" },
             { "Alt down", "Hide graph labels" },
         };
 
@@ -3634,6 +3648,11 @@ void TraceLoader::handle_hotkeys()
         ImGui::SetWindowFocus( label.c_str() );
         m_show_trace_info = label;
     }
+
+    if ( s_actions().get( action_toggle_vblank0 ) )
+        s_opts().setb( OPT_RenderCrtc0, !s_opts().getb( OPT_RenderCrtc0 ) );
+    if ( s_actions().get( action_toggle_vblank1 ) )
+        s_opts().setb( OPT_RenderCrtc1, !s_opts().getb( OPT_RenderCrtc1 ) );
 }
 
 void TraceLoader::parse_cmdline( int argc, char **argv )
