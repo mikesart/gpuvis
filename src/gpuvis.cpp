@@ -907,10 +907,13 @@ void TraceLoader::render()
     }
 
     if ( m_show_help && !ImGui::IsPopupOpen( "GpuVis Help" ) )
-        ImGui::OpenPopup( "GpuVis Help" );
-    if ( ImGui::BeginPopupModal( "GpuVis Help", &m_show_help, ImGuiWindowFlags_AlwaysAutoResize ) )
     {
-        if ( imgui_begin_columns( "cpu_stats", { "Hotkey", "Description" } ) )
+        ImGui::OpenPopup( "GpuVis Help" );
+        ImGui::SetNextWindowSize( ImVec2( 600, 600 ), ImGuiSetCond_FirstUseEver );
+    }
+    if ( ImGui::BeginPopupModal( "GpuVis Help", &m_show_help, 0 ) )
+    {
+        if ( imgui_begin_columns( "gpuvis_help", { "Hotkey", "Description" } ) )
             ImGui::SetColumnWidth( 0, imgui_scale( 170.0f ) );
 
         for ( const Actions::actionmap_t &map : s_actions().m_actionmap )
@@ -920,8 +923,7 @@ void TraceLoader::render()
             ImGui::Text( "%s", s_textclrs().bright_str( hotkey ).c_str() );
             ImGui::NextColumn();
 
-            //$ TODO mikesart: Last chars of description were getting truncated, so add trailing spaces
-            ImGui::Text( "%s  ", map.desc );
+            ImGui::Text( "%s", map.desc );
             ImGui::NextColumn();
 
             ImGui::Separator();
