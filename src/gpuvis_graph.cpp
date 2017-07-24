@@ -2452,7 +2452,17 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         ImGui::EndMenu();
     }
 
-    if ( ImGui::BeginMenu( "Restore Location" ) )
+    bool has_saved_locs = false;
+    for ( size_t i = 0; i < m_graph.saved_locs.size(); i++ )
+    {
+        if ( m_graph.saved_locs[ i ].second )
+        {
+            has_saved_locs = true;
+            break;
+        }
+    }
+
+    if ( has_saved_locs && ImGui::BeginMenu( "Restore Location" ) )
     {
         for ( size_t i = 0; i < m_graph.saved_locs.size(); i++ )
         {
