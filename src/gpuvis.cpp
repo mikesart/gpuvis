@@ -922,7 +922,7 @@ void TraceLoader::render()
     if ( m_show_help && !ImGui::IsPopupOpen( "GpuVis Help" ) )
     {
         ImGui::OpenPopup( "GpuVis Help" );
-        ImGui::SetNextWindowSize( ImVec2( 600, 600 ), ImGuiSetCond_FirstUseEver );
+        ImGui::SetNextWindowSize( ImVec2( imgui_scale( 600 ), imgui_scale( 600 ) ), ImGuiSetCond_FirstUseEver );
     }
     if ( ImGui::BeginPopupModal( "GpuVis Help", &m_show_help, 0 ) )
     {
