@@ -1153,12 +1153,12 @@ void Actions::init()
 {
     clear();
 
-    m_actionmap.push_back( { action_help, KMOD_NONE, SDLK_F1, "Display help" } );
+    m_actionmap.push_back( { action_help, KMOD_NONE, SDLK_F1, "Help dialog" } );
 #if defined( USE_GTK3 ) || defined( WIN32 )
-    m_actionmap.push_back( { action_open, KMOD_CTRL | KMOD_SHIFT, SDLK_o, "Display Open Trace File dialog" } );
+    m_actionmap.push_back( { action_open, KMOD_CTRL | KMOD_SHIFT, SDLK_o, "Open Trace File dialog" } );
 #endif
-    m_actionmap.push_back( { action_menu_file, KMOD_ALT, SDLK_f, "Display File Menu" } );
-    m_actionmap.push_back( { action_menu_options, KMOD_ALT, SDLK_o, "Display Options Menu" } );
+    m_actionmap.push_back( { action_menu_file, KMOD_ALT, SDLK_f, "File Menu" } );
+    m_actionmap.push_back( { action_menu_options, KMOD_ALT, SDLK_o, "Options Menu" } );
     m_actionmap.push_back( { action_quit, KMOD_CTRL, SDLK_q, "Quit GpuVis" } );
     m_actionmap.push_back( { action_trace_info, KMOD_CTRL | KMOD_SHIFT, SDLK_i, "Display trace information" } );
 

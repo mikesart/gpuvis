@@ -913,8 +913,30 @@ void TraceLoader::render()
     }
     if ( ImGui::BeginPopupModal( "GpuVis Help", &m_show_help, 0 ) )
     {
+        static const struct
+        {
+            const char *hotkey;
+            const char *desc;
+        } s_help[] =
+        {
+            { "Ctrl+click drag", "Select graph area" },
+            { "Shift+click drag", "Zoom selected graph area" },
+            { "Alt down", "Hide graph labels" },
+        };
+
         if ( imgui_begin_columns( "gpuvis_help", { "Hotkey", "Description" } ) )
             ImGui::SetColumnWidth( 0, imgui_scale( 170.0f ) );
+
+        for ( size_t i = 0; i < ARRAY_SIZE( s_help ); i++ )
+        {
+            ImGui::Text( "%s", s_textclrs().bright_str( s_help[ i ].hotkey ).c_str() );
+            ImGui::NextColumn();
+
+            ImGui::Text( "%s", s_help[ i ].desc );
+            ImGui::NextColumn();
+
+            ImGui::Separator();
+        }
 
         for ( const Actions::actionmap_t &map : s_actions().m_actionmap )
         {
