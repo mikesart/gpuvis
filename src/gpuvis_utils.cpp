@@ -891,14 +891,14 @@ void FontInfo::render_font_options( bool m_use_freetype )
     ImGui::PopID();
 }
 
-bool ColorPicker::render( ImU32 *pcolor, bool is_alpha )
+bool ColorPicker::render( ImU32 color, bool is_alpha )
 {
     bool ret = false;
     const float w = imgui_scale( 125.0f );
 
     {
         float h, s, v;
-        ImVec4 col = ( ImColor )( *pcolor );
+        ImVec4 col = ( ImColor )( color );
 
         static const char s_text[] = "Lorem ipsum dolor sit amet, consectetur adipiscing elit";
         const ImVec2 size = ImGui::CalcTextSize( s_text );
@@ -908,12 +908,12 @@ bool ColorPicker::render( ImU32 *pcolor, bool is_alpha )
 
         ImGui::BeginChild( "color_sample", ImVec2( 0, size.y * 6 ), true );
 
-        ImGui::Text( "RGB: %08x", *pcolor );
+        ImGui::Text( "RGB: %08x", color );
         ImGui::Text( "HSV: %.2f,%.2f,%.2f", h, s, v );
-        ImGui::TextColored( ImColor( *pcolor ), s_text );
+        ImGui::TextColored( ImColor( color ), s_text );
 
         const ImVec2 pos = ImGui::GetCursorScreenPos();
-        ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + size.x + size2.x, pos.y + size.y ), *pcolor );
+        ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + size.x + size2.x, pos.y + size.y ), color );
         ImGui::EndChild();
     }
 
@@ -921,10 +921,10 @@ bool ColorPicker::render( ImU32 *pcolor, bool is_alpha )
     {
         ImGui::PushItemWidth( w );
 
-        float val = IM_COL32_A( *pcolor ) * ( 1.0f / 255.0f );
+        float val = IM_COL32_A( color ) * ( 1.0f / 255.0f );
         ret = ImGui::SliderFloat( "##alpha_val", &val, 0.0f, 1.0f, "%.02f" );
         if ( ret )
-            *pcolor = ImColor( val, val, val, val );
+            m_color = ImColor( val, val, val, val );
 
         ImGui::PopItemWidth();
         return ret;
@@ -963,7 +963,7 @@ bool ColorPicker::render( ImU32 *pcolor, bool is_alpha )
         if ( ImGui::Button( name.c_str(), ImVec2( imgui_scale( 80.0f ), 0.0f ) ) )
         {
             ret = true;
-            *pcolor = colu32;
+            m_color = colu32;
         }
         if ( ImGui::IsItemHovered() )
         {

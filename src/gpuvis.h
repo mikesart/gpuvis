@@ -709,7 +709,7 @@ public:
 
     std::vector< INIEntry > m_imguiwindow_entries;
 
-    uint32_t m_selected_color_event_idx = INVALID_ID;
+    std::string m_selected_color_event;
     colors_t m_selected_color = 0;
     ColorPicker m_colorpicker;
 
