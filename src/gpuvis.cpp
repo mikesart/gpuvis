@@ -1735,6 +1735,9 @@ void TraceEvents::update_ftraceprint_colors()
 
         m_rect_size_max_x = std::max< float >( print_info.rect_size.x, m_rect_size_max_x );
 
+        // Mark this event as autogen'd color so it doesn't get overwritten
+        event.flags |= TRACE_FLAG_AUTOGEN_COLOR;
+
         if ( !print_info.buf_end )
         {
             event.color = s_clrs().get( col_FtracePrintText, label_alpha * 255 );
@@ -1765,6 +1768,9 @@ void TraceEvents::update_fence_signaled_timeline_colors()
                  is_valid_id( fence_signaled.id_start ) )
             {
                 uint32_t hashval = fnv_hashstr32( fence_signaled.user_comm );
+
+                // Mark this event as autogen'd color so it doesn't get overwritten
+                fence_signaled.flags |= TRACE_FLAG_AUTOGEN_COLOR;
                 fence_signaled.color = imgui_col_from_hashval( hashval, label_sat, label_alpha );
             }
         }
@@ -1964,7 +1970,18 @@ void TraceEvents::init_new_event( trace_event_t &event )
     m_comm_locations.add_location_str( event.comm, event.id );
 
     // Add this event name to event name map
-    m_eventnames_locations.add_location_str( event.name, event.id );
+    if ( event.is_vblank() )
+    {
+        char buf[ 64 ];
+
+        // Add vblanks as "drm_vblank_event1", etc
+        snprintf_safe( buf, "%s%d", event.name, event.crtc );
+        m_eventnames_locations.add_location_str( m_strpool.getstr( buf ), event.id );
+    }
+    else
+    {
+        m_eventnames_locations.add_location_str( event.name, event.id );
+    }
 
     if ( event.is_sched_switch() )
         init_sched_switch_event( event );
@@ -2119,6 +2136,9 @@ void TraceEvents::calculate_event_durations()
                 last_fence_signaled_ts = fence_signaled.ts;
 
                 uint32_t hashval = fnv_hashstr32( fence_signaled.user_comm );
+
+                // Mark this event as autogen'd color so it doesn't get overwritten
+                fence_signaled.flags |= TRACE_FLAG_AUTOGEN_COLOR;
                 fence_signaled.color = imgui_col_from_hashval( hashval, label_sat, label_alpha );
             }
         }
@@ -3386,7 +3406,7 @@ static void render_color_event_items( TraceEvents &trace_events,
         const std::vector< uint32_t > &locs = item.second;
         const trace_event_t &event = trace_events.m_events[ locs.at( 0 ) ];
 
-        if ( !event.is_vblank() && !event.is_ftrace_print() )
+        if ( !event.is_ftrace_print() )
         {
             const char *name = trace_events.m_strpool.findstr( item.first );
             ImU32 color = event.color ? event.color : s_clrs().get( col_Graph_1Event );
@@ -3495,8 +3515,21 @@ static void update_changed_colors( TraceEvents &trace_events, colors_t color )
 
 static void update_changed_event_colors( TraceEvents &trace_events, uint32_t eventid )
 {
-    const char *name = trace_events.m_events[ eventid ].name;
-    std::vector< uint32_t > *plocs = trace_events.m_eventnames_locations.get_locations_str( name );
+    std::vector< uint32_t > *plocs;
+    const trace_event_t &event0 = trace_events.m_events[ eventid ];
+
+    if ( event0.is_vblank() )
+    {
+        char buf[ 64 ];
+
+        // Need to check "drm_vblank_event0", "drm_vblank_event1", etc
+        snprintf_safe( buf, "%s%d", event0.name, event0.crtc );
+        plocs = trace_events.m_eventnames_locations.get_locations_str( buf );
+    }
+    else
+    {
+        plocs = trace_events.m_eventnames_locations.get_locations_str( event0.name );
+    }
 
     if ( plocs )
     {
@@ -3506,7 +3539,9 @@ static void update_changed_event_colors( TraceEvents &trace_events, uint32_t eve
         {
             trace_event_t &event = trace_events.m_events[ idx ];
 
-            event.color = color;
+            // If it's not an autogen'd color, set new color
+            if ( !( event.flags & TRACE_FLAG_AUTOGEN_COLOR ) )
+                event.color = color;
         }
     }
 }

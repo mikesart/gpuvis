@@ -140,14 +140,15 @@ enum trace_flag_type_t {
     // TRACE_FLAG_HARDIRQ = 0x08, // inside an interrupt handler
     // TRACE_FLAG_SOFTIRQ = 0x10, // inside a softirq handler
 
-    TRACE_FLAG_FTRACE_PRINT                 = 0x0100,
-    TRACE_FLAG_VBLANK                       = 0x0200,
-    TRACE_FLAG_TIMELINE                     = 0x0400,
-    TRACE_FLAG_SW_QUEUE                     = 0x0800, // amdgpu_cs_ioctl
-    TRACE_FLAG_HW_QUEUE                     = 0x1000, // amdgpu_sched_run_job
-    TRACE_FLAG_FENCE_SIGNALED               = 0x2000, // *fence_signaled
-    TRACE_FLAG_SCHED_SWITCH                 = 0x4000, // sched_switch
-    TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING    = 0x8000, // TASK_RUNNING
+    TRACE_FLAG_FTRACE_PRINT                 = 0x00100,
+    TRACE_FLAG_VBLANK                       = 0x00200,
+    TRACE_FLAG_TIMELINE                     = 0x00400,
+    TRACE_FLAG_SW_QUEUE                     = 0x00800, // amdgpu_cs_ioctl
+    TRACE_FLAG_HW_QUEUE                     = 0x01000, // amdgpu_sched_run_job
+    TRACE_FLAG_FENCE_SIGNALED               = 0x02000, // *fence_signaled
+    TRACE_FLAG_SCHED_SWITCH                 = 0x04000, // sched_switch
+    TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING    = 0x08000, // TASK_RUNNING
+    TRACE_FLAG_AUTOGEN_COLOR                = 0x10000,
 };
 
 struct trace_event_t
