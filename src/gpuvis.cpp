@@ -2048,6 +2048,22 @@ void TraceEvents::init()
 
     // Update tgid colors
     update_tgid_colors();
+
+    std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$imgui_eventcolors$" );
+
+    // Restore event colors
+    for ( const INIEntry &entry : entries )
+    {
+        const std::string &eventname = entry.first;
+        const std::string &val = entry.second;
+
+        if ( !val.empty() )
+        {
+            uint32_t color = std::stoull( val, NULL, 0 );
+
+            set_event_color( eventname.c_str(), color );
+        }
+    }
 }
 
 void TraceEvents::remove_single_tgids()
@@ -2063,6 +2079,26 @@ void TraceEvents::remove_single_tgids()
             it = tgid_pids.erase( it );
         else
             it++;
+    }
+}
+
+void TraceEvents::set_event_color( const std::string &eventname, ImU32 color )
+{
+    const std::vector< uint32_t > *plocs =
+            m_eventnames_locations.get_locations_str( eventname.c_str() );
+
+    if ( plocs )
+    {
+        s_ini().PutUint64( eventname.c_str(), color, "$imgui_eventcolors$" );
+
+        for ( uint32_t idx : *plocs )
+        {
+            trace_event_t &event = m_events[ idx ];
+
+            // If it's not an autogen'd color, set new color
+            if ( !( event.flags & TRACE_FLAG_AUTOGEN_COLOR ) )
+                event.color = color;
+        }
     }
 }
 
@@ -3537,25 +3573,6 @@ static void update_changed_colors( TraceEvents &trace_events, colors_t color )
     }
 }
 
-static void update_changed_event_colors( TraceEvents &trace_events,
-        const std::string eventname, ImU32 color )
-{
-    const std::vector< uint32_t > *plocs =
-            trace_events.m_eventnames_locations.get_locations_str( eventname.c_str() );
-
-    if ( plocs )
-    {
-        for ( uint32_t idx : *plocs )
-        {
-            trace_event_t &event = trace_events.m_events[ idx ];
-
-            // If it's not an autogen'd color, set new color
-            if ( !( event.flags & TRACE_FLAG_AUTOGEN_COLOR ) )
-                event.color = color;
-        }
-    }
-}
-
 static void reset_colors_to_default( std::vector< TraceEvents * > &trace_events_list )
 {
     for ( colors_t i = 0; i < col_Max; i++ )
@@ -3575,9 +3592,16 @@ static void reset_colors_to_default( std::vector< TraceEvents * > &trace_events_
 
 static void reset_event_colors_to_default( std::vector< TraceEvents * > &trace_events_list )
 {
+    std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$imgui_eventcolors$" );
+
+    for ( const INIEntry &entry : entries )
+    {
+        s_ini().PutStr( entry.first.c_str(), "", "$imgui_eventcolors$" );
+    }
+
     for ( TraceEvents *trace_events : trace_events_list )
     {
-        for ( trace_event_t & event : trace_events->m_events )
+        for ( trace_event_t &event : trace_events->m_events )
         {
             // If it's not an autogen'd color, reset color back to 0
             if ( !( event.flags & TRACE_FLAG_AUTOGEN_COLOR ) )
@@ -3585,8 +3609,6 @@ static void reset_event_colors_to_default( std::vector< TraceEvents * > &trace_e
         }
     }
 }
-
-//$ TODO mikesart: Need to save / restore event colors to the ini file...
 
 void TraceLoader::render_color_picker()
 {
@@ -3672,8 +3694,7 @@ void TraceLoader::render_color_picker()
         {
             for ( TraceEvents *trace_events : m_trace_events_list )
             {
-                update_changed_event_colors( *trace_events, m_colorpicker_event,
-                                             m_colorpicker.m_color );
+                trace_events->set_event_color( m_colorpicker_event, m_colorpicker.m_color );
             }
         }
     }

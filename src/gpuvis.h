@@ -226,6 +226,8 @@ public:
     // Parse a "foorbarapp-1234" comm string and return tgid info (or NULL)
     const tgid_info_t *tgid_from_commstr( const char *comm );
 
+    void set_event_color( const std::string &eventname, ImU32 color );
+
 public:
     // Called once on background thread after all events loaded.
     void init();
