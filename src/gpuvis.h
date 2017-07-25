@@ -709,8 +709,8 @@ public:
 
     std::vector< INIEntry > m_imguiwindow_entries;
 
-    std::string m_selected_color_event;
-    colors_t m_selected_color = 0;
+    std::string m_colorpicker_event;
+    colors_t m_colorpicker_color = 0;
     ColorPicker m_colorpicker;
 
     char m_save_filename_buf[ PATH_MAX ] = { 0 };

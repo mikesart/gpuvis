@@ -3580,23 +3580,23 @@ void TraceLoader::render_color_picker()
         if ( ImGui::CollapsingHeader( "GpuVis Colors" ) )
         {
             render_color_items( 0, col_ImGui_Text,
-                                &m_selected_color, &m_selected_color_event );
+                                &m_colorpicker_color, &m_colorpicker_event );
         }
 
         if ( ImGui::CollapsingHeader( "ImGui Colors" ) )
         {
             render_color_items( col_ImGui_Text, col_Max,
-                                &m_selected_color, &m_selected_color_event );
+                                &m_colorpicker_color, &m_colorpicker_event );
         }
 
         if ( m_trace_windows_list.empty() )
         {
-            m_selected_color_event.clear();
+            m_colorpicker_event.clear();
         }
         else if ( ImGui::CollapsingHeader( "Event Colors" ) )
         {
             render_color_event_items( m_trace_windows_list[ 0 ]->m_trace_events,
-                    &m_selected_color, &m_selected_color_event );
+                    &m_colorpicker_color, &m_colorpicker_event );
         }
 
         ImGui::EndChild();
@@ -3606,15 +3606,15 @@ void TraceLoader::render_color_picker()
     /*
      * Column 2: Draw our color picker
      */
-    if ( m_selected_color < col_Max )
+    if ( m_colorpicker_color < col_Max )
     {
-        changed |= render_color_picker_colors( m_colorpicker, m_selected_color );
+        changed |= render_color_picker_colors( m_colorpicker, m_colorpicker_color );
     }
-    else if ( !m_selected_color_event.empty() )
+    else if ( !m_colorpicker_event.empty() )
     {
         TraceEvents &trace_events = m_trace_windows_list[ 0 ]->m_trace_events;
 
-        changed |= render_color_picker_event_colors( m_colorpicker, trace_events, m_selected_color_event );
+        changed |= render_color_picker_event_colors( m_colorpicker, trace_events, m_colorpicker_event );
     }
 
     ImGui::NextColumn();
@@ -3622,24 +3622,24 @@ void TraceLoader::render_color_picker()
 
     if ( changed )
     {
-        if ( m_selected_color < col_Max )
+        if ( m_colorpicker_color < col_Max )
         {
             //$ TODO mikesart: If we reset all colors, does update_changed_colors work?
 
             for ( TraceEvents *trace_events : m_trace_events_list )
-                update_changed_colors( *trace_events, m_selected_color );
+                update_changed_colors( *trace_events, m_colorpicker_color );
 
             // imgui color change - set new imgui colors
-            if ( s_clrs().is_imgui_color( m_selected_color ) )
+            if ( s_clrs().is_imgui_color( m_colorpicker_color ) )
                 imgui_set_custom_style( s_clrs().getalpha( col_ThemeAlpha ) );
 
             s_textclrs().update_colors();
         }
-        else if ( !m_selected_color_event.empty() )
+        else if ( !m_colorpicker_event.empty() )
         {
             for ( TraceEvents *trace_events : m_trace_events_list )
             {
-                update_changed_event_colors( *trace_events, m_selected_color_event,
+                update_changed_event_colors( *trace_events, m_colorpicker_event,
                                              m_colorpicker.m_color );
             }
         }
