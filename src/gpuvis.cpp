@@ -3518,6 +3518,10 @@ static void update_changed_colors( TraceEvents &trace_events, colors_t color )
 {
     switch( color )
     {
+    case col_FtracePrintText:
+        trace_events.invalidate_ftraceprint_colors();
+        break;
+
     case col_Graph_PrintLabelSat:
     case col_Graph_PrintLabelAlpha:
         // ftrace print label color changes - invalidate current colors
