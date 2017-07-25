@@ -3491,7 +3491,7 @@ static bool render_color_picker_event_colors( ColorPicker &colorpicker,
 {
     bool changed = false;
     const trace_event_t *event = get_first_colorable_event( trace_events, selected_color_event.c_str() );
-    
+
     if ( event )
     {
         std::string brightname = s_textclrs().bright_str( selected_color_event.c_str() );
@@ -3556,18 +3556,46 @@ static void update_changed_event_colors( TraceEvents &trace_events,
     }
 }
 
+static void reset_colors_to_default( std::vector< TraceEvents * > &trace_events_list )
+{
+    for ( colors_t i = 0; i < col_Max; i++ )
+        s_clrs().reset( i );
+
+    for ( TraceEvents *trace_events : trace_events_list )
+    {
+        trace_events->invalidate_ftraceprint_colors();
+        trace_events->update_tgid_colors();
+        trace_events->update_fence_signaled_timeline_colors();
+    }
+
+    imgui_set_custom_style( s_clrs().getalpha( col_ThemeAlpha ) );
+
+    s_textclrs().update_colors();
+}
+
+static void reset_event_colors_to_default( std::vector< TraceEvents * > &trace_events_list )
+{
+    for ( TraceEvents *trace_events : trace_events_list )
+    {
+        for ( trace_event_t & event : trace_events->m_events )
+        {
+            // If it's not an autogen'd color, reset color back to 0
+            if ( !( event.flags & TRACE_FLAG_AUTOGEN_COLOR ) )
+                event.color = 0;
+        }
+    }
+}
+
 //$ TODO mikesart: Need to save / restore event colors to the ini file...
+
 void TraceLoader::render_color_picker()
 {
     bool changed = false;
 
     if ( ImGui::Button( "Reset All to Defaults" ) )
     {
-        for ( colors_t i = 0; i < col_Max; i++ )
-            s_clrs().reset( i );
-
-        //$ TODO mikesart: reset all event colors to default
-        changed = true;
+        reset_colors_to_default( m_trace_events_list );
+        reset_event_colors_to_default( m_trace_events_list );
     }
 
     ImGui::Separator();
@@ -3629,6 +3657,7 @@ void TraceLoader::render_color_picker()
         if ( m_colorpicker_color < col_Max )
         {
             //$ TODO mikesart: If we reset all colors, does update_changed_colors work?
+            //$ TODO mikesart: no, it doesn't.
 
             for ( TraceEvents *trace_events : m_trace_events_list )
                 update_changed_colors( *trace_events, m_colorpicker_color );
