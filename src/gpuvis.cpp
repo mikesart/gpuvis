@@ -1771,28 +1771,6 @@ void TraceEvents::update_fence_signaled_timeline_colors()
     }
 }
 
-void TraceEvents::update_vblank_colors()
-{
-    const std::vector< uint32_t > *vblank_locs = get_tdopexpr_locs( "$name=drm_vblank_event" );
-
-    if ( vblank_locs )
-    {
-        ImU32 colors[ 2 ] =
-        {
-            s_clrs().get( col_VBlank0 ),
-            s_clrs().get( col_VBlank1 ),
-        };
-
-        for ( uint32_t id : *vblank_locs )
-        {
-            trace_event_t &event = m_events[ id ];
-
-            if ( event.crtc == 0 || event.crtc == 1 )
-                event.color = colors[ event.crtc ];
-        }
-    }
-}
-
 void TraceEvents::update_tgid_colors()
 {
     float label_sat = s_clrs().getalpha( col_Graph_PrintLabelSat );
@@ -2053,9 +2031,6 @@ void TraceEvents::init()
 
     // Update tgid colors
     update_tgid_colors();
-
-    // Update vblank colors
-    update_vblank_colors();
 }
 
 void TraceEvents::remove_single_tgids()
@@ -3503,11 +3478,6 @@ static void update_changed_colors( TraceEvents &trace_events, colors_t color )
 {
     switch( color )
     {
-    case col_VBlank0:
-    case col_VBlank1:
-        trace_events.update_vblank_colors();
-        break;
-
     case col_Graph_PrintLabelSat:
     case col_Graph_PrintLabelAlpha:
         // ftrace print label color changes - invalidate current colors
