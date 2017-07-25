@@ -1051,7 +1051,7 @@ void Clrs::set( colors_t col, ImU32 color )
 
 void Clrs::reset( colors_t col )
 {
-    s_colordata[ col ].color = s_colordata[ col ].defcolor;
+    set( col, s_colordata[ col ].defcolor );
 }
 
 const char *Clrs::name( colors_t col )
