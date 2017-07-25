@@ -242,6 +242,7 @@ void Opts::init()
     init_opt_bool( OPT_TimelineRenderUserSpace, "Show gfx timeline userspace", "timeline_gfx_userspace", false );
     init_opt_bool( OPT_PrintTimelineLabels, "Show print timeline labels", "print_timeline_gfx_labels", true );
     init_opt_bool( OPT_GraphOnlyFiltered, "Graph only filtered events", "graph_only_filtered", false );
+    init_opt_bool( OPT_Graph_HideEmptyFilteredRows, "Hide empty filtered comm rows", "hide_empty_filtered_rows", true );
     init_opt_bool( OPT_ShowEventList, "Show Event List", "show_event_list", true, OPT_Hidden );
     init_opt_bool( OPT_SyncEventListToGraph, "Sync Event List to graph mouse location", "sync_eventlist_to_graph", true );
 
@@ -2537,6 +2538,12 @@ bool TraceWin::render()
 
             ImGui::SameLine();
             s_opts().render_imgui_opt( OPT_GraphOnlyFiltered );
+
+            if ( s_opts().getb( OPT_GraphOnlyFiltered ) )
+            {
+                ImGui::SameLine();
+                s_opts().render_imgui_opt( OPT_Graph_HideEmptyFilteredRows );
+            }
         }
 
         events_list_render();

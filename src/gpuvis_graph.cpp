@@ -465,7 +465,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         }
         else
         {
-            // LOC_Type_Comm or LOC_TYPE_Tdopexpr hopefully
+            // LOC_TYPE_Comm or LOC_TYPE_Tdopexpr hopefully
 
             if ( rinfo.row_type == TraceEvents::LOC_TYPE_Comm )
             {
@@ -481,6 +481,28 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
                 {
                     show_row_id = id;
                     win->m_graph.show_row_name = NULL;
+                }
+
+                // If we're graphing only filtered events, check if this comm has any events
+                if ( s_opts().getb( OPT_GraphOnlyFiltered ) &&
+                     s_opts().getb( OPT_Graph_HideEmptyFilteredRows ) &&
+                     !win->m_eventlist.filtered_events.empty() )
+                {
+                    bool no_events = true;
+
+                    for ( size_t idx : *plocs )
+                    {
+                        const trace_event_t &event = win->get_event( idx );
+
+                        if ( ( event.pid == rinfo.pid ) && !event.is_filtered_out )
+                        {
+                            no_events = false;
+                            break;
+                        }
+                    }
+
+                    if ( no_events )
+                        continue;
                 }
             }
 
