@@ -891,7 +891,7 @@ void FontInfo::render_font_options( bool m_use_freetype )
     ImGui::PopID();
 }
 
-bool ColorPicker::render( colors_t idx, ImU32 *pcolor )
+bool ColorPicker::render( ImU32 *pcolor, bool is_alpha )
 {
     bool ret = false;
     const float w = imgui_scale( 125.0f );
@@ -917,7 +917,7 @@ bool ColorPicker::render( colors_t idx, ImU32 *pcolor )
         ImGui::EndChild();
     }
 
-    if ( s_clrs().is_alpha_color( idx ) )
+    if ( is_alpha  )
     {
         ImGui::PushItemWidth( w );
 

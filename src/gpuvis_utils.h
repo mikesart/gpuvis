@@ -267,7 +267,7 @@ public:
     ColorPicker() {}
     ~ColorPicker() {}
 
-    bool render( colors_t idx, ImU32 *pcolor );
+    bool render( ImU32 *pcolor, bool is_alpha );
 
 public:
     float m_s = 0.9f;

@@ -253,6 +253,9 @@ public:
     // Map of comm hashval to array of event locations.
     TraceLocations m_comm_locations;
 
+    // Map of event names to event locations
+    TraceLocations m_eventnames_locations;
+
     // Map of timeline/context/seqno to array of event locations.
     TraceLocations m_gfxcontext_locations;
 
@@ -670,6 +673,7 @@ protected:
     void render_console();
     void render_log();
     void render_font_options();
+
     void render_color_picker();
 
     void parse_cmdline( int argc, char **argv );
@@ -706,6 +710,7 @@ public:
 
     std::vector< INIEntry > m_imguiwindow_entries;
 
+    uint32_t m_selected_color_event_idx = INVALID_ID;
     colors_t m_selected_color = 0;
     ColorPicker m_colorpicker;
 

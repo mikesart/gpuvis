@@ -1985,6 +1985,9 @@ void TraceEvents::init_new_event( trace_event_t &event )
     // Add this event comm to our comm locations map (ie, 'thread_main-1152')
     m_comm_locations.add_location_str( event.comm, event.id );
 
+    // Add this event name to event name map
+    m_eventnames_locations.add_location_str( event.name, event.id );
+
     if ( event.is_sched_switch() )
         init_sched_switch_event( event );
 
@@ -3363,6 +3366,182 @@ void TraceLoader::render_font_options()
     ImGui::Unindent();
 }
 
+static void render_color_items( colors_t i0, colors_t i1,
+        colors_t *selected_color, uint32_t *selected_color_event_idx )
+{
+    const float w = imgui_scale( 32.0f );
+    const float text_h = ImGui::GetTextLineHeight();
+
+    for ( colors_t i = i0; i < i1; i++ )
+    {
+        ImGui::BeginGroup();
+
+        bool selected = ( i == *selected_color );
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImU32 color = s_clrs().get( i );
+        const char *name = s_clrs().name( i );
+
+        // Draw colored rectangle
+        ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + w, pos.y + text_h ), color );
+
+        // Draw color name
+        ImGui::Indent( imgui_scale( 40.0f ) );
+        if ( ImGui::Selectable( name, selected, 0 ) )
+        {
+            *selected_color = i;
+            *selected_color_event_idx = INVALID_ID;
+        }
+        ImGui::Unindent( imgui_scale( 40.0f ) );
+
+        ImGui::EndGroup();
+
+        if ( ImGui::IsItemHovered() )
+            ImGui::SetTooltip( "%s", s_clrs().desc( i ) );
+    }
+}
+
+static void render_color_event_items( TraceEvents &trace_events,
+        colors_t *selected_color, uint32_t *selected_color_event_idx )
+{
+    const float w = imgui_scale( 32.0f );
+    const float text_h = ImGui::GetTextLineHeight();
+
+    for ( auto item : trace_events.m_eventnames_locations.m_locs.m_map )
+    {
+        const std::vector< uint32_t > &locs = item.second;
+        const trace_event_t &event = trace_events.m_events[ locs.at( 0 ) ];
+
+        if ( !event.is_vblank() && !event.is_ftrace_print() )
+        {
+            const char *name = trace_events.m_strpool.findstr( item.first );
+            ImU32 color = event.color ? event.color : s_clrs().get( col_Graph_1Event );
+
+            ImGui::BeginGroup();
+
+            bool selected = ( event.id == *selected_color_event_idx );
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+
+            // Draw colored rectangle
+            ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + w, pos.y + text_h ), color );
+
+            // Draw event name
+            ImGui::Indent( imgui_scale( 40.0f ) );
+            if ( ImGui::Selectable( name, selected, 0 ) )
+            {
+                *selected_color = col_Max;
+                *selected_color_event_idx = event.id;
+            }
+            ImGui::Unindent( imgui_scale( 40.0f ) );
+
+            ImGui::EndGroup();
+        }
+    }
+}
+
+static bool draw_color_picker( ColorPicker &colorpicker, colors_t selected_color )
+{
+    bool changed = false;
+    ImU32 color = s_clrs().get( selected_color );
+    const char *name = s_clrs().name( selected_color );
+    const char *desc = s_clrs().desc( selected_color );
+    std::string brightname = s_textclrs().bright_str( name );
+    bool is_alpha = s_clrs().is_alpha_color( selected_color );
+
+    // Color name and description
+    imgui_text_bg( string_format( "%s: %s", brightname.c_str(), desc ).c_str(),
+                   ImGui::GetColorVec4( ImGuiCol_Header ) );
+
+    ImGui::NewLine();
+    if ( colorpicker.render( &color, is_alpha ) )
+    {
+        s_clrs().set( selected_color, color );
+        changed = true;
+    }
+
+    ImGui::NewLine();
+    if ( ImGui::Button( "Reset to Default" ) )
+    {
+        s_clrs().reset( selected_color );
+        changed = true;
+    }
+
+    return changed;
+}
+
+static bool draw_event_color_picker( ColorPicker &colorpicker,
+        TraceEvents &trace_events, uint32_t selected_color_event_idx )
+{
+    bool changed = false;
+    trace_event_t &event = trace_events.m_events[ selected_color_event_idx ];
+    std::string brightname = s_textclrs().bright_str( event.name );
+    ImU32 color = event.color;
+
+    if ( !color )
+        color = s_clrs().get( col_Graph_1Event );
+
+    // Color name and description
+    imgui_text_bg( brightname.c_str(), ImGui::GetColorVec4( ImGuiCol_Header ) );
+
+    ImGui::NewLine();
+    if ( colorpicker.render( &color, false ) )
+    {
+        event.color = color;
+        changed = true;
+    }
+
+    ImGui::NewLine();
+    if ( ImGui::Button( "Reset to Default" ) )
+    {
+        event.color = 0;
+        changed = true;
+    }
+
+    return changed;
+}
+
+static void update_changed_colors( TraceEvents &trace_events, colors_t color )
+{
+    switch( color )
+    {
+    case col_VBlank0:
+    case col_VBlank1:
+        trace_events.update_vblank_colors();
+        break;
+
+    case col_Graph_PrintLabelSat:
+    case col_Graph_PrintLabelAlpha:
+        // ftrace print label color changes - invalidate current colors
+        trace_events.invalidate_ftraceprint_colors();
+        trace_events.update_tgid_colors();
+        break;
+
+    case col_Graph_TimelineLabelSat:
+    case col_Graph_TimelineLabelAlpha:
+        // fence_signaled event color change - update event fence_signaled colors
+        trace_events.update_fence_signaled_timeline_colors();
+        break;
+    }
+}
+
+static void update_changed_event_colors( TraceEvents &trace_events, uint32_t eventid )
+{
+    const char *name = trace_events.m_events[ eventid ].name;
+    std::vector< uint32_t > *plocs = trace_events.m_eventnames_locations.get_locations_str( name );
+
+    if ( plocs )
+    {
+        ImU32 color = trace_events.m_events[ plocs->at( 0 ) ].color;
+
+        for ( uint32_t idx : *plocs )
+        {
+            trace_event_t &event = trace_events.m_events[ idx ];
+
+            event.color = color;
+        }
+    }
+}
+
+//$ TODO mikesart: Need to save / restore event colors to the ini file...
 void TraceLoader::render_color_picker()
 {
     bool changed = false;
@@ -3371,6 +3550,8 @@ void TraceLoader::render_color_picker()
     {
         for ( colors_t i = 0; i < col_Max; i++ )
             s_clrs().reset( i );
+
+        //$ TODO mikesart: reset all event colors to default
         changed = true;
     }
 
@@ -3385,31 +3566,20 @@ void TraceLoader::render_color_picker()
     {
         ImGui::BeginChild( "color_list" );
 
-        float w = imgui_scale( 32.0f );
-        float text_h = ImGui::GetTextLineHeight();
+        if ( ImGui::CollapsingHeader( "GpuVis Colors" ) )
+            render_color_items( 0, col_ImGui_Text, &m_selected_color, &m_selected_color_event_idx );
 
-        for ( colors_t i = 0; i < col_Max; i++ )
+        if ( ImGui::CollapsingHeader( "ImGui Colors" ) )
+            render_color_items( col_ImGui_Text, col_Max, &m_selected_color, &m_selected_color_event_idx );
+
+        if ( m_trace_windows_list.empty() )
         {
-            ImGui::BeginGroup();
-
-            bool selected = ( i == m_selected_color );
-            ImVec2 pos = ImGui::GetCursorScreenPos();
-            ImU32 color = s_clrs().get( i );
-            const char *name = s_clrs().name( i );
-
-            // Draw colored rectangle
-            ImGui::GetWindowDrawList()->AddRectFilled( pos, ImVec2( pos.x + w, pos.y + text_h ), color );
-
-            // Draw color name
-            ImGui::Indent( imgui_scale( 40.0f ) );
-            if ( ImGui::Selectable( name, selected, 0 ) )
-                m_selected_color = i;
-            ImGui::Unindent( imgui_scale( 40.0f ) );
-
-            ImGui::EndGroup();
-
-            if ( ImGui::IsItemHovered() )
-                ImGui::SetTooltip( "%s", s_clrs().desc( i ) );
+            m_selected_color_event_idx = INVALID_ID;
+        }
+        else if ( ImGui::CollapsingHeader( "Event Colors" ) )
+        {
+            render_color_event_items( m_trace_windows_list[ 0 ]->m_trace_events,
+                    &m_selected_color, &m_selected_color_event_idx );
         }
 
         ImGui::EndChild();
@@ -3419,66 +3589,40 @@ void TraceLoader::render_color_picker()
     /*
      * Column 2: Draw our color picker
      */
+    if ( m_selected_color < col_Max )
     {
-        ImU32 color = s_clrs().get( m_selected_color );
-        const char *name = s_clrs().name( m_selected_color );
-        const char *desc = s_clrs().desc( m_selected_color );
-        std::string brightname = s_textclrs().bright_str( name );
-
-        // Color name and description
-        imgui_text_bg( string_format( "%s: %s", brightname.c_str(), desc ).c_str(),
-                       ImGui::GetColorVec4( ImGuiCol_Header ) );
-
-        ImGui::NewLine();
-        if ( m_colorpicker.render( m_selected_color, &color ) )
-        {
-            s_clrs().set( m_selected_color, color );
-            changed = true;
-        }
-
-        ImGui::NewLine();
-        if ( ImGui::Button( "Reset to Default" ) )
-        {
-            s_clrs().reset( m_selected_color );
-            changed = true;
-        }
+        changed |= draw_color_picker( m_colorpicker, m_selected_color );
     }
-    ImGui::NextColumn();
+    else if ( is_valid_id( m_selected_color_event_idx ) )
+    {
+        TraceEvents &trace_events = m_trace_windows_list[ 0 ]->m_trace_events;
 
+        changed |= draw_event_color_picker( m_colorpicker, trace_events, m_selected_color_event_idx );
+    }
+
+    ImGui::NextColumn();
     ImGui::EndColumns();
 
     if ( changed )
     {
-        switch( m_selected_color )
+        if ( m_selected_color < col_Max )
         {
-        case col_VBlank0:
-        case col_VBlank1:
-            for ( TraceEvents *trace_event : m_trace_events_list )
-                trace_event->update_vblank_colors();
-            break;
-        case col_Graph_PrintLabelSat:
-        case col_Graph_PrintLabelAlpha:
-            // ftrace print label color changes - invalidate current colors
-            for ( TraceEvents *trace_event : m_trace_events_list )
-            {
-                trace_event->invalidate_ftraceprint_colors();
-                trace_event->update_tgid_colors();
-            }
-            break;
+            //$ TODO mikesart: If we reset all colors, does update_changed_colors work?
 
-        case col_Graph_TimelineLabelSat:
-        case col_Graph_TimelineLabelAlpha:
-            // fence_signaled event color change - update event fence_signaled colors
-            for ( TraceEvents *trace_event : m_trace_events_list )
-                trace_event->update_fence_signaled_timeline_colors();
-            break;
+            for ( TraceEvents *trace_events : m_trace_events_list )
+                update_changed_colors( *trace_events, m_selected_color );
+
+            // imgui color change - set new imgui colors
+            if ( s_clrs().is_imgui_color( m_selected_color ) )
+                imgui_set_custom_style( s_clrs().getalpha( col_ThemeAlpha ) );
+
+            s_textclrs().update_colors();
         }
-
-        // imgui color change - set new imgui colors
-        if ( s_clrs().is_imgui_color( m_selected_color ) )
-            imgui_set_custom_style( s_clrs().getalpha( col_ThemeAlpha ) );
-
-        s_textclrs().update_colors();
+        else if ( is_valid_id( m_selected_color_event_idx ) )
+        {
+            for ( TraceEvents *trace_events : m_trace_events_list )
+                update_changed_event_colors( *trace_events, m_selected_color_event_idx );
+        }
     }
 }
 
