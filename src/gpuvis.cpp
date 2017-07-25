@@ -1724,7 +1724,7 @@ void TraceEvents::update_ftraceprint_colors()
     float label_sat = s_clrs().getalpha( col_Graph_PrintLabelSat );
     float label_alpha = s_clrs().getalpha( col_Graph_PrintLabelAlpha );
 
-    invalidate_ftraceprint_colors();
+    m_rect_size_max_x = 0.0f;
 
     for ( auto &entry : m_print_buf_info.m_map )
     {

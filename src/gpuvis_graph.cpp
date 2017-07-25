@@ -2022,9 +2022,7 @@ void TraceWin::graph_render()
     if ( m_trace_events.m_rect_size_max_x == -1.0f )
     {
         imgui_push_smallfont();
-
         m_trace_events.update_ftraceprint_colors();
-
         imgui_pop_smallfont();
     }
 
