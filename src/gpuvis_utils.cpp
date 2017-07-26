@@ -323,6 +323,71 @@ std::string gen_random_str( size_t len )
     return str;
 }
 
+void str_strip_whitespace( char *str )
+{
+    size_t len;
+    const char *front = str;
+
+    while ( isspace( *front ) )
+        front++;
+
+    len = strlen( front );
+    memmove( str, front, len + 1 );
+
+    while ( ( len > 0 ) && isspace( str[ len - 1 ] ) )
+        len--;
+    str[ len ] = '\0';
+}
+
+char *strstr_ignore_spaces( char *haystack, const char *needle, size_t *len )
+{
+    while ( *haystack )
+    {
+        if ( *haystack == *needle )
+        {
+            char *hay = haystack + 1;
+            const char *need = needle + 1;
+
+            for (;;)
+            {
+                while ( isspace( *hay ) )
+                    hay++;
+                while ( isspace( *need ) )
+                    need++;
+
+                if ( !need[ 0 ] )
+                {
+                    if ( len )
+                        *len = hay - haystack;
+                    return haystack;
+                }
+
+                if ( *hay++ != *need++ )
+                    break;
+            }
+        }
+
+        haystack++;
+    }
+
+    return NULL;
+}
+
+void remove_substrings( char *str, const char *fmt, ... )
+{
+    char *val;
+    size_t len;
+    va_list args;
+    char substr[ 1024 ];
+
+    va_start( args, fmt );
+    vsnprintf_safe( substr, fmt, args );
+    va_end( args );
+
+    while ( ( val = strstr_ignore_spaces( str, substr, &len ) ) )
+        memmove( val, val + len, strlen( val + len ) + 1 );
+}
+
 size_t get_file_size( const char *filename )
 {
     struct stat st;

@@ -1429,6 +1429,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
     bool draw_selected_event = false;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi.y + 4, gi.w, gi.h - 8 );
+    bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -1440,6 +1441,8 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
         if ( eventid > gi.eventend )
             break;
         else if ( gi.graph_only_filtered && event.is_filtered_out )
+            continue;
+        else if ( hide_sched_switch && event.is_sched_switch() )
             continue;
 
         float x = gi.ts_to_screenx( event.ts );

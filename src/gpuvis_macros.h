@@ -124,6 +124,13 @@ std::string string_rtrimmed( std::string s );
 // trim from both ends (copying)
 std::string string_trimmed( std::string s );
 
+// Remove leading and trailing whitespace from string (in place)
+void str_strip_whitespace( char *str );
+// Strstr routine which ignores whitespace
+char *strstr_ignore_spaces( char *haystack, const char *needle, size_t *len = NULL );
+// Remove substrings in place from a string
+void remove_substrings( char *str, const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
+
 template < typename T >
 T Clamp( const T& val, const T& lower, const T& upper )
 {
@@ -148,6 +155,17 @@ int snprintf_safe( char ( &buf )[ T ], const char *fmt, ... )
     buf[ T - 1 ] = 0;
 
     va_end(ap);
+
+    return retval;
+}
+
+template < size_t T  >
+int vsnprintf_safe( char ( &buf )[ T ], const char *fmt, va_list ap )
+{
+    int retval;
+
+    retval = SDL_vsnprintf( buf, T, fmt, ap );
+    buf[ T - 1 ] = 0;
 
     return retval;
 }

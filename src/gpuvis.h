@@ -448,6 +448,7 @@ public:
         bool do_gotoevent = false;
         int goto_eventid = 0;
 
+        int hide_sched_switch_events_val = -1;
         bool do_filter = false;
         char filter_buf[ 512 ] = { 0 };
         std::string filtered_events_str;
@@ -559,6 +560,7 @@ enum : uint32_t
     OPT_Graph_HideEmptyFilteredRows,
     OPT_ShowEventList,
     OPT_SyncEventListToGraph,
+    OPT_HideSchedSwitchEvents,
     OPT_RenderCrtc0,
     OPT_RenderCrtc1,
     OPT_RenderCrtc2,

@@ -241,10 +241,11 @@ void Opts::init()
     init_opt_bool( OPT_TimelineEvents, "Show gfx timeline events", "timeline_gfx_events", true );
     init_opt_bool( OPT_TimelineRenderUserSpace, "Show gfx timeline userspace", "timeline_gfx_userspace", false );
     init_opt_bool( OPT_PrintTimelineLabels, "Show print timeline labels", "print_timeline_gfx_labels", true );
-    init_opt_bool( OPT_GraphOnlyFiltered, "Graph only filtered events", "graph_only_filtered", false );
+    init_opt_bool( OPT_GraphOnlyFiltered, "Graph only filtered events", "graph_only_filtered", true );
     init_opt_bool( OPT_Graph_HideEmptyFilteredRows, "Hide empty filtered comm rows", "hide_empty_filtered_rows", true );
     init_opt_bool( OPT_ShowEventList, "Show Event List", "show_event_list", true, OPT_Hidden );
     init_opt_bool( OPT_SyncEventListToGraph, "Sync Event List to graph mouse location", "sync_eventlist_to_graph", true );
+    init_opt_bool( OPT_HideSchedSwitchEvents, "Hide sched_switch events", "hide_sched_switch_events", true );
 
     init_opt( OPT_GraphHeight, "Graph Size: %.1f", "graph_height", 0, 0, 1, OPT_Float | OPT_Hidden );
     init_opt( OPT_GraphHeightZoomed, "Zoomed Graph Size: %.1f", "graph_height_zoomed", 0, 0, 1, OPT_Float | OPT_Hidden );
@@ -2252,6 +2253,96 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name, loc_type
     return plocs;
 }
 
+// Check if an expression is surrounded by parens: "( expr )"
+// Assumes no leading / trailing whitespace in expr.
+static bool is_surrounded_by_parens( const char *expr )
+{
+    if ( expr[ 0 ] == '(' )
+    {
+        int level = 1;
+
+        for ( size_t i = 1; expr[ i ]; i++ )
+        {
+            if ( expr[ i ] == '(' )
+            {
+                level++;
+            }
+            else if ( expr[ i ] == ')' )
+            {
+                if ( --level == 0 )
+                    return !expr[ i + 1 ];
+            }
+        }
+    }
+
+    return false;
+}
+
+template < size_t T >
+static void add_event_filter( char ( &dest )[ T ], const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
+template < size_t T >
+static void add_event_filter( char ( &dest )[ T ], const char *fmt, ... )
+{
+    va_list args;
+    char expr[ T ];
+
+    va_start( args, fmt );
+    vsnprintf_safe( expr, fmt, args );
+    va_end( args );
+
+    str_strip_whitespace( dest );
+
+    if ( !dest[ 0 ] )
+    {
+        strcpy_safe( dest, expr );
+    }
+    else if ( !strstr_ignore_spaces( dest, expr ) )
+    {
+        char dest2[ T ];
+        bool has_parens = is_surrounded_by_parens( dest );
+
+        strcpy_safe( dest2, dest );
+        snprintf_safe( dest, "%s%s%s && (%s)",
+                       has_parens ? "" : "(", dest2, has_parens ? "" : ")",
+                       expr );
+    }
+}
+
+template < size_t T >
+static void remove_event_filter( char ( &dest )[ T ], const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
+template < size_t T >
+static void remove_event_filter( char ( &dest )[ T ], const char *fmt, ... )
+{
+    va_list args;
+    char expr[ T ];
+
+    va_start( args, fmt );
+    vsnprintf_safe( expr, fmt, args );
+    va_end( args );
+
+    // Remove '&& expr'
+    remove_substrings( dest, "&& %s", expr );
+    // Remove 'expr &&'
+    remove_substrings( dest, "%s &&", expr );
+
+    for ( int i = 6; i >= 1; i-- )
+    {
+        // Remove '&& (expr)' strings
+        remove_substrings( dest, "&& %.*s%s%.*s", i, "((((((", expr, i, "))))))" );
+        // Remove '(expr) &&'
+        remove_substrings( dest, "%.*s%s%.*s &&", i, "((((((", expr, i, "))))))" );
+    }
+
+    // Remove 'expr'
+    remove_substrings( dest, "%s", expr );
+
+    // Remove empty parenthesis
+    remove_substrings( dest, "%s", "()" );
+
+    // Remove leading / trailing whitespace
+    str_strip_whitespace( dest );
+}
+
 TraceWin::TraceWin( TraceLoader &loader, TraceEvents &trace_events, std::string &title ) :
     m_trace_events( trace_events), m_loader( loader )
 {
@@ -2457,6 +2548,21 @@ bool TraceWin::render()
         if ( imgui_input_text2( "Time Offset:", m_eventlist.timeoffset_buf, 120.0f, ImGuiInputText2FlagsLeft_LabelIsButton ) )
             m_eventlist.tsoffset = timestr_to_ts( m_eventlist.timeoffset_buf );
 #endif
+
+        if ( m_eventlist.hide_sched_switch_events_val != s_opts().getb( OPT_HideSchedSwitchEvents ) )
+        {
+            bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
+            static const char filter_str[] = "$name != \"sched_switch\"";
+
+            remove_event_filter( m_eventlist.filter_buf, "$name == \"sched_switch\"" );
+            remove_event_filter( m_eventlist.filter_buf, filter_str );
+
+            if ( hide_sched_switch )
+                add_event_filter( m_eventlist.filter_buf, filter_str );
+
+            m_eventlist.do_filter = true;
+            m_eventlist.hide_sched_switch_events_val = hide_sched_switch;
+        }
 
         if ( m_eventlist.do_filter ||
              imgui_input_text2( "Event Filter:", m_eventlist.filter_buf, 500.0f,
@@ -2712,33 +2818,6 @@ void TraceWin::graph_center_event( uint32_t eventid )
     m_graph.show_row_name = event.comm;
 }
 
-template < size_t T >
-static void add_event_filter( char ( &dest )[ T ], const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
-template < size_t T >
-static void add_event_filter( char ( &dest )[ T ], const char *fmt, ... )
-{
-    va_list args;
-    char buf[ T ];
-
-    va_start( args, fmt );
-    vsnprintf( buf, sizeof( buf ), fmt, args );
-    va_end(args);
-
-    buf[ sizeof( buf ) - 1 ] = 0;
-
-    if ( dest[ 0 ] )
-    {
-        char dest2[ T ];
-
-        strcpy_safe( dest2, dest );
-        snprintf_safe( dest, "(%s) && (%s)", dest2, buf );
-    }
-    else
-    {
-        strcpy_safe( dest, buf );
-    }
-}
-
 bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
 {
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
@@ -2783,28 +2862,32 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
 
     ImGui::Separator();
 
-    label = string_format( "Show only '%s' events", event.name );
+    label = string_format( "Add '$name == %s' filter", event.name );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
+        remove_event_filter( m_eventlist.filter_buf, "$name != \"%s\"", event.name );
         add_event_filter( m_eventlist.filter_buf, "$name == \"%s\"", event.name );
         m_eventlist.do_filter = true;
     }
-    label = string_format( "Hide '%s' events", event.name );
+    label = string_format( "Add '$name != %s' filter", event.name );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
+        remove_event_filter( m_eventlist.filter_buf, "$name == \"%s\"", event.name );
         add_event_filter( m_eventlist.filter_buf, "$name != \"%s\"", event.name );
         m_eventlist.do_filter = true;
     }
 
-    label = string_format( "Show only pid %d events", event.pid );
+    label = string_format( "Add '$pid == %d' filter", event.pid );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
+        remove_event_filter( m_eventlist.filter_buf, "$pid != %d", event.pid );
         add_event_filter( m_eventlist.filter_buf, "$pid == %d", event.pid );
         m_eventlist.do_filter = true;
     }
-    label = string_format( "Hide pid %d events", event.pid );
+    label = string_format( "Add '$pid != %d' filter", event.pid );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
+        remove_event_filter( m_eventlist.filter_buf, "$pid == %d", event.pid );
         add_event_filter( m_eventlist.filter_buf, "$pid != %d", event.pid );
         m_eventlist.do_filter = true;
     }
@@ -2812,15 +2895,19 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
     const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( event.pid );
     if ( tgid_info )
     {
-        label = string_format( "Show only process '%s' events", tgid_info->commstr_clr );
+        ImGui::Separator();
+
+        label = string_format( "Filter process '%s' events", tgid_info->commstr_clr );
         if ( ImGui::MenuItem( label.c_str() ) )
         {
+            remove_event_filter( m_eventlist.filter_buf, "$tgid != %d", tgid_info->tgid );
             add_event_filter( m_eventlist.filter_buf, "$tgid == %d", tgid_info->tgid );
             m_eventlist.do_filter = true;
         }
         label = string_format( "Hide process '%s' events", tgid_info->commstr_clr );
         if ( ImGui::MenuItem( label.c_str() ) )
         {
+            remove_event_filter( m_eventlist.filter_buf, "$tgid == %d", tgid_info->tgid );
             add_event_filter( m_eventlist.filter_buf, "$tgid != %d", tgid_info->tgid );
             m_eventlist.do_filter = true;
         }
