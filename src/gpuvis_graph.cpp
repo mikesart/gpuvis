@@ -1739,7 +1739,8 @@ void TraceWin::graph_render_eventlist_selection( class graph_info_t &gi )
     {
         // Draw rectangle for visible event list contents
         if ( is_valid_id( m_eventlist.start_eventid ) &&
-             is_valid_id( m_eventlist.end_eventid ) )
+             is_valid_id( m_eventlist.end_eventid ) &&
+             ( m_eventlist.end_eventid > 0 ) )
         {
             trace_event_t &event0 = get_event( m_eventlist.start_eventid );
             trace_event_t &event1 = get_event( m_eventlist.end_eventid - 1 );
