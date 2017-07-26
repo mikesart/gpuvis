@@ -24,7 +24,22 @@
 
 // Mask for sched_switch prev_state field
 //   From include/linux/sched.h
-#define TASK_STATE_MAX  1024
+
+/* Used in tsk->state: */
+#define TASK_RUNNING            0
+#define TASK_INTERRUPTIBLE      1
+#define TASK_UNINTERRUPTIBLE    2
+#define TASK_STOPPED            4
+#define TASK_TRACED             8
+/* Used in tsk->exit_state: */
+#define EXIT_DEAD               16
+#define EXIT_ZOMBIE             32
+/* Used in tsk->state again: */
+#define TASK_DEAD               64
+#define TASK_WAKEKILL           128
+#define TASK_WAKING             256
+#define TASK_PARKED             512
+#define TASK_STATE_MAX          1024
 
 #define INVALID_ID ( ( uint32_t )-1 )
 

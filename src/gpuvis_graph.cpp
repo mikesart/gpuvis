@@ -257,6 +257,8 @@ public:
     const size_t hovered_max = 6;
     std::vector< hovered_t > hovered_items;
 
+    std::vector< uint32_t > sched_switch_bars;
+
     // Id of hovered / selected fence signaled event
     uint32_t hovered_fence_signaled = INVALID_ID;
 
@@ -1492,12 +1494,13 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
                 s_clrs().get( col_Graph_TaskRunning ),
                 s_clrs().get( col_Graph_TaskSleeping )
             };
+
             for ( size_t idx = vec_find_eventid( *plocs, gi.eventstart );
                   idx < plocs->size();
                   idx++ )
             {
-                float y = gi.y + 4 + gi.h / 2;
-                float row_h = gi.h - 8 - gi.h / 2;
+                float row_h = gi.text_h;
+                float y = gi.y + ( gi.h - row_h ) / 2;
                 const trace_event_t &sched_switch = get_event( plocs->at( idx ) );
 
                 if ( sched_switch.duration != ( uint32_t )-1 )
@@ -1511,6 +1514,13 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
                         break;
 
                     imgui_drawrect( x0, x1 - x0, y, row_h, colors[ running ] );
+
+                    if ( gi.mouse_over &&
+                         gi.mouse_pos.x > x0 && gi.mouse_pos.x <= x1 &&
+                         gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + gi.row_h )
+                    {
+                        gi.sched_switch_bars.push_back( sched_switch.id );
+                    }
                 }
             }
         }
@@ -2587,6 +2597,46 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
 
 }
 
+static std::string task_state_to_str( int state )
+{
+    std::string ret;
+    static const struct
+    {
+        int mask;
+        const char *name;
+    } s_vals[] =
+    {
+#define _XTAG( _x ) { _x, #_x }
+        _XTAG( TASK_RUNNING ),
+        _XTAG( TASK_INTERRUPTIBLE ),
+        _XTAG( TASK_UNINTERRUPTIBLE ),
+        _XTAG( TASK_STOPPED ),
+        _XTAG( TASK_TRACED ),
+        _XTAG( EXIT_DEAD ),
+        _XTAG( EXIT_ZOMBIE ),
+        _XTAG( TASK_DEAD ),
+        _XTAG( TASK_WAKEKILL ),
+        _XTAG( TASK_WAKING ),
+        _XTAG( TASK_PARKED ),
+#undef _XTAG
+    };
+
+    if ( !state )
+        return "TASK_RUNNING";
+
+    for ( size_t i = 0; i < ARRAY_SIZE( s_vals ); i++ )
+    {
+        if ( state & s_vals[ i ].mask )
+        {
+            if ( !ret.empty() )
+                ret += " ";
+            ret += s_vals[ i ].name;
+        }
+    }
+
+    return ret;
+}
+
 void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts )
 {
     std::string time_buf = "Time: " + ts_to_timestr( mouse_ts, m_eventlist.tsoffset );
@@ -2643,6 +2693,32 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
     if ( graph_marker_valid( 1 ) )
         time_buf += "\nMarker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - mouse_ts, 0, 2 ) + "ms";
 
+    if ( !gi.sched_switch_bars.empty() )
+    {
+        time_buf += "\n";
+
+        for ( uint32_t id : gi.sched_switch_bars )
+        {
+            trace_event_t &event = get_event( id );
+
+            const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
+
+            if ( prev_pid_str )
+            {
+                int prev_pid = atoi( prev_pid_str );
+                int task_state = atoi( get_event_field_val( event, "prev_state" ) ) & ( TASK_STATE_MAX - 1 );
+                const std::string task_state_str = task_state_to_str( task_state );
+                const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
+                std::string timestr = ts_to_timestr( event.duration, 0, 4 );
+
+                time_buf += string_format( "\n%s%u%s sched_switch %s (%sms) %s",
+                                           s_textclrs().str( TClr_Bright ), event.id, s_textclrs().str( TClr_Def ),
+                                           prev_comm, timestr.c_str(),
+                                           task_state_str.c_str() );
+            }
+        }
+    }
+
     m_graph.hovered_eventid = INVALID_ID;
     if ( !gi.hovered_items.empty() )
     {
@@ -2684,27 +2760,17 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
                 if ( buf[ 0 ] )
                     time_buf += " " + s_textclrs().mstr( buf, event.color );
             }
-
-            if ( event.is_sched_switch() )
+            else if ( event.is_sched_switch() && ( event.duration != ( uint32_t )-1 ) )
             {
                 const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
-                const char *next_pid_str = get_event_field_val( event, "next_pid" );
 
-                if ( prev_pid_str && next_pid_str )
+                if ( prev_pid_str )
                 {
                     int prev_pid = atoi( prev_pid_str );
-                    int next_pid = atoi( next_pid_str );
                     const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
-                    const char *next_comm = m_trace_events.comm_from_pid( next_pid, next_pid_str );
+                    std::string timestr = ts_to_timestr( event.duration, 0, 4 );
 
-                    time_buf += string_format( " prev:%s next:%s", prev_comm, next_comm );
-
-                    if ( event.duration != ( uint32_t )-1 )
-                    {
-                        std::string timestr = ts_to_timestr( event.duration, 0, 4 );
-
-                        time_buf += string_format( " prev-duration:%sms", timestr.c_str() );
-                    }
+                    time_buf += string_format( " %s (%sms)", prev_comm, timestr.c_str() );
                 }
             }
         }
