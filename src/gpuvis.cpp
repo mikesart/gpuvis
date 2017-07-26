@@ -2658,29 +2658,47 @@ void TraceWin::trace_render_info()
         ImGui::EndColumns();
     }
 
-    if ( !trace_info.cpustats.empty() )
+    if ( ImGui::CollapsingHeader( "Event info" ) )
     {
-        if ( ImGui::CollapsingHeader( "CPU Info" ) )
+        if ( imgui_begin_columns( "event_info", { "Event Name", "Count" } ) )
+            ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
+
+        for ( auto item : m_trace_events.m_eventnames_locations.m_locs.m_map )
         {
-            if ( imgui_begin_columns( "cpu_stats", { "CPU", "Stats" } ) )
-                ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
+            const char *eventname = m_trace_events.m_strpool.findstr( item.first );
+            const std::vector< uint32_t > &locs = item.second;
 
-            for ( const std::string &str : trace_info.cpustats )
-            {
-                const char *lf = strchr( str.c_str(), '\n' );
-
-                if ( lf )
-                {
-                    ImGui::Text( "%.*s", ( int )( lf - str.c_str() ), str.c_str() );
-                    ImGui::NextColumn();
-                    ImGui::Text( "%s", lf + 1 );
-                    ImGui::NextColumn();
-                    ImGui::Separator();
-                }
-            }
-
-            ImGui::EndColumns();
+            ImGui::Text( "%s", eventname );
+            ImGui::NextColumn();
+            ImGui::Text( "%lu", locs.size() );
+            ImGui::NextColumn();
+            ImGui::Separator();
         }
+
+        ImGui::EndColumns();
+    }
+
+    if ( !trace_info.cpustats.empty() &&
+         ImGui::CollapsingHeader( "CPU Info" ) )
+    {
+        if ( imgui_begin_columns( "cpu_stats", { "CPU", "Stats" } ) )
+            ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
+
+        for ( const std::string &str : trace_info.cpustats )
+        {
+            const char *lf = strchr( str.c_str(), '\n' );
+
+            if ( lf )
+            {
+                ImGui::Text( "%.*s", ( int )( lf - str.c_str() ), str.c_str() );
+                ImGui::NextColumn();
+                ImGui::Text( "%s", lf + 1 );
+                ImGui::NextColumn();
+                ImGui::Separator();
+            }
+        }
+
+        ImGui::EndColumns();
     }
 }
 

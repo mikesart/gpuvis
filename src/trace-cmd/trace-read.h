@@ -187,7 +187,7 @@ struct trace_event_t
     uint32_t color;
 
     int64_t ts;                 // timestamp
-    const char *comm;           // command line
+    const char *comm;           // command name
     const char *system;         // event system (ftrace-print, etc.)
     const char *name;           // event name
     const char *timeline;       // event timeline (gfx, sdma0, ...)
