@@ -2179,6 +2179,22 @@ void TraceWin::graph_render()
         gi.set_pos_y( windowpos.y + start_y, windowsize.y, NULL );
         graph_render_row_labels( gi );
 
+        ImU32 color = s_clrs().get( col_Graph_LocationText );
+        if ( color & IM_COL32_A_MASK )
+        {
+            float fontscale = 6.0f;
+            int64_t ts = gi.ts0 + ( gi.ts1 - gi.ts0 );
+            std::string str = ts_to_timestr( ts / 1000, 0, 4 );
+            ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
+
+            ImVec2 pos = ImVec2( windowpos.x + ( windowsize.x - textsize.x * fontscale ) / 2,
+                                 windowpos.y + ( windowsize.y - textsize.y * fontscale ) / 2 );
+
+            ImGui::GetWindowDrawList()->AddText( ImGui::GetFont(),
+                                                 ImGui::GetFontSize() * fontscale,
+                                                 pos, color, str.c_str() );
+        }
+
         // Handle right, left, pgup, pgdown, etc in graph
         graph_handle_keyboard_scroll( gi );
 
