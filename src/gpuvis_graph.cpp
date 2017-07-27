@@ -1533,6 +1533,10 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
                          gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + gi.row_h )
                     {
                         gi.sched_switch_bars.push_back( sched_switch.id );
+
+                        ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ),
+                                                             ImVec2( x1, y + row_h ),
+                                                             s_clrs().get( col_Graph_BarSelRect ) );
                     }
                 }
             }
