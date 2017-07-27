@@ -417,7 +417,7 @@ protected:
     // Convert a time string to a time stamp
     int64_t timestr_to_ts( const char *buf );
     // Convert a time stamp to a time string
-    std::string ts_to_timestr( int64_t event_ts, int precision = 6 );
+    std::string ts_to_timestr( int64_t event_ts, int precision, const char *suffix = NULL );
 
     bool graph_marker_valid( int idx0 );
     void graph_marker_set( size_t index, int64_t ts, const char *str = NULL );

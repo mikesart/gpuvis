@@ -1417,11 +1417,11 @@ int64_t TraceWin::timestr_to_ts( const char *buf )
     return ( int64_t )( val * NSECS_PER_MSEC );
 }
 
-std::string TraceWin::ts_to_timestr( int64_t event_ts, int precision )
+std::string TraceWin::ts_to_timestr( int64_t event_ts, int precision, const char *suffix )
 {
     double val = event_ts * ( 1.0 / NSECS_PER_MSEC );
 
-    return string_format( "%.*lf", precision, val );
+    return string_format( "%.*lf%s", precision, val, suffix ? suffix : " ms" );
 }
 
 bool TraceWin::graph_marker_valid( int idx0 )
@@ -1436,13 +1436,13 @@ void TraceWin::graph_marker_set( size_t index, int64_t ts, const char *str )
     if ( ts == INT64_MAX )
         m_graph.marker_bufs[ index ][ 0 ] = 0;
     else
-        snprintf_safe( m_graph.marker_bufs[ index ], "%s ms",
-                       ts_to_timestr( m_graph.ts_markers[ index ], 4 ).c_str() );
+        strcpy_safe( m_graph.marker_bufs[ index ],
+                     ts_to_timestr( m_graph.ts_markers[ index ], 4 ).c_str() );
 
     if ( graph_marker_valid( 0 ) && graph_marker_valid( 1 ) )
     {
-        snprintf_safe( m_graph.marker_delta_buf, "%s ms",
-                       ts_to_timestr( m_graph.ts_markers[ 1 ] - m_graph.ts_markers[ 0 ], 4 ).c_str() );
+        strcpy_safe( m_graph.marker_delta_buf,
+                     ts_to_timestr( m_graph.ts_markers[ 1 ] - m_graph.ts_markers[ 0 ], 4 ).c_str() );
     }
 }
 
@@ -2515,9 +2515,9 @@ bool TraceWin::render()
 
         if ( m_graph.recalc_timebufs )
         {
-            snprintf_safe( m_graph.time_start_buf, "%s ms", ts_to_timestr( m_graph.start_ts, 4 ).c_str() );
-            snprintf_safe( m_graph.time_end_buf, "%s ms", ts_to_timestr( m_graph.start_ts + m_graph.length_ts, 4 ).c_str() );
-            snprintf_safe( m_graph.time_length_buf, "%s ms", ts_to_timestr( m_graph.length_ts, 4 ).c_str() );
+            strcpy_safe( m_graph.time_start_buf, ts_to_timestr( m_graph.start_ts, 4 ).c_str() );
+            strcpy_safe( m_graph.time_end_buf, ts_to_timestr( m_graph.start_ts + m_graph.length_ts, 4 ).c_str() );
+            strcpy_safe( m_graph.time_length_buf, ts_to_timestr( m_graph.length_ts, 4 ).c_str() );
 
             m_graph.recalc_timebufs = false;
         }
@@ -2671,7 +2671,7 @@ void TraceWin::trace_render_info()
 
     const trace_info_t &trace_info = m_trace_events.m_trace_info;
 
-    ImGui::Text( "Trace time: %s ms",
+    ImGui::Text( "Trace time: %s",
                  ts_to_timestr( m_trace_events.m_events.back().ts, 4 ).c_str() );
 
     ImGui::Text( "Trace cpus: %u", trace_info.cpus );
@@ -3000,19 +3000,19 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
             // Otherwise show a tooltip.
             std::string graph_markers;
             std::string durationstr;
-            std::string ts_str = ts_to_timestr( event.ts );
+            std::string ts_str = ts_to_timestr( event.ts, 6 );
             std::string fieldstr = get_event_fields_str( event, ": ", '\n' );
             const char *commstr = m_trace_events.tgidcomm_from_pid( event.pid );
 
             if ( graph_marker_valid( 0 ) )
-                graph_markers += "Marker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - event.ts, 2 ) + "ms\n";
+                graph_markers += "Marker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - event.ts, 2, " ms\n" );
             if ( graph_marker_valid( 1 ) )
-                graph_markers += "Marker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - event.ts, 2 ) + "ms\n";
+                graph_markers += "Marker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - event.ts, 2, " ms\n" );
             if ( !graph_markers.empty() )
                 graph_markers += "\n";
 
             if ( event.duration != ( uint32_t )-1 )
-                durationstr = "Duration: " + ts_to_timestr( event.duration, 4 ) + "ms\n";
+                durationstr = "Duration: " + ts_to_timestr( event.duration, 4, " ms\n" );
 
             ImGui::SetTooltip( "%sId: %u\nTime: %s\nComm: %s\n%s\n%s",
                                graph_markers.c_str(), event.id,
@@ -3232,11 +3232,11 @@ void TraceWin::events_list_render()
 
                 // column 1: time stamp
                 {
-                    std::string ts_str = ts_to_timestr( event.ts ) + "ms";
+                    std::string ts_str = ts_to_timestr( event.ts, 6 );
 
                     // Show time delta from previous event
                     if ( prev_ts != INT64_MIN )
-                        ts_str += " (+" + ts_to_timestr( event.ts - prev_ts, 4 ) + ")";
+                        ts_str += " (+" + ts_to_timestr( event.ts - prev_ts, 4, "" ) + ")";
 
                     ImGui::Text( "%s", ts_str.c_str() );
                     ImGui::NextColumn();
@@ -3268,7 +3268,7 @@ void TraceWin::events_list_render()
                 // column 5: duration
                 {
                     if ( event.duration != ( uint32_t )-1 )
-                        ImGui::Text( "%sms", ts_to_timestr( event.duration, 4 ).c_str() );
+                        ImGui::Text( "%s", ts_to_timestr( event.duration, 4 ).c_str() );
                     ImGui::NextColumn();
                 }
 

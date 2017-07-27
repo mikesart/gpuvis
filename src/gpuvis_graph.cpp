@@ -2183,7 +2183,7 @@ void TraceWin::graph_render()
         {
             float fontscale = 6.0f;
             int64_t ts = gi.ts0 + ( gi.ts1 - gi.ts0 );
-            std::string str = ts_to_timestr( ts / 1000, 4 );
+            std::string str = ts_to_timestr( ts / 1000, 4, "" );
             ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
 
             ImVec2 pos = ImVec2( windowpos.x + ( windowsize.x - textsize.x * fontscale ) / 2,
@@ -2232,8 +2232,8 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     auto get_location_label_lambda = [this]( size_t i )
     {
         auto &pair = m_graph.saved_locs[ i ];
-        std::string start = ts_to_timestr( pair.first );
-        std::string len = ts_to_timestr( pair.second );
+        std::string start = ts_to_timestr( pair.first, 6, "" );
+        std::string len = ts_to_timestr( pair.second, 6, "" );
 
         return string_format( "Start:%s Length:%s", start.c_str(), len.c_str() );
     };
@@ -2244,7 +2244,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     if ( m_graph.zoom_loc.first != INT64_MAX )
     {
         std::string len = ts_to_timestr( m_graph.zoom_loc.second, 2 );
-        std::string label = string_format( "Zoom out to %sms", len.c_str() );
+        std::string label = string_format( "Zoom out to %s", len.c_str() );
 
         if ( ImGui::MenuItem( label.c_str(), s_actions().hotkey_str( action_graph_zoom_mouse ).c_str() ) )
         {
@@ -2575,11 +2575,11 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
 
         if ( is_mouse_down )
         {
-            std::string time_buf0 = ts_to_timestr( event_ts0 );
-            std::string time_buf1 = ts_to_timestr( event_ts1 - event_ts0 );
+            std::string time_buf0 = ts_to_timestr( event_ts0, 6, "" );
+            std::string time_buf1 = ts_to_timestr( event_ts1 - event_ts0, 6 );
 
             // Show tooltip with starting time and length of selected area.
-            ImGui::SetTooltip( "%s (%s ms)", time_buf0.c_str(), time_buf1.c_str() );
+            ImGui::SetTooltip( "%s (%s)", time_buf0.c_str(), time_buf1.c_str() );
         }
         else if ( m_graph.mouse_captured == MOUSE_CAPTURED_ZOOM )
         {
@@ -2658,7 +2658,7 @@ static std::string task_state_to_str( int state )
 
 void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts )
 {
-    std::string time_buf = "Time: " + ts_to_timestr( mouse_ts );
+    std::string time_buf = "Time: " + ts_to_timestr( mouse_ts, 6, "" );
     bool sync_event_list_to_graph = s_opts().getb( OPT_SyncEventListToGraph ) &&
             s_opts().getb( OPT_ShowEventList );
 
@@ -2702,15 +2702,15 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
         }
 
         if ( prev_vblank_ts != INT64_MAX )
-            time_buf += "\nPrev vblank: -" + ts_to_timestr( prev_vblank_ts, 2 ) + "ms";
+            time_buf += "\nPrev vblank: -" + ts_to_timestr( prev_vblank_ts, 2 );
         if ( next_vblank_ts != INT64_MAX )
-            time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 2 ) + "ms";
+            time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 2 );
     }
 
     if ( graph_marker_valid( 0 ) )
-        time_buf += "\nMarker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - mouse_ts, 2 ) + "ms";
+        time_buf += "\nMarker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - mouse_ts, 2 );
     if ( graph_marker_valid( 1 ) )
-        time_buf += "\nMarker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - mouse_ts, 2 ) + "ms";
+        time_buf += "\nMarker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - mouse_ts, 2 );
 
     if ( !gi.sched_switch_bars.empty() )
     {
@@ -2730,7 +2730,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
                 const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
                 std::string timestr = ts_to_timestr( event.duration, 4 );
 
-                time_buf += string_format( "\n%s%u%s sched_switch %s (%sms) %s",
+                time_buf += string_format( "\n%s%u%s sched_switch %s (%s) %s",
                                            s_textclrs().str( TClr_Bright ), event.id, s_textclrs().str( TClr_Def ),
                                            prev_comm, timestr.c_str(),
                                            task_state_str.c_str() );
@@ -2758,7 +2758,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             m_eventlist.highlight_ids.push_back( event.id );
 
             // Add event id and distance from cursor to this event
-            time_buf += string_format( "\n%s%u%s %c%sms",
+            time_buf += string_format( "\n%s%u%s %c%s",
                                        s_textclrs().str( TClr_Bright ), hov.eventid, s_textclrs().str( TClr_Def ),
                                        hov.neg ? '-' : ' ',
                                        ts_to_timestr( hov.dist_ts, 4 ).c_str() );
@@ -2789,7 +2789,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
                     const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
                     std::string timestr = ts_to_timestr( event.duration, 4 );
 
-                    time_buf += string_format( " %s (%sms)", prev_comm, timestr.c_str() );
+                    time_buf += string_format( " %s (%s)", prev_comm, timestr.c_str() );
                 }
             }
         }
@@ -2825,7 +2825,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             time_buf += string_format( "\n  %s%u%s %s duration: %s",
                                        s_textclrs().str( TClr_Bright ), event.id, s_textclrs().str( TClr_Def ),
                                        name,
-                                       s_textclrs().mstr( timestr + "ms", event_hov.color ).c_str() );
+                                       s_textclrs().mstr( timestr, event_hov.color ).c_str() );
         }
 
         if ( sync_event_list_to_graph && !m_eventlist.do_gotoevent )
