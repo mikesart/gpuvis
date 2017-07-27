@@ -1916,7 +1916,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
         }
     }
 
-    if ( m_graph.has_focus )
+    if ( m_graph.has_focus || m_eventlist.has_focus )
     {
         bool gotoA = s_actions().get( action_graph_goto_markerA );
         bool gotoB = s_actions().get( action_graph_goto_markerB );
@@ -1941,7 +1941,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
         }
     }
 
-    if ( m_graph.has_focus )
+    if ( m_graph.has_focus || m_eventlist.has_focus )
     {
         for ( int action = action_graph_save_location1; action <= action_graph_save_location5; action++ )
         {
