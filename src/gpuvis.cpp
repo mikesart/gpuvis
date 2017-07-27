@@ -3773,9 +3773,6 @@ void TraceLoader::render_color_picker()
     {
         if ( m_colorpicker_color < col_Max )
         {
-            //$ TODO mikesart: If we reset all colors, does update_changed_colors work?
-            //$ TODO mikesart: no, it doesn't.
-
             for ( TraceEvents *trace_events : m_trace_events_list )
                 update_changed_colors( *trace_events, m_colorpicker_color );
 
