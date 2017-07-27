@@ -186,6 +186,8 @@ public:
     ImU32 event_color;
 
     float y, w, h;
+
+    float m_width = 1.0f;
 };
 
 typedef std::function< uint32_t ( class graph_info_t &gi ) > RenderGraphRowCallback;
@@ -386,7 +388,7 @@ void event_renderer_t::draw()
 {
     int index = std::min< int >( col_Graph_1Event + num_events, col_Graph_6Event );
     ImU32 color = event_color ? event_color : s_clrs().get( index );
-    float min_width = std::min< float >( num_events + 1.0f, 4.0f );
+    float min_width = std::min< float >( num_events + m_width, 4.0f );
     float width = std::max< float >( x1 - x0, min_width );
 
     imgui_drawrect( x0, width, y, h, color );
@@ -1430,6 +1432,14 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi.y + 4, gi.w, gi.h - 8 );
     bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
+
+    // Calculate how many pixels .0001ms takes
+    const float dx = ( .0001f * NSECS_PER_MSEC ) * gi.w * gi.tsdxrcp;
+
+    // Scale width of drawn event from 0..4 when .0001ms takes .1 - 1.5 pixels
+    const float minx = 0.1f;
+    const float maxx = 1.5f;
+    event_renderer.m_width = Clamp< float >( 4.0f * ( dx - minx ) / ( maxx - minx ), 1.0f, 4.0f );
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
