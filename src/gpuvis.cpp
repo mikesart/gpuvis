@@ -1407,19 +1407,19 @@ size_t GraphRows::find_row( const std::string &name, size_t not_found_val )
 /*
  * TraceWin
  */
-int64_t TraceWin::timestr_to_ts( const char *buf, int64_t tsoffset )
+int64_t TraceWin::timestr_to_ts( const char *buf )
 {
     double val;
 
     if ( sscanf( buf, "%lf", &val ) != 1 )
         val = 0.0;
 
-    return tsoffset + ( int64_t )( val * NSECS_PER_MSEC );
+    return ( int64_t )( val * NSECS_PER_MSEC );
 }
 
-std::string TraceWin::ts_to_timestr( int64_t event_ts, int64_t tsoffset, int precision )
+std::string TraceWin::ts_to_timestr( int64_t event_ts, int precision )
 {
-    double val = ( event_ts - tsoffset ) * ( 1.0 / NSECS_PER_MSEC );
+    double val = event_ts * ( 1.0 / NSECS_PER_MSEC );
 
     return string_format( "%.*lf", precision, val );
 }
@@ -1437,12 +1437,12 @@ void TraceWin::graph_marker_set( size_t index, int64_t ts, const char *str )
         m_graph.marker_bufs[ index ][ 0 ] = 0;
     else
         snprintf_safe( m_graph.marker_bufs[ index ], "%s ms",
-                       ts_to_timestr( m_graph.ts_markers[ index ], 0, 4 ).c_str() );
+                       ts_to_timestr( m_graph.ts_markers[ index ], 4 ).c_str() );
 
     if ( graph_marker_valid( 0 ) && graph_marker_valid( 1 ) )
     {
         snprintf_safe( m_graph.marker_delta_buf, "%s ms",
-                       ts_to_timestr( m_graph.ts_markers[ 1 ] - m_graph.ts_markers[ 0 ], 0, 4 ).c_str() );
+                       ts_to_timestr( m_graph.ts_markers[ 1 ] - m_graph.ts_markers[ 0 ], 4 ).c_str() );
     }
 }
 
@@ -1473,9 +1473,9 @@ int TraceWin::ts_to_eventid( int64_t ts )
     return id;
 }
 
-int TraceWin::timestr_to_eventid( const char *buf, int64_t tsoffset )
+int TraceWin::timestr_to_eventid( const char *buf )
 {
-    int64_t ts = timestr_to_ts( buf, tsoffset );
+    int64_t ts = timestr_to_ts( buf );
 
     return ts_to_eventid( ts );
 }
@@ -2353,7 +2353,6 @@ TraceWin::TraceWin( TraceLoader &loader, TraceEvents &trace_events, std::string 
     m_title = title;
 
     strcpy_safe( m_eventlist.timegoto_buf, "0.0" );
-    strcpy_safe( m_eventlist.timeoffset_buf, "0.0" );
 
     strcpy_safe( m_graph.new_row_buf, "<Enter Filter Expression>" );
 
@@ -2433,7 +2432,7 @@ bool TraceWin::render()
         m_graph.rows.init( m_trace_events );
 
         m_graph.length_ts = std::min< int64_t >( last_ts, 40 * NSECS_PER_MSEC );
-        m_graph.start_ts = last_ts - m_eventlist.tsoffset - m_graph.length_ts;
+        m_graph.start_ts = last_ts - m_graph.length_ts;
         m_graph.recalc_timebufs = true;
 
         m_eventlist.do_gotoevent = true;
@@ -2516,9 +2515,9 @@ bool TraceWin::render()
 
         if ( m_graph.recalc_timebufs )
         {
-            snprintf_safe( m_graph.time_start_buf, "%s ms", ts_to_timestr( m_graph.start_ts, 0, 4 ).c_str() );
-            snprintf_safe( m_graph.time_end_buf, "%s ms", ts_to_timestr( m_graph.start_ts + m_graph.length_ts, 0, 4 ).c_str() );
-            snprintf_safe( m_graph.time_length_buf, "%s ms", ts_to_timestr( m_graph.length_ts, 0, 4 ).c_str() );
+            snprintf_safe( m_graph.time_start_buf, "%s ms", ts_to_timestr( m_graph.start_ts, 4 ).c_str() );
+            snprintf_safe( m_graph.time_end_buf, "%s ms", ts_to_timestr( m_graph.start_ts + m_graph.length_ts, 4 ).c_str() );
+            snprintf_safe( m_graph.time_length_buf, "%s ms", ts_to_timestr( m_graph.length_ts, 4 ).c_str() );
 
             m_graph.recalc_timebufs = false;
         }
@@ -2539,15 +2538,8 @@ bool TraceWin::render()
         if ( imgui_input_text2( "Goto Time:", m_eventlist.timegoto_buf, 120.0f, ImGuiInputText2FlagsLeft_LabelIsButton ) )
         {
             m_eventlist.do_gotoevent = true;
-            m_eventlist.goto_eventid = timestr_to_eventid( m_eventlist.timegoto_buf, m_eventlist.tsoffset );
+            m_eventlist.goto_eventid = timestr_to_eventid( m_eventlist.timegoto_buf );
         }
-
-        //$ TODO mikesart: Let's kill this. Can use Marker A/B to check distances now.
-#if 0
-        ImGui::SameLine();
-        if ( imgui_input_text2( "Time Offset:", m_eventlist.timeoffset_buf, 120.0f, ImGuiInputText2FlagsLeft_LabelIsButton ) )
-            m_eventlist.tsoffset = timestr_to_ts( m_eventlist.timeoffset_buf );
-#endif
 
         if ( m_eventlist.hide_sched_switch_events_val != s_opts().getb( OPT_HideSchedSwitchEvents ) )
         {
@@ -2680,7 +2672,7 @@ void TraceWin::trace_render_info()
     const trace_info_t &trace_info = m_trace_events.m_trace_info;
 
     ImGui::Text( "Trace time: %s ms",
-                 ts_to_timestr( m_trace_events.m_events.back().ts, 0, 4 ).c_str() );
+                 ts_to_timestr( m_trace_events.m_events.back().ts, 4 ).c_str() );
 
     ImGui::Text( "Trace cpus: %u", trace_info.cpus );
 
@@ -2813,7 +2805,7 @@ void TraceWin::graph_center_event( uint32_t eventid )
     trace_event_t &event = get_event( eventid );
 
     m_eventlist.selected_eventid = event.id;
-    m_graph.start_ts = event.ts - m_eventlist.tsoffset - m_graph.length_ts / 2;
+    m_graph.start_ts = event.ts - m_graph.length_ts / 2;
     m_graph.recalc_timebufs = true;
     m_graph.show_row_name = event.comm;
 }
@@ -2850,15 +2842,6 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
 
         ImGui::EndMenu();
     }
-
-#if 0
-    label = string_format( "Set Time Offset to %s", ts_to_timestr( event.ts ).c_str() );
-    if ( ImGui::MenuItem( label.c_str() ) )
-    {
-        m_eventlist.tsoffset = event.ts;
-        strcpy_safe( m_eventlist.timeoffset_buf, ts_to_timestr( m_eventlist.tsoffset ) );
-    }
-#endif
 
     ImGui::Separator();
 
@@ -3017,19 +3000,19 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
             // Otherwise show a tooltip.
             std::string graph_markers;
             std::string durationstr;
-            std::string ts_str = ts_to_timestr( event.ts, m_eventlist.tsoffset );
+            std::string ts_str = ts_to_timestr( event.ts );
             std::string fieldstr = get_event_fields_str( event, ": ", '\n' );
             const char *commstr = m_trace_events.tgidcomm_from_pid( event.pid );
 
             if ( graph_marker_valid( 0 ) )
-                graph_markers += "Marker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - event.ts, 0, 2 ) + "ms\n";
+                graph_markers += "Marker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - event.ts, 2 ) + "ms\n";
             if ( graph_marker_valid( 1 ) )
-                graph_markers += "Marker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - event.ts, 0, 2 ) + "ms\n";
+                graph_markers += "Marker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - event.ts, 2 ) + "ms\n";
             if ( !graph_markers.empty() )
                 graph_markers += "\n";
 
             if ( event.duration != ( uint32_t )-1 )
-                durationstr = "Duration: " + ts_to_timestr( event.duration, 0, 4 ) + "ms\n";
+                durationstr = "Duration: " + ts_to_timestr( event.duration, 4 ) + "ms\n";
 
             ImGui::SetTooltip( "%sId: %u\nTime: %s\nComm: %s\n%s\n%s",
                                graph_markers.c_str(), event.id,
@@ -3249,11 +3232,11 @@ void TraceWin::events_list_render()
 
                 // column 1: time stamp
                 {
-                    std::string ts_str = ts_to_timestr( event.ts, m_eventlist.tsoffset ) + "ms";
+                    std::string ts_str = ts_to_timestr( event.ts ) + "ms";
 
                     // Show time delta from previous event
                     if ( prev_ts != INT64_MIN )
-                        ts_str += " (+" + ts_to_timestr( event.ts - prev_ts, 0, 4 ) + ")";
+                        ts_str += " (+" + ts_to_timestr( event.ts - prev_ts, 4 ) + ")";
 
                     ImGui::Text( "%s", ts_str.c_str() );
                     ImGui::NextColumn();
@@ -3285,7 +3268,7 @@ void TraceWin::events_list_render()
                 // column 5: duration
                 {
                     if ( event.duration != ( uint32_t )-1 )
-                        ImGui::Text( "%sms", ts_to_timestr( event.duration, 0, 4 ).c_str() );
+                        ImGui::Text( "%sms", ts_to_timestr( event.duration, 4 ).c_str() );
                     ImGui::NextColumn();
                 }
 

@@ -534,7 +534,7 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
     x = x_in;
     w = w_in;
 
-    ts0 = win->m_graph.start_ts + win->m_eventlist.tsoffset;
+    ts0 = win->m_graph.start_ts;
     ts1 = ts0 + win->m_graph.length_ts;
 
     eventstart = win->ts_to_eventid( ts0 );
@@ -1821,14 +1821,14 @@ void TraceWin::graph_range_check_times()
     }
 
     // Sanity check the graph start doesn't go completely off the rails.
-    if ( m_graph.start_ts + m_eventlist.tsoffset < events.front().ts - 1 * NSECS_PER_MSEC )
+    if ( m_graph.start_ts < events.front().ts - 1 * NSECS_PER_MSEC )
     {
-        m_graph.start_ts = events.front().ts - m_eventlist.tsoffset - 1 * NSECS_PER_MSEC;
+        m_graph.start_ts = events.front().ts - 1 * NSECS_PER_MSEC;
         m_graph.recalc_timebufs = true;
     }
-    else if ( m_graph.start_ts + m_eventlist.tsoffset > events.back().ts )
+    else if ( m_graph.start_ts > events.back().ts )
     {
-        m_graph.start_ts = events.back().ts - m_eventlist.tsoffset;
+        m_graph.start_ts = events.back().ts;
         m_graph.recalc_timebufs = true;
     }
 }
@@ -1844,7 +1844,7 @@ void TraceWin::graph_zoom( int64_t center_ts, int64_t ts0, bool zoomin, int64_t 
     {
         double scale = ( double )newlen / origlen;
 
-        m_graph.start_ts = center_ts - ( int64_t )( ( center_ts - ts0 ) * scale ) - m_eventlist.tsoffset;
+        m_graph.start_ts = center_ts - ( int64_t )( ( center_ts - ts0 ) * scale );
         m_graph.length_ts = newlen;
         m_graph.recalc_timebufs = true;
     }
@@ -1973,7 +1973,7 @@ void TraceWin::graph_handle_keyboard_scroll( graph_info_t &gi )
     if ( !m_graph.has_focus || !s_actions().count() )
         return;
 
-    int64_t start_ts = m_graph.start_ts + m_eventlist.tsoffset;
+    int64_t start_ts = m_graph.start_ts;
     const std::vector< trace_event_t > &events = m_trace_events.m_events;
 
     if ( s_actions().get( action_scroll_up ) )
@@ -2011,7 +2011,6 @@ void TraceWin::graph_handle_keyboard_scroll( graph_info_t &gi )
         start_ts = events.back().ts - m_graph.length_ts + NSECS_PER_MSEC;
     }
 
-    start_ts -= m_eventlist.tsoffset;
     if ( start_ts != m_graph.start_ts )
     {
         m_graph.start_ts = start_ts;
@@ -2184,7 +2183,7 @@ void TraceWin::graph_render()
         {
             float fontscale = 6.0f;
             int64_t ts = gi.ts0 + ( gi.ts1 - gi.ts0 );
-            std::string str = ts_to_timestr( ts / 1000, 0, 4 );
+            std::string str = ts_to_timestr( ts / 1000, 4 );
             ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
 
             ImVec2 pos = ImVec2( windowpos.x + ( windowsize.x - textsize.x * fontscale ) / 2,
@@ -2244,7 +2243,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     if ( m_graph.zoom_loc.first != INT64_MAX )
     {
-        std::string len = ts_to_timestr( m_graph.zoom_loc.second, 0, 2 );
+        std::string len = ts_to_timestr( m_graph.zoom_loc.second, 2 );
         std::string label = string_format( "Zoom out to %sms", len.c_str() );
 
         if ( ImGui::MenuItem( label.c_str(), s_actions().hotkey_str( action_graph_zoom_mouse ).c_str() ) )
@@ -2576,7 +2575,7 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
 
         if ( is_mouse_down )
         {
-            std::string time_buf0 = ts_to_timestr( event_ts0, m_eventlist.tsoffset );
+            std::string time_buf0 = ts_to_timestr( event_ts0 );
             std::string time_buf1 = ts_to_timestr( event_ts1 - event_ts0 );
 
             // Show tooltip with starting time and length of selected area.
@@ -2586,7 +2585,7 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
         {
             m_graph.zoom_loc = std::make_pair( m_graph.start_ts, m_graph.length_ts );
 
-            m_graph.start_ts = event_ts0 - m_eventlist.tsoffset;
+            m_graph.start_ts = event_ts0;
             m_graph.length_ts = event_ts1 - event_ts0;
             m_graph.recalc_timebufs = true;
         }
@@ -2659,7 +2658,7 @@ static std::string task_state_to_str( int state )
 
 void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts )
 {
-    std::string time_buf = "Time: " + ts_to_timestr( mouse_ts, m_eventlist.tsoffset );
+    std::string time_buf = "Time: " + ts_to_timestr( mouse_ts );
     bool sync_event_list_to_graph = s_opts().getb( OPT_SyncEventListToGraph ) &&
             s_opts().getb( OPT_ShowEventList );
 
@@ -2703,15 +2702,15 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
         }
 
         if ( prev_vblank_ts != INT64_MAX )
-            time_buf += "\nPrev vblank: -" + ts_to_timestr( prev_vblank_ts, 0, 2 ) + "ms";
+            time_buf += "\nPrev vblank: -" + ts_to_timestr( prev_vblank_ts, 2 ) + "ms";
         if ( next_vblank_ts != INT64_MAX )
-            time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 0, 2 ) + "ms";
+            time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 2 ) + "ms";
     }
 
     if ( graph_marker_valid( 0 ) )
-        time_buf += "\nMarker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - mouse_ts, 0, 2 ) + "ms";
+        time_buf += "\nMarker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - mouse_ts, 2 ) + "ms";
     if ( graph_marker_valid( 1 ) )
-        time_buf += "\nMarker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - mouse_ts, 0, 2 ) + "ms";
+        time_buf += "\nMarker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - mouse_ts, 2 ) + "ms";
 
     if ( !gi.sched_switch_bars.empty() )
     {
@@ -2729,7 +2728,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
                 int task_state = atoi( get_event_field_val( event, "prev_state" ) ) & ( TASK_STATE_MAX - 1 );
                 const std::string task_state_str = task_state_to_str( task_state );
                 const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
-                std::string timestr = ts_to_timestr( event.duration, 0, 4 );
+                std::string timestr = ts_to_timestr( event.duration, 4 );
 
                 time_buf += string_format( "\n%s%u%s sched_switch %s (%sms) %s",
                                            s_textclrs().str( TClr_Bright ), event.id, s_textclrs().str( TClr_Def ),
@@ -2762,7 +2761,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             time_buf += string_format( "\n%s%u%s %c%sms",
                                        s_textclrs().str( TClr_Bright ), hov.eventid, s_textclrs().str( TClr_Def ),
                                        hov.neg ? '-' : ' ',
-                                       ts_to_timestr( hov.dist_ts, 0, 4 ).c_str() );
+                                       ts_to_timestr( hov.dist_ts, 4 ).c_str() );
 
             // If this isn't an ftrace print event, add the event name
             if ( !event.is_ftrace_print() )
@@ -2788,7 +2787,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
                 {
                     int prev_pid = atoi( prev_pid_str );
                     const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
-                    std::string timestr = ts_to_timestr( event.duration, 0, 4 );
+                    std::string timestr = ts_to_timestr( event.duration, 4 );
 
                     time_buf += string_format( " %s (%sms)", prev_comm, timestr.c_str() );
                 }
@@ -2818,7 +2817,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
         {
             const trace_event_t &event = get_event( id );
             const char *name = event.get_timeline_name( event.name );
-            std::string timestr = ts_to_timestr( event.duration, 0, 4 );
+            std::string timestr = ts_to_timestr( event.duration, 4 );
 
             if ( gi.hovered_items.empty() )
                 m_eventlist.highlight_ids.push_back( id );

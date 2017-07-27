@@ -412,12 +412,12 @@ protected:
     // Return an event id for a given time stamp
     int ts_to_eventid( int64_t ts );
     // Return an event id from a time string
-    int timestr_to_eventid( const char *buf, int64_t tsoffset );
+    int timestr_to_eventid( const char *buf );
 
     // Convert a time string to a time stamp
-    int64_t timestr_to_ts( const char *buf, int64_t tsoffset = 0 );
+    int64_t timestr_to_ts( const char *buf );
     // Convert a time stamp to a time string
-    std::string ts_to_timestr( int64_t event_ts, int64_t tsoffset = 0, int precision = 6 );
+    std::string ts_to_timestr( int64_t event_ts, int precision = 6 );
 
     bool graph_marker_valid( int idx0 );
     void graph_marker_set( size_t index, int64_t ts, const char *str = NULL );
@@ -456,10 +456,6 @@ public:
 
         // Goto Time buffer
         char timegoto_buf[ 32 ] = { 0 };
-
-        // Time Offset
-        char timeoffset_buf[ 32 ] = { 0 };
-        int64_t tsoffset = 0;
 
         uint32_t start_eventid = INVALID_ID;
         uint32_t end_eventid = INVALID_ID;
