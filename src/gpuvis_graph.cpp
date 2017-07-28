@@ -2270,6 +2270,17 @@ int TraceWin::graph_marker_menuitem( const char *label, bool check_valid, action
     return ret;
 }
 
+bool TraceWin::graph_has_saved_locs()
+{
+    for ( size_t i = 0; i < m_graph.saved_locs.size(); i++ )
+    {
+        if ( m_graph.saved_locs[ i ].second )
+            return true;
+    }
+
+    return false;
+}
+
 bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 {
     option_id_t optid = OPT_Invalid;
@@ -2277,18 +2288,10 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     if ( !ImGui::BeginPopup( "GraphPopup" ) )
         return false;
 
-    auto get_location_label_lambda = [this]( size_t i )
-    {
-        auto &pair = m_graph.saved_locs[ i ];
-        std::string start = ts_to_timestr( pair.first, 6, "" );
-        std::string len = ts_to_timestr( pair.second, 6, "" );
-
-        return string_format( "Start:%s Length:%s", start.c_str(), len.c_str() );
-    };
-
     imgui_text_bg( "Options", ImGui::GetColorVec4( ImGuiCol_Header ) );
     ImGui::Separator();
 
+    // Zoom in / out
     if ( m_graph.zoom_loc.first != INT64_MAX )
     {
         std::string len = ts_to_timestr( m_graph.zoom_loc.second, 2 );
@@ -2317,6 +2320,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         }
     }
 
+    // Unzoom row
     if ( !m_graph.zoom_row_name.empty() )
     {
         std::string label = string_format( "Unzoom row '%s'", m_graph.zoom_row_name.c_str() );
@@ -2327,6 +2331,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         }
     }
 
+    // Zoom / Hide row
     if ( !m_graph.mouse_over_row_name.empty() )
     {
         std::string label;
@@ -2363,6 +2368,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         }
     }
 
+    // Show Row...
     if ( !m_graph.rows_hidden_rows.empty() )
     {
         std::vector< const tgid_info_t * > tgids_hidden;
@@ -2416,6 +2422,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         }
     }
 
+    // Move row after...
     if ( !m_graph.mouse_over_row_name.empty() )
     {
         std::string move_label = string_format( "Move '%s' after", m_graph.mouse_over_row_name.c_str() );
@@ -2442,6 +2449,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         }
     }
 
+    // New Graph Row
     {
         if ( imgui_input_text2( "New Graph Row:", m_graph.new_row_buf, 0, ImGuiInputTextFlags_EnterReturnsTrue ) )
         {
@@ -2476,6 +2484,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_graph.new_row_errstr.c_str() );
     }
 
+    // Create Plot for hovered event
     if ( is_valid_id( m_graph.hovered_eventid ) &&
          strncmp( m_graph.mouse_over_row_name.c_str(), "plot:", 5 ) )
     {
@@ -2491,74 +2500,80 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         }
     }
 
+    // Change row size. Ie "Gfx size: 10"
     if ( optid != OPT_Invalid )
         s_opts().render_imgui_opt( optid );
 
     ImGui::Separator();
 
-    int idx = graph_marker_menuitem( "Set Marker", false, action_graph_set_markerA );
-    if ( idx >= 0 )
-        graph_marker_set( idx, m_graph.ts_marker_mouse );
-
-    idx = graph_marker_menuitem( "Goto Marker", true, action_graph_goto_markerA );
-    if ( idx >= 0 )
+    // Set / Goto / Clear Markers
     {
-        m_graph.start_ts = m_graph.ts_markers[ idx ] - m_graph.length_ts / 2;
-        m_graph.recalc_timebufs = true;
-    }
+        int idx = graph_marker_menuitem( "Set Marker", false, action_graph_set_markerA );
+        if ( idx >= 0 )
+            graph_marker_set( idx, m_graph.ts_marker_mouse );
 
-    idx = graph_marker_menuitem( "Clear Marker", true, action_nil );
-    if ( idx >= 0 )
-        graph_marker_set( idx, INT64_MAX );
-
-    if ( ImGui::BeginMenu( "Save Location" ) )
-    {
-        for ( size_t i = 0; i < m_graph.saved_locs.size(); i++ )
+        idx = graph_marker_menuitem( "Goto Marker", true, action_graph_goto_markerA );
+        if ( idx >= 0 )
         {
-            std::string label = get_location_label_lambda( i );
-            action_t action = ( action_t )( action_graph_save_location1 + i );
-
-            if ( ImGui::MenuItem( label.c_str(),
-                s_actions().hotkey_str( action ).c_str() ) )
-            {
-                m_graph.saved_locs[ i ] = std::make_pair( m_graph.start_ts, m_graph.length_ts );
-                break;
-            }
+            m_graph.start_ts = m_graph.ts_markers[ idx ] - m_graph.length_ts / 2;
+            m_graph.recalc_timebufs = true;
         }
 
-        ImGui::EndMenu();
+        idx = graph_marker_menuitem( "Clear Marker", true, action_nil );
+        if ( idx >= 0 )
+            graph_marker_set( idx, INT64_MAX );
     }
 
-    bool has_saved_locs = false;
-    for ( size_t i = 0; i < m_graph.saved_locs.size(); i++ )
+    // Save / Restore Locations
     {
-        if ( m_graph.saved_locs[ i ].second )
+        auto get_location_label_lambda = [this]( size_t i )
         {
-            has_saved_locs = true;
-            break;
-        }
-    }
+            auto &pair = m_graph.saved_locs[ i ];
+            std::string start = ts_to_timestr( pair.first, 6, "" );
+            std::string len = ts_to_timestr( pair.second, 6, "" );
 
-    if ( has_saved_locs && ImGui::BeginMenu( "Restore Location" ) )
-    {
-        for ( size_t i = 0; i < m_graph.saved_locs.size(); i++ )
+            return string_format( "Start:%s Length:%s", start.c_str(), len.c_str() );
+        };
+
+        if ( ImGui::BeginMenu( "Save Location" ) )
         {
-            if ( m_graph.saved_locs[ i ].second )
+            for ( size_t i = 0; i < m_graph.saved_locs.size(); i++ )
             {
                 std::string label = get_location_label_lambda( i );
-                action_t action = ( action_t )( action_graph_restore_location1 + i );
+                action_t action = ( action_t )( action_graph_save_location1 + i );
 
                 if ( ImGui::MenuItem( label.c_str(),
-                        s_actions().hotkey_str( action ).c_str() ) )
+                    s_actions().hotkey_str( action ).c_str() ) )
                 {
-                    m_graph.start_ts = m_graph.saved_locs[ i ].first;
-                    m_graph.length_ts = m_graph.saved_locs[ i ].second;
-                    m_graph.recalc_timebufs = true;
+                    m_graph.saved_locs[ i ] = std::make_pair( m_graph.start_ts, m_graph.length_ts );
+                    break;
                 }
             }
+
+            ImGui::EndMenu();
         }
 
-        ImGui::EndMenu();
+        if ( graph_has_saved_locs() && ImGui::BeginMenu( "Restore Location" ) )
+        {
+            for ( size_t i = 0; i < m_graph.saved_locs.size(); i++ )
+            {
+                if ( m_graph.saved_locs[ i ].second )
+                {
+                    std::string label = get_location_label_lambda( i );
+                    action_t action = ( action_t )( action_graph_restore_location1 + i );
+
+                    if ( ImGui::MenuItem( label.c_str(),
+                            s_actions().hotkey_str( action ).c_str() ) )
+                    {
+                        m_graph.start_ts = m_graph.saved_locs[ i ].first;
+                        m_graph.length_ts = m_graph.saved_locs[ i ].second;
+                        m_graph.recalc_timebufs = true;
+                    }
+                }
+            }
+
+            ImGui::EndMenu();
+        }
     }
 
     ImGui::Separator();

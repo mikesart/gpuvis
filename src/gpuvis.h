@@ -410,6 +410,8 @@ protected:
 
     int graph_marker_menuitem( const char *label, bool check_valid, action_t action );
 
+    bool graph_has_saved_locs();
+
 protected:
     // Return an event id for a given time stamp
     int ts_to_eventid( int64_t ts );
