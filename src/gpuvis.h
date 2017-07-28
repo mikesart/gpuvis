@@ -408,6 +408,8 @@ protected:
 
     void graph_center_event( uint32_t eventid );
 
+    int graph_marker_menuitem( const char *label, bool check_valid, action_t action );
+
 protected:
     // Return an event id for a given time stamp
     int ts_to_eventid( int64_t ts );

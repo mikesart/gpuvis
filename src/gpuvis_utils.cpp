@@ -1311,22 +1311,25 @@ bool Actions::get( action_t action )
 
 const std::string Actions::hotkey_str( action_t action )
 {
-    for ( const actionmap_t &map : m_actionmap )
+    if ( action != action_nil )
     {
-        if ( map.action == action )
+        for ( const actionmap_t &map : m_actionmap )
         {
-            std::string str;
+            if ( map.action == action )
+            {
+                std::string str;
 
-            if ( map.modstate & KMOD_CTRL )
-                str += "Ctrl+";
-            if ( map.modstate & KMOD_ALT )
-                str += "Alt+";
-            if ( map.modstate & KMOD_SHIFT )
-                str += "Shift+";
+                if ( map.modstate & KMOD_CTRL )
+                    str += "Ctrl+";
+                if ( map.modstate & KMOD_ALT )
+                    str += "Alt+";
+                if ( map.modstate & KMOD_SHIFT )
+                    str += "Shift+";
 
-            str += SDL_GetKeyName( map.key );
+                str += SDL_GetKeyName( map.key );
 
-            return str;
+                return str;
+            }
         }
     }
 

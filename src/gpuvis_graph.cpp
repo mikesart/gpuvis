@@ -2236,6 +2236,40 @@ void TraceWin::graph_render()
     m_graph.show_row_name = NULL;
 }
 
+int TraceWin::graph_marker_menuitem( const char *label, bool check_valid, action_t action )
+{
+    int ret = -1;
+
+    if ( !check_valid || graph_marker_valid( 0 ) || graph_marker_valid( 1 ) )
+    {
+        if ( ImGui::BeginMenu( label ) )
+        {
+            for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
+            {
+                if ( !check_valid || graph_marker_valid( i ) )
+                {
+                    std::string shortcut;
+                    char mlabel[ 2 ] = { char( 'A' + i ), 0 };
+
+                    ImGui::PushID( label );
+
+                    if ( action != action_nil )
+                        shortcut = s_actions().hotkey_str( ( action_t )( action + i ) );
+
+                    if ( ImGui::MenuItem( mlabel, shortcut.c_str() ) )
+                        ret = i;
+
+                    ImGui::PopID();
+                }
+            }
+
+            ImGui::EndMenu();
+        }
+    }
+
+    return ret;
+}
+
 bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 {
     option_id_t optid = OPT_Invalid;
@@ -2462,70 +2496,20 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     ImGui::Separator();
 
-    if ( ImGui::BeginMenu( "Set Marker" ) )
+    int idx = graph_marker_menuitem( "Set Marker", false, action_graph_set_markerA );
+    if ( idx >= 0 )
+        graph_marker_set( idx, m_graph.ts_marker_mouse );
+
+    idx = graph_marker_menuitem( "Goto Marker", true, action_graph_goto_markerA );
+    if ( idx >= 0 )
     {
-        for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
-        {
-            ImGui::PushID( i );
-
-            char label[ 2 ] = { char( 'A' + i ), 0 };
-            action_t action = ( action_t )( action_graph_set_markerA + i );
-
-            if ( ImGui::MenuItem( label, s_actions().hotkey_str( action ).c_str() ) )
-                graph_marker_set( i, m_graph.ts_marker_mouse );
-
-            ImGui::PopID();
-        }
-
-        ImGui::EndMenu();
+        m_graph.start_ts = m_graph.ts_markers[ idx ] - m_graph.length_ts / 2;
+        m_graph.recalc_timebufs = true;
     }
 
-    if ( graph_marker_valid( 0 ) || graph_marker_valid( 1 ) )
-    {
-        if ( ImGui::BeginMenu( "Goto Marker" ) )
-        {
-            for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
-            {
-                if ( !graph_marker_valid( i ) )
-                    continue;
-
-                ImGui::PushID( i );
-
-                char label[ 2 ] = { char( 'A' + i ), 0 };
-                action_t action = ( action_t )( action_graph_goto_markerA + i );
-
-                if ( ImGui::MenuItem( label, s_actions().hotkey_str( action ).c_str() ) )
-                {
-                    m_graph.start_ts = m_graph.ts_markers[ i ] - m_graph.length_ts / 2;
-                    m_graph.recalc_timebufs = true;
-                }
-
-                ImGui::PopID();
-            }
-
-            ImGui::EndMenu();
-        }
-
-        if ( ImGui::BeginMenu( "Clear Marker" ) )
-        {
-            for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
-            {
-                if ( !graph_marker_valid( i ) )
-                    continue;
-
-                ImGui::PushID( i );
-
-                char label[ 2 ] = { char( 'A' + i ), 0 };
-
-                if ( ImGui::MenuItem( label ) )
-                    graph_marker_set( i, INT64_MAX );
-
-                ImGui::PopID();
-            }
-
-            ImGui::EndMenu();
-        }
-    }
+    idx = graph_marker_menuitem( "Clear Marker", true, action_nil );
+    if ( idx >= 0 )
+        graph_marker_set( idx, INT64_MAX );
 
     if ( ImGui::BeginMenu( "Save Location" ) )
     {
