@@ -2249,14 +2249,16 @@ int TraceWin::graph_marker_menuitem( const char *label, bool check_valid, action
                 if ( !check_valid || graph_marker_valid( i ) )
                 {
                     std::string shortcut;
-                    char mlabel[ 2 ] = { char( 'A' + i ), 0 };
+                    std::string mlabel = s_textclrs().bright_str( std::string( 1, ( 'A' + i ) ) );
 
                     ImGui::PushID( label );
 
                     if ( action != action_nil )
                         shortcut = s_actions().hotkey_str( ( action_t )( action + i ) );
+                    if ( graph_marker_valid( i ) )
+                        mlabel += " (" + ts_to_timestr( m_graph.ts_markers[ i ], 2 ) + ")";
 
-                    if ( ImGui::MenuItem( mlabel, shortcut.c_str() ) )
+                    if ( ImGui::MenuItem( mlabel.c_str(), shortcut.c_str() ) )
                         ret = i;
 
                     ImGui::PopID();
