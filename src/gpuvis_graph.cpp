@@ -2287,7 +2287,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     {
         std::string label = string_format( "Unzoom row '%s'", m_graph.zoom_row_name.c_str() );
 
-        if ( ImGui::MenuItem( label.c_str() ) )
+        if ( ImGui::MenuItem( label.c_str(), s_actions().hotkey_str( action_graph_zoom_row ).c_str() ) )
         {
             m_graph.zoom_row_name.clear();
         }
@@ -2468,12 +2468,10 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         {
             ImGui::PushID( i );
 
-            char label[ 2 ];
-            std::string shortcut = string_format( "Ctrl+Shift+%c", char( 'A' + i ) );
+            char label[ 2 ] = { char( 'A' + i ), 0 };
+            action_t action = ( action_t )( action_graph_set_markerA + i );
 
-            label[ 0 ] = char( 'A' + i );
-            label[ 1 ] = 0;
-            if ( ImGui::MenuItem( label, shortcut.c_str() ) )
+            if ( ImGui::MenuItem( label, s_actions().hotkey_str( action ).c_str() ) )
                 graph_marker_set( i, m_graph.ts_marker_mouse );
 
             ImGui::PopID();
@@ -2482,27 +2480,51 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         ImGui::EndMenu();
     }
 
-    if ( ( graph_marker_valid( 0 ) || graph_marker_valid( 1 ) )
-         && ImGui::BeginMenu( "Clear Marker" ) )
+    if ( graph_marker_valid( 0 ) || graph_marker_valid( 1 ) )
     {
-        for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
+        if ( ImGui::BeginMenu( "Goto Marker" ) )
         {
-            if ( !graph_marker_valid( i ) )
-                continue;
+            for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
+            {
+                if ( !graph_marker_valid( i ) )
+                    continue;
 
-            ImGui::PushID( i );
+                ImGui::PushID( i );
 
-            char label[ 2 ];
-            label[ 0 ] = char( 'A' + i );
-            label[ 1 ] = 0;
-            if ( ImGui::MenuItem( label ) )
-                graph_marker_set( i, INT64_MAX );
+                char label[ 2 ] = { char( 'A' + i ), 0 };
+                action_t action = ( action_t )( action_graph_goto_markerA + i );
 
-            ImGui::PopID();
+                if ( ImGui::MenuItem( label, s_actions().hotkey_str( action ).c_str() ) )
+                {
+                    m_graph.start_ts = m_graph.ts_markers[ i ] - m_graph.length_ts / 2;
+                    m_graph.recalc_timebufs = true;
+                }
+
+                ImGui::PopID();
+            }
+
+            ImGui::EndMenu();
         }
 
+        if ( ImGui::BeginMenu( "Clear Marker" ) )
+        {
+            for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
+            {
+                if ( !graph_marker_valid( i ) )
+                    continue;
 
-        ImGui::EndMenu();
+                ImGui::PushID( i );
+
+                char label[ 2 ] = { char( 'A' + i ), 0 };
+
+                if ( ImGui::MenuItem( label ) )
+                    graph_marker_set( i, INT64_MAX );
+
+                ImGui::PopID();
+            }
+
+            ImGui::EndMenu();
+        }
     }
 
     if ( ImGui::BeginMenu( "Save Location" ) )
@@ -2510,9 +2532,10 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         for ( size_t i = 0; i < m_graph.saved_locs.size(); i++ )
         {
             std::string label = get_location_label_lambda( i );
+            action_t action = ( action_t )( action_graph_save_location1 + i );
 
             if ( ImGui::MenuItem( label.c_str(),
-                s_actions().hotkey_str( ( action_t )( action_graph_save_location1 + i ) ).c_str() ) )
+                s_actions().hotkey_str( action ).c_str() ) )
             {
                 m_graph.saved_locs[ i ] = std::make_pair( m_graph.start_ts, m_graph.length_ts );
                 break;
@@ -2539,9 +2562,10 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             if ( m_graph.saved_locs[ i ].second )
             {
                 std::string label = get_location_label_lambda( i );
+                action_t action = ( action_t )( action_graph_restore_location1 + i );
 
                 if ( ImGui::MenuItem( label.c_str(),
-                        s_actions().hotkey_str( ( action_t )( action_graph_restore_location1 + i ) ).c_str() ) )
+                        s_actions().hotkey_str( action ).c_str() ) )
                 {
                     m_graph.start_ts = m_graph.saved_locs[ i ].first;
                     m_graph.length_ts = m_graph.saved_locs[ i ].second;
