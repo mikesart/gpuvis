@@ -66,6 +66,10 @@ _XTAG( col_Graph_LocationText, 0x4f17e62b, "Graph location text" )
 _XTAG( col_Graph_TaskRunning, 0x4fff00ff, "Sched_switch task running block" )
 _XTAG( col_Graph_TaskSleeping, 0x4fffff00, "Sched_switch task sleeping block" )
 
+_XTAG( col_FrameMarkerBk0, 0x4fff00ff, "Frame Marker Background #0" )
+_XTAG( col_FrameMarkerBk1, 0x4f00ffff, "Frame Marker Background #1" )
+_XTAG( col_FrameMarkerCentered, 0x1a00ff31, "Centered Frame Marker Background" )
+
 // ImGui colors
 _XTAG( col_ImGui_Text, 0xffe6e6e6, "ImGui text" )
 _XTAG( col_ImGui_TextDisabled, 0xff666666, "ImGui disabled text" )

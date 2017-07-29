@@ -157,9 +157,43 @@ public:
 
     std::string m_plot_buf;
     std::string m_plot_err_str;
-    char m_plot_name_buf[ 64 ];
-    char m_plot_filter_buf[ 256 ];
-    char m_plot_scanf_buf[ 256 ];
+    char m_plot_name_buf[ 128 ];
+    char m_plot_filter_buf[ 512 ];
+    char m_plot_scanf_buf[ 512 ];
+};
+
+class FrameMarkers
+{
+public:
+    FrameMarkers()
+    {
+        m_left_marker_buf[ 0 ] = 0;
+        m_right_marker_buf[ 0 ] = 0;
+    }
+    ~FrameMarkers() {}
+
+    bool init( TraceEvents &trace_events, uint32_t eventid = INVALID_ID );
+    bool render_dlg( TraceEvents &trace_events );
+
+    void set_tooltip();
+
+    void setup_frames();
+
+public:
+    // Whether we've checked current marker_buf filter text
+    bool m_checked = false;
+    // Left/Right marker filters
+    char m_left_marker_buf[ 512 ];
+    char m_right_marker_buf[ 512 ];
+    // Left/Right marker filter error strings
+    std::string m_left_filter_err_str;
+    std::string m_right_filter_err_str;
+    // Left/Right event locations
+    const std::vector< uint32_t > *m_left_plocs = nullptr;
+    const std::vector< uint32_t > *m_right_plocs = nullptr;
+
+    std::vector< uint32_t > m_left_frames;
+    std::vector< uint32_t > m_right_frames;
 };
 
 class TraceEvents
@@ -384,6 +418,7 @@ protected:
     void graph_render_mouse_selection( class graph_info_t &gi );
     void graph_render_eventlist_selection( class graph_info_t &gi );
     void graph_render_row_labels( class graph_info_t &gi );
+    void graph_render_framemarkers( class graph_info_t &gi );
 
     // Handle graph popup menu
     bool graph_render_popupmenu( class graph_info_t &gi );
@@ -444,6 +479,9 @@ public:
     // Ftrace print event id to display create plot dialog
     uint32_t m_create_plot_eventid = INVALID_ID;
     CreatePlotDlg m_create_plot_dlg;
+
+    uint32_t m_create_filter_eventid = INVALID_ID;
+    FrameMarkers m_frame_markers;
 
     util_umap< int64_t, int > m_ts_to_eventid_cache;
 
@@ -571,6 +609,7 @@ enum : uint32_t
     OPT_RenderCrtc7,
     OPT_RenderCrtc8,
     OPT_RenderCrtc9,
+    OPT_RenderFrameMarkers,
     OPT_GraphHeight,
     OPT_GraphHeightZoomed,
     OPT_EventListRowCount,

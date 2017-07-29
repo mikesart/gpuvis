@@ -321,6 +321,7 @@ enum action_t
 
     action_toggle_vblank0,
     action_toggle_vblank1,
+    action_toggle_framemarkers,
 
     action_graph_zoom_row,
     action_graph_zoom_mouse,
@@ -344,6 +345,8 @@ enum action_t
 
     action_focus_graph,
     action_focus_eventlist,
+
+    action_return,
 
     action_max
 };

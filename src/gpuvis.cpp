@@ -260,10 +260,12 @@ void Opts::init()
 
         init_opt_bool( i, desc.c_str(), inikey.c_str(), true );
     }
+    init_opt_bool( OPT_RenderFrameMarkers, "Render Frame Markers", "render_framemarkers", true );
 
     // Set up action mappings so we can display hotkeys in render_imgui_opt().
     m_options[ OPT_RenderCrtc0 ].action = action_toggle_vblank0;
     m_options[ OPT_RenderCrtc1 ].action = action_toggle_vblank1;
+    m_options[ OPT_RenderFrameMarkers ].action = action_toggle_framemarkers;
 
     add_opt_graph_rowsize( "gfx", 8 );
     add_opt_graph_rowsize( "print", 10 );
@@ -956,15 +958,18 @@ void TraceLoader::render()
 
         for ( const Actions::actionmap_t &map : s_actions().m_actionmap )
         {
-            std::string hotkey = s_actions().hotkey_str( map.action );
+            if ( map.desc )
+            {
+                std::string hotkey = s_actions().hotkey_str( map.action );
 
-            ImGui::Text( "%s", s_textclrs().bright_str( hotkey ).c_str() );
-            ImGui::NextColumn();
+                ImGui::Text( "%s", s_textclrs().bright_str( hotkey ).c_str() );
+                ImGui::NextColumn();
 
-            ImGui::Text( "%s", map.desc );
-            ImGui::NextColumn();
+                ImGui::Text( "%s", map.desc );
+                ImGui::NextColumn();
 
-            ImGui::Separator();
+                ImGui::Separator();
+            }
         }
 
         ImGui::EndColumns();
@@ -1550,6 +1555,9 @@ const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name,
 {
     std::vector< uint32_t > *plocs;
     uint32_t hashval = fnv_hashstr32( name );
+
+    if ( err )
+        err->clear();
 
     // Try to find whatever our name hashed to. Name should be something like:
     //   $name=drm_vblank_event
@@ -2356,12 +2364,11 @@ TraceWin::TraceWin( TraceLoader &loader, TraceEvents &trace_events, std::string 
 
     strcpy_safe( m_graph.new_row_buf, "<Enter Filter Expression>" );
 
-    std::string event_filter = s_ini().GetStr( "event_filter_buf", "" );
-    if ( !event_filter.empty() )
-    {
-        strcpy_safe( m_eventlist.filter_buf, event_filter.c_str() );
-        m_eventlist.do_filter = true;
-    }
+    strcpy_safe( m_eventlist.filter_buf, s_ini().GetStr( "event_filter_buf", "" ) );
+    m_eventlist.do_filter = !!m_eventlist.filter_buf[ 0 ];
+
+    strcpy_safe( m_frame_markers.m_left_marker_buf, s_ini().GetStr( "framemarker_buf_left", "" ) );
+    strcpy_safe( m_frame_markers.m_right_marker_buf, s_ini().GetStr( "framemarker_buf_right", "" ) );
 
     m_graph.saved_locs.resize( action_graph_save_location5 - action_graph_save_location1 + 1 );
 }
@@ -2369,6 +2376,8 @@ TraceWin::TraceWin( TraceLoader &loader, TraceEvents &trace_events, std::string 
 TraceWin::~TraceWin()
 {
     s_ini().PutStr( "event_filter_buf", m_eventlist.filter_buf );
+    s_ini().PutStr( "framemarker_buf_left", m_frame_markers.m_left_marker_buf );
+    s_ini().PutStr( "framemarker_buf_right", m_frame_markers.m_right_marker_buf );
 
     std::string str = string_implode( m_graph.rows.m_graph_rows_hide, "," );
     s_ini().PutStr( "graph_rows_hide_str", str.c_str() );
@@ -2655,6 +2664,13 @@ bool TraceWin::render()
     if ( m_create_plot_dlg.render_dlg( m_trace_events ) )
         m_create_plot_dlg.add_plot( m_graph.rows );
 
+    if ( is_valid_id( m_create_filter_eventid ) )
+    {
+        m_frame_markers.init( m_trace_events, m_create_filter_eventid );
+        m_create_filter_eventid = INVALID_ID;
+    }
+    m_frame_markers.render_dlg( m_trace_events );
+
     ImGui::End();
 
     m_inited = true;
@@ -2915,6 +2931,18 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
         ImGui::Separator();
         if ( ImGui::MenuItem( plot_label.c_str() ) )
             m_create_plot_eventid = event.id;
+    }
+
+    ImGui::Separator();
+
+    if ( ImGui::MenuItem( "Set Frame Markers..." ) )
+        m_create_filter_eventid = event.id;
+    if ( m_frame_markers.m_left_marker_buf[ 0 ] && ImGui::MenuItem( "Edit Frame Markers..." ) )
+        m_create_filter_eventid = m_trace_events.m_events.size();
+    if ( m_frame_markers.m_left_frames.size() && ImGui::MenuItem( "Clear Frame Markers" ) )
+    {
+        m_frame_markers.m_left_frames.clear();
+        m_frame_markers.m_right_frames.clear();
     }
 
     if ( s_keybd().is_escape_down() )
@@ -3996,6 +4024,8 @@ void TraceLoader::handle_hotkeys()
         s_opts().setb( OPT_RenderCrtc0, !s_opts().getb( OPT_RenderCrtc0 ) );
     if ( s_actions().get( action_toggle_vblank1 ) )
         s_opts().setb( OPT_RenderCrtc1, !s_opts().getb( OPT_RenderCrtc1 ) );
+    if ( s_actions().get( action_toggle_framemarkers ) )
+        s_opts().setb( OPT_RenderFrameMarkers, !s_opts().getb( OPT_RenderFrameMarkers ) );
 }
 
 void TraceLoader::parse_cmdline( int argc, char **argv )

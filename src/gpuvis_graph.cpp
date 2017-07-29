@@ -280,6 +280,8 @@ public:
 
     // row_info id we need to make sure is visible
     size_t show_row_id = ( size_t )-1;
+
+    uint32_t frame_marker = ( uint32_t )-1;
 };
 
 static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
@@ -688,6 +690,206 @@ static size_t str_get_digit_loc( const char *str )
     return 0;
 }
 
+template < size_t T >
+static bool plot_input_text( const char *label, char ( &buf )[ T ], float x, float w, ImGuiTextEditCallback callback = nullptr )
+{
+    bool ret = false;
+    ImGuiInputTextFlags flags = callback ? ImGuiInputTextFlags_CallbackCharFilter : 0;
+
+    ImGui::PushID( label );
+
+    ImGui::AlignFirstTextHeightToWidgets();
+    ImGui::Text( "%s", label );
+
+    ImGui::SameLine();
+    ImGui::PushItemWidth( w );
+    ImGui::SetCursorPos( { x, ImGui::GetCursorPos().y } );
+    ret = ImGui::InputText( "##plot_input_text", buf, sizeof( buf ), flags, callback );
+    ImGui::PopItemWidth();
+
+    ImGui::PopID();
+
+    return ret;
+}
+
+
+bool FrameMarkers::init( TraceEvents &trace_events, uint32_t eventid )
+{
+    m_checked = false;
+
+    m_left_filter_err_str.clear();
+    m_right_filter_err_str.clear();
+
+    m_left_plocs = NULL;
+    m_right_plocs = NULL;
+
+    if ( is_valid_id( eventid ) && ( eventid < trace_events.m_events.size() ) )
+    {
+        const trace_event_t &event = trace_events.m_events[ eventid ];
+
+        m_left_marker_buf[ 0 ] = 0;
+        m_right_marker_buf[ 0 ] = 0;
+
+        if ( event.is_vblank() )
+        {
+            snprintf_safe( m_left_marker_buf, "$name = %s && $crtc == %d", event.name, event.crtc );
+        }
+        else if ( event.is_ftrace_print() )
+        {
+            const char *buf = get_event_field_val( event, "buf" );
+
+            if ( buf[ 0 ] )
+                snprintf_safe( m_left_marker_buf, "$buf =~ \"%s\"", buf );
+        }
+
+        if ( !m_left_marker_buf[ 0 ] )
+            snprintf_safe( m_left_marker_buf, "$name = %s", event.name );
+    }
+
+    if ( !m_left_marker_buf[ 0 ] )
+        strcpy_safe( m_left_marker_buf, "$name = drm_vblank_event && $crtc = 0" );
+
+    ImGui::OpenPopup( "Set Frame Markers" );
+    return true;
+}
+
+void FrameMarkers::set_tooltip()
+{
+    std::string tooltip;
+
+    tooltip += s_textclrs().bright_str( "Frame marker filters\n\n" );
+
+    tooltip += "Examples:\n";
+
+    tooltip += "  Left frame: $name = drm_vblank_event && $crtc = 0\n";
+    tooltip += "  Right frame: $name = drm_vblank_event && $crtc = 0\n\n";
+
+    tooltip += "  Left frame: $buf =~ \"[Compositor] Sleep - begin\"\n";
+    tooltip += "  Right frame: $buf =~ \"[Compositor] Sleep - end\"\n";
+
+    ImGui::SetTooltip( "%s", tooltip.c_str() );
+}
+
+bool FrameMarkers::render_dlg( TraceEvents &trace_events )
+{
+    bool item_hovered = false;
+    char right_marker_buf[ 512 ];
+    float w = imgui_scale( 450.0f );
+    const char left_text[] = "Left Frame: ";
+    const char right_text[] = "Right Frame: ";
+    const ImVec2 button_size = { imgui_scale( 250.0f ), 0.0f };
+    float x = ImGui::GetCursorPos().x + ImGui::CalcTextSize( right_text ).x;
+
+    if ( !ImGui::BeginPopupModal( "Set Frame Markers", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
+        return false;
+
+    // Left Frame Filter
+    {
+        if ( plot_input_text( left_text, m_left_marker_buf, x, w ) )
+            m_checked = false;
+
+        item_hovered |= ImGui::IsItemHovered();
+
+        if ( !m_left_filter_err_str.empty() )
+            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_left_filter_err_str.c_str() );
+        else if ( m_left_plocs )
+            ImGui::TextColored( ImVec4( 0, 1, 0, 1 ), "%lu events found.", m_left_plocs->size() );
+    }
+
+    // Right Frame Filter
+    {
+        strcpy_safe( right_marker_buf, !m_right_marker_buf[ 0 ] ? m_left_marker_buf : m_right_marker_buf );
+
+        if ( plot_input_text( right_text, right_marker_buf, x, w ) )
+        {
+            m_checked = false;
+            strcpy_safe( m_right_marker_buf, right_marker_buf );
+        }
+
+        item_hovered |= ImGui::IsItemHovered();
+
+        if ( !m_right_filter_err_str.empty() )
+            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_right_filter_err_str.c_str() );
+        else if ( m_right_plocs )
+            ImGui::TextColored( ImVec4( 0, 1, 0, 1 ), "%lu events found.", m_right_plocs->size() );
+    }
+
+    if ( item_hovered )
+        set_tooltip();
+
+    ImGui::Separator();
+
+    // "Check filters" or "Set Frame Markers" buttons
+    if ( !m_checked )
+    {
+        if ( ImGui::Button( "Check filters", button_size ) || s_actions().get( action_return ) )
+        {
+            m_left_plocs = trace_events.get_tdopexpr_locs( m_left_marker_buf, &m_left_filter_err_str );
+            m_right_plocs = trace_events.get_tdopexpr_locs( right_marker_buf, &m_right_filter_err_str );
+
+            if ( !m_left_plocs )
+            {
+                if ( m_left_filter_err_str.empty() )
+                    m_left_filter_err_str = "WARNING: No events found.";
+            }
+            if ( !m_right_plocs )
+            {
+                if ( m_right_filter_err_str.empty() )
+                    m_right_filter_err_str = "WARNING: No events found.";
+            }
+            if ( m_left_plocs && m_right_plocs )
+                m_checked = true;
+        }
+    }
+    else if ( ImGui::Button( "Set Frame Markers", button_size ) || s_actions().get( action_return ) )
+    {
+        setup_frames();
+
+        ImGui::CloseCurrentPopup();
+    }
+
+    // Cancel button
+    ImGui::SameLine();
+    if ( ImGui::Button( "Cancel", button_size ) || s_keybd().is_escape_down() )
+        ImGui::CloseCurrentPopup();
+
+    ImGui::EndPopup();
+
+    return false;
+}
+
+void FrameMarkers::setup_frames()
+{
+    uint32_t idx = 0;
+    const std::vector< uint32_t > &locs_left = *m_left_plocs;
+    const std::vector< uint32_t > &locs_right = *m_right_plocs;
+
+    m_left_frames.clear();
+    m_right_frames.clear();
+
+    // Go through all the right eventids...
+    for ( uint32_t right_eventid : locs_right )
+    {
+        // Find entryid in left which is < this right eventid
+        while ( locs_left[ idx ] < right_eventid )
+        {
+            // Check if this is our last left event or the next event is greater.
+            if ( ( idx + 1 >= locs_left.size() ) ||
+                 ( locs_left[ idx + 1 ] >= right_eventid ) )
+            {
+                m_left_frames.push_back( locs_left[ idx ] );
+                m_right_frames.push_back( right_eventid );
+
+                if ( ++idx >= locs_left.size() )
+                    return;
+                break;
+            }
+
+            idx++;
+        }
+    }
+}
+
 const std::string CreatePlotDlg::get_plot_str( const trace_event_t &event )
 {
     if ( event.is_ftrace_print() )
@@ -776,25 +978,6 @@ bool CreatePlotDlg::init( TraceEvents &trace_events, uint32_t eventid )
     }
 
     return false;
-}
-
-template < size_t T >
-static void plot_input_text( const char *label, char ( &buf )[ T ], float x, float w, ImGuiTextEditCallback callback = nullptr )
-{
-    ImGuiInputTextFlags flags = callback ? ImGuiInputTextFlags_CallbackCharFilter : 0;
-
-    ImGui::PushID( label );
-
-    ImGui::AlignFirstTextHeightToWidgets();
-    ImGui::Text( "%s", label );
-
-    ImGui::SameLine();
-    ImGui::PushItemWidth( w );
-    ImGui::SetCursorPos( { x, ImGui::GetCursorPos().y } );
-    ImGui::InputText( "##plot_input_text", buf, sizeof( buf ), flags, callback );
-    ImGui::PopItemWidth();
-
-    ImGui::PopID();
 }
 
 bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
@@ -1681,6 +1864,50 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
     }
 }
 
+void TraceWin::graph_render_framemarkers( class graph_info_t &gi )
+{
+    if ( m_frame_markers.m_right_frames.empty() )
+        return;
+
+    if ( !s_opts().getb( OPT_RenderFrameMarkers ) )
+        return;
+
+    float midx = gi.x + ( gi.w - gi.x ) / 2.0f;
+
+    for ( size_t idx = vec_find_eventid( m_frame_markers.m_right_frames, gi.eventstart );
+          idx < m_frame_markers.m_right_frames.size();
+          idx++ )
+    {
+        uint32_t left_id = m_frame_markers.m_left_frames[ idx ];
+        if ( left_id > gi.eventend )
+            break;
+
+        uint32_t right_id = m_frame_markers.m_right_frames[ idx ];
+        trace_event_t &left_event = get_event( left_id );
+        trace_event_t &right_event = get_event( right_id );
+        float left_x = gi.ts_to_screenx( left_event.ts );
+        float right_x = gi.ts_to_screenx( right_event.ts );
+
+        if ( ( midx < left_x ) || ( midx > right_x ) )
+        {
+            if ( right_x > left_x )
+            {
+                ImU32 col = ( idx & 0x1 ) ? col_FrameMarkerBk1 : col_FrameMarkerBk0;
+
+                imgui_drawrect( left_x, right_x - left_x, gi.y, gi.h,
+                                s_clrs().get( col ) );
+            }
+        }
+        else
+        {
+            imgui_drawrect( left_x, right_x - left_x, gi.y, gi.h,
+                            s_clrs().get( col_FrameMarkerCentered ) );
+
+            gi.frame_marker = idx;
+        }
+    }
+}
+
 void TraceWin::graph_render_mouse_pos( graph_info_t &gi )
 {
     // Draw location line for mouse if mouse is over graph
@@ -1837,9 +2064,9 @@ void TraceWin::graph_range_check_times()
     }
 
     // Sanity check the graph start doesn't go completely off the rails.
-    if ( m_graph.start_ts < events.front().ts - 1 * NSECS_PER_MSEC )
+    if ( m_graph.start_ts < events.front().ts - NSECS_PER_MSEC )
     {
-        m_graph.start_ts = events.front().ts - 1 * NSECS_PER_MSEC;
+        m_graph.start_ts = events.front().ts - NSECS_PER_MSEC;
         m_graph.recalc_timebufs = true;
     }
     else if ( m_graph.start_ts > events.back().ts )
@@ -2185,6 +2412,7 @@ void TraceWin::graph_render()
         gi.set_pos_y( windowpos.y, windowsize.y, NULL );
         graph_render_time_ticks( gi );
         graph_render_vblanks( gi );
+        graph_render_framemarkers( gi );
         graph_render_mouse_pos( gi );
         graph_render_eventids( gi );
         graph_render_mouse_selection( gi );
@@ -2208,6 +2436,18 @@ void TraceWin::graph_render()
             ImGui::GetWindowDrawList()->AddText( ImGui::GetFont(),
                                                  ImGui::GetFontSize() * fontscale,
                                                  pos, color, str.c_str() );
+
+            if ( gi.frame_marker != ( uint32_t )-1 )
+            {
+                str = string_format( "Frame #%u", gi.frame_marker );
+                textsize = ImGui::CalcTextSize( str.c_str() );
+
+                pos.y += textsize.y * fontscale;
+                pos.x = windowpos.x + ( windowsize.x - textsize.x * fontscale ) / 2;
+                ImGui::GetWindowDrawList()->AddText( ImGui::GetFont(),
+                                                     ImGui::GetFontSize() * fontscale,
+                                                     pos, color, str.c_str() );
+            }
         }
 
         // Handle right, left, pgup, pgdown, etc in graph
@@ -2502,6 +2742,14 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             if ( ImGui::MenuItem( plot_label.c_str() ) )
                 m_create_plot_eventid = event.id;
         }
+    }
+
+    if ( is_valid_id( m_graph.hovered_eventid ) &&
+         ImGui::MenuItem( "Set Frame Markers..." ) )
+    {
+        const trace_event_t &event = m_trace_events.m_events[ m_graph.hovered_eventid ];
+
+        m_create_filter_eventid = event.id;
     }
 
     // Change row size. Ie "Gfx size: 10"

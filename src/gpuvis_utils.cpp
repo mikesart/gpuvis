@@ -1235,6 +1235,7 @@ void Actions::init()
 
     m_actionmap.push_back( { action_toggle_vblank0, KMOD_CTRL | KMOD_SHIFT, SDLK_m, "Toggle showing vblank 0 markers" } );
     m_actionmap.push_back( { action_toggle_vblank1, KMOD_CTRL | KMOD_SHIFT, SDLK_n, "Toggle showing vblank 1 markers" } );
+    m_actionmap.push_back( { action_toggle_framemarkers, KMOD_CTRL | KMOD_SHIFT, SDLK_f, "Toggle showing Frame Markers" } );
 
     m_actionmap.push_back( { action_graph_set_markerA, KMOD_CTRL | KMOD_SHIFT, SDLK_a, "Set graph marker A" } );
     m_actionmap.push_back( { action_graph_set_markerB, KMOD_CTRL | KMOD_SHIFT, SDLK_b, "Set graph marker B" } );
@@ -1264,6 +1265,8 @@ void Actions::init()
 
     m_actionmap.push_back( { action_scroll_home, KMOD_NONE, SDLK_HOME, "Scroll graph / event list to start" } );
     m_actionmap.push_back( { action_scroll_end, KMOD_NONE, SDLK_END, "Scroll graph / event list to end" } );
+
+    m_actionmap.push_back( { action_return, KMOD_NONE, SDLK_RETURN, NULL } );
 }
 
 void Actions::clear()
