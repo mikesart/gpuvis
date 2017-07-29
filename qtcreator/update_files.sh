@@ -28,7 +28,7 @@ done
 
 find /usr/include/SDL2 -iname "*.h" >> ${PROJNAME}.files
 
-fgrep -i --color=never ".h" *.files  | xargs -I{} dirname {} | sort | uniq > ${PROJNAME}.includes
+fgrep -i --color=never ".h" *.files  | xargs -I{} readlink -f {} | xargs -I{} dirname {} | sort | uniq > ${PROJNAME}.includes
 
 wc -l ${PROJNAME}.files
 wc -l ${PROJNAME}.includes
