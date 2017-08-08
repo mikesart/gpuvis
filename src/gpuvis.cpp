@@ -3042,7 +3042,8 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
             if ( event.duration != ( uint32_t )-1 )
                 durationstr = "Duration: " + ts_to_timestr( event.duration, 4, " ms\n" );
 
-            ImGui::SetTooltip( "%sId: %u\nTime: %s\nComm: %s\n%s\n%s",
+            ImGui::SetTooltip( "%s%sId: %u\nTime: %s\nComm: %s\n%s\n%s",
+                               s_textclrs().str( TClr_Def ),
                                graph_markers.c_str(), event.id,
                                ts_str.c_str(), commstr, durationstr.c_str(),
                                fieldstr.c_str() );
