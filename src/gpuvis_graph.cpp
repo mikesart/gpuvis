@@ -280,8 +280,6 @@ public:
 
     // row_info id we need to make sure is visible
     size_t show_row_id = ( size_t )-1;
-
-    uint32_t frame_marker = ( uint32_t )-1;
 };
 
 static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
@@ -1924,8 +1922,6 @@ void TraceWin::graph_render_framemarkers( class graph_info_t &gi )
             imgui_drawrect( left_x, right_x - left_x, gi.y, gi.h,
                             s_clrs().get( col_FrameMarkerCentered ) );
 
-            gi.frame_marker = idx;
-
             // We have a selected id
             m_frame_markers.m_frame_marker_selected = idx;
         }
@@ -2502,9 +2498,9 @@ void TraceWin::graph_render()
                                                  ImGui::GetFontSize() * fontscale,
                                                  pos, color, str.c_str() );
 
-            if ( gi.frame_marker != ( uint32_t )-1 )
+            if ( m_frame_markers.m_frame_marker_selected != -1 )
             {
-                str = string_format( "Frame #%u", gi.frame_marker );
+                str = string_format( "Frame #%d", m_frame_markers.m_frame_marker_selected );
                 textsize = ImGui::CalcTextSize( str.c_str() );
 
                 pos.y += textsize.y * fontscale;
