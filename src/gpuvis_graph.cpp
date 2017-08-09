@@ -712,7 +712,6 @@ static bool plot_input_text( const char *label, char ( &buf )[ T ], float x, flo
     return ret;
 }
 
-
 bool FrameMarkers::init( TraceEvents &trace_events, uint32_t eventid )
 {
     m_checked = false;
@@ -1874,13 +1873,24 @@ void TraceWin::graph_render_framemarkers( class graph_info_t &gi )
 
     float midx = gi.x + ( gi.w - gi.x ) / 2.0f;
 
+    // Clear frame markers
+    m_frame_markers.m_frame_marker_left = -1;
+    m_frame_markers.m_frame_marker_right = -1;
+    m_frame_markers.m_frame_marker_selected = -1;
+
     for ( size_t idx = vec_find_eventid( m_frame_markers.m_right_frames, gi.eventstart );
           idx < m_frame_markers.m_right_frames.size();
           idx++ )
     {
         uint32_t left_id = m_frame_markers.m_left_frames[ idx ];
         if ( left_id > gi.eventend )
+        {
+            // If we haven't set frame_marker_right, then we haven't run the code
+            // below and have seen nothing to the left of us, so this id is to the right.
+            if ( m_frame_markers.m_frame_marker_right == -1 )
+                m_frame_markers.m_frame_marker_right = idx;
             break;
+        }
 
         uint32_t right_id = m_frame_markers.m_right_frames[ idx ];
         trace_event_t &left_event = get_event( left_id );
@@ -1897,6 +1907,17 @@ void TraceWin::graph_render_framemarkers( class graph_info_t &gi )
                 imgui_drawrect( left_x, right_x - left_x, gi.y, gi.h,
                                 s_clrs().get( col ) );
             }
+
+            if ( midx > right_x )
+            {
+                // This id is to the left, so set marker_right to next id
+                m_frame_markers.m_frame_marker_right = idx + 1;
+            }
+            else if ( m_frame_markers.m_frame_marker_right == -1 )
+            {
+                // This id is to the right, so set it to the first one we see.
+                m_frame_markers.m_frame_marker_right = idx;
+            }
         }
         else
         {
@@ -1904,7 +1925,25 @@ void TraceWin::graph_render_framemarkers( class graph_info_t &gi )
                             s_clrs().get( col_FrameMarkerCentered ) );
 
             gi.frame_marker = idx;
+
+            // We have a selected id
+            m_frame_markers.m_frame_marker_selected = idx;
         }
+    }
+
+    // Assume left frame marker is one left of right
+    m_frame_markers.m_frame_marker_left = m_frame_markers.m_frame_marker_right - 1;
+
+    if ( m_frame_markers.m_frame_marker_selected != -1 )
+    {
+        // Have a selected event: Set left to left of it, right to right.
+        m_frame_markers.m_frame_marker_left = m_frame_markers.m_frame_marker_selected - 1;
+        m_frame_markers.m_frame_marker_right = m_frame_markers.m_frame_marker_selected + 1;
+    }
+    else if ( m_frame_markers.m_frame_marker_right == -1 )
+    {
+        // We have no marker to the right, assume left is last event
+        m_frame_markers.m_frame_marker_left = ( int )m_frame_markers.m_left_frames.size() - 1;
     }
 }
 
@@ -2128,6 +2167,32 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
     // If there are no actions, bail.
     if ( !s_actions().count() )
         return;
+
+    if ( !m_frame_markers.m_left_frames.empty() &&
+         s_opts().getb( OPT_RenderFrameMarkers ) )
+    {
+        int target = -1;
+
+        if ( s_actions().get( action_frame_marker_prev ) )
+            target = m_frame_markers.m_frame_marker_left;
+        else if ( s_actions().get( action_frame_marker_next ) )
+            target = m_frame_markers.m_frame_marker_right;
+
+        if ( ( target >= 0 ) && ( target < ( int )m_frame_markers.m_left_frames.size() ) )
+        {
+            uint32_t left_eventid = m_frame_markers.m_left_frames[ target ];
+            uint32_t right_eventid = m_frame_markers.m_right_frames[ target ];
+            const trace_event_t &left_event = get_event( left_eventid );
+            const trace_event_t &right_event = get_event( right_eventid );
+
+            float pct = 0.05f;
+            int64_t len = right_event.ts - left_event.ts;
+
+            m_graph.start_ts = left_event.ts - len * pct;
+            m_graph.length_ts = len * ( 1 + 2 * pct );
+            m_graph.recalc_timebufs = true;
+        }
+    }
 
     if ( s_actions().get( action_graph_zoom_row ) )
     {

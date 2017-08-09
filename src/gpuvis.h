@@ -194,6 +194,11 @@ public:
 
     std::vector< uint32_t > m_left_frames;
     std::vector< uint32_t > m_right_frames;
+
+    // Which frame is left, right, and selected in graph
+    int m_frame_marker_left = -1;
+    int m_frame_marker_right = -1;
+    int m_frame_marker_selected = -1;
 };
 
 class TraceEvents
