@@ -133,9 +133,9 @@ static int imgui_ini_load_settings_cb( std::vector< INIEntry > *entries, int ind
     return -1;
 }
 
-static bool imgui_begin_columns( const char *title,
-                                 const std::initializer_list< const char * > &headers,
-                                 bool *resized = NULL )
+bool imgui_begin_columns( const char *title,
+                          const std::initializer_list< const char * > &headers,
+                          bool *resized )
 {
     bool inited = ImGui::BeginColumns( title, headers.size() );
     bool temp = false;

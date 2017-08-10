@@ -98,6 +98,10 @@ void imgui_pop_smallfont();
 
 bool imgui_collapsingheader( const char *label, bool *has_focus, ImGuiTreeNodeFlags flags = 0 );
 
+bool imgui_begin_columns( const char *title,
+                          const std::initializer_list< const char * > &headers,
+                          bool *resized = NULL );
+
 // Does ImGui InputText with two new flags to put label on left or have label be a button.
 #define ImGuiInputText2FlagsLeft_LabelOnRight  ( 1 << 29 )
 #define ImGuiInputText2FlagsLeft_LabelIsButton ( 1 << 30 )

@@ -181,6 +181,8 @@ public:
 
     int64_t get_frame_len( TraceEvents &trace_events, int frame );
 
+    void clear();
+
 public:
     // Whether we've checked current marker_buf filter text
     bool m_checked = false;

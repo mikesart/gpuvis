@@ -712,7 +712,7 @@ static bool plot_input_text( const char *label, char ( &buf )[ T ], float x, flo
     return ret;
 }
 
-bool FrameMarkers::init( TraceEvents &trace_events, uint32_t eventid )
+void FrameMarkers::clear()
 {
     m_checked = false;
 
@@ -721,6 +721,11 @@ bool FrameMarkers::init( TraceEvents &trace_events, uint32_t eventid )
 
     m_left_plocs = NULL;
     m_right_plocs = NULL;
+}
+
+bool FrameMarkers::init( TraceEvents &trace_events, uint32_t eventid )
+{
+    clear();
 
     if ( is_valid_id( eventid ) && ( eventid < trace_events.m_events.size() ) )
     {
@@ -782,10 +787,12 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
     if ( !ImGui::BeginPopupModal( "Set Frame Markers", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
         return false;
 
+    ImGui::Text( "%s", "Frame marker filters" );
+
     // Left Frame Filter
     {
         if ( plot_input_text( left_text, m_left_marker_buf, x, w ) )
-            m_checked = false;
+            clear();
 
         item_hovered |= ImGui::IsItemHovered();
 
@@ -801,7 +808,7 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
 
         if ( plot_input_text( right_text, right_marker_buf, x, w ) )
         {
-            m_checked = false;
+            clear();
             strcpy_safe( m_right_marker_buf, right_marker_buf );
         }
 
@@ -821,11 +828,61 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
     if ( m_checked && m_count )
     {
         ImGui::TextColored( ImVec4( 0, 1, 0, 1 ), "%u frames found", m_count );
+        ImGui::Indent();
         ImGui::Text( "Min frame time: %s", ts_to_timestr( m_min_ts, 4 ).c_str() );
         ImGui::Text( "Max frame time: %s", ts_to_timestr( m_max_ts, 4 ).c_str() );
         ImGui::Text( "Avg frame time: %s", ts_to_timestr( m_tot_ts / m_count, 4 ).c_str() );
+        ImGui::Unindent();
 
         ImGui::Separator();
+    }
+
+    if ( ImGui::CollapsingHeader( "Previous Filters", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        ImGui::BeginChild( "eventlistbox", ImVec2( 0.0f, imgui_scale( 150.0f ) ) );
+        ImGui::Indent();
+
+        const struct
+        {
+            const char *str0;
+            const char *str1;
+        } s_presets[] =
+        {
+            { "$name = drm_vblank_event && $crtc = 0", NULL },
+            { "$name = drm_vblank_event && $crtc = 1", NULL },
+            { "$buf =~ \"[Compositor] Before wait query\"", "$buf =~ \"[Compositor] After wait query\"" },
+        };
+        ImGuiSelectableFlags flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_DontClosePopups;
+
+        imgui_begin_columns( "framemarker_presets", { left_text, right_text } );
+
+        for ( size_t i = 0; i < ARRAY_SIZE( s_presets ); i++ )
+        {
+            ImGui::PushID( i );
+
+            const char *str0 = s_presets[ i ].str0;
+            const char *str1 = s_presets[ i ].str1;
+
+            if ( ImGui::Selectable( str0, false, flags ) )
+            {
+                clear();
+
+                strcpy_safe( m_left_marker_buf, str0 );
+                strcpy_safe( m_right_marker_buf, str1 ? str1 : "" );
+            }
+
+            ImGui::NextColumn();
+            ImGui::Text( "%s", str1 ? str1 : str0 );
+            ImGui::NextColumn();
+            ImGui::Separator();
+
+            ImGui::PopID();
+        }
+
+        ImGui::EndColumns();
+
+        ImGui::Unindent();
+        ImGui::EndChild();
     }
 
     // "Check filters" or "Set Frame Markers" buttons
