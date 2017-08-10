@@ -1875,6 +1875,7 @@ void TraceWin::graph_render_framemarkers( class graph_info_t &gi )
     m_frame_markers.m_frame_marker_right = -2;
 
     bool markers_set = false;
+    float midx = gi.x + gi.w / 2.0f;
 
     for ( size_t idx = vec_find_eventid( m_frame_markers.m_right_frames, gi.eventstart );
           idx < m_frame_markers.m_right_frames.size();
@@ -1899,6 +1900,15 @@ void TraceWin::graph_render_framemarkers( class graph_info_t &gi )
         float left_x = gi.ts_to_screenx( left_event.ts );
         float right_x = gi.ts_to_screenx( right_event.ts );
         ImU32 col = ( idx & 0x1 ) ? col_FrameMarkerBk1 : col_FrameMarkerBk0;
+
+        // If markers were set but the one we picked had the left x off
+        // the screen and this one doesn't, choose it.
+        if ( markers_set &&
+             ( m_frame_markers.m_frame_marker_selected == -1 ) &&
+             ( left_x > gi.x ) && ( left_x < midx ) )
+        {
+            markers_set = false;
+        }
 
         if ( !markers_set )
         {
