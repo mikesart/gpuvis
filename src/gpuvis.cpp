@@ -261,7 +261,6 @@ void Opts::init()
         init_opt_bool( i, desc.c_str(), inikey.c_str(), true );
     }
     init_opt_bool( OPT_RenderFrameMarkers, "Show Render Frame Markers", "render_framemarkers", true );
-    init_opt_bool( OPT_RenderFrameFitFrames, "Fit Render Frame Marker Frames to graph", "render_framemarkers_fit", true );
 
     // Set up action mappings so we can display hotkeys in render_imgui_opt().
     m_options[ OPT_RenderCrtc0 ].action = action_toggle_vblank0;

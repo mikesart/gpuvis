@@ -346,6 +346,8 @@ enum action_t
     action_focus_graph,
     action_focus_eventlist,
 
+    action_frame_marker_prev_fit,
+    action_frame_marker_next_fit,
     action_frame_marker_prev,
     action_frame_marker_next,
 
@@ -364,6 +366,7 @@ public:
     void clear();
 
     bool get( action_t action );
+    bool peek( action_t action );
     size_t count() { return m_action_count; }
 
     const std::string hotkey_str( action_t action );

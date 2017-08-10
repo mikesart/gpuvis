@@ -2157,11 +2157,19 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
          s_opts().getb( OPT_RenderFrameMarkers ) )
     {
         int target = -1;
+        bool fit_frame = s_actions().peek( action_frame_marker_prev_fit ) ||
+                s_actions().peek( action_frame_marker_next_fit );
 
-        if ( s_actions().get( action_frame_marker_prev ) )
+        if ( s_actions().get( action_frame_marker_prev_fit ) ||
+             s_actions().get( action_frame_marker_prev ) )
+        {
             target = m_frame_markers.m_frame_marker_left;
-        else if ( s_actions().get( action_frame_marker_next ) )
+        }
+        if ( s_actions().get( action_frame_marker_next_fit ) ||
+             s_actions().get( action_frame_marker_next ) )
+        {
             target = m_frame_markers.m_frame_marker_right;
+        }
 
         if ( ( target >= 0 ) && ( target < ( int )m_frame_markers.m_left_frames.size() ) )
         {
@@ -2169,7 +2177,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             uint32_t left_eventid = m_frame_markers.m_left_frames[ target ];
             const trace_event_t &left_event = get_event( left_eventid );
 
-            if ( s_opts().getb( OPT_RenderFrameFitFrames ) )
+            if ( fit_frame )
             {
                 uint32_t right_eventid = m_frame_markers.m_right_frames[ target ];
                 const trace_event_t &right_event = get_event( right_eventid );
