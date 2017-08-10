@@ -615,6 +615,7 @@ enum : uint32_t
     OPT_RenderCrtc8,
     OPT_RenderCrtc9,
     OPT_RenderFrameMarkers,
+    OPT_RenderFrameFitFrames,
     OPT_GraphHeight,
     OPT_GraphHeightZoomed,
     OPT_EventListRowCount,

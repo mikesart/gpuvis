@@ -1869,12 +1869,12 @@ void TraceWin::graph_render_framemarkers( class graph_info_t &gi )
     if ( !s_opts().getb( OPT_RenderFrameMarkers ) )
         return;
 
-    float midx = gi.x + ( gi.w - gi.x ) / 2.0f;
-
     // Clear frame markers
-    m_frame_markers.m_frame_marker_left = -1;
-    m_frame_markers.m_frame_marker_right = -1;
     m_frame_markers.m_frame_marker_selected = -1;
+    m_frame_markers.m_frame_marker_left = -1;
+    m_frame_markers.m_frame_marker_right = -2;
+
+    bool markers_set = false;
 
     for ( size_t idx = vec_find_eventid( m_frame_markers.m_right_frames, gi.eventstart );
           idx < m_frame_markers.m_right_frames.size();
@@ -1883,10 +1883,13 @@ void TraceWin::graph_render_framemarkers( class graph_info_t &gi )
         uint32_t left_id = m_frame_markers.m_left_frames[ idx ];
         if ( left_id > gi.eventend )
         {
-            // If we haven't set frame_marker_right, then we haven't run the code
-            // below and have seen nothing to the left of us, so this id is to the right.
-            if ( m_frame_markers.m_frame_marker_right == -1 )
+            if ( !markers_set )
+            {
+                // Nothing was drawn, so this marker is off screen to right
+                m_frame_markers.m_frame_marker_left = idx - 1;
                 m_frame_markers.m_frame_marker_right = idx;
+                markers_set = true;
+            }
             break;
         }
 
@@ -1895,50 +1898,36 @@ void TraceWin::graph_render_framemarkers( class graph_info_t &gi )
         trace_event_t &right_event = get_event( right_id );
         float left_x = gi.ts_to_screenx( left_event.ts );
         float right_x = gi.ts_to_screenx( right_event.ts );
+        ImU32 col = ( idx & 0x1 ) ? col_FrameMarkerBk1 : col_FrameMarkerBk0;
 
-        if ( ( midx < left_x ) || ( midx > right_x ) )
+        if ( !markers_set )
         {
-            if ( right_x > left_x )
+            if ( left_x > gi.x )
             {
-                ImU32 col = ( idx & 0x1 ) ? col_FrameMarkerBk1 : col_FrameMarkerBk0;
+                // Left of this frame is on screen and it's the first
+                // frame we're drawing. It's our "selected" frame.
+                m_frame_markers.m_frame_marker_left = idx - 1;
+                m_frame_markers.m_frame_marker_right = idx + 1;
+                m_frame_markers.m_frame_marker_selected = idx;
 
-                imgui_drawrect( left_x, right_x - left_x, gi.y, gi.h,
-                                s_clrs().get( col ) );
+                col = col_FrameMarkerSelected;
             }
-
-            if ( midx > right_x )
+            else
             {
-                // This id is to the left, so set marker_right to next id
+                // Left of this frame is off screen to left.
+                m_frame_markers.m_frame_marker_left = idx;
                 m_frame_markers.m_frame_marker_right = idx + 1;
             }
-            else if ( m_frame_markers.m_frame_marker_right == -1 )
-            {
-                // This id is to the right, so set it to the first one we see.
-                m_frame_markers.m_frame_marker_right = idx;
-            }
-        }
-        else
-        {
-            imgui_drawrect( left_x, right_x - left_x, gi.y, gi.h,
-                            s_clrs().get( col_FrameMarkerCentered ) );
 
-            // We have a selected id
-            m_frame_markers.m_frame_marker_selected = idx;
+            markers_set = true;
         }
+
+        imgui_drawrect( left_x, right_x - left_x, gi.y, gi.h, s_clrs().get( col ) );
     }
 
-    // Assume left frame marker is one left of right
-    m_frame_markers.m_frame_marker_left = m_frame_markers.m_frame_marker_right - 1;
-
-    if ( m_frame_markers.m_frame_marker_selected != -1 )
+    if ( !markers_set )
     {
-        // Have a selected event: Set left to left of it, right to right.
-        m_frame_markers.m_frame_marker_left = m_frame_markers.m_frame_marker_selected - 1;
-        m_frame_markers.m_frame_marker_right = m_frame_markers.m_frame_marker_selected + 1;
-    }
-    else if ( m_frame_markers.m_frame_marker_right == -1 )
-    {
-        // We have no marker to the right, assume left is last event
+        // Markers never set, so everything is to our left.
         m_frame_markers.m_frame_marker_left = ( int )m_frame_markers.m_left_frames.size() - 1;
     }
 }
@@ -2176,16 +2165,27 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
 
         if ( ( target >= 0 ) && ( target < ( int )m_frame_markers.m_left_frames.size() ) )
         {
-            uint32_t left_eventid = m_frame_markers.m_left_frames[ target ];
-            uint32_t right_eventid = m_frame_markers.m_right_frames[ target ];
-            const trace_event_t &left_event = get_event( left_eventid );
-            const trace_event_t &right_event = get_event( right_eventid );
-
             float pct = 0.05f;
-            int64_t len = right_event.ts - left_event.ts;
+            uint32_t left_eventid = m_frame_markers.m_left_frames[ target ];
+            const trace_event_t &left_event = get_event( left_eventid );
 
-            m_graph.start_ts = left_event.ts - len * pct;
-            m_graph.length_ts = len * ( 1 + 2 * pct );
+            if ( s_opts().getb( OPT_RenderFrameFitFrames ) )
+            {
+                uint32_t right_eventid = m_frame_markers.m_right_frames[ target ];
+                const trace_event_t &right_event = get_event( right_eventid );
+                int64_t len = right_event.ts - left_event.ts;
+
+                m_graph.start_ts = left_event.ts - len * pct;
+                m_graph.length_ts = len * ( 1 + 2 * pct );
+            }
+            else
+            {
+                int64_t len = m_graph.length_ts;
+                int64_t start_ts = left_event.ts - len * pct;
+
+                m_graph.start_ts = start_ts;
+            }
+
             m_graph.recalc_timebufs = true;
         }
     }
