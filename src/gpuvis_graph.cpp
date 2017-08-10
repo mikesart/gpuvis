@@ -842,37 +842,27 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
         ImGui::BeginChild( "eventlistbox", ImVec2( 0.0f, imgui_scale( 150.0f ) ) );
         ImGui::Indent();
 
-        const struct
-        {
-            const char *str0;
-            const char *str1;
-        } s_presets[] =
-        {
-            { "$name = drm_vblank_event && $crtc = 0", NULL },
-            { "$name = drm_vblank_event && $crtc = 1", NULL },
-            { "$buf =~ \"[Compositor] Before wait query\"", "$buf =~ \"[Compositor] After wait query\"" },
-        };
         ImGuiSelectableFlags flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_DontClosePopups;
 
         imgui_begin_columns( "framemarker_presets", { left_text, right_text } );
 
-        for ( size_t i = 0; i < ARRAY_SIZE( s_presets ); i++ )
+        for ( auto i : m_previous_filters )
         {
-            ImGui::PushID( i );
+            const char *str0 = i.first.c_str();
+            const char *str1 = i.second.c_str();
 
-            const char *str0 = s_presets[ i ].str0;
-            const char *str1 = s_presets[ i ].str1;
+            ImGui::PushID( str0 );
 
             if ( ImGui::Selectable( str0, false, flags ) )
             {
                 clear();
 
                 strcpy_safe( m_left_marker_buf, str0 );
-                strcpy_safe( m_right_marker_buf, str1 ? str1 : "" );
+                strcpy_safe( m_right_marker_buf, str1 );
             }
 
             ImGui::NextColumn();
-            ImGui::Text( "%s", str1 ? str1 : str0 );
+            ImGui::Text( "%s", str1[ 0 ] ? str1 : str0 );
             ImGui::NextColumn();
             ImGui::Separator();
 
@@ -913,6 +903,25 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
     }
     else if ( ImGui::Button( "Set Frame Markers", button_size ) || s_actions().get( action_return ) )
     {
+        // If left filter == right filter, zero out right filter
+        if ( !strcmp( m_left_marker_buf, m_right_marker_buf ) )
+            m_right_marker_buf[ 0 ] = 0;
+
+        // Try to find this filter pair in our previous filters array
+        std::pair< std::string, std::string > filter = { m_left_marker_buf, m_right_marker_buf };
+        auto idx = std::find( m_previous_filters.begin(), m_previous_filters.end(), filter );
+
+        // Erase the one we found
+        if ( idx != m_previous_filters.end() )
+            m_previous_filters.erase( idx );
+
+        // Insert it at the beginning
+        m_previous_filters.insert( m_previous_filters.begin(), filter );
+
+        // Make sure we don't go over ~ 20 filters
+        if ( m_previous_filters.size() > 20 )
+            m_previous_filters.resize( 20 );
+
         setup_frames( trace_events, true );
 
         ImGui::CloseCurrentPopup();

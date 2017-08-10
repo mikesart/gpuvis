@@ -2354,6 +2354,28 @@ TraceWin::TraceWin( TraceLoader &loader, TraceEvents &trace_events, std::string 
     strcpy_safe( m_frame_markers.m_right_marker_buf, s_ini().GetStr( "framemarker_buf_right", "" ) );
 
     m_graph.saved_locs.resize( action_graph_save_location5 - action_graph_save_location1 + 1 );
+
+    std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$framemarkers_filters$" );
+    if ( entries.empty() )
+    {
+        // Add some default filters
+        m_frame_markers.m_previous_filters.push_back( { "$name = drm_vblank_event && $crtc = 0", "" } );
+        m_frame_markers.m_previous_filters.push_back( { "$name = drm_vblank_event && $crtc = 1", "" } );
+        m_frame_markers.m_previous_filters.push_back( { "$buf =~ \"[Compositor] Before wait query\"",
+                                                        "$buf =~ \"[Compositor] After wait query\"" } );
+    }
+    else
+    {
+        for ( const INIEntry &entry : entries )
+        {
+            const std::vector< std::string > filter = string_explode( entry.second, '\t' );
+
+            if ( filter.size() == 1 )
+                m_frame_markers.m_previous_filters.push_back( { filter[ 0 ], "" } );
+            else if ( filter.size() == 2 )
+                m_frame_markers.m_previous_filters.push_back( { filter[ 0 ], filter[ 1 ] } );
+        }
+    }
 }
 
 TraceWin::~TraceWin()
@@ -2375,6 +2397,19 @@ TraceWin::~TraceWin()
         // Can't have equal signs in our ini keys...
         string_replace_str( key, "=", "**equalsign**" );
         s_ini().PutStr( key.c_str(), item.second.c_str(), "$graph_rows_move_after$" );
+    }
+
+    for ( size_t i = 0; i < m_frame_markers.m_previous_filters.size(); i++ )
+    {
+        char key[ 32 ];
+        std::string value = m_frame_markers.m_previous_filters[ i ].first;
+
+        value += "\t";
+        value += m_frame_markers.m_previous_filters[ i ].second;
+
+        snprintf_safe( key, "%02lu", i );
+
+        s_ini().PutStr( key, value.c_str(), "$framemarkers_filters$" );
     }
 }
 

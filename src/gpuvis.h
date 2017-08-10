@@ -208,6 +208,8 @@ public:
     int m_frame_marker_left = -1;
     int m_frame_marker_right = -1;
     int m_frame_marker_selected = -1;
+
+    std::vector< std::pair< std::string, std::string > > m_previous_filters;
 };
 
 class TraceEvents
