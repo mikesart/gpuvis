@@ -179,6 +179,8 @@ public:
 
     void setup_frames( TraceEvents &trace_events, bool set_frames );
 
+    int64_t get_frame_len( TraceEvents &trace_events, int frame );
+
 public:
     // Whether we've checked current marker_buf filter text
     bool m_checked = false;
@@ -428,7 +430,7 @@ protected:
     void graph_render_mouse_selection( class graph_info_t &gi );
     void graph_render_eventlist_selection( class graph_info_t &gi );
     void graph_render_row_labels( class graph_info_t &gi );
-    void graph_render_framemarkers( class graph_info_t &gi );
+    void graph_render_framemarker_frames( class graph_info_t &gi );
 
     // Handle graph popup menu
     bool graph_render_popupmenu( class graph_info_t &gi );

@@ -265,6 +265,8 @@ public:
     // Id of hovered / selected fence signaled event
     uint32_t hovered_fence_signaled = INVALID_ID;
 
+    int hovered_framemarker_frame = -1;
+
     bool timeline_render_user;
     bool graph_only_filtered;
 
@@ -867,6 +869,21 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
     ImGui::EndPopup();
 
     return false;
+}
+
+int64_t FrameMarkers::get_frame_len( TraceEvents &trace_events, int frame )
+{
+    if ( ( size_t )frame < m_left_plocs->size() )
+    {
+        uint32_t left_idx = m_left_frames[ frame ];
+        uint32_t right_idx = m_right_frames[ frame ];
+        const trace_event_t &left_event = trace_events.m_events[ left_idx ];
+        const trace_event_t &right_event = trace_events.m_events[ right_idx ];
+
+        return right_event.ts - left_event.ts;
+    }
+
+    return 0;
 }
 
 void FrameMarkers::setup_frames( TraceEvents &trace_events, bool set_frames )
@@ -1895,7 +1912,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
     }
 }
 
-void TraceWin::graph_render_framemarkers( class graph_info_t &gi )
+void TraceWin::graph_render_framemarker_frames( class graph_info_t &gi )
 {
     if ( m_frame_markers.m_right_frames.empty() )
         return;
@@ -1967,6 +1984,9 @@ void TraceWin::graph_render_framemarkers( class graph_info_t &gi )
         }
 
         imgui_drawrect( left_x, right_x - left_x, gi.y, gi.h, s_clrs().get( col ) );
+
+        if ( gi.mouse_pos_in_rect( left_x, right_x - left_x, gi.y, gi.h ) )
+            gi.hovered_framemarker_frame = idx;
     }
 
     if ( !markers_set )
@@ -2215,7 +2235,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             target = m_frame_markers.m_frame_marker_right;
         }
 
-        if ( ( target >= 0 ) && ( target < ( int )m_frame_markers.m_left_frames.size() ) )
+        if ( ( size_t )target < m_frame_markers.m_left_frames.size() )
         {
             float pct = 0.05f;
             uint32_t left_eventid = m_frame_markers.m_left_frames[ target ];
@@ -2223,9 +2243,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
 
             if ( fit_frame )
             {
-                uint32_t right_eventid = m_frame_markers.m_right_frames[ target ];
-                const trace_event_t &right_event = get_event( right_eventid );
-                int64_t len = right_event.ts - left_event.ts;
+                int64_t len = m_frame_markers.get_frame_len( m_trace_events, target );
 
                 m_graph.start_ts = left_event.ts - len * pct;
                 m_graph.length_ts = len * ( 1 + 2 * pct );
@@ -2525,7 +2543,7 @@ void TraceWin::graph_render()
         gi.set_pos_y( windowpos.y, windowsize.y, NULL );
         graph_render_time_ticks( gi );
         graph_render_vblanks( gi );
-        graph_render_framemarkers( gi );
+        graph_render_framemarker_frames( gi );
         graph_render_mouse_pos( gi );
         graph_render_eventids( gi );
         graph_render_mouse_selection( gi );
@@ -3113,6 +3131,14 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
         time_buf += "\nMarker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - mouse_ts, 2 );
     if ( graph_marker_valid( 1 ) )
         time_buf += "\nMarker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - mouse_ts, 2 );
+
+    if ( gi.hovered_framemarker_frame != -1 )
+    {
+        int64_t ts = m_frame_markers.get_frame_len( m_trace_events, gi.hovered_framemarker_frame );
+
+        time_buf += string_format( "\n\nFrame %d (", gi.hovered_framemarker_frame );
+        time_buf += ts_to_timestr( ts, 4 ) + ")";
+    }
 
     if ( !gi.sched_switch_bars.empty() )
     {
