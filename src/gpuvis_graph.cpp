@@ -790,7 +790,7 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
         if ( !m_left_filter_err_str.empty() )
             ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_left_filter_err_str.c_str() );
         else if ( m_left_plocs )
-            ImGui::TextColored( ImVec4( 0, 1, 0, 1 ), "%lu events found.", m_left_plocs->size() );
+            ImGui::TextColored( ImVec4( 0, 1, 0, 1 ), "%lu events found", m_left_plocs->size() );
     }
 
     // Right Frame Filter
@@ -808,13 +808,23 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
         if ( !m_right_filter_err_str.empty() )
             ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_right_filter_err_str.c_str() );
         else if ( m_right_plocs )
-            ImGui::TextColored( ImVec4( 0, 1, 0, 1 ), "%lu events found.", m_right_plocs->size() );
+            ImGui::TextColored( ImVec4( 0, 1, 0, 1 ), "%lu events found", m_right_plocs->size() );
     }
 
     if ( item_hovered )
         set_tooltip();
 
     ImGui::Separator();
+
+    if ( m_checked && m_count )
+    {
+        ImGui::TextColored( ImVec4( 0, 1, 0, 1 ), "%u frames found", m_count );
+        ImGui::Text( "Min frame time: %s", ts_to_timestr( m_min_ts, 4 ).c_str() );
+        ImGui::Text( "Max frame time: %s", ts_to_timestr( m_max_ts, 4 ).c_str() );
+        ImGui::Text( "Avg frame time: %s", ts_to_timestr( m_tot_ts / m_count, 4 ).c_str() );
+
+        ImGui::Separator();
+    }
 
     // "Check filters" or "Set Frame Markers" buttons
     if ( !m_checked )
@@ -834,13 +844,17 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
                 if ( m_right_filter_err_str.empty() )
                     m_right_filter_err_str = "WARNING: No events found.";
             }
+
             if ( m_left_plocs && m_right_plocs )
+            {
+                setup_frames( trace_events, false );
                 m_checked = true;
+            }
         }
     }
     else if ( ImGui::Button( "Set Frame Markers", button_size ) || s_actions().get( action_return ) )
     {
-        setup_frames();
+        setup_frames( trace_events, true );
 
         ImGui::CloseCurrentPopup();
     }
@@ -855,14 +869,22 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
     return false;
 }
 
-void FrameMarkers::setup_frames()
+void FrameMarkers::setup_frames( TraceEvents &trace_events, bool set_frames )
 {
     uint32_t idx = 0;
     const std::vector< uint32_t > &locs_left = *m_left_plocs;
     const std::vector< uint32_t > &locs_right = *m_right_plocs;
 
-    m_left_frames.clear();
-    m_right_frames.clear();
+    m_count = 0;
+    m_tot_ts = 0;
+    m_min_ts = INT64_MAX;
+    m_max_ts = INT64_MIN;
+
+    if ( set_frames )
+    {
+        m_left_frames.clear();
+        m_right_frames.clear();
+    }
 
     // Go through all the right eventids...
     for ( uint32_t right_eventid : locs_right )
@@ -874,8 +896,20 @@ void FrameMarkers::setup_frames()
             if ( ( idx + 1 >= locs_left.size() ) ||
                  ( locs_left[ idx + 1 ] >= right_eventid ) )
             {
-                m_left_frames.push_back( locs_left[ idx ] );
-                m_right_frames.push_back( right_eventid );
+                const trace_event_t &left_event = trace_events.m_events[ locs_left[ idx ] ];
+                const trace_event_t &right_event = trace_events.m_events[ right_eventid ];
+                int64_t ts = right_event.ts - left_event.ts;
+
+                m_count++;
+                m_tot_ts += ts;
+                m_min_ts = std::min< int64_t >( m_min_ts, ts );
+                m_max_ts = std::max< int64_t >( m_max_ts, ts );
+
+                if ( set_frames )
+                {
+                    m_left_frames.push_back( locs_left[ idx ] );
+                    m_right_frames.push_back( right_eventid );
+                }
 
                 if ( ++idx >= locs_left.size() )
                     return;

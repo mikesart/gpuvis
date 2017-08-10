@@ -167,6 +167,23 @@ void logf_clear()
     g_log.clear();
 }
 
+int64_t timestr_to_ts( const char *buf )
+{
+    double val;
+
+    if ( sscanf( buf, "%lf", &val ) != 1 )
+        val = 0.0;
+
+    return ( int64_t )( val * NSECS_PER_MSEC );
+}
+
+std::string ts_to_timestr( int64_t event_ts, int precision, const char *suffix )
+{
+    double val = event_ts * ( 1.0 / NSECS_PER_MSEC );
+
+    return string_format( "%.*lf%s", precision, val, suffix ? suffix : " ms" );
+}
+
 std::string string_formatv( const char *fmt, va_list ap )
 {
     std::string str;

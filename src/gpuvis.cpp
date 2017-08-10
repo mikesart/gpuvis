@@ -1412,23 +1412,6 @@ size_t GraphRows::find_row( const std::string &name, size_t not_found_val )
 /*
  * TraceWin
  */
-int64_t TraceWin::timestr_to_ts( const char *buf )
-{
-    double val;
-
-    if ( sscanf( buf, "%lf", &val ) != 1 )
-        val = 0.0;
-
-    return ( int64_t )( val * NSECS_PER_MSEC );
-}
-
-std::string TraceWin::ts_to_timestr( int64_t event_ts, int precision, const char *suffix )
-{
-    double val = event_ts * ( 1.0 / NSECS_PER_MSEC );
-
-    return string_format( "%.*lf%s", precision, val, suffix ? suffix : " ms" );
-}
-
 bool TraceWin::graph_marker_valid( int idx0 )
 {
     return ( m_graph.ts_markers[ idx0 ] != INT64_MAX );

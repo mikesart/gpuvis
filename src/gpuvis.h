@@ -177,11 +177,16 @@ public:
 
     void set_tooltip();
 
-    void setup_frames();
+    void setup_frames( TraceEvents &trace_events, bool set_frames );
 
 public:
     // Whether we've checked current marker_buf filter text
     bool m_checked = false;
+    uint32_t m_count = 0;
+    int64_t m_tot_ts = 0;
+    int64_t m_min_ts = 0;
+    int64_t m_max_ts = 0;
+
     // Left/Right marker filters
     char m_left_marker_buf[ 512 ];
     char m_right_marker_buf[ 512 ];
@@ -457,11 +462,6 @@ protected:
     int ts_to_eventid( int64_t ts );
     // Return an event id from a time string
     int timestr_to_eventid( const char *buf );
-
-    // Convert a time string to a time stamp
-    int64_t timestr_to_ts( const char *buf );
-    // Convert a time stamp to a time string
-    std::string ts_to_timestr( int64_t event_ts, int precision, const char *suffix = NULL );
 
     bool graph_marker_valid( int idx0 );
     void graph_marker_set( size_t index, int64_t ts, const char *str = NULL );

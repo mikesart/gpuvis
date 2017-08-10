@@ -66,6 +66,11 @@ void logf_update();
 void logf_clear();
 const std::vector< char * > &logf_get();
 
+// Convert a time string to a time stamp
+int64_t timestr_to_ts( const char *buf );
+// Convert a time stamp to a time string
+std::string ts_to_timestr( int64_t event_ts, int precision, const char *suffix = NULL );
+
 // Helper routines to parse / create compute strings. Ie:
 //   comp_[1-2].[0-3].[0-8]
 // val is an index value from 0..(2*4*9)-1
