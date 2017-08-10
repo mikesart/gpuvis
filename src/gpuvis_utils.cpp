@@ -1280,6 +1280,8 @@ void Actions::clear()
 
 void Actions::keydown( SDL_Keycode keycode, uint32_t modstate, bool repeat )
 {
+    modstate &= ( KMOD_CTRL | KMOD_ALT | KMOD_SHIFT );
+
     if ( modstate & KMOD_CTRL )
         modstate |= KMOD_CTRL;
     if ( modstate & KMOD_ALT )
