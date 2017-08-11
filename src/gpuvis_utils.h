@@ -245,6 +245,7 @@ public:
     ImU32 get( colors_t col, ImU32 alpha = ( uint32_t )-1 );
     ImVec4 getv4( colors_t col, float alpha = -1.0f );
     float getalpha( colors_t col );
+    ImU32 getdef( colors_t col );
 
     void set( colors_t col, ImU32 color );
     void reset( colors_t col );
@@ -276,7 +277,7 @@ public:
     ColorPicker() {}
     ~ColorPicker() {}
 
-    bool render( ImU32 color, bool is_alpha );
+    bool render( ImU32 color, bool is_alpha, ImU32 defcolor );
 
 public:
     ImU32 m_color = 0;

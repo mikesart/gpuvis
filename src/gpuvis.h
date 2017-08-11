@@ -196,9 +196,11 @@ public:
     // Left/Right marker filters
     char m_left_marker_buf[ 512 ];
     char m_right_marker_buf[ 512 ];
+
     // Left/Right marker filter error strings
     std::string m_left_filter_err_str;
     std::string m_right_filter_err_str;
+
     // Left/Right event locations
     const std::vector< uint32_t > *m_left_plocs = nullptr;
     const std::vector< uint32_t > *m_right_plocs = nullptr;

@@ -973,25 +973,18 @@ void FontInfo::render_font_options( bool m_use_freetype )
     ImGui::PopID();
 }
 
-bool ColorPicker::render( ImU32 color, bool is_alpha )
+bool ColorPicker::render( ImU32 color, bool is_alpha, ImU32 defcolor )
 {
     bool ret = false;
     const float w = imgui_scale( 125.0f );
 
     {
-        float h, s, v;
-        ImVec4 col = ( ImColor )( color );
-
         static const char s_text[] = "Lorem ipsum dolor sit amet, consectetur adipiscing elit";
         const ImVec2 size = ImGui::CalcTextSize( s_text );
         const ImVec2 size2 = ImGui::CalcTextSize( " ffffffff" );
 
-        ImGui::ColorConvertRGBtoHSV( col.x, col.y, col.z, h, s, v );
+        ImGui::BeginChild( "color_sample", ImVec2( 0, size.y * 4 ), true );
 
-        ImGui::BeginChild( "color_sample", ImVec2( 0, size.y * 6 ), true );
-
-        ImGui::Text( "RGB: %08x", color );
-        ImGui::Text( "HSV: %.2f,%.2f,%.2f", h, s, v );
         ImGui::TextColored( ImColor( color ), s_text );
 
         const ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -1001,63 +994,37 @@ bool ColorPicker::render( ImU32 color, bool is_alpha )
 
     if ( is_alpha  )
     {
-        ImGui::PushItemWidth( w );
-
+        ImColor col = color;
         float val = IM_COL32_A( color ) * ( 1.0f / 255.0f );
+        ImGuiColorEditFlags flags = ImGuiColorEditFlags_AlphaPreview;
+
+        ImGui::PushItemWidth( w );
         ret = ImGui::SliderFloat( "##alpha_val", &val, 0.0f, 1.0f, "%.02f" );
+        ImGui::PopItemWidth();
+
         if ( ret )
             m_color = ImColor( val, val, val, val );
 
-        ImGui::PopItemWidth();
-        return ret;
+        ImGui::ColorButton( "colorpicker##alpha", col, flags, ImVec2( w, w ) );
     }
-
-    ImGui::NewLine();
-
-    ImGui::PushItemWidth( w );
-    ImGui::SliderFloat( "##s_value", &m_s, 0.0f, 1.0f, "sat %.2f");
-    ImGui::PopItemWidth();
-
-    ImGui::SameLine( 0, imgui_scale( 20.0f ) );
-    ImGui::PushItemWidth( w );
-    ImGui::SliderFloat( "##v_value", &m_v, 0.0f, 1.0f, "val %.2f");
-    ImGui::PopItemWidth();
-
-    ImGui::SameLine( 0, imgui_scale( 20.0f ) );
-    ImGui::PushItemWidth( w );
-    ImGui::SliderFloat( "##a_value", &m_a, 0.0f, 1.0f, "alpha %.2f");
-    ImGui::PopItemWidth();
-
-    for ( int i = 0; i < 64; i++ )
+    else
     {
-        float hue = i / 63.0f;
-        ImColor colv4 = ImColor::HSV( hue, m_s, m_v, m_a );
-        ImU32 colu32 = ( ImU32 )colv4;
-        std::string name = string_format( "%08x", colu32 );
+        ImColor col = color;
+        ImColor defcol = defcolor;
+        ImGuiColorEditFlags flags = ImGuiColorEditFlags_NoOptions;
 
-        if ( i % 8 )
-            ImGui::SameLine();
+        flags |= ImGuiColorEditFlags_AlphaBar;
+        flags |= ImGuiColorEditFlags_AlphaPreview;
+        flags |= ImGuiColorEditFlags_RGB;
+        flags |= ImGuiColorEditFlags_Uint8;
+        flags |= ImGuiColorEditFlags_PickerHueBar;
 
-        ImGui::PushID( i );
-        ImGui::PushStyleColor( ImGuiCol_Button, colv4 );
-        ImGui::PushStyleColor( ImGuiCol_ButtonActive, colv4 );
-
-        if ( ImGui::Button( name.c_str(), ImVec2( imgui_scale( 80.0f ), 0.0f ) ) )
+        ImGui::NewLine();
+        if ( ImGui::ColorPicker4( "colorpicker##argb", &col.Value.x, flags, &defcol.Value.x ) )
         {
             ret = true;
-            m_color = colu32;
+            m_color = ( ImColor )col;
         }
-        if ( ImGui::IsItemHovered() )
-        {
-            float h, s, v;
-            ImVec4 col = ( ImColor )colu32;
-
-            ImGui::ColorConvertRGBtoHSV( col.x, col.y, col.z, h, s, v );
-            ImGui::SetTooltip( "HSV: %.2f,%.2f,%.2f", h, s, v );
-        }
-
-        ImGui::PopStyleColor( 2 );
-        ImGui::PopID();
     }
 
     return ret;
@@ -1106,6 +1073,11 @@ ImU32 Clrs::get( colors_t col, ImU32 alpha )
         return ( s_colordata[ col ].color & ~IM_COL32_A_MASK ) | ( alpha << IM_COL32_A_SHIFT );
 
     return s_colordata[ col ].color;
+}
+
+ImU32 Clrs::getdef( colors_t col )
+{
+    return s_colordata[ col ].defcolor;
 }
 
 ImVec4 Clrs::getv4( colors_t col, float alpha )

@@ -897,8 +897,8 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
                 strcpy_safe( m_left_marker_buf, str0 );
                 strcpy_safe( m_right_marker_buf, str1 );
             }
-
             ImGui::NextColumn();
+
             ImGui::Text( "%s", str1[ 0 ] ? str1 : str0 );
             ImGui::NextColumn();
             ImGui::Separator();

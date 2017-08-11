@@ -3606,22 +3606,16 @@ static bool render_color_picker_colors( ColorPicker &colorpicker, colors_t selec
     const char *desc = s_clrs().desc( selected_color );
     std::string brightname = s_textclrs().bright_str( name );
     bool is_alpha = s_clrs().is_alpha_color( selected_color );
+    ImU32 def_color = s_clrs().getdef( selected_color );
 
     // Color name and description
     imgui_text_bg( string_format( "%s: %s", brightname.c_str(), desc ).c_str(),
                    ImGui::GetColorVec4( ImGuiCol_Header ) );
 
     ImGui::NewLine();
-    if ( colorpicker.render( color, is_alpha ) )
+    if ( colorpicker.render( color, is_alpha, def_color ) )
     {
         s_clrs().set( selected_color, colorpicker.m_color );
-        changed = true;
-    }
-
-    ImGui::NewLine();
-    if ( ImGui::Button( "Reset to Default" ) )
-    {
-        s_clrs().reset( selected_color );
         changed = true;
     }
 
@@ -3638,19 +3632,16 @@ static bool render_color_picker_event_colors( ColorPicker &colorpicker,
     {
         std::string brightname = s_textclrs().bright_str( selected_color_event.c_str() );
         ImU32 color = event->color ? event->color : s_clrs().get( col_Graph_1Event );
+        ImU32 def_color = s_clrs().get( col_Graph_1Event );
 
         // Color name and description
         imgui_text_bg( brightname.c_str(), ImGui::GetColorVec4( ImGuiCol_Header ) );
 
         ImGui::NewLine();
-        changed |= colorpicker.render( color, false );
+        changed = colorpicker.render( color, false, def_color );
 
-        ImGui::NewLine();
-        if ( ImGui::Button( "Reset to Default" ) )
-        {
+        if ( changed && ( colorpicker.m_color == def_color ) )
             colorpicker.m_color = 0;
-            changed = true;
-        }
     }
 
     return changed;
