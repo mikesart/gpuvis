@@ -172,16 +172,18 @@ public:
     }
     ~FrameMarkers() {}
 
-    bool init( TraceEvents &trace_events, uint32_t eventid = INVALID_ID );
+    void init();
+    void shutdown();
+
+    bool show_dlg( TraceEvents &trace_events, uint32_t eventid = INVALID_ID );
     bool render_dlg( TraceEvents &trace_events );
-
-    void set_tooltip();
-
-    void setup_frames( TraceEvents &trace_events, bool set_frames );
 
     int64_t get_frame_len( TraceEvents &trace_events, int frame );
 
+protected:
     void clear();
+    void set_tooltip();
+    void setup_frames( TraceEvents &trace_events, bool set_frames );
 
 public:
     // Whether we've checked current marker_buf filter text

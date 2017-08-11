@@ -2350,39 +2350,14 @@ TraceWin::TraceWin( TraceLoader &loader, TraceEvents &trace_events, std::string 
     strcpy_safe( m_eventlist.filter_buf, s_ini().GetStr( "event_filter_buf", "" ) );
     m_eventlist.do_filter = !!m_eventlist.filter_buf[ 0 ];
 
-    strcpy_safe( m_frame_markers.m_left_marker_buf, s_ini().GetStr( "framemarker_buf_left", "" ) );
-    strcpy_safe( m_frame_markers.m_right_marker_buf, s_ini().GetStr( "framemarker_buf_right", "" ) );
-
     m_graph.saved_locs.resize( action_graph_save_location5 - action_graph_save_location1 + 1 );
 
-    std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$framemarkers_filters$" );
-    if ( entries.empty() )
-    {
-        // Add some default filters
-        m_frame_markers.m_previous_filters.push_back( { "$name = drm_vblank_event && $crtc = 0", "" } );
-        m_frame_markers.m_previous_filters.push_back( { "$name = drm_vblank_event && $crtc = 1", "" } );
-        m_frame_markers.m_previous_filters.push_back( { "$buf =~ \"[Compositor] Before wait query\"",
-                                                        "$buf =~ \"[Compositor] After wait query\"" } );
-    }
-    else
-    {
-        for ( const INIEntry &entry : entries )
-        {
-            const std::vector< std::string > filter = string_explode( entry.second, '\t' );
-
-            if ( filter.size() == 1 )
-                m_frame_markers.m_previous_filters.push_back( { filter[ 0 ], "" } );
-            else if ( filter.size() == 2 )
-                m_frame_markers.m_previous_filters.push_back( { filter[ 0 ], filter[ 1 ] } );
-        }
-    }
+    m_frame_markers.init();
 }
 
 TraceWin::~TraceWin()
 {
     s_ini().PutStr( "event_filter_buf", m_eventlist.filter_buf );
-    s_ini().PutStr( "framemarker_buf_left", m_frame_markers.m_left_marker_buf );
-    s_ini().PutStr( "framemarker_buf_right", m_frame_markers.m_right_marker_buf );
 
     std::string str = string_implode( m_graph.rows.m_graph_rows_hide, "," );
     s_ini().PutStr( "graph_rows_hide_str", str.c_str() );
@@ -2399,18 +2374,7 @@ TraceWin::~TraceWin()
         s_ini().PutStr( key.c_str(), item.second.c_str(), "$graph_rows_move_after$" );
     }
 
-    for ( size_t i = 0; i < m_frame_markers.m_previous_filters.size(); i++ )
-    {
-        char key[ 32 ];
-        std::string value = m_frame_markers.m_previous_filters[ i ].first;
-
-        value += "\t";
-        value += m_frame_markers.m_previous_filters[ i ].second;
-
-        snprintf_safe( key, "%02lu", i );
-
-        s_ini().PutStr( key, value.c_str(), "$framemarkers_filters$" );
-    }
+    m_frame_markers.shutdown();
 }
 
 bool TraceWin::render()
@@ -2684,7 +2648,7 @@ bool TraceWin::render()
 
     if ( is_valid_id( m_create_filter_eventid ) )
     {
-        m_frame_markers.init( m_trace_events, m_create_filter_eventid );
+        m_frame_markers.show_dlg( m_trace_events, m_create_filter_eventid );
         m_create_filter_eventid = INVALID_ID;
     }
     m_frame_markers.render_dlg( m_trace_events );

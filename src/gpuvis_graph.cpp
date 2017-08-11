@@ -48,6 +48,8 @@
 /*
   **** TODO list... ****
 
+  Switch to using imgui's colorpicker?
+
   Check if entire rows are clipped when drawing...
 
   From Pierre-Loup:
@@ -704,6 +706,49 @@ static bool plot_input_text( const char *label, char ( &buf )[ T ], float x, flo
     return ret;
 }
 
+void FrameMarkers::init()
+{
+    std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$framemarkers_filters$" );
+
+    for ( const INIEntry &entry : entries )
+    {
+        const std::vector< std::string > filter = string_explode( entry.second, '\t' );
+
+        if ( filter.size() == 1 )
+            m_previous_filters.push_back( { filter[ 0 ], "" } );
+        else if ( filter.size() == 2 )
+            m_previous_filters.push_back( { filter[ 0 ], filter[ 1 ] } );
+    }
+
+    if ( m_previous_filters.empty() )
+    {
+        // Add some default filters
+        m_previous_filters.push_back( { "$name = drm_vblank_event && $crtc = 0", "" } );
+        m_previous_filters.push_back( { "$name = drm_vblank_event && $crtc = 1", "" } );
+        m_previous_filters.push_back( { "$buf =~ \"[Compositor] Before wait query\"",
+                                        "$buf =~ \"[Compositor] After wait query\"" } );
+    }
+
+    strcpy_safe( m_left_marker_buf, m_previous_filters[ 0 ].first.c_str() );
+    strcpy_safe( m_right_marker_buf, m_previous_filters[ 0 ].second.c_str() );
+}
+
+void FrameMarkers::shutdown()
+{
+    for ( size_t i = 0; i < m_previous_filters.size(); i++ )
+    {
+        char key[ 32 ];
+        std::string value = m_previous_filters[ i ].first;
+
+        value += "\t";
+        value += m_previous_filters[ i ].second;
+
+        snprintf_safe( key, "%02lu", i );
+
+        s_ini().PutStr( key, value.c_str(), "$framemarkers_filters$" );
+    }
+}
+
 void FrameMarkers::clear()
 {
     m_checked = false;
@@ -715,7 +760,24 @@ void FrameMarkers::clear()
     m_right_plocs = NULL;
 }
 
-bool FrameMarkers::init( TraceEvents &trace_events, uint32_t eventid )
+void FrameMarkers::set_tooltip()
+{
+    std::string tooltip;
+
+    tooltip += s_textclrs().bright_str( "Frame marker filters\n\n" );
+
+    tooltip += "Examples:\n";
+
+    tooltip += "  Left frame: $name = drm_vblank_event && $crtc = 0\n";
+    tooltip += "  Right frame: $name = drm_vblank_event && $crtc = 0\n\n";
+
+    tooltip += "  Left frame: $buf =~ \"[Compositor] Sleep - begin\"\n";
+    tooltip += "  Right frame: $buf =~ \"[Compositor] Sleep - end\"\n";
+
+    ImGui::SetTooltip( "%s", tooltip.c_str() );
+}
+
+bool FrameMarkers::show_dlg( TraceEvents &trace_events, uint32_t eventid )
 {
     clear();
 
@@ -747,23 +809,6 @@ bool FrameMarkers::init( TraceEvents &trace_events, uint32_t eventid )
 
     ImGui::OpenPopup( "Set Frame Markers" );
     return true;
-}
-
-void FrameMarkers::set_tooltip()
-{
-    std::string tooltip;
-
-    tooltip += s_textclrs().bright_str( "Frame marker filters\n\n" );
-
-    tooltip += "Examples:\n";
-
-    tooltip += "  Left frame: $name = drm_vblank_event && $crtc = 0\n";
-    tooltip += "  Right frame: $name = drm_vblank_event && $crtc = 0\n\n";
-
-    tooltip += "  Left frame: $buf =~ \"[Compositor] Sleep - begin\"\n";
-    tooltip += "  Right frame: $buf =~ \"[Compositor] Sleep - end\"\n";
-
-    ImGui::SetTooltip( "%s", tooltip.c_str() );
 }
 
 bool FrameMarkers::render_dlg( TraceEvents &trace_events )
