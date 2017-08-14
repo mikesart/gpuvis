@@ -48,8 +48,6 @@
 /*
   **** TODO list... ****
 
-  Switch to using imgui's colorpicker?
-
   Check if entire rows are clipped when drawing...
 
   From Pierre-Loup:
@@ -2978,14 +2976,6 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         }
     }
 
-    if ( is_valid_id( m_graph.hovered_eventid ) &&
-         ImGui::MenuItem( "Set Frame Markers..." ) )
-    {
-        const trace_event_t &event = m_trace_events.m_events[ m_graph.hovered_eventid ];
-
-        m_create_filter_eventid = event.id;
-    }
-
     // Change row size. Ie "Gfx size: 10"
     if ( optid != OPT_Invalid )
         s_opts().render_imgui_opt( optid );
@@ -3059,6 +3049,29 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             }
 
             ImGui::EndMenu();
+        }
+    }
+
+    ImGui::Separator();
+
+    // Frame Markers
+    {
+        if ( is_valid_id( m_graph.hovered_eventid ) &&
+             ImGui::MenuItem( "Set Frame Markers..." ) )
+        {
+            const trace_event_t &event = m_trace_events.m_events[ m_graph.hovered_eventid ];
+
+            m_create_filter_eventid = event.id;
+        }
+
+        if ( ImGui::MenuItem( "Edit Frame Markers..." ) )
+            m_create_filter_eventid = m_trace_events.m_events.size();
+
+        if ( m_frame_markers.m_left_frames.size() &&
+             ImGui::MenuItem( "Clear Frame Markers" ) )
+        {
+            m_frame_markers.m_left_frames.clear();
+            m_frame_markers.m_right_frames.clear();
         }
     }
 

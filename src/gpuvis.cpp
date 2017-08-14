@@ -2919,9 +2919,12 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
 
     if ( ImGui::MenuItem( "Set Frame Markers..." ) )
         m_create_filter_eventid = event.id;
-    if ( m_frame_markers.m_left_marker_buf[ 0 ] && ImGui::MenuItem( "Edit Frame Markers..." ) )
+
+    if ( ImGui::MenuItem( "Edit Frame Markers..." ) )
         m_create_filter_eventid = m_trace_events.m_events.size();
-    if ( m_frame_markers.m_left_frames.size() && ImGui::MenuItem( "Clear Frame Markers" ) )
+
+    if ( m_frame_markers.m_left_frames.size() &&
+         ImGui::MenuItem( "Clear Frame Markers" ) )
     {
         m_frame_markers.m_left_frames.clear();
         m_frame_markers.m_right_frames.clear();
