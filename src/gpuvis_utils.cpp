@@ -672,9 +672,9 @@ static colors_t col_index_from_imguicol( ImGuiCol col )
     case ImGuiCol_Header: return col_ImGui_Header;
     case ImGuiCol_HeaderHovered: return col_ImGui_HeaderHovered;
     case ImGuiCol_HeaderActive: return col_ImGui_HeaderActive;
-    case ImGuiCol_Column: return col_ImGui_Column;
-    case ImGuiCol_ColumnHovered: return col_ImGui_ColumnHovered;
-    case ImGuiCol_ColumnActive: return col_ImGui_ColumnActive;
+    case ImGuiCol_Separator: return col_ImGui_Separator;
+    case ImGuiCol_SeparatorHovered: return col_ImGui_SeparatorHovered;
+    case ImGuiCol_SeparatorActive: return col_ImGui_SeparatorActive;
     case ImGuiCol_ResizeGrip: return col_ImGui_ResizeGrip;
     case ImGuiCol_ResizeGripHovered: return col_ImGui_ResizeGripHovered;
     case ImGuiCol_ResizeGripActive: return col_ImGui_ResizeGripActive;

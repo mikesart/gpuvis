@@ -10166,7 +10166,7 @@ bool ImGui::EndColumns()
 				g.MouseCursor = ImGuiMouseCursor_ResizeEW;
 
 			// Draw before resize so our items positioning are in sync with the line being drawn
-			const ImU32 col = GetColorU32(held ? ImGuiCol_ColumnActive : hovered ? ImGuiCol_ColumnHovered : ImGuiCol_Column);
+			const ImU32 col = GetColorU32(held ? ImGuiCol_SeparatorActive : hovered ? ImGuiCol_SeparatorHovered : ImGuiCol_Separator);
 			const float xi = (float)(int)x;
 			window->DrawList->AddLine(ImVec2(xi, y1 + 1.0f), ImVec2(xi, y2), col);
 
