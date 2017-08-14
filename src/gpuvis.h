@@ -611,6 +611,7 @@ enum : uint32_t
     OPT_PrintTimelineLabels,
     OPT_GraphOnlyFiltered,
     OPT_Graph_HideEmptyFilteredRows,
+    OPT_GraphFullscreen,
     OPT_ShowEventList,
     OPT_SyncEventListToGraph,
     OPT_HideSchedSwitchEvents,

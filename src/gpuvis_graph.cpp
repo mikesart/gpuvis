@@ -2498,6 +2498,14 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
     // Zoom mode if we have a gfx row and zoom option is set
     option_id_t optid;
     float max_graph_size;
+    const float valf_min = 4.0f * gi.row_h;
+
+    if ( s_opts().getb( OPT_GraphFullscreen ) )
+    {
+        gi.visible_graph_height = Clamp< float >( gi.total_graph_height,
+                valf_min, ImGui::GetContentRegionAvail().y );
+        return;
+    }
 
     if ( gi.prinfo_zoom )
     {
@@ -2512,7 +2520,6 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
 
     // Set up min / max sizes and clamp value in that range
     float valf = s_opts().getf( optid );
-    float valf_min = 4.0f * gi.row_h;
     float valf_max = Clamp< float >( max_graph_size, valf_min, ImGui::GetWindowHeight() );
 
     // First time initialization - start with about 15 rows
@@ -2694,17 +2701,22 @@ void TraceWin::graph_render()
     }
     ImGui::EndChild();
 
-    ImGui::Button( "##resize_graph", ImVec2( ImGui::GetContentRegionAvailWidth(), imgui_scale( 4.0f ) ) );
-    if ( ImGui::IsItemHovered() )
-        ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeNS );
-    if ( ImGui::IsItemActive() && imgui_mousepos_valid( gi.mouse_pos ) )
+    if ( !s_opts().getb( OPT_GraphFullscreen ) )
     {
-        option_id_t opt = gi.prinfo_zoom ? OPT_GraphHeightZoomed : OPT_GraphHeight;
+        ImGui::Button( "##resize_graph", ImVec2( ImGui::GetContentRegionAvailWidth(), imgui_scale( 4.0f ) ) );
 
-        if ( ImGui::IsMouseClicked( 0 ) )
-            m_graph.resize_graph_click_pos = s_opts().getf( opt );
+        if ( ImGui::IsItemHovered() )
+            ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeNS );
 
-        s_opts().setf( opt, m_graph.resize_graph_click_pos + ImGui::GetMouseDragDelta( 0 ).y );
+        if ( ImGui::IsItemActive() && imgui_mousepos_valid( gi.mouse_pos ) )
+        {
+            option_id_t opt = gi.prinfo_zoom ? OPT_GraphHeightZoomed : OPT_GraphHeight;
+
+            if ( ImGui::IsMouseClicked( 0 ) )
+                m_graph.resize_graph_click_pos = s_opts().getf( opt );
+
+            s_opts().setf( opt, m_graph.resize_graph_click_pos + ImGui::GetMouseDragDelta( 0 ).y );
+        }
     }
 
     m_graph.show_row_name = NULL;

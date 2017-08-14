@@ -333,6 +333,8 @@ enum action_t
     action_toggle_vblank1,
     action_toggle_framemarkers,
 
+    action_toggle_graph_fullscreen,
+
     action_graph_zoom_row,
     action_graph_zoom_mouse,
 
