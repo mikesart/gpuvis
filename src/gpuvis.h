@@ -25,8 +25,8 @@
 // Opts singleton
 class Opts &s_opts();
 
-// Loader singleton
-class TraceLoader &s_loader();
+// Main app singleton
+class MainApp &s_app();
 
 class TraceEvents;
 
@@ -599,7 +599,7 @@ public:
     friend class graph_info_t;
 };
 
-// TraceLoader ini options
+// MainApp ini options
 typedef uint32_t option_id_t;
 // Preset ini options
 enum : uint32_t
@@ -691,7 +691,7 @@ private:
     util_umap< std::string, option_id_t > m_graph_rowname_optid_map;
 };
 
-class TraceLoader
+class MainApp
 {
 public:
     enum state_t
@@ -703,8 +703,8 @@ public:
     };
 
 public:
-    TraceLoader() {}
-    ~TraceLoader() {}
+    MainApp() {}
+    ~MainApp() {}
 
     void init( int argc, char **argv );
     void shutdown();

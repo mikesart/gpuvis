@@ -60,10 +60,10 @@
   #include "noc_file_dialog.h"
 #endif
 
-TraceLoader &s_loader()
+MainApp &s_app()
 {
-    static TraceLoader s_loader;
-    return s_loader;
+    static MainApp s_app;
+    return s_app;
 }
 
 CIniFile &s_ini()
@@ -432,7 +432,7 @@ bool Opts::render_imgui_opt( option_id_t optid, float w )
 
 void Opts::render_imgui_options()
 {
-    uint32_t crtc_max = s_loader().m_crtc_max;
+    uint32_t crtc_max = s_app().m_crtc_max;
 
     for ( size_t i = 0; i < m_options.size(); i++ )
     {
@@ -450,19 +450,19 @@ void Opts::render_imgui_options()
 }
 
 /*
- * TraceLoader
+ * MainApp
  */
-TraceLoader::state_t TraceLoader::get_state()
+MainApp::state_t MainApp::get_state()
 {
     return ( state_t )SDL_AtomicGet( &m_loading_info.state );
 }
 
-bool TraceLoader::is_loading()
+bool MainApp::is_loading()
 {
     return ( get_state() == State_Loading || get_state() == State_CancelLoading );
 }
 
-void TraceLoader::set_state( state_t state )
+void MainApp::set_state( state_t state )
 {
     m_loading_info.filename = "";
     m_loading_info.trace_events = NULL;
@@ -471,13 +471,13 @@ void TraceLoader::set_state( state_t state )
     SDL_AtomicSet( &m_loading_info.state, state );
 }
 
-void TraceLoader::cancel_load_file()
+void MainApp::cancel_load_file()
 {
     // Switch to cancel loading if we're currently loading
     SDL_AtomicCAS( &m_loading_info.state, State_Loading, State_CancelLoading );
 }
 
-bool TraceLoader::load_file( const char *filename )
+bool MainApp::load_file( const char *filename )
 {
     if ( is_loading() )
     {
@@ -533,7 +533,7 @@ bool TraceLoader::load_file( const char *filename )
     return false;
 }
 
-void TraceLoader::new_event_window( TraceEvents *trace_events )
+void MainApp::new_event_window( TraceEvents *trace_events )
 {
     size_t refcount = 0;
     std::string title = trace_events->m_title;
@@ -552,7 +552,7 @@ void TraceLoader::new_event_window( TraceEvents *trace_events )
     m_trace_windows_list.push_back( win );
 }
 
-void TraceLoader::close_event_file( TraceEvents *trace_events, bool close_file )
+void MainApp::close_event_file( TraceEvents *trace_events, bool close_file )
 {
     for ( int i = ( int )m_trace_windows_list.size() - 1; i >= 0; i-- )
     {
@@ -587,7 +587,7 @@ static bool is_timeline_event( const trace_event_t &event )
              !strcmp( event.name, "amdgpu_sched_run_job" ) );
 }
 
-void TraceLoader::add_sched_switch_pid_comm( const trace_event_t &event,
+void MainApp::add_sched_switch_pid_comm( const trace_event_t &event,
                                              const char *pidstr, const char *commstr )
 {
     int pid = atoi( get_event_field_val( event, pidstr ) );
@@ -613,9 +613,9 @@ void TraceLoader::add_sched_switch_pid_comm( const trace_event_t &event,
 
 // Callback from trace_read.cpp. We mostly just store the events in our array
 //  and then init_new_event() does the real work of initializing them later.
-int TraceLoader::new_event_cb( const trace_info_t &info, const trace_event_t &event )
+int MainApp::new_event_cb( const trace_info_t &info, const trace_event_t &event )
 {
-    TraceEvents *trace_events = s_loader().m_loading_info.trace_events;
+    TraceEvents *trace_events = s_app().m_loading_info.trace_events;
     size_t id = trace_events->m_events.size();
 
     // Add event to our m_events array
@@ -633,24 +633,24 @@ int TraceLoader::new_event_cb( const trace_info_t &info, const trace_event_t &ev
     // This is the reason we're initializing events in two passes to collect all this data.
     if ( event.is_sched_switch() )
     {
-        s_loader().add_sched_switch_pid_comm( event, "prev_pid", "prev_comm" );
-        s_loader().add_sched_switch_pid_comm( event, "next_pid", "next_comm" );
+        s_app().add_sched_switch_pid_comm( event, "prev_pid", "prev_comm" );
+        s_app().add_sched_switch_pid_comm( event, "next_pid", "next_comm" );
     }
 
     // Record the maximum crtc value we've ever seen
-    s_loader().m_crtc_max = std::max< int >( s_loader().m_crtc_max, event.crtc );
+    s_app().m_crtc_max = std::max< int >( s_app().m_crtc_max, event.crtc );
 
     // 1+ means loading events
     SDL_AtomicAdd( &trace_events->m_eventsloaded, 1 );
 
     // Return 1 to cancel loading
-    return ( s_loader().get_state() == State_CancelLoading );
+    return ( s_app().get_state() == State_CancelLoading );
 }
 
-int SDLCALL TraceLoader::thread_func( void *data )
+int SDLCALL MainApp::thread_func( void *data )
 {
-    TraceEvents *trace_events = s_loader().m_loading_info.trace_events;
-    const char *filename = s_loader().m_loading_info.filename.c_str();
+    TraceEvents *trace_events = s_app().m_loading_info.trace_events;
+    const char *filename = s_app().m_loading_info.filename.c_str();
 
     logf( "Reading trace file %s...", filename );
 
@@ -661,7 +661,7 @@ int SDLCALL TraceLoader::thread_func( void *data )
 
         // -1 means loading error
         SDL_AtomicSet( &trace_events->m_eventsloaded, -1 );
-        s_loader().set_state( State_Idle );
+        s_app().set_state( State_Idle );
         return -1;
     }
 
@@ -672,11 +672,11 @@ int SDLCALL TraceLoader::thread_func( void *data )
 
     // 0 means events loaded
     SDL_AtomicSet( &trace_events->m_eventsloaded, 0 );
-    s_loader().set_state( State_Loaded );
+    s_app().set_state( State_Loaded );
     return 0;
 }
 
-void TraceLoader::init( int argc, char **argv )
+void MainApp::init( int argc, char **argv )
 {
     ImGuiIO &io = ImGui::GetIO();
 
@@ -694,7 +694,7 @@ void TraceLoader::init( int argc, char **argv )
     imgui_set_scale( s_opts().getf( OPT_Scale ) );
 }
 
-void TraceLoader::shutdown()
+void MainApp::shutdown()
 {
     if ( m_loading_info.thread )
     {
@@ -717,7 +717,7 @@ void TraceLoader::shutdown()
     m_trace_events_list.clear();
 }
 
-void TraceLoader::render_save_filename()
+void MainApp::render_save_filename()
 {
     struct stat st;
     bool do_save = false;
@@ -791,7 +791,7 @@ void TraceLoader::render_save_filename()
     }
 }
 
-void TraceLoader::render()
+void MainApp::render()
 {
     if ( !m_trace_windows_list.empty() )
     {
@@ -989,7 +989,7 @@ void TraceLoader::render()
     }
 }
 
-void TraceLoader::load_fonts()
+void MainApp::load_fonts()
 {
     // Clear all font texture data, ttf data, glyphs, etc.
     ImGui::GetIO().Fonts->Clear();
@@ -1014,7 +1014,7 @@ void TraceLoader::load_fonts()
     }
 }
 
-void TraceLoader::get_window_pos( int &x, int &y, int &w, int &h )
+void MainApp::get_window_pos( int &x, int &y, int &w, int &h )
 {
     x = s_ini().GetInt( "win_x", SDL_WINDOWPOS_CENTERED );
     y = s_ini().GetInt( "win_y", SDL_WINDOWPOS_CENTERED );
@@ -1022,7 +1022,7 @@ void TraceLoader::get_window_pos( int &x, int &y, int &w, int &h )
     h = s_ini().GetInt( "win_h", 1024 );
 }
 
-void TraceLoader::save_window_pos( int x, int y, int w, int h )
+void MainApp::save_window_pos( int x, int y, int w, int h )
 {
     s_ini().PutInt( "win_x", x );
     s_ini().PutInt( "win_y", y );
@@ -2395,7 +2395,7 @@ bool TraceWin::render()
         ImGui::Text( "%s events %u...", loading ? "Loading" : "Initializing", eventsloaded & ~0x40000000 );
 
         if ( ImGui::Button( "Cancel" ) || s_keybd().is_escape_down() )
-            s_loader().cancel_load_file();
+            s_app().cancel_load_file();
 
         ImGui::End();
         return true;
@@ -2412,7 +2412,7 @@ bool TraceWin::render()
 
     ImGui::Begin( m_title.c_str(), &m_open, ImGuiWindowFlags_MenuBar );
 
-    s_loader().render_menu( "menu_tracewin" );
+    s_app().render_menu( "menu_tracewin" );
 
     if ( m_trace_events.m_events.empty() )
     {
@@ -3358,7 +3358,7 @@ static const std::string trace_info_label( TraceEvents &trace_events )
     return string_format( "Info for '%s'", s_textclrs().bright_str( basename ).c_str() );
 }
 
-void TraceLoader::render_menu_options()
+void MainApp::render_menu_options()
 {
     if ( s_keybd().is_escape_down() )
         ImGui::CloseCurrentPopup();
@@ -3440,7 +3440,7 @@ void TraceLoader::render_menu_options()
     ImGui::Unindent();
 }
 
-void TraceLoader::render_font_options()
+void MainApp::render_font_options()
 {
     static const char lorem_str[] =
         "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do"
@@ -3720,7 +3720,7 @@ static void reset_event_colors_to_default( std::vector< TraceEvents * > &trace_e
     }
 }
 
-void TraceLoader::render_color_picker()
+void MainApp::render_color_picker()
 {
     bool changed = false;
 
@@ -3807,7 +3807,7 @@ void TraceLoader::render_color_picker()
     }
 }
 
-void TraceLoader::render_log()
+void MainApp::render_log()
 {
     ImGui::Text( "Log Filter:" );
     ImGui::SameLine();
@@ -3883,7 +3883,7 @@ void TraceLoader::render_log()
     }
 }
 
-void TraceLoader::render_console()
+void MainApp::render_console()
 {
     if ( !ImGui::Begin( "Gpuvis Console", &m_show_gpuvis_console, ImGuiWindowFlags_MenuBar ) )
     {
@@ -3901,7 +3901,7 @@ void TraceLoader::render_console()
     ImGui::End();
 }
 
-void TraceLoader::render_menu( const char *str_id )
+void MainApp::render_menu( const char *str_id )
 {
     ImGui::PushID( str_id );
 
@@ -3970,7 +3970,7 @@ void TraceLoader::render_menu( const char *str_id )
     ImGui::PopID();
 }
 
-void TraceLoader::handle_hotkeys()
+void MainApp::handle_hotkeys()
 {
     if ( s_actions().get( action_help ) )
     {
@@ -4018,7 +4018,7 @@ void TraceLoader::handle_hotkeys()
         s_opts().setb( OPT_GraphFullscreen, !s_opts().getb( OPT_GraphFullscreen ) );
 }
 
-void TraceLoader::parse_cmdline( int argc, char **argv )
+void MainApp::parse_cmdline( int argc, char **argv )
 {
     static struct option long_opts[] =
     {
@@ -4109,9 +4109,9 @@ int main( int argc, char **argv )
     // Init actions singleton
     s_actions().init();
 
-    // Init loader
-    TraceLoader &loader = s_loader();
-    loader.init( argc, argv );
+    // Init app
+    MainApp &app = s_app();
+    app.init( argc, argv );
     // Setup imgui default text color
     s_textclrs().update_colors();
 
@@ -4125,7 +4125,7 @@ int main( int argc, char **argv )
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 2 );
 
     int x, y, w, h;
-    loader.get_window_pos( x, y, w, h );
+    app.get_window_pos( x, y, w, h );
     window = SDL_CreateWindow( "GPUVis", x, y, w, h, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE );
     sdl_setwindow_icon( window );
 
@@ -4140,7 +4140,7 @@ int main( int argc, char **argv )
     SDL_GL_SetSwapInterval( 1 );
 
     // Load our fonts
-    loader.load_fonts();
+    app.load_fonts();
 
     // Main loop
     bool done = false;
@@ -4180,10 +4180,10 @@ int main( int argc, char **argv )
         logf_update();
 
         // Handle global hotkeys
-        loader.handle_hotkeys();
+        app.handle_hotkeys();
 
         // Render trace windows
-        loader.render();
+        app.render();
 
         {
             // ImGui Rendering
@@ -4199,25 +4199,25 @@ int main( int argc, char **argv )
             SDL_GL_SwapWindow( window );
         }
 
-        if ( loader.m_quit )
+        if ( app.m_quit )
             break;
 
-        if ( !loader.m_loading_info.inputfiles.empty() && !loader.is_loading() )
+        if ( !app.m_loading_info.inputfiles.empty() && !app.is_loading() )
         {
-            const char *filename = loader.m_loading_info.inputfiles[ 0 ].c_str();
+            const char *filename = app.m_loading_info.inputfiles[ 0 ].c_str();
 
-            loader.load_file( filename );
+            app.load_file( filename );
 
-            loader.m_loading_info.inputfiles.erase( loader.m_loading_info.inputfiles.begin() );
+            app.m_loading_info.inputfiles.erase( app.m_loading_info.inputfiles.begin() );
         }
 
-        if ( ( loader.m_font_main.m_changed || loader.m_font_small.m_changed ) &&
+        if ( ( app.m_font_main.m_changed || app.m_font_small.m_changed ) &&
              !ImGui::IsMouseDown( 0 ) )
         {
             imgui_set_scale( s_opts().getf( OPT_Scale ) );
 
             ImGui_ImplSdlGL3_InvalidateDeviceObjects();
-            loader.load_fonts();
+            app.load_fonts();
         }
     }
 
@@ -4229,11 +4229,11 @@ int main( int argc, char **argv )
         SDL_GetWindowPosition( window, &x, &y );
         SDL_GetWindowSize( window, &w, &h );
 
-        loader.save_window_pos( x - left, y - top, w, h );
+        app.save_window_pos( x - left, y - top, w, h );
     }
 
-    // Shut down trace loader
-    loader.shutdown();
+    // Shut down app
+    app.shutdown();
     // Write option settings to ini file
     s_opts().shutdown();
     // Save color entries
