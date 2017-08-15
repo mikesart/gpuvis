@@ -1328,15 +1328,18 @@ void GraphRows::init( TraceEvents &trace_events )
     // Add the sorted comm events to our m_graph_rows_list array
     m_graph_rows_list.insert( m_graph_rows_list.end(), comms.begin(), comms.end() );
 
-    std::string graph_rows_add_str = s_ini().GetStr( "graph_rows_add_str", "" );
-    if ( !graph_rows_add_str.empty() )
+    // Information about added rows
     {
-        std::vector< std::string > rows_add = string_explode( graph_rows_add_str, ',' );
+        std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$graph_rows_add$" );
+        for ( const INIEntry &entry : entries )
+        {
+            const std::string &rowname = entry.second;
 
-        for ( const std::string &name : rows_add )
-            add_row( name );
+            add_row( rowname );
+        }
     }
 
+    // Information about row order
     {
         std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$graph_rows_move_after$" );
 
@@ -2378,8 +2381,14 @@ TraceWin::~TraceWin()
     std::string str = string_implode( m_graph.rows.m_graph_rows_hide, "," );
     s_ini().PutStr( "graph_rows_hide_str", str.c_str() );
 
-    str = string_implode( m_graph.rows.m_graph_rows_add, "," );
-    s_ini().PutStr( "graph_rows_add_str", str.c_str() );
+    for ( size_t i = 0; i < m_graph.rows.m_graph_rows_add.size(); i++ )
+    {
+        char key[ 32 ];
+        const std::string &rowname = m_graph.rows.m_graph_rows_add[ i ];
+
+        snprintf_safe( key, "%02lu", i );
+        s_ini().PutStr( key, rowname.c_str(), "$graph_rows_add$" );
+    }
 
     for ( const auto &item : m_graph.rows.m_graph_rows_move.m_map )
     {
