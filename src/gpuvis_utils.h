@@ -144,16 +144,6 @@ bool imgui_input_text2( const char *label, char ( &buf ) [ T ], float w = 120.0f
 #define IM_COL32_B( _x ) ( ( ( _x ) >> IM_COL32_B_SHIFT ) & 0xFF )
 #define IM_COL32_A( _x ) ( ( ( _x ) >> IM_COL32_A_SHIFT ) & 0xFF )
 
-inline char *strncasestr( const char *haystack, const char *needle, size_t needle_len )
-{
-   for ( ; *haystack; haystack++ )
-   {
-       if ( !strncasecmp( haystack, needle, needle_len ) )
-           return ( char * )haystack;
-   }
-   return NULL;
-}
-
 class FontInfo
 {
 public:

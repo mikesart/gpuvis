@@ -86,6 +86,69 @@ char *strtok_r( char *str, const char *delim, char **saveptr );
 
 #if defined( __cplusplus )
 
+template < typename K, typename V >
+class util_umap
+{
+public:
+    util_umap() {}
+    ~util_umap() {}
+
+    V *get_val( const K key, const V &defval )
+    {
+        auto res = m_map.emplace( key, defval );
+        return &res.first->second;
+    }
+
+    V *get_val( const K key )
+    {
+        auto i = m_map.find( key );
+        if ( i != m_map.end() )
+            return &i->second;
+        return NULL;
+    }
+    const V *get_val( const K key ) const
+    {
+        auto i = m_map.find( key );
+        if ( i != m_map.end() )
+            return &i->second;
+        return NULL;
+    }
+
+    void set_val( const K key, const V &val )
+    {
+        auto res = m_map.emplace( key, val );
+
+       /*
+        * If the insertion takes place (because no other element existed with the
+        * same key), the function returns a pair object, whose first component is an
+        * iterator to the inserted element, and whose second component is true.
+        *
+        * Otherwise, the pair object returned has as first component an iterator
+        * pointing to the element in the container with the same key, and false as its
+        * second component.
+        */
+        if ( !res.second )
+            res.first->second = val;
+    }
+
+public:
+    typedef std::unordered_map< K, V > map_t;
+    map_t m_map;
+};
+
+class StrPool
+{
+public:
+    StrPool() {}
+    ~StrPool() {}
+
+    const char *getstr( const char *str, size_t len = ( size_t )-1 );
+    const char *findstr( uint32_t hashval );
+
+public:
+    util_umap< uint32_t, std::string > m_pool;
+};
+
 extern "C" uint32_t fnv_hashstr32( const char *str, size_t len = ( size_t )-1 );
 
 size_t get_file_size( const char *filename );
@@ -130,6 +193,16 @@ void str_strip_whitespace( char *str );
 char *strstr_ignore_spaces( char *haystack, const char *needle, size_t *len = NULL );
 // Remove substrings in place from a string
 void remove_substrings( char *str, const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
+
+inline char *strncasestr( const char *haystack, const char *needle, size_t needle_len )
+{
+   for ( ; *haystack; haystack++ )
+   {
+       if ( !strncasecmp( haystack, needle, needle_len ) )
+           return ( char * )haystack;
+   }
+   return NULL;
+}
 
 template < typename T >
 T Clamp( const T& val, const T& lower, const T& upper )

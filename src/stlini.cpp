@@ -48,6 +48,7 @@
 #include <fstream>
 #include <fcntl.h>
 #include <vector>
+#include <unordered_map>
 
 #ifndef WIN32
 #include <unistd.h>

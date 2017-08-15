@@ -40,10 +40,11 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_sdl_gl3.h"
 
+#include "gpuvis_macros.h"
+
 #include "tdopexpr.h"
 #include "trace-cmd/trace-read.h"
 
-#include "gpuvis_macros.h"
 #include "stlini.h"
 #include "gpuvis_utils.h"
 #include "gpuvis.h"
