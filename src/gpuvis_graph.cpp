@@ -213,6 +213,7 @@ public:
     void init_row_info( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows );
 
     void init( TraceWin *win, float x, float w );
+    void set_ts( TraceWin *win, int64_t start_ts, int64_t length_ts );
     void set_pos_y( float y, float h, row_info_t *ri );
 
     float ts_to_x( int64_t ts );
@@ -526,19 +527,22 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
     total_graph_height = std::max< float >( total_graph_height, 4 * row_h );
 }
 
-void graph_info_t::init( TraceWin *win, float x_in, float w_in )
+void graph_info_t::set_ts( TraceWin *win, int64_t start_ts, int64_t length_ts )
 {
-    x = x_in;
-    w = w_in;
-
-    ts0 = win->m_graph.start_ts;
-    ts1 = ts0 + win->m_graph.length_ts;
+    ts0 = start_ts;
+    ts1 = ts0 + length_ts;
 
     eventstart = win->ts_to_eventid( ts0 );
     eventend = win->ts_to_eventid( ts1 );
 
     tsdx = ts1 - ts0 + 1;
     tsdxrcp = 1.0 / tsdx;
+}
+
+void graph_info_t::init( TraceWin *win, float x_in, float w_in )
+{
+    x = x_in;
+    w = w_in;
 
     mouse_pos = ImGui::IsRootWindowOrAnyChildFocused() ?
                 ImGui::GetMousePos() : ImGui::GetIO().MousePosInvalid;
@@ -1766,6 +1770,26 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
     event_renderer_t event_renderer( gi.y + 4, gi.w, gi.h - 8 );
     bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
 
+// #define SCALE_ROW
+#ifdef SCALE_ROW
+    float scale = 0.0f;
+
+    //$ TODO mikesart wip: scaling some rows differently than others
+    // Draw rectangle around area that rest of graph is shown at?
+    // Mouse hover time isn't correct anymore.
+    if ( gi.prinfo_cur->row_name == "RenderThread-25155" )
+    {
+        int64_t start_ts = m_graph.start_ts;
+        int64_t length_ts = m_graph.length_ts;
+
+        scale = 10.0f;
+
+        start_ts -= length_ts * scale;
+        length_ts += length_ts * 2 * scale;
+        gi.set_ts( this, start_ts, length_ts );
+    }
+#endif
+
     // Calculate how many pixels .0001ms takes
     const float dx = ( .0001f * NSECS_PER_MSEC ) * gi.w * gi.tsdxrcp;
 
@@ -1876,6 +1900,19 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
             }
         }
     }
+
+#ifdef SCALE_ROW
+    if ( scale > 0.0f )
+    {
+        float x0 = gi.ts_to_screenx( m_graph.start_ts );
+        float x1 = gi.ts_to_screenx( m_graph.start_ts + m_graph.length_ts );
+
+        ImGui::GetWindowDrawList()->AddRectFilled(
+                    ImVec2( x0, gi.y ), ImVec2( x1, gi.y + gi.h ),
+                    0x5fffffff, 9.0f, 0x0f );
+        gi.set_ts( this, m_graph.start_ts, m_graph.length_ts );
+    }
+#endif
 
     return num_events;
 }
@@ -2583,6 +2620,7 @@ void TraceWin::graph_render()
                         windowpos.y, windowsize.y, s_clrs().get( col_Graph_Bk ) );
 
         // Initialize our graphics info struct
+        gi.set_ts( this, m_graph.start_ts, m_graph.length_ts );
         gi.init( this, windowpos.x, windowsize.x );
 
         // If we have a show row id, make sure it's visible
