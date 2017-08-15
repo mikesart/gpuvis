@@ -719,11 +719,11 @@ void TraceLoader::render_save_filename()
     float w = imgui_scale( 300.0f );
 
     // Text label
-    ImGui::Text( "Save '%s' as:", m_save_filename.c_str() );
+    ImGui::Text( "Save '%s' as:", m_saving_info.filename.c_str() );
 
     // New filename input text field
-    std::string newfilename = m_save_filename_buf;
-    if ( imgui_input_text2( "New Filename:", m_save_filename_buf, w,
+    std::string newfilename = m_saving_info.filename_buf;
+    if ( imgui_input_text2( "New Filename:", m_saving_info.filename_buf, w,
                             ImGuiInputTextFlags_EnterReturnsTrue ) )
     {
         do_save = true;
@@ -735,35 +735,35 @@ void TraceLoader::render_save_filename()
         ImGui::SetKeyboardFocusHere( -1 );
 
     // Spew out any error / warning messages
-    ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_save_filename_errstr.c_str() );
+    ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_saving_info.filename_errstr.c_str() );
 
     // Save button
     ImGui::PushStyleColor( ImGuiCol_Text,
-                           ImGui::GetColorVec4( m_save_filename_buf[ 0 ] ? ImGuiCol_Text : ImGuiCol_TextDisabled ) );
+                           ImGui::GetColorVec4( m_saving_info.filename_buf[ 0 ] ? ImGuiCol_Text : ImGuiCol_TextDisabled ) );
     do_save |= ImGui::Button( "Save", ImVec2( w / 3.0f, 0 ) );
     ImGui::PopStyleColor();
 
     // If we're saving or the new filename text field changed...
-    if ( firstpass || do_save || ( newfilename != m_save_filename_buf ) )
+    if ( firstpass || do_save || ( newfilename != m_saving_info.filename_buf ) )
     {
         // Clear any old error strings
-        m_save_filename_errstr = "";
+        m_saving_info.filename_errstr = "";
 
         // Get fullpath for new filename
-        newfilename = m_save_filename_buf[ 0 ] ? get_realpath( m_save_filename_buf ) : "";
+        newfilename = m_saving_info.filename_buf[ 0 ] ? get_realpath( m_saving_info.filename_buf ) : "";
 
         // Check if new file already exists
         if ( !stat( newfilename.c_str(), &st ) )
-            m_save_filename_errstr = string_format( "WARNING: %s exists", newfilename.c_str() );
+            m_saving_info.filename_errstr = string_format( "WARNING: %s exists", newfilename.c_str() );
     }
 
     if ( do_save )
     {
-        close_popup = copy_file( m_save_filename.c_str(), newfilename.c_str() );
+        close_popup = copy_file( m_saving_info.filename.c_str(), newfilename.c_str() );
 
         if ( !close_popup )
         {
-            m_save_filename_errstr = string_format( "ERROR: copy_file to %s failed",
+            m_saving_info.filename_errstr = string_format( "ERROR: copy_file to %s failed",
                                                     newfilename.c_str() );
         }
     }
@@ -780,8 +780,8 @@ void TraceLoader::render_save_filename()
     {
         ImGui::CloseCurrentPopup();
 
-        m_save_filename.clear();
-        m_save_filename_errstr.clear();
+        m_saving_info.filename.clear();
+        m_saving_info.filename_errstr.clear();
     }
 }
 
@@ -910,11 +910,11 @@ void TraceLoader::render()
         ImGui::EndPopup();
     }
 
-    if ( !m_save_filename.empty() && !ImGui::IsPopupOpen( "Save Filename" ) )
+    if ( !m_saving_info.filename.empty() && !ImGui::IsPopupOpen( "Save Filename" ) )
     {
         ImGui::OpenPopup( "Save Filename" );
 
-        strcpy_safe( m_save_filename_buf, "blah.dat" );
+        strcpy_safe( m_saving_info.filename_buf, "blah.dat" );
     }
     if ( ImGui::BeginPopupModal( "Save Filename", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
     {
@@ -3928,7 +3928,7 @@ void TraceLoader::render_menu( const char *str_id )
         }
 #endif
 
-        if ( m_save_filename.empty() &&
+        if ( m_saving_info.filename.empty() &&
              !m_trace_windows_list.empty() &&
              !m_trace_windows_list[ 0 ]->m_trace_events.m_filename.empty() )
         {
@@ -3938,7 +3938,7 @@ void TraceLoader::render_menu( const char *str_id )
             std::string label = string_format( "Save %s as...", basename );
 
             if ( ImGui::MenuItem( label.c_str() ) )
-                m_save_filename = get_realpath( filename.c_str() );
+                m_saving_info.filename = get_realpath( filename.c_str() );
         }
 
         if ( ImGui::MenuItem( "Quit", s_actions().hotkey_str( action_quit ).c_str() ) )

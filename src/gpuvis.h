@@ -756,6 +756,13 @@ public:
         std::vector< std::string > inputfiles;
     } m_loading_info;
 
+    struct
+    {
+        char filename_buf[ PATH_MAX ] = { 0 };
+        std::string filename;
+        std::string filename_errstr;
+    } m_saving_info;
+
     std::vector< TraceEvents * > m_trace_events_list;
     std::vector< TraceWin * > m_trace_windows_list;
 
@@ -774,10 +781,6 @@ public:
     std::string m_colorpicker_event;
     colors_t m_colorpicker_color = 0;
     ColorPicker m_colorpicker;
-
-    char m_save_filename_buf[ PATH_MAX ] = { 0 };
-    std::string m_save_filename;
-    std::string m_save_filename_errstr;
 
     bool m_quit = false;
     bool m_show_gpuvis_console = true;
