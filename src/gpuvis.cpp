@@ -2540,7 +2540,8 @@ bool TraceWin::render()
                 m_eventlist.goto_eventid = timestr_to_eventid( m_eventlist.timegoto_buf );
             }
 
-            if ( m_eventlist.hide_sched_switch_events_val != s_opts().getb( OPT_HideSchedSwitchEvents ) )
+            if ( !m_inited ||
+                 m_eventlist.hide_sched_switch_events_val != s_opts().getb( OPT_HideSchedSwitchEvents ) )
             {
                 bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
                 static const char filter_str[] = "$name != \"sched_switch\"";

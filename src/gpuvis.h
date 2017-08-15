@@ -505,7 +505,7 @@ public:
         bool do_gotoevent = false;
         int goto_eventid = 0;
 
-        int hide_sched_switch_events_val = -1;
+        bool hide_sched_switch_events_val = true;
         bool do_filter = false;
         char filter_buf[ 512 ] = { 0 };
         std::string filtered_events_str;
