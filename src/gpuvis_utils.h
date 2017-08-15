@@ -31,6 +31,8 @@ CIniFile &s_ini();
 // Color singletons
 class Clrs &s_clrs();
 class TextClrs &s_textclrs();
+
+// Keyboard singletons
 class Keybd &s_keybd();
 class Actions &s_actions();
 
