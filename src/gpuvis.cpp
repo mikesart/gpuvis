@@ -60,6 +60,12 @@
   #include "noc_file_dialog.h"
 #endif
 
+TraceLoader &s_loader()
+{
+    static TraceLoader s_loader;
+    return s_loader;
+}
+
 CIniFile &s_ini()
 {
     static CIniFile s_inifile;
@@ -424,8 +430,10 @@ bool Opts::render_imgui_opt( option_id_t optid, float w )
     return changed;
 }
 
-void Opts::render_imgui_options( uint32_t crtc_max )
+void Opts::render_imgui_options()
 {
+    uint32_t crtc_max = s_loader().m_crtc_max;
+
     for ( size_t i = 0; i < m_options.size(); i++ )
     {
         if ( m_options[ i ].flags & OPT_Hidden )
@@ -539,7 +547,7 @@ void TraceLoader::new_event_window( TraceEvents *trace_events )
     if ( refcount )
         title += string_format( " #%lu", refcount + 1 );
 
-    TraceWin *win = new TraceWin( *this, *trace_events, title );
+    TraceWin *win = new TraceWin( *trace_events, title );
 
     m_trace_windows_list.push_back( win );
 }
@@ -605,10 +613,9 @@ void TraceLoader::add_sched_switch_pid_comm( const trace_event_t &event,
 
 // Callback from trace_read.cpp. We mostly just store the events in our array
 //  and then init_new_event() does the real work of initializing them later.
-int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
-                               const trace_event_t &event )
+int TraceLoader::new_event_cb( const trace_info_t &info, const trace_event_t &event )
 {
-    TraceEvents *trace_events = loader->m_loading_info.trace_events;
+    TraceEvents *trace_events = s_loader().m_loading_info.trace_events;
     size_t id = trace_events->m_events.size();
 
     // Add event to our m_events array
@@ -626,36 +633,35 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
     // This is the reason we're initializing events in two passes to collect all this data.
     if ( event.is_sched_switch() )
     {
-        loader->add_sched_switch_pid_comm( event, "prev_pid", "prev_comm" );
-        loader->add_sched_switch_pid_comm( event, "next_pid", "next_comm" );
+        s_loader().add_sched_switch_pid_comm( event, "prev_pid", "prev_comm" );
+        s_loader().add_sched_switch_pid_comm( event, "next_pid", "next_comm" );
     }
 
     // Record the maximum crtc value we've ever seen
-    loader->m_crtc_max = std::max< int >( loader->m_crtc_max, event.crtc );
+    s_loader().m_crtc_max = std::max< int >( s_loader().m_crtc_max, event.crtc );
 
     // 1+ means loading events
     SDL_AtomicAdd( &trace_events->m_eventsloaded, 1 );
 
     // Return 1 to cancel loading
-    return ( loader->get_state() == State_CancelLoading );
+    return ( s_loader().get_state() == State_CancelLoading );
 }
 
 int SDLCALL TraceLoader::thread_func( void *data )
 {
-    TraceLoader *loader = ( TraceLoader * )data;
-    TraceEvents *trace_events = loader->m_loading_info.trace_events;
-    const char *filename = loader->m_loading_info.filename.c_str();
+    TraceEvents *trace_events = s_loader().m_loading_info.trace_events;
+    const char *filename = s_loader().m_loading_info.filename.c_str();
 
     logf( "Reading trace file %s...", filename );
 
-    EventCallback trace_cb = std::bind( new_event_cb, loader, _1, _2 );
+    EventCallback trace_cb = std::bind( new_event_cb, _1, _2 );
     if ( read_trace_file( filename, trace_events->m_strpool, trace_cb ) < 0 )
     {
         logf( "[Error]: read_trace_file(%s) failed.", filename );
 
         // -1 means loading error
         SDL_AtomicSet( &trace_events->m_eventsloaded, -1 );
-        loader->set_state( State_Idle );
+        s_loader().set_state( State_Idle );
         return -1;
     }
 
@@ -666,7 +672,7 @@ int SDLCALL TraceLoader::thread_func( void *data )
 
     // 0 means events loaded
     SDL_AtomicSet( &trace_events->m_eventsloaded, 0 );
-    loader->set_state( State_Loaded );
+    s_loader().set_state( State_Loaded );
     return 0;
 }
 
@@ -2333,8 +2339,8 @@ static void remove_event_filter( char ( &dest )[ T ], const char *fmt, ... )
     str_strip_whitespace( dest );
 }
 
-TraceWin::TraceWin( TraceLoader &loader, TraceEvents &trace_events, std::string &title ) :
-    m_trace_events( trace_events), m_loader( loader )
+TraceWin::TraceWin( TraceEvents &trace_events, std::string &title ) :
+    m_trace_events( trace_events)
 {
     // Note that m_trace_events is possibly being loaded in
     //  a background thread at this moment, so be sure to check
@@ -2389,7 +2395,7 @@ bool TraceWin::render()
         ImGui::Text( "%s events %u...", loading ? "Loading" : "Initializing", eventsloaded & ~0x40000000 );
 
         if ( ImGui::Button( "Cancel" ) || s_keybd().is_escape_down() )
-            m_loader.cancel_load_file();
+            s_loader().cancel_load_file();
 
         ImGui::End();
         return true;
@@ -2406,7 +2412,7 @@ bool TraceWin::render()
 
     ImGui::Begin( m_title.c_str(), &m_open, ImGuiWindowFlags_MenuBar );
 
-    m_loader.render_menu( "menu_tracewin" );
+    s_loader().render_menu( "menu_tracewin" );
 
     if ( m_trace_events.m_events.empty() )
     {
@@ -3428,7 +3434,7 @@ void TraceLoader::render_menu_options()
     ImGui::TextColored( s_clrs().getv4( col_BrightText ), "%s", "Gpuvis Settings" );
     ImGui::Indent();
 
-    s_opts().render_imgui_options( m_crtc_max );
+    s_opts().render_imgui_options();
 
     ImGui::Unindent();
 }
@@ -4086,7 +4092,6 @@ int main( int argc, char **argv )
         return -1;
     }
 
-    TraceLoader loader;
     SDL_Window *window = NULL;
     SDL_Cursor *cursor_sizens = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENS );
     SDL_Cursor *cursor_default = SDL_GetDefaultCursor();
@@ -4104,6 +4109,7 @@ int main( int argc, char **argv )
     s_actions().init();
 
     // Init loader
+    TraceLoader &loader = s_loader();
     loader.init( argc, argv );
     // Setup imgui default text color
     s_textclrs().update_colors();

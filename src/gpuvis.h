@@ -25,8 +25,10 @@
 // Opts singleton
 class Opts &s_opts();
 
+// Loader singleton
+class TraceLoader &s_loader();
+
 class TraceEvents;
-class TraceLoader;
 
 class TraceLocations
 {
@@ -394,7 +396,7 @@ public:
 class TraceWin
 {
 public:
-    TraceWin( TraceLoader &loader, TraceEvents &trace_events, std::string &title );
+    TraceWin( TraceEvents &trace_events, std::string &title );
     ~TraceWin();
 
 public:
@@ -488,8 +490,6 @@ public:
 
     // trace events
     TraceEvents &m_trace_events;
-    // trace loader
-    TraceLoader &m_loader;
 
     // Ftrace print event id to display create plot dialog
     uint32_t m_create_plot_eventid = INVALID_ID;
@@ -665,7 +665,7 @@ public:
     void setf( option_id_t optid, float valf, float valf_min = FLT_MAX, float valf_max = FLT_MAX );
 
     bool render_imgui_opt( option_id_t optid, float w = 200.0f );
-    void render_imgui_options( uint32_t crtc_max );
+    void render_imgui_options();
 
     option_id_t add_opt_graph_rowsize( const char *row_name, int defval = 4 );
     option_id_t get_opt_graph_rowsize_id( const std::string &row_name );
@@ -741,8 +741,7 @@ protected:
     void set_state( state_t state );
 
     static int SDLCALL thread_func( void *data );
-    static int new_event_cb( TraceLoader *loader, const trace_info_t &info,
-                             const trace_event_t &event );
+    static int new_event_cb( const trace_info_t &info, const trace_event_t &event );
     void add_sched_switch_pid_comm( const trace_event_t &event,
                                     const char *pidstr, const char *commstr );
 
@@ -763,11 +762,11 @@ public:
         std::string filename_errstr;
     } m_saving_info;
 
-    std::vector< TraceEvents * > m_trace_events_list;
-    std::vector< TraceWin * > m_trace_windows_list;
-
     // Max drm_vblank_event crc value we've seen
     uint32_t m_crtc_max = 0;
+
+    std::vector< TraceEvents * > m_trace_events_list;
+    std::vector< TraceWin * > m_trace_windows_list;
 
     FontInfo m_font_main;
     FontInfo m_font_small;

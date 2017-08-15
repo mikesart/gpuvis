@@ -389,7 +389,7 @@ void event_renderer_t::draw()
     imgui_drawrect( x0, width, y, h, color );
 }
 
-static option_id_t get_comm_option_id( TraceLoader &loader, const std::string &row_name )
+static option_id_t get_comm_option_id( const std::string &row_name )
 {
     option_id_t optid = s_opts().get_opt_graph_rowsize_id( row_name );
 
@@ -444,17 +444,17 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         else if ( rinfo.row_type == TraceEvents::LOC_TYPE_Print )
         {
             // ftrace print row
-            optid = get_comm_option_id( win->m_loader, rinfo.row_name );
+            optid = get_comm_option_id( rinfo.row_name );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_print_timeline, win, _1 );
         }
         else if ( rinfo.row_type == TraceEvents::LOC_TYPE_Plot )
         {
-            optid = get_comm_option_id( win->m_loader, rinfo.row_name );
+            optid = get_comm_option_id( rinfo.row_name );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_plot, win, _1 );
         }
         else if ( rinfo.row_type == TraceEvents::LOC_TYPE_Timeline )
         {
-            optid = get_comm_option_id( win->m_loader, rinfo.row_name );
+            optid = get_comm_option_id( rinfo.row_name );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_row_timeline, win, _1 );
         }
         else if ( rinfo.row_type == TraceEvents::LOC_TYPE_Timeline_hw )
@@ -2832,7 +2832,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
                 zoom_graph_row();
         }
 
-        optid = get_comm_option_id( m_loader, m_graph.mouse_over_row_name.c_str() );
+        optid = get_comm_option_id( m_graph.mouse_over_row_name.c_str() );
         label = string_format( "Hide row '%s'", m_graph.mouse_over_row_name.c_str() );
 
         if ( ImGui::MenuItem( label.c_str() ) )
@@ -3089,7 +3089,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     ImGui::Separator();
 
-    s_opts().render_imgui_options( m_loader.m_crtc_max );
+    s_opts().render_imgui_options();
 
     if ( s_keybd().is_escape_down() )
         ImGui::CloseCurrentPopup();
