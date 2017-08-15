@@ -747,16 +747,20 @@ protected:
                                     const char *pidstr, const char *commstr );
 
 public:
-    std::string m_filename;
-    SDL_atomic_t m_state = { 0 };
-    SDL_Thread *m_thread = nullptr;
-    TraceEvents *m_trace_events = nullptr;
+    struct
+    {
+        std::string filename;
+        SDL_atomic_t state = { 0 };
+        SDL_Thread *thread = nullptr;
+        TraceEvents *trace_events = nullptr;
+        std::vector< std::string > inputfiles;
+    } m_loading_info;
 
     std::vector< TraceEvents * > m_trace_events_list;
     std::vector< TraceWin * > m_trace_windows_list;
 
+    // Max drm_vblank_event crc value we've seen
     uint32_t m_crtc_max = 0;
-    std::vector< std::string > m_inputfiles;
 
     FontInfo m_font_main;
     FontInfo m_font_small;
@@ -764,8 +768,6 @@ public:
     ImGuiTextFilter m_filter;
     size_t m_log_size = ( size_t )-1;
     std::vector< std::string > m_log;
-
-    char m_trace_file[ PATH_MAX ] = { 0 };
 
     std::vector< INIEntry > m_imguiwindow_entries;
 

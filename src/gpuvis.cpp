@@ -446,7 +446,7 @@ void Opts::render_imgui_options( uint32_t crtc_max )
  */
 TraceLoader::state_t TraceLoader::get_state()
 {
-    return ( state_t )SDL_AtomicGet( &m_state );
+    return ( state_t )SDL_AtomicGet( &m_loading_info.state );
 }
 
 bool TraceLoader::is_loading()
@@ -456,27 +456,24 @@ bool TraceLoader::is_loading()
 
 void TraceLoader::set_state( state_t state )
 {
-    m_filename = "";
-    m_trace_events = NULL;
-    m_thread = NULL;
+    m_loading_info.filename = "";
+    m_loading_info.trace_events = NULL;
+    m_loading_info.thread = NULL;
 
-    SDL_AtomicSet( &m_state, state );
+    SDL_AtomicSet( &m_loading_info.state, state );
 }
 
 void TraceLoader::cancel_load_file()
 {
     // Switch to cancel loading if we're currently loading
-    SDL_AtomicCAS( &m_state, State_Loading, State_CancelLoading );
+    SDL_AtomicCAS( &m_loading_info.state, State_Loading, State_CancelLoading );
 }
 
 bool TraceLoader::load_file( const char *filename )
 {
-    if ( filename != m_trace_file )
-        strcpy_safe( m_trace_file, filename );
-
     if ( is_loading() )
     {
-        logf( "[Error] %s failed, currently loading %s.", __func__, m_filename.c_str() );
+        logf( "[Error] %s failed, currently loading %s.", __func__, m_loading_info.filename.c_str() );
         return false;
     }
 
@@ -501,28 +498,28 @@ bool TraceLoader::load_file( const char *filename )
         close_event_file( m_trace_events_list.back(), true );
 
     set_state( State_Loading );
-    m_filename = filename;
+    m_loading_info.filename = filename;
 
-    m_trace_events = new TraceEvents;
-    m_trace_events->m_filename = filename;
-    m_trace_events->m_filesize = filesize;
-    m_trace_events->m_title = title;
+    m_loading_info.trace_events = new TraceEvents;
+    m_loading_info.trace_events->m_filename = filename;
+    m_loading_info.trace_events->m_filesize = filesize;
+    m_loading_info.trace_events->m_title = title;
 
     // 1+ means loading events
-    SDL_AtomicSet( &m_trace_events->m_eventsloaded, 1 );
+    SDL_AtomicSet( &m_loading_info.trace_events->m_eventsloaded, 1 );
 
-    m_thread = SDL_CreateThread( thread_func, "eventloader", ( void * )this );
-    if ( m_thread )
+    m_loading_info.thread = SDL_CreateThread( thread_func, "eventloader", ( void * )this );
+    if ( m_loading_info.thread )
     {
-        new_event_window( m_trace_events );
-        m_trace_events_list.push_back( m_trace_events );
+        new_event_window( m_loading_info.trace_events );
+        m_trace_events_list.push_back( m_loading_info.trace_events );
         return true;
     }
 
     logf( "[Error] %s: SDL_CreateThread failed.", __func__ );
 
-    delete m_trace_events;
-    m_trace_events = NULL;
+    delete m_loading_info.trace_events;
+    m_loading_info.trace_events = NULL;
 
     set_state( State_Idle );
     return false;
@@ -589,7 +586,7 @@ void TraceLoader::add_sched_switch_pid_comm( const trace_event_t &event,
 
     if ( pid )
     {
-        trace_info_t &trace_info = m_trace_events->m_trace_info;
+        trace_info_t &trace_info = m_loading_info.trace_events->m_trace_info;
         const char *comm = get_event_field_val( event, commstr );
 
         // If this pid is not in our pid_comm map or it is a sched_switch
@@ -611,7 +608,7 @@ void TraceLoader::add_sched_switch_pid_comm( const trace_event_t &event,
 int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
                                const trace_event_t &event )
 {
-    TraceEvents *trace_events = loader->m_trace_events;
+    TraceEvents *trace_events = loader->m_loading_info.trace_events;
     size_t id = trace_events->m_events.size();
 
     // Add event to our m_events array
@@ -646,8 +643,8 @@ int TraceLoader::new_event_cb( TraceLoader *loader, const trace_info_t &info,
 int SDLCALL TraceLoader::thread_func( void *data )
 {
     TraceLoader *loader = ( TraceLoader * )data;
-    TraceEvents *trace_events = loader->m_trace_events;
-    const char *filename = loader->m_filename.c_str();
+    TraceEvents *trace_events = loader->m_loading_info.trace_events;
+    const char *filename = loader->m_loading_info.filename.c_str();
 
     logf( "Reading trace file %s...", filename );
 
@@ -688,21 +685,19 @@ void TraceLoader::init( int argc, char **argv )
     logf( "Welcome to gpuvis\n" );
     logf( " " );
 
-    strcpy_safe( m_trace_file, "trace.dat" );
-
     imgui_set_scale( s_opts().getf( OPT_Scale ) );
 }
 
 void TraceLoader::shutdown()
 {
-    if ( m_thread )
+    if ( m_loading_info.thread )
     {
         // Cancel any file loading going on.
         cancel_load_file();
 
         // Wait for our thread to die.
-        SDL_WaitThread( m_thread, NULL );
-        m_thread = NULL;
+        SDL_WaitThread( m_loading_info.thread, NULL );
+        m_loading_info.thread = NULL;
     }
 
     set_state( State_Idle );
@@ -3929,7 +3924,7 @@ void TraceLoader::render_menu( const char *str_id )
                 "trace-cmd files (*.dat)\0*.dat\0", NULL, "trace.dat" );
 
             if ( file && file[ 0 ] )
-                m_inputfiles.push_back( file );
+                m_loading_info.inputfiles.push_back( file );
         }
 #endif
 
@@ -3983,7 +3978,7 @@ void TraceLoader::handle_hotkeys()
             "trace-cmd files (*.dat)\0*.dat\0", NULL, "trace.dat" );
 
         if ( file && file[ 0 ] )
-            m_inputfiles.push_back( file );
+            m_loading_info.inputfiles.push_back( file );
     }
 #endif
 
@@ -4036,8 +4031,8 @@ void TraceLoader::parse_cmdline( int argc, char **argv )
                 s_opts().setf( OPT_Scale, atof( ya_optarg ) );
             break;
         case 'i':
-            m_inputfiles.clear();
-            m_inputfiles.push_back( ya_optarg );
+            m_loading_info.inputfiles.clear();
+            m_loading_info.inputfiles.push_back( ya_optarg );
             break;
 
         default:
@@ -4047,8 +4042,8 @@ void TraceLoader::parse_cmdline( int argc, char **argv )
 
     for ( ; ya_optind < argc; ya_optind++ )
     {
-        m_inputfiles.clear();
-        m_inputfiles.push_back( argv[ ya_optind ] );
+        m_loading_info.inputfiles.clear();
+        m_loading_info.inputfiles.push_back( argv[ ya_optind ] );
     }
 }
 
@@ -4200,13 +4195,13 @@ int main( int argc, char **argv )
         if ( loader.m_quit )
             break;
 
-        if ( !loader.m_inputfiles.empty() && !loader.is_loading() )
+        if ( !loader.m_loading_info.inputfiles.empty() && !loader.is_loading() )
         {
-            const char *filename = loader.m_inputfiles[ 0 ].c_str();
+            const char *filename = loader.m_loading_info.inputfiles[ 0 ].c_str();
 
             loader.load_file( filename );
 
-            loader.m_inputfiles.erase( loader.m_inputfiles.begin() );
+            loader.m_loading_info.inputfiles.erase( loader.m_loading_info.inputfiles.begin() );
         }
 
         if ( ( loader.m_font_main.m_changed || loader.m_font_small.m_changed ) &&
