@@ -404,8 +404,19 @@ bool Opts::render_imgui_opt( option_id_t optid, float w )
     if ( opt.flags & OPT_Bool )
     {
         bool val = !!opt.valf;
+        std::string desc = opt.desc;
 
-        changed = ImGui::Checkbox( opt.desc.c_str(), &val );
+        if ( ( optid == OPT_RenderCrtc0 ) || ( optid == OPT_RenderCrtc1 ) )
+        {
+            // Quick hack to color drm_vblank_event.
+            const char *vblankstr = "drm_vblank_event";
+            ImU32 color = col_VBlank0 + ( optid - OPT_RenderCrtc0 );
+            std::string str = s_textclrs().mstr( vblankstr, s_clrs().get( color ) );
+
+            string_replace_str( desc, vblankstr, str );
+        }
+
+        changed = ImGui::Checkbox( desc.c_str(), &val );
 
         if ( opt.action != action_nil )
         {
