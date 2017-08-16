@@ -183,7 +183,6 @@ public:
 
     bool init( TraceEvents &trace_events, uint32_t eventid );
     bool render_dlg( TraceEvents &trace_events );
-//    void add_graph_row( class GraphRows &rows );
 
 public:
     float m_scale = 1.0f;

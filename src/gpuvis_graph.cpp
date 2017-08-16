@@ -1422,7 +1422,7 @@ bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
         hovered |= ImGui::IsItemHovered();
         ImGui::SameLine();
         ImGui::PushItemWidth( imgui_scale( w / 2.0f ) );
-        ImGui::SliderFloat( "##scale_ts_val", &m_scale, 0.1f, 100.0f, "%.02f" );
+        ImGui::SliderFloat( "##scale_ts_val", &m_scale, 1.0f, 100.0f, "%.02f" );
         ImGui::PopItemWidth();
         hovered |= ImGui::IsItemHovered();
 
@@ -2062,7 +2062,7 @@ void TraceWin::graph_render_row( graph_info_t &gi )
             int64_t start_ts = m_graph.start_ts;
             int64_t length_ts = m_graph.length_ts;
 
-            scale_ts = Clamp< float >( scale_ts, 0.1f, 100.0f );
+            scale_ts = Clamp< float >( scale_ts, 1.0f, 100.0f );
 
             start_ts -= length_ts * scale_ts;
             length_ts += length_ts * 2 * scale_ts;
