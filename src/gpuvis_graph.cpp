@@ -1356,6 +1356,87 @@ bool ParsePlotStr::parse( const char *buf )
     return false;
 }
 
+bool CreateGraphRowDlg::init( TraceEvents &trace_events )
+{
+    strcpy_safe( m_name_buf, "<New Graph Row Name>" );
+    strcpy_safe( m_filter_buf, "<Enter Filter Expression>" );
+
+    ImGui::OpenPopup( "Add New Graph Row" );
+    return false;
+}
+
+bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
+{
+    if ( !ImGui::BeginPopupModal( "Add New Graph Row", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
+        return false;
+
+    bool ret = false;
+    float w = imgui_scale( 350.0f );
+    const ImVec2 button_size = { imgui_scale( 120.0f ), 0.0f };
+    const ImVec2 text_size = ImGui::CalcTextSize( "Row Filter: " );
+    float x = ImGui::GetCursorPos().x + text_size.x;
+
+    struct PlotNameFilter {
+        static int FilterPunct( ImGuiTextEditCallbackData *data )
+                { return ( ( data->EventChar < 256 ) && ispunct( data->EventChar ) ); }
+    };
+    plot_input_text( "Row Name: ", m_name_buf, x, w, PlotNameFilter::FilterPunct );
+
+    plot_input_text( "Row Filter: ", m_filter_buf, x, w );
+    if ( ImGui::IsItemHovered() )
+    {
+        std::string tooltip;
+
+        tooltip += s_textclrs().bright_str( "Add a new row with filtered events\n\n" );
+        tooltip += "Examples:\n";
+        tooltip += "  $pid = 4615\n";
+        tooltip += "  $duration >= 5.5\n";
+        tooltip += "  $buf =~ \"[Compositor] Warp\"\n";
+        tooltip += "  ( $timeline = gfx ) && ( $id < 10 || $id > 100 )";
+
+        ImGui::SetTooltip( "%s", tooltip.c_str() );
+    }
+
+    if ( m_err_str.size() )
+        ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_err_str.c_str() );
+
+    ImGui::NewLine();
+
+    //$ TODO: Add previous filters in here like with Frame Markers?
+    //$ TODO: Make sure name_buf doesn't have <> chars in it?
+    bool disabled = !m_name_buf[ 0 ] || !m_filter_buf[ 0 ];
+    if ( disabled )
+        ImGui::PushStyleColor( ImGuiCol_Text, ImGui::GetColorVec4( ImGuiCol_TextDisabled ) );
+
+    //$ TODO: s_actions().get( action_return ) )
+    if ( ImGui::Button( "Create", button_size ) && !disabled )
+    {
+        m_err_str.clear();
+        const std::vector< uint32_t > *plocs = trace_events.get_tdopexpr_locs(
+                    m_filter_buf, &m_err_str );
+
+        if ( plocs )
+        {
+            ret = true;
+        }
+        else if ( m_err_str.empty() )
+        {
+            m_err_str = "WARNING: No events found.";
+        }
+    }
+
+    if ( disabled )
+        ImGui::PopStyleColor();
+
+    ImGui::SameLine();
+    if ( ImGui::Button( "Cancel", button_size ) || s_keybd().is_escape_down() || ret )
+        ImGui::CloseCurrentPopup();
+
+    ImGui::EndPopup();
+    return ret;
+}
+
+
 uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
 {
     float minval = FLT_MAX;
@@ -2975,41 +3056,6 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         }
     }
 
-    // New Graph Row
-    {
-        if ( imgui_input_text2( "New Graph Row:", m_graph.new_row_buf, 0, ImGuiInputTextFlags_EnterReturnsTrue ) )
-        {
-            m_graph.new_row_errstr.clear();
-
-            if ( m_trace_events.get_tdopexpr_locs( m_graph.new_row_buf, &m_graph.new_row_errstr ) )
-            {
-                m_graph.rows.add_row( m_graph.new_row_buf );
-                ImGui::CloseCurrentPopup();
-            }
-            else if ( m_graph.new_row_errstr.empty() )
-            {
-                m_graph.new_row_errstr = string_format( "ERROR: no events found for '%s'", m_graph.new_row_buf );
-            }
-        }
-
-        if ( ImGui::IsItemHovered() )
-        {
-            std::string tooltip;
-
-            tooltip += s_textclrs().bright_str( "Add a new row with filtered events\n\n" );
-            tooltip += "Examples:\n";
-            tooltip += "  $pid = 4615\n";
-            tooltip += "  $duration >= 5.5\n";
-            tooltip += "  $buf =~ \"[Compositor] Warp\"\n";
-            tooltip += "  ( $timeline = gfx ) && ( $id < 10 || $id > 100 )";
-
-            ImGui::SetTooltip( "%s", tooltip.c_str() );
-        }
-
-        if ( !m_graph.new_row_errstr.empty() )
-            ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_graph.new_row_errstr.c_str() );
-    }
-
     // Create Plot for hovered event
     if ( is_valid_id( m_graph.hovered_eventid ) &&
          strncmp( m_graph.mouse_over_row_name.c_str(), "plot:", 5 ) )
@@ -3103,6 +3149,10 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     }
 
     ImGui::Separator();
+
+    // New Graph Row
+    if ( ImGui::MenuItem( "Add New Graph Row..." ) )
+        m_create_graph_row = true;
 
     // Frame Markers
     {
@@ -3498,7 +3548,6 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
             m_graph.popupmenu = true;
 
             m_graph.rows_hidden_rows = m_graph.rows.get_hidden_rows_list();
-            m_graph.new_row_errstr = "";
 
             ImGui::OpenPopup( "GraphPopup" );
         }

@@ -2364,8 +2364,6 @@ TraceWin::TraceWin( TraceEvents &trace_events, std::string &title ) :
 
     strcpy_safe( m_eventlist.timegoto_buf, "0.0" );
 
-    strcpy_safe( m_graph.new_row_buf, "<Enter Filter Expression>" );
-
     strcpy_safe( m_eventlist.filter_buf, s_ini().GetStr( "event_filter_buf", "" ) );
     m_eventlist.do_filter = !!m_eventlist.filter_buf[ 0 ];
 
@@ -2668,6 +2666,7 @@ bool TraceWin::render()
         }
     }
 
+    // Plots
     if ( is_valid_id( m_create_plot_eventid ) )
     {
         m_create_plot_dlg.init( m_trace_events, m_create_plot_eventid );
@@ -2676,6 +2675,16 @@ bool TraceWin::render()
     if ( m_create_plot_dlg.render_dlg( m_trace_events ) )
         m_create_plot_dlg.add_plot( m_graph.rows );
 
+    // Graph rows
+    if ( m_create_graph_row )
+    {
+        m_create_graph_row_dlg.init( m_trace_events );
+        m_create_graph_row = false;
+    }
+    if ( m_create_graph_row_dlg.render_dlg( m_trace_events ) )
+        m_graph.rows.add_row( m_create_graph_row_dlg.m_filter_buf );
+
+    // Filter events
     if ( is_valid_id( m_create_filter_eventid ) )
     {
         m_frame_markers.show_dlg( m_trace_events, m_create_filter_eventid );

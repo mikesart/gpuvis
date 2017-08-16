@@ -164,6 +164,23 @@ public:
     char m_plot_scanf_buf[ 512 ];
 };
 
+class CreateGraphRowDlg
+{
+public:
+    CreateGraphRowDlg() {}
+    ~CreateGraphRowDlg() {}
+
+    bool init( TraceEvents &trace_events );
+    bool render_dlg( TraceEvents &trace_events );
+//    void add_graph_row( class GraphRows &rows );
+
+public:
+    std::string m_buf;
+    std::string m_err_str;
+    char m_name_buf[ 128 ];
+    char m_filter_buf[ 512 ];
+};
+
 class FrameMarkers
 {
 public:
@@ -495,6 +512,9 @@ public:
     uint32_t m_create_plot_eventid = INVALID_ID;
     CreatePlotDlg m_create_plot_dlg;
 
+    bool m_create_graph_row = false;
+    CreateGraphRowDlg m_create_graph_row_dlg;
+
     uint32_t m_create_filter_eventid = INVALID_ID;
     FrameMarkers m_frame_markers;
 
@@ -563,9 +583,6 @@ public:
         TraceEvents::loc_type_t mouse_over_row_type;
 
         std::vector< GraphRows::graph_rows_info_t > rows_hidden_rows;
-
-        char new_row_buf[ 512 ] = { 0 };
-        std::string new_row_errstr;
 
         // Graph start & length
         int64_t start_ts = 0;
