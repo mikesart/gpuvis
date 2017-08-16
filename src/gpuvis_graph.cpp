@@ -189,8 +189,8 @@ struct row_info_t
 {
     uint32_t id;
 
+    loc_type_t row_type;
     std::string row_name;
-    TraceEvents::loc_type_t row_type;
     const std::vector< uint32_t > *plocs;
 
     float scale_ts = 1.0f;
@@ -445,23 +445,23 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
             // Nothing to render
             rinfo.render_cb = nullptr;
         }
-        else if ( rinfo.row_type == TraceEvents::LOC_TYPE_Print )
+        else if ( rinfo.row_type == LOC_TYPE_Print )
         {
             // ftrace print row
             optid = get_comm_option_id( rinfo.row_name );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_print_timeline, win, _1 );
         }
-        else if ( rinfo.row_type == TraceEvents::LOC_TYPE_Plot )
+        else if ( rinfo.row_type == LOC_TYPE_Plot )
         {
             optid = get_comm_option_id( rinfo.row_name );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_plot, win, _1 );
         }
-        else if ( rinfo.row_type == TraceEvents::LOC_TYPE_Timeline )
+        else if ( rinfo.row_type == LOC_TYPE_Timeline )
         {
             optid = get_comm_option_id( rinfo.row_name );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_row_timeline, win, _1 );
         }
-        else if ( rinfo.row_type == TraceEvents::LOC_TYPE_Timeline_hw )
+        else if ( rinfo.row_type == LOC_TYPE_Timeline_hw )
         {
             rinfo.row_h = 2 * text_h;
             rinfo.render_cb = std::bind( &TraceWin::graph_render_hw_row_timeline, win, _1 );
@@ -470,7 +470,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         {
             // LOC_TYPE_Comm or LOC_TYPE_Tdopexpr hopefully
 
-            if ( rinfo.row_type == TraceEvents::LOC_TYPE_Comm )
+            if ( rinfo.row_type == LOC_TYPE_Comm )
             {
                 const char *pidstr = strrchr( row_name.c_str(), '-' );
 
@@ -1235,7 +1235,7 @@ void CreatePlotDlg::add_plot( GraphRows &rows )
         auto it = rows.m_graph_rows_list.begin() + print_row_index + 1;
 
         rows.m_graph_rows_list.insert( it,
-                { m_plot_name, m_plot_name, TraceEvents::LOC_TYPE_Plot, m_plot->m_plotdata.size(), false } );
+                { m_plot_name, m_plot_name, LOC_TYPE_Plot, m_plot->m_plotdata.size(), false } );
     }
 
     std::string val = string_format( "%s\t%s", m_plot->m_filter_str.c_str(), m_plot->m_scanf_str.c_str() );
@@ -1483,8 +1483,8 @@ bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
 
     if ( do_create && !disabled )
     {
-        const std::vector< uint32_t > *plocs = trace_events.get_tdopexpr_locs(
-                    m_filter_buf, &m_err_str );
+        const std::vector< uint32_t > *plocs = trace_events.get_locs(
+                    m_filter_buf, NULL, &m_err_str );
 
         ret = !!plocs;
         if ( !ret && m_err_str.empty() )
@@ -2469,10 +2469,10 @@ bool TraceWin::is_graph_row_zoomable()
     {
         if ( m_graph.zoom_row_name != m_graph.mouse_over_row_name )
         {
-            if ( m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Timeline ||
-                 m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Timeline_hw ||
-                 m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Plot ||
-                 m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Print )
+            if ( m_graph.mouse_over_row_type == LOC_TYPE_Timeline ||
+                 m_graph.mouse_over_row_type == LOC_TYPE_Timeline_hw ||
+                 m_graph.mouse_over_row_type == LOC_TYPE_Plot ||
+                 m_graph.mouse_over_row_type == LOC_TYPE_Print )
             {
                 return true;
             }
@@ -2486,7 +2486,7 @@ void TraceWin::zoom_graph_row()
 {
     m_graph.zoom_row_name = m_graph.mouse_over_row_name;
 
-    if ( m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Timeline_hw )
+    if ( m_graph.mouse_over_row_type == LOC_TYPE_Timeline_hw )
     {
         // Trim " hw" from end of string so, for example, we zoom "gfx" and not "gfx hw".
         m_graph.zoom_row_name.resize( m_graph.zoom_row_name.size() - 3 );
@@ -2786,7 +2786,7 @@ void TraceWin::graph_render()
         if ( !m_graph.popupmenu )
         {
             m_graph.mouse_over_row_name = "";
-            m_graph.mouse_over_row_type = TraceEvents::LOC_TYPE_Max;
+            m_graph.mouse_over_row_type = LOC_TYPE_Max;
         }
 
         // If we have a gfx graph and we're zoomed, render only that
@@ -2818,7 +2818,7 @@ void TraceWin::graph_render()
 
                 for ( row_info_t &ri : gi.row_info )
                 {
-                    bool is_timeline = ( ri.row_type == TraceEvents::LOC_TYPE_Timeline );
+                    bool is_timeline = ( ri.row_type == LOC_TYPE_Timeline );
 
                     if ( is_timeline == render_timelines )
                     {
@@ -3024,7 +3024,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         if ( ImGui::MenuItem( label.c_str() ) )
             m_graph.rows.show_row( m_graph.mouse_over_row_name, GraphRows::HIDE_ROW_AND_ALL_BELOW );
 
-        if ( m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Comm )
+        if ( m_graph.mouse_over_row_type == LOC_TYPE_Comm )
         {
             const tgid_info_t *tgid_info = m_trace_events.tgid_from_commstr( m_graph.mouse_over_row_name.c_str() );
 
@@ -3054,7 +3054,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             {
                 const tgid_info_t *tgid_info;
 
-                if ( ( entry.type == TraceEvents::LOC_TYPE_Comm ) &&
+                if ( ( entry.type == LOC_TYPE_Comm ) &&
                      ( tgid_info = m_trace_events.tgid_from_commstr( entry.row_name.c_str() ) ) )
                 {
                     if ( std::find( tgids_hidden.begin(), tgids_hidden.end(), tgid_info ) == tgids_hidden.end() )
@@ -3076,7 +3076,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
             for ( const GraphRows::graph_rows_info_t &entry : m_graph.rows_hidden_rows )
             {
-                const char *commstr = ( entry.type == TraceEvents::LOC_TYPE_Comm ) ?
+                const char *commstr = ( entry.type == LOC_TYPE_Comm ) ?
                             m_trace_events.tgidcomm_from_commstr( entry.row_name.c_str() ) :
                             entry.row_name.c_str();
                 const std::string label = string_format( "%s (%lu events)",
@@ -3103,7 +3103,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             {
                 if ( !entry.hidden && ( entry.row_name != m_graph.mouse_over_row_name ) )
                 {
-                    const char *commstr = ( entry.type == TraceEvents::LOC_TYPE_Comm ) ?
+                    const char *commstr = ( entry.type == LOC_TYPE_Comm ) ?
                                 m_trace_events.tgidcomm_from_commstr( entry.row_name.c_str() ) :
                                 entry.row_name.c_str();
                     if ( ImGui::MenuItem( commstr ) )
@@ -3365,7 +3365,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             s_opts().getb( OPT_ShowEventList );
 
     if ( !m_graph.mouse_over_row_name.empty() &&
-         ( m_graph.mouse_over_row_type == TraceEvents::LOC_TYPE_Comm ) )
+         ( m_graph.mouse_over_row_type == LOC_TYPE_Comm ) )
     {
         const std::string &row_name = m_graph.mouse_over_row_name;
         const char *commstr = m_trace_events.tgidcomm_from_commstr( row_name.c_str() );

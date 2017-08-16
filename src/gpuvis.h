@@ -30,6 +30,17 @@ class MainApp &s_app();
 
 class TraceEvents;
 
+enum loc_type_t
+{
+    LOC_TYPE_Comm,
+    LOC_TYPE_Tdopexpr,
+    LOC_TYPE_Print,
+    LOC_TYPE_Plot,
+    LOC_TYPE_Timeline,
+    LOC_TYPE_Timeline_hw,
+    LOC_TYPE_Max
+};
+
 class TraceLocations
 {
 public:
@@ -176,8 +187,10 @@ public:
 
 public:
     float m_scale = 1.0f;
+
     std::string m_buf;
     std::string m_err_str;
+
     char m_name_buf[ 128 ];
     char m_filter_buf[ 512 ];
 };
@@ -266,17 +279,7 @@ public:
 
     void remove_single_tgids();
 
-    enum loc_type_t
-    {
-        LOC_TYPE_Comm,
-        LOC_TYPE_Tdopexpr,
-        LOC_TYPE_Print,
-        LOC_TYPE_Plot,
-        LOC_TYPE_Timeline,
-        LOC_TYPE_Timeline_hw,
-        LOC_TYPE_Max
-    };
-    const std::vector< uint32_t > *get_locs( const char *name, loc_type_t *type = nullptr );
+    const std::vector< uint32_t > *get_locs( const char *name, loc_type_t *type = nullptr, std::string *errstr = nullptr );
 
     GraphPlot *get_plot_ptr( const char *plot_name )
     {
@@ -378,7 +381,7 @@ public:
     {
         std::string row_name;
         std::string row_filter;
-        TraceEvents::loc_type_t type;
+        loc_type_t type;
         size_t event_count;
         bool hidden;
     };
@@ -395,7 +398,7 @@ public:
     void add_row( const std::string &name, const std::string &filter, float scale );
     void move_row( const std::string &name_src, const std::string &name_dest );
 
-    void push_row( const std::string &name, TraceEvents::loc_type_t type, size_t event_count )
+    void push_row( const std::string &name, loc_type_t type, size_t event_count )
         { m_graph_rows_list.push_back( { name, name, type, event_count, false } ); }
 
     void show_tgid( const tgid_info_t *tgid_info, graph_rows_show_t show );
@@ -599,7 +602,7 @@ public:
         std::pair< int64_t, int64_t > zoom_loc = { INT64_MAX, INT64_MAX };
         std::string zoom_row_name;
         std::string mouse_over_row_name;
-        TraceEvents::loc_type_t mouse_over_row_type;
+        loc_type_t mouse_over_row_type;
 
         std::vector< GraphRows::graph_rows_info_t > rows_hidden_rows;
 

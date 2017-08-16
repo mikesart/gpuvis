@@ -1233,7 +1233,7 @@ void GraphRows::init( TraceEvents &trace_events )
     m_trace_events = &trace_events;
 
     // Order: gfx -> compute -> gfx hw -> compute hw -> sdma -> sdma hw
-    TraceEvents::loc_type_t type;
+    loc_type_t type;
     const std::vector< uint32_t > *plocs;
 
     if ( ( plocs = trace_events.get_locs( "gfx", &type ) ) )
@@ -1304,7 +1304,7 @@ void GraphRows::init( TraceEvents &trace_events )
 
                     if ( plot.init( trace_events, plot_name, plot_filter, plot_scanf ) )
                     {
-                        push_row( plot_name, TraceEvents::LOC_TYPE_Plot, plot.m_plotdata.size() );
+                        push_row( plot_name, LOC_TYPE_Plot, plot.m_plotdata.size() );
                     }
                 }
             }
@@ -1317,7 +1317,7 @@ void GraphRows::init( TraceEvents &trace_events )
         uint32_t hashval = item.first;
         const char *comm = trace_events.m_strpool.findstr( hashval );
 
-        comms.push_back( { comm, comm, TraceEvents::LOC_TYPE_Comm, item.second.size(), false } );
+        comms.push_back( { comm, comm, LOC_TYPE_Comm, item.second.size(), false } );
     }
 
     // Sort by tgids, count of events, and comm name...
@@ -1439,7 +1439,7 @@ void GraphRows::shutdown()
 
 void GraphRows::add_row( const std::string &name, const std::string &filter, float scale )
 {
-    TraceEvents::loc_type_t type;
+    loc_type_t type;
     const std::vector< uint32_t > *plocs = m_trace_events->get_locs( filter.c_str(), &type );
     size_t size = plocs ? plocs->size() : 0;
 
@@ -1450,8 +1450,8 @@ void GraphRows::add_row( const std::string &name, const std::string &filter, flo
     for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
     {
         // Add this new filter expression before the first comm / tdop expression event we find
-        if ( m_graph_rows_list[ i ].type == TraceEvents::LOC_TYPE_Tdopexpr ||
-             m_graph_rows_list[ i ].type == TraceEvents::LOC_TYPE_Comm )
+        if ( m_graph_rows_list[ i ].type == LOC_TYPE_Tdopexpr ||
+             m_graph_rows_list[ i ].type == LOC_TYPE_Comm )
         {
             m_graph_rows_list.insert( m_graph_rows_list.begin() + i,
                                         { name, filter, type, size, false } );
@@ -2262,14 +2262,18 @@ void TraceEvents::calculate_event_durations()
     }
 }
 
-const std::vector< uint32_t > *TraceEvents::get_locs( const char *name, loc_type_t *type )
+const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
+        loc_type_t *ptype, std::string *errstr )
 {
+    loc_type_t type = LOC_TYPE_Max;
     const std::vector< uint32_t > *plocs = NULL;
+
+    if ( errstr )
+        errstr->clear();
 
     if ( !strcmp( name, "print" ) )
     {
-        if ( type )
-            *type = LOC_TYPE_Print;
+        type = LOC_TYPE_Print;
         plocs = get_tdopexpr_locs( "$name=print" );
     }
     else if ( !strncmp( name, "plot:", 5 ) )
@@ -2278,8 +2282,7 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name, loc_type
 
         if ( plot )
         {
-            if ( type )
-                *type = LOC_TYPE_Plot;
+            type = LOC_TYPE_Plot;
             plocs = get_tdopexpr_locs( plot->m_filter_str.c_str() );
         }
     }
@@ -2292,37 +2295,34 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name, loc_type
             // Check for "gfx hw", "comp_1.1.1 hw", etc.
             uint32_t hashval = fnv_hashstr32( name, len - 3 );
 
-            if ( type )
-                *type = LOC_TYPE_Timeline_hw;
+            type = LOC_TYPE_Timeline_hw;
             plocs = m_timeline_locations.get_locations_u32( hashval );
         }
-        else
+
+        if ( !plocs )
         {
             // Check for regular comm type rows
-            if ( type )
-                *type = LOC_TYPE_Comm;
+            type = LOC_TYPE_Comm;
             plocs = get_comm_locs( name );
 
             if ( !plocs )
             {
                 // TDOP Expressions. Ie, $name = print, etc.
-                if ( type )
-                    *type = LOC_TYPE_Tdopexpr;
+                type = LOC_TYPE_Tdopexpr;
                 plocs = get_tdopexpr_locs( name );
 
                 if ( !plocs )
                 {
                     // Timelines: sdma0, gfx, comp_1.2.1, etc.
-                    if ( type )
-                        *type = LOC_TYPE_Timeline;
+                    type = LOC_TYPE_Timeline;
                     plocs = get_timeline_locs( name );
                 }
             }
         }
     }
 
-    if ( !plocs && type )
-        *type = LOC_TYPE_Max;
+    if ( ptype )
+        *ptype = plocs ? type : LOC_TYPE_Max;
     return plocs;
 }
 
@@ -2778,7 +2778,7 @@ void TraceWin::trace_render_info()
             const tgid_info_t *tgid_info = NULL;
             const char *row_name = info.row_name.c_str();
 
-            if ( info.type == TraceEvents::LOC_TYPE_Comm )
+            if ( info.type == LOC_TYPE_Comm )
                 tgid_info = m_trace_events.tgid_from_commstr( info.row_name.c_str() );
 
             if ( ( tree_tgid >= 0 ) &&
@@ -2818,7 +2818,7 @@ void TraceWin::trace_render_info()
                 ImGui::NextColumn();
                 ImGui::Text( "%lu", info.event_count );
 
-                if ( info.type == TraceEvents::LOC_TYPE_Plot )
+                if ( info.type == LOC_TYPE_Plot )
                 {
                     GraphPlot *plot = m_trace_events.get_plot_ptr( info.row_name.c_str() );
 
