@@ -188,7 +188,12 @@ typedef std::function< uint32_t ( class graph_info_t &gi ) > RenderGraphRowCallb
 struct row_info_t
 {
     uint32_t id;
+
     std::string row_name;
+    TraceEvents::loc_type_t row_type;
+    const std::vector< uint32_t > *plocs;
+
+    float scale_ts = 1.0f;
 
     uint32_t num_events = 0;
     float minval = FLT_MAX;
@@ -196,9 +201,6 @@ struct row_info_t
 
     float row_y;
     float row_h;
-
-    TraceEvents::loc_type_t row_type;
-    const std::vector< uint32_t > *plocs;
 
     // Only set for LOC_TYPE_Comm rows
     int pid = -1;
@@ -436,6 +438,13 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
         rinfo.row_name = row_name;
+        rinfo.scale_ts = grow.scale_ts;
+
+#if 1
+        //$ TODO: test scaling
+        if ( row_name == "RenderThread-25155" || row_name == "gfx" )
+            rinfo.scale_ts = 10.0f;
+#endif
 
         if ( !plocs )
         {
@@ -1232,7 +1241,7 @@ void CreatePlotDlg::add_plot( GraphRows &rows )
         auto it = rows.m_graph_rows_list.begin() + print_row_index + 1;
 
         rows.m_graph_rows_list.insert( it,
-                { TraceEvents::LOC_TYPE_Plot, m_plot->m_plotdata.size(), m_plot_name, false } );
+                { m_plot_name, TraceEvents::LOC_TYPE_Plot, m_plot->m_plotdata.size(), 1.0f, false } );
     }
 
     std::string val = string_format( "%s\t%s", m_plot->m_filter_str.c_str(), m_plot->m_scanf_str.c_str() );
@@ -1911,26 +1920,6 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
     event_renderer_t event_renderer( gi.y + 4, gi.w, gi.h - 8 );
     bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
 
-// #define SCALE_ROW
-#ifdef SCALE_ROW
-    float scale = 0.0f;
-
-    //$ TODO mikesart wip: scaling some rows differently than others
-    // Draw rectangle around area that rest of graph is shown at?
-    // Mouse hover time isn't correct anymore.
-    if ( gi.prinfo_cur->row_name == "RenderThread-25155" )
-    {
-        int64_t start_ts = m_graph.start_ts;
-        int64_t length_ts = m_graph.length_ts;
-
-        scale = 10.0f;
-
-        start_ts -= length_ts * scale;
-        length_ts += length_ts * 2 * scale;
-        gi.set_ts( this, start_ts, length_ts );
-    }
-#endif
-
     // Calculate how many pixels .0001ms takes
     const float dx = ( .0001f * NSECS_PER_MSEC ) * gi.w * gi.tsdxrcp;
 
@@ -2042,19 +2031,6 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
         }
     }
 
-#ifdef SCALE_ROW
-    if ( scale > 0.0f )
-    {
-        float x0 = gi.ts_to_screenx( m_graph.start_ts );
-        float x1 = gi.ts_to_screenx( m_graph.start_ts + m_graph.length_ts );
-
-        ImGui::GetWindowDrawList()->AddRectFilled(
-                    ImVec2( x0, gi.y ), ImVec2( x1, gi.y + gi.h ),
-                    0x5fffffff, 9.0f, 0x0f );
-        gi.set_ts( this, m_graph.start_ts, m_graph.length_ts );
-    }
-#endif
-
     return num_events;
 }
 
@@ -2080,8 +2056,39 @@ void TraceWin::graph_render_row( graph_info_t &gi )
                     gi.prinfo_cur->tgid_info->color );
     }
 
-    // Call the render callback function
-    gi.prinfo_cur->num_events = gi.prinfo_cur->render_cb ? gi.prinfo_cur->render_cb( gi ) : 0;
+    uint32_t num_events = 0;
+
+    if ( gi.prinfo_cur->render_cb )
+    {
+        float scale_ts = gi.prinfo_cur->scale_ts;
+
+        //$ TODO mikesart: Mouse hover time isn't correct when scaling rows...
+        if ( scale_ts != 1.0f )
+        {
+            int64_t start_ts = m_graph.start_ts;
+            int64_t length_ts = m_graph.length_ts;
+
+            start_ts -= length_ts * scale_ts;
+            length_ts += length_ts * 2 * scale_ts;
+            gi.set_ts( this, start_ts, length_ts );
+        }
+
+        // Call the render callback function
+        num_events = gi.prinfo_cur->render_cb( gi );
+
+        if ( scale_ts != 1.0f )
+        {
+            float x0 = gi.ts_to_screenx( m_graph.start_ts );
+            float x1 = gi.ts_to_screenx( m_graph.start_ts + m_graph.length_ts );
+
+            ImGui::GetWindowDrawList()->AddRectFilled(
+                        ImVec2( x0, gi.y ), ImVec2( x1, gi.y + gi.h ),
+                        0x5fffffff, 9.0f, 0x0f );
+            gi.set_ts( this, m_graph.start_ts, m_graph.length_ts );
+        }
+    }
+
+    gi.prinfo_cur->num_events = num_events;
 }
 
 void TraceWin::graph_render_time_ticks( class graph_info_t &gi )

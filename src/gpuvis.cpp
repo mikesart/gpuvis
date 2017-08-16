@@ -1237,7 +1237,7 @@ void GraphRows::init( TraceEvents &trace_events )
     const std::vector< uint32_t > *plocs;
 
     if ( ( plocs = trace_events.get_locs( "gfx", &type ) ) )
-        m_graph_rows_list.push_back( { type, plocs->size(), "gfx", false } );
+        push_row( "gfx", type, plocs->size() );
 
     // Andres: full list of compute rings is comp_[1-2].[0-3].[0-8]
     for ( int c0 = 1; c0 < 3; c0++)
@@ -1249,13 +1249,13 @@ void GraphRows::init( TraceEvents &trace_events )
                 std::string str = string_format( "comp_%d.%d.%d", c0, c1, c2 );
 
                 if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                    m_graph_rows_list.push_back( { type, plocs->size(), str, false } );
+                    push_row( str, type, plocs->size() );
             }
         }
     }
 
     if ( ( plocs = trace_events.get_locs( "gfx hw", &type ) ) )
-        m_graph_rows_list.push_back( { type, plocs->size(), "gfx hw", false } );
+        push_row( "gfx hw", type, plocs->size() );
 
     for ( int c0 = 1; c0 < 3; c0++)
     {
@@ -1266,23 +1266,23 @@ void GraphRows::init( TraceEvents &trace_events )
                 std::string str = string_format( "comp_%d.%d.%d hw", c0, c1, c2 );
 
                 if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                    m_graph_rows_list.push_back( { type, plocs->size(), str, false } );
+                    push_row( str, type, plocs->size() );
             }
         }
     }
 
     if ( ( plocs = trace_events.get_locs( "sdma0", &type ) ) )
-        m_graph_rows_list.push_back( { type, plocs->size(), "sdma0", false } );
+        push_row( "sdma0", type, plocs->size() );
     if ( ( plocs = trace_events.get_locs( "sdma1", &type ) ) )
-        m_graph_rows_list.push_back( { type, plocs->size(), "sdma1", false } );
+        push_row( "sdma1", type, plocs->size() );
 
     if ( ( plocs = trace_events.get_locs( "sdma0 hw", &type ) ) )
-        m_graph_rows_list.push_back( { type, plocs->size(), "sdma0 hw", false } );
+        push_row( "sdma0 hw", type, plocs->size() );
     if ( ( plocs = trace_events.get_locs( "sdma1 hw", &type ) ) )
-        m_graph_rows_list.push_back( { type, plocs->size(), "sdma1 hw", false } );
+        push_row( "sdma1 hw", type, plocs->size() );
 
     if ( ( plocs = trace_events.get_locs( "print", &type ) ) )
-        m_graph_rows_list.push_back( { type, plocs->size(), "print", false } );
+        push_row( "print", type, plocs->size() );
 
     {
         std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$graph_plots$" );
@@ -1304,8 +1304,7 @@ void GraphRows::init( TraceEvents &trace_events )
 
                     if ( plot.init( trace_events, plot_name, plot_filter, plot_scanf ) )
                     {
-                        m_graph_rows_list.push_back(
-                                { TraceEvents::LOC_TYPE_Plot, plot.m_plotdata.size(), plot_name, false } );
+                        push_row( plot_name, TraceEvents::LOC_TYPE_Plot, plot.m_plotdata.size() );
                     }
                 }
             }
@@ -1318,7 +1317,7 @@ void GraphRows::init( TraceEvents &trace_events )
         uint32_t hashval = item.first;
         const char *comm = trace_events.m_strpool.findstr( hashval );
 
-        comms.push_back( { TraceEvents::LOC_TYPE_Comm, item.second.size(), comm, false } );
+        comms.push_back( { comm, TraceEvents::LOC_TYPE_Comm, item.second.size(), 1.0f, false } );
     }
 
     // Sort by tgids, count of events, and comm name...
@@ -1335,7 +1334,8 @@ void GraphRows::init( TraceEvents &trace_events )
         {
             const std::string &rowname = entry.second;
 
-            add_row( rowname );
+            //$ TODO
+            add_row( rowname, 1.0f );
         }
     }
 
@@ -1375,7 +1375,7 @@ void GraphRows::init( TraceEvents &trace_events )
     }
 }
 
-void GraphRows::add_row( const std::string &name )
+void GraphRows::add_row( const std::string &name, float scale )
 {
     TraceEvents::loc_type_t type;
     const std::vector< uint32_t > *plocs = m_trace_events->get_locs( name.c_str(), &type );
@@ -1391,13 +1391,13 @@ void GraphRows::add_row( const std::string &name )
              m_graph_rows_list[ i ].type == TraceEvents::LOC_TYPE_Comm )
         {
             m_graph_rows_list.insert( m_graph_rows_list.begin() + i,
-                                        { type, size, name, false } );
+                                        { name, type, size, scale, false } );
             return;
         }
     }
 
     // Just add to the end.
-    m_graph_rows_list.push_back( { type, size, name, false } );
+    m_graph_rows_list.push_back( { name, type, size, scale, false } );
 }
 
 void GraphRows::move_row( const std::string &name_src, const std::string &name_dest )
@@ -2682,7 +2682,10 @@ bool TraceWin::render()
         m_create_graph_row_eventid = INVALID_ID;
     }
     if ( m_create_graph_row_dlg.render_dlg( m_trace_events ) )
-        m_graph.rows.add_row( m_create_graph_row_dlg.m_filter_buf );
+    {
+        m_graph.rows.add_row( m_create_graph_row_dlg.m_name_buf,
+                              m_create_graph_row_dlg.m_scale );
+    }
 
     // Filter events
     if ( is_valid_id( m_create_filter_eventid ) )

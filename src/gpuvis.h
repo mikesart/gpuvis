@@ -375,9 +375,10 @@ public:
 
     struct graph_rows_info_t
     {
+        std::string row_name;
         TraceEvents::loc_type_t type;
         size_t event_count;
-        std::string row_name;
+        float scale_ts;
         bool hidden;
     };
     const std::vector< graph_rows_info_t > get_hidden_rows_list();
@@ -390,8 +391,11 @@ public:
         HIDE_ROW_AND_ALL_BELOW
     };
     void show_row( const std::string &name, graph_rows_show_t show );
-    void add_row( const std::string &name );
+    void add_row( const std::string &name, float scale );
     void move_row( const std::string &name_src, const std::string &name_dest );
+
+    void push_row( const std::string &name, TraceEvents::loc_type_t type, size_t event_count )
+        { m_graph_rows_list.push_back( { name, type, event_count, 1.0f, false } ); }
 
     void show_tgid( const tgid_info_t *tgid_info, graph_rows_show_t show );
 
