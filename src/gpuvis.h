@@ -181,7 +181,10 @@ public:
     CreateGraphRowDlg() {}
     ~CreateGraphRowDlg() {}
 
-    bool init( TraceEvents &trace_events, uint32_t eventid );
+    void init();
+    void shutdown();
+
+    bool show_dlg( TraceEvents &trace_events, uint32_t eventid );
     bool render_dlg( TraceEvents &trace_events );
 
 public:
@@ -192,6 +195,8 @@ public:
 
     char m_name_buf[ 128 ];
     char m_filter_buf[ 512 ];
+
+    std::vector< std::string > m_previous_filters;
 };
 
 class FrameMarkers

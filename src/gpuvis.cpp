@@ -2433,6 +2433,7 @@ TraceWin::TraceWin( TraceEvents &trace_events, std::string &title ) :
     m_graph.saved_locs.resize( action_graph_save_location5 - action_graph_save_location1 + 1 );
 
     m_frame_markers.init();
+    m_create_graph_row_dlg.init();
 }
 
 TraceWin::~TraceWin()
@@ -2442,6 +2443,7 @@ TraceWin::~TraceWin()
     m_graph.rows.shutdown();
 
     m_frame_markers.shutdown();
+    m_create_graph_row_dlg.shutdown();
 }
 
 bool TraceWin::render()
@@ -2722,7 +2724,7 @@ bool TraceWin::render()
     // Graph rows
     if ( is_valid_id( m_create_graph_row_eventid ) )
     {
-        m_create_graph_row_dlg.init( m_trace_events, m_create_graph_row_eventid );
+        m_create_graph_row_dlg.show_dlg( m_trace_events, m_create_graph_row_eventid );
         m_create_graph_row_eventid = INVALID_ID;
     }
     if ( m_create_graph_row_dlg.render_dlg( m_trace_events ) )

@@ -1358,7 +1358,36 @@ bool ParsePlotStr::parse( const char *buf )
     return false;
 }
 
-bool CreateGraphRowDlg::init( TraceEvents &trace_events, uint32_t eventid )
+void CreateGraphRowDlg::init()
+{
+    std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$graphrow_filters$" );
+
+    for ( const INIEntry &entry : entries )
+        m_previous_filters.push_back( entry.second );
+
+    if ( m_previous_filters.empty() )
+    {
+        // Add some default filters
+        m_previous_filters.push_back( "$name = drm_vblank_event && $crtc = 0" );
+        m_previous_filters.push_back( "$name = drm_vblank_event && $crtc = 1" );
+    }
+
+}
+
+void CreateGraphRowDlg::shutdown()
+{
+    for ( size_t i = 0; i < m_previous_filters.size(); i++ )
+    {
+        char key[ 32 ];
+        const std::string &value = m_previous_filters[ i ];
+
+        snprintf_safe( key, "%02lu", i );
+
+        s_ini().PutStr( key, value.c_str(), "$graphrow_filters$" );
+    }
+}
+
+bool CreateGraphRowDlg::show_dlg( TraceEvents &trace_events, uint32_t eventid )
 {
     m_scale = 1.0f;
 
@@ -1371,7 +1400,6 @@ bool CreateGraphRowDlg::init( TraceEvents &trace_events, uint32_t eventid )
     }
     else
     {
-        //$ TODO: Grab a previous filter?
         strcpy_safe( m_name_buf, "<New Graph Row Name>" );
         strcpy_safe( m_filter_buf, "<Enter Filter Expression>" );
     }
@@ -1439,22 +1467,7 @@ bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
 
         ImGuiSelectableFlags flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_DontClosePopups;
 
-        //$ TODO
-        std::vector< std::string > previous_filters;
-        previous_filters.push_back( "blah0" );
-        previous_filters.push_back( "blah1" );
-        previous_filters.push_back( "blah2" );
-        previous_filters.push_back( "blah3" );
-        previous_filters.push_back( "foobar0" );
-        previous_filters.push_back( "foobar1" );
-        previous_filters.push_back( "foobar2" );
-        previous_filters.push_back( "foobar3" );
-        previous_filters.push_back( "xxyzw0" );
-        previous_filters.push_back( "xxyzw1" );
-        previous_filters.push_back( "xxyzw2" );
-        previous_filters.push_back( "xxyzw3" );
-
-        for ( auto i : previous_filters )
+        for ( auto i : m_previous_filters )
         {
             const char *str0 = i.c_str();
 
@@ -1470,7 +1483,6 @@ bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
         ImGui::EndChild();
     }
 
-    //$ TODO: Make sure name_buf doesn't have <> chars in it?
     bool disabled = !m_name_buf[ 0 ] || !m_filter_buf[ 0 ];
 
     ImGui::PushStyleColor( ImGuiCol_Text,
@@ -1487,8 +1499,26 @@ bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
                     m_filter_buf, NULL, &m_err_str );
 
         ret = !!plocs;
-        if ( !ret && m_err_str.empty() )
+        if ( ret )
+        {
+            // Try to find this filter pair in our previous filters array
+            auto idx = std::find( m_previous_filters.begin(), m_previous_filters.end(), m_filter_buf );
+
+            // Erase the one we found
+            if ( idx != m_previous_filters.end() )
+                m_previous_filters.erase( idx );
+
+            // Insert it at the beginning
+            m_previous_filters.insert( m_previous_filters.begin(), m_filter_buf );
+
+            // Make sure we don't go over ~ 20 filters
+            if ( m_previous_filters.size() > 20 )
+                m_previous_filters.resize( 20 );
+        }
+        else if ( m_err_str.empty() )
+        {
             m_err_str = "ERROR: No events found.";
+        }
     }
 
     ImGui::SameLine();
