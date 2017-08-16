@@ -3151,6 +3151,17 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     ImGui::Separator();
 
+    if ( !m_graph.mouse_over_row_name.empty() )
+    {
+        float valf = m_graph.rows.get_row_scale( m_graph.mouse_over_row_name );
+        std::string label = string_format( "Zoom row '%s' out: %sx", m_graph.mouse_over_row_name.c_str(), "%.02f" );
+
+        if ( ImGui::SliderFloat( "##opt_valf", &valf, 1.0f, 100.0f, label.c_str() ) )
+            m_graph.rows.m_graph_row_scale_ts.m_map[ m_graph.mouse_over_row_name ] = string_format( "%.02f", valf );
+    }
+
+    ImGui::Separator();
+
     // Set / Goto / Clear Markers
     {
         int idx = graph_marker_menuitem( "Set Marker", false, action_graph_set_markerA );
