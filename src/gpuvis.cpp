@@ -1380,6 +1380,32 @@ void GraphRows::init( TraceEvents &trace_events )
     }
 }
 
+void GraphRows::shutdown()
+{
+    uint32_t num = 0;
+
+    std::string str = string_implode( m_graph_rows_hide, "," );
+    s_ini().PutStr( "graph_rows_hide_str", str.c_str() );
+
+    for ( auto i : m_graph_rows_add.m_map )
+    {
+        char key[ 32 ];
+        const std::string &val = i.first + "\t" + i.second;
+
+        snprintf_safe( key, "%02lu", num++ );
+        s_ini().PutStr( key, val.c_str(), "$graph_rows_add$" );
+    }
+
+    for ( const auto &item : m_graph_rows_move.m_map )
+    {
+        std::string key = item.first;
+
+        // Can't have equal signs in our ini keys...
+        string_replace_str( key, "=", "**equalsign**" );
+        s_ini().PutStr( key.c_str(), item.second.c_str(), "$graph_rows_move_after$" );
+    }
+}
+
 void GraphRows::add_row( const std::string &name, const std::string &filter, float scale )
 {
     TraceEvents::loc_type_t type;
@@ -2381,27 +2407,7 @@ TraceWin::~TraceWin()
 {
     s_ini().PutStr( "event_filter_buf", m_eventlist.filter_buf );
 
-    std::string str = string_implode( m_graph.rows.m_graph_rows_hide, "," );
-    s_ini().PutStr( "graph_rows_hide_str", str.c_str() );
-
-    uint32_t num = 0;
-    for ( auto i : m_graph.rows.m_graph_rows_add.m_map )
-    {
-        char key[ 32 ];
-        const std::string &val = i.first + "\t" + i.second;
-
-        snprintf_safe( key, "%02lu", num++ );
-        s_ini().PutStr( key, val.c_str(), "$graph_rows_add$" );
-    }
-
-    for ( const auto &item : m_graph.rows.m_graph_rows_move.m_map )
-    {
-        std::string key = item.first;
-
-        // Can't have equal signs in our ini keys...
-        string_replace_str( key, "=", "**equalsign**" );
-        s_ini().PutStr( key.c_str(), item.second.c_str(), "$graph_rows_move_after$" );
-    }
+    m_graph.rows.shutdown();
 
     m_frame_markers.shutdown();
 }

@@ -372,6 +372,7 @@ public:
 public:
     // Initialize graph rows
     void init( TraceEvents &trace_events );
+    void shutdown();
 
     struct graph_rows_info_t
     {
