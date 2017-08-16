@@ -410,6 +410,14 @@ std::vector< INIEntry > CIniFile::GetSectionEntries( const char *section )
     return GetIniSectionEntries( m_inifile, section );
 }
 
+void CIniFile::ClearSection( const char *section )
+{
+    INIFile::iterator iSection = m_inifile.find( std::string( section ) );
+
+    if ( iSection != m_inifile.end() )
+        m_inifile.erase( iSection );
+}
+
 std::string util_get_config_dir( const char *dirname )
 {
 #ifdef WIN32

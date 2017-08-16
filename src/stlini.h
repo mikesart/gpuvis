@@ -57,6 +57,8 @@ public:
     std::vector< std::string > GetSections();
     std::vector< INIEntry > GetSectionEntries( const char *section );
 
+    void ClearSection( const char *section );
+
 public:
     INIFile m_inifile;
     std::string m_filename;

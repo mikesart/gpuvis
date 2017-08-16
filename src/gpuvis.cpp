@@ -1317,7 +1317,7 @@ void GraphRows::init( TraceEvents &trace_events )
         uint32_t hashval = item.first;
         const char *comm = trace_events.m_strpool.findstr( hashval );
 
-        comms.push_back( { comm, comm, TraceEvents::LOC_TYPE_Comm, item.second.size(), 1.0f, false } );
+        comms.push_back( { comm, comm, TraceEvents::LOC_TYPE_Comm, item.second.size(), false } );
     }
 
     // Sort by tgids, count of events, and comm name...
@@ -1355,13 +1355,26 @@ void GraphRows::init( TraceEvents &trace_events )
             {
                 for ( const INIEntry &entry : entries )
                 {
-                    std::string name_src = entry.first;
+                    const std::vector< std::string > args = string_explode( entry.second, '\t' );
 
-                    // Undo any = replacements we did when saving to ini file
-                    string_replace_str( name_src, "**equalsign**", "=" );
-
-                    move_row( name_src, entry.second );
+                    if ( args.size() == 2 )
+                        move_row( args[ 0 ], args[ 1 ] );
                 }
+            }
+        }
+    }
+
+    // Row ts scaling
+    {
+        std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$graph_rows_scale_ts$" );
+
+        for ( auto entry : entries )
+        {
+            const std::vector< std::string > args = string_explode( entry.second, '\t' );
+
+            if ( args.size() == 2 )
+            {
+                m_graph_row_scale_ts.m_map[ args[ 0 ] ] = args[ 1 ];
             }
         }
     }
@@ -1382,12 +1395,14 @@ void GraphRows::init( TraceEvents &trace_events )
 
 void GraphRows::shutdown()
 {
-    uint32_t num = 0;
+    uint32_t num;
 
     std::string str = string_implode( m_graph_rows_hide, "\t" );
     s_ini().PutStr( "graph_rows_hide_str", str.c_str() );
 
-    for ( auto i : m_graph_rows_add.m_map )
+    num = 0;
+    s_ini().ClearSection( "$graph_rows_add$" );
+    for ( const auto &i : m_graph_rows_add.m_map )
     {
         char key[ 32 ];
         const std::string &val = i.first + "\t" + i.second;
@@ -1396,13 +1411,29 @@ void GraphRows::shutdown()
         s_ini().PutStr( key, val.c_str(), "$graph_rows_add$" );
     }
 
-    for ( const auto &item : m_graph_rows_move.m_map )
+    num = 0;
+    s_ini().ClearSection( "$graph_rows_move_after$" );
+    for ( const auto &i : m_graph_rows_move.m_map )
     {
-        std::string key = item.first;
+        char key[ 32 ];
+        const std::string &val = i.first + "\t" + i.second;
 
-        // Can't have equal signs in our ini keys...
-        string_replace_str( key, "=", "**equalsign**" );
-        s_ini().PutStr( key.c_str(), item.second.c_str(), "$graph_rows_move_after$" );
+        snprintf_safe( key, "%02lu", num++ );
+        s_ini().PutStr( key, val.c_str(), "$graph_rows_move_after$" );
+    }
+
+    num = 0;
+    s_ini().ClearSection( "$graph_rows_scale_ts$" );
+    for ( const auto &i : m_graph_row_scale_ts.m_map )
+    {
+        if ( atof( i.second.c_str() ) != 1.0f )
+        {
+            char key[ 32 ];
+            const std::string &val = i.first + "\t" + i.second;
+
+            snprintf_safe( key, "%02lu", num++ );
+            s_ini().PutStr( key, val.c_str(), "$graph_rows_scale_ts$" );
+        }
     }
 }
 
@@ -1414,6 +1445,7 @@ void GraphRows::add_row( const std::string &name, const std::string &filter, flo
 
     // Add expression to our added rows list
     m_graph_rows_add.m_map[ name ] = filter;
+    m_graph_row_scale_ts.m_map[ name ] = string_format( "%.2f", scale );
 
     for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
     {
@@ -1422,13 +1454,13 @@ void GraphRows::add_row( const std::string &name, const std::string &filter, flo
              m_graph_rows_list[ i ].type == TraceEvents::LOC_TYPE_Comm )
         {
             m_graph_rows_list.insert( m_graph_rows_list.begin() + i,
-                                        { name, filter, type, size, scale, false } );
+                                        { name, filter, type, size, false } );
             return;
         }
     }
 
     // Just add to the end.
-    m_graph_rows_list.push_back( { name, filter, type, size, scale, false } );
+    m_graph_rows_list.push_back( { name, filter, type, size, false } );
 }
 
 void GraphRows::move_row( const std::string &name_src, const std::string &name_dest )

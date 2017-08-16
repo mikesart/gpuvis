@@ -438,13 +438,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
         rinfo.row_name = row_name;
-        rinfo.scale_ts = grow.scale_ts;
-
-#if 1
-        //$ TODO: test scaling
-        if ( row_name == "RenderThread-25155" || row_name == "gfx" )
-            rinfo.scale_ts = 10.0f;
-#endif
+        rinfo.scale_ts = win->m_graph.rows.get_row_scale( row_name );
 
         if ( !plocs )
         {
@@ -1241,7 +1235,7 @@ void CreatePlotDlg::add_plot( GraphRows &rows )
         auto it = rows.m_graph_rows_list.begin() + print_row_index + 1;
 
         rows.m_graph_rows_list.insert( it,
-                { m_plot_name, m_plot_name, TraceEvents::LOC_TYPE_Plot, m_plot->m_plotdata.size(), 1.0f, false } );
+                { m_plot_name, m_plot_name, TraceEvents::LOC_TYPE_Plot, m_plot->m_plotdata.size(), false } );
     }
 
     std::string val = string_format( "%s\t%s", m_plot->m_filter_str.c_str(), m_plot->m_scanf_str.c_str() );
@@ -2067,6 +2061,8 @@ void TraceWin::graph_render_row( graph_info_t &gi )
         {
             int64_t start_ts = m_graph.start_ts;
             int64_t length_ts = m_graph.length_ts;
+
+            scale_ts = Clamp< float >( scale_ts, 0.1f, 100.0f );
 
             start_ts -= length_ts * scale_ts;
             length_ts += length_ts * 2 * scale_ts;

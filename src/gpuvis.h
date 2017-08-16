@@ -380,7 +380,6 @@ public:
         std::string row_filter;
         TraceEvents::loc_type_t type;
         size_t event_count;
-        float scale_ts;
         bool hidden;
     };
     const std::vector< graph_rows_info_t > get_hidden_rows_list();
@@ -397,24 +396,37 @@ public:
     void move_row( const std::string &name_src, const std::string &name_dest );
 
     void push_row( const std::string &name, TraceEvents::loc_type_t type, size_t event_count )
-        { m_graph_rows_list.push_back( { name, name, type, event_count, 1.0f, false } ); }
+        { m_graph_rows_list.push_back( { name, name, type, event_count, false } ); }
 
     void show_tgid( const tgid_info_t *tgid_info, graph_rows_show_t show );
 
     // Search in m_graph_rows_list for name. Returns index or -1 if not found.
     size_t find_row( const std::string &name, size_t not_found_val = ( size_t )-1 );
 
+    float get_row_scale( const std::string &name )
+    {
+        const std::string *scale_ts_str = m_graph_row_scale_ts.get_val( name );
+
+        return scale_ts_str ? atof( scale_ts_str->c_str() ) : 1.0f;
+    }
+
 public:
     TraceEvents *m_trace_events = nullptr;
 
     // List of graph rows
     std::vector< graph_rows_info_t > m_graph_rows_list;
+
     // List of graph rows we need to hide
     std::vector< std::string > m_graph_rows_hide;
+
     // List of name / filter expressions we need to add to graph rows list
     util_umap< std::string, std::string > m_graph_rows_add;
+
     // Map of user row moves: row src --> row dst
     util_umap< std::string, std::string > m_graph_rows_move;
+
+    // Map of user row timestamp scales
+    util_umap< std::string, std::string > m_graph_row_scale_ts;
 };
 
 class TraceWin
