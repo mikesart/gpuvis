@@ -1369,7 +1369,7 @@ void GraphRows::init( TraceEvents &trace_events )
     std::string graph_rows_hide_str = s_ini().GetStr( "graph_rows_hide_str", "" );
     if ( !graph_rows_hide_str.empty() )
     {
-        m_graph_rows_hide = string_explode( graph_rows_hide_str, ',' );
+        m_graph_rows_hide = string_explode( graph_rows_hide_str, '\t' );
 
         for ( graph_rows_info_t &row_info : m_graph_rows_list )
         {
@@ -1384,7 +1384,7 @@ void GraphRows::shutdown()
 {
     uint32_t num = 0;
 
-    std::string str = string_implode( m_graph_rows_hide, "," );
+    std::string str = string_implode( m_graph_rows_hide, "\t" );
     s_ini().PutStr( "graph_rows_hide_str", str.c_str() );
 
     for ( auto i : m_graph_rows_add.m_map )
