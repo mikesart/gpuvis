@@ -1317,7 +1317,7 @@ void GraphRows::init( TraceEvents &trace_events )
         uint32_t hashval = item.first;
         const char *comm = trace_events.m_strpool.findstr( hashval );
 
-        comms.push_back( { comm, TraceEvents::LOC_TYPE_Comm, item.second.size(), 1.0f, false } );
+        comms.push_back( { comm, comm, TraceEvents::LOC_TYPE_Comm, item.second.size(), 1.0f, false } );
     }
 
     // Sort by tgids, count of events, and comm name...
@@ -1332,10 +1332,15 @@ void GraphRows::init( TraceEvents &trace_events )
         std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$graph_rows_add$" );
         for ( const INIEntry &entry : entries )
         {
-            const std::string &rowname = entry.second;
+            const std::vector< std::string > args = string_explode( entry.second, '\t' );
 
-            //$ TODO
-            add_row( rowname, 1.0f );
+            if ( args.size() == 2 )
+            {
+                const std::string &name = args[ 0 ];
+                const std::string &filter = args[ 1 ];
+
+                add_row( name, filter, 1.0f );
+            }
         }
     }
 
@@ -1375,14 +1380,14 @@ void GraphRows::init( TraceEvents &trace_events )
     }
 }
 
-void GraphRows::add_row( const std::string &name, float scale )
+void GraphRows::add_row( const std::string &name, const std::string &filter, float scale )
 {
     TraceEvents::loc_type_t type;
-    const std::vector< uint32_t > *plocs = m_trace_events->get_locs( name.c_str(), &type );
+    const std::vector< uint32_t > *plocs = m_trace_events->get_locs( filter.c_str(), &type );
     size_t size = plocs ? plocs->size() : 0;
 
     // Add expression to our added rows list
-    m_graph_rows_add.push_back( name );
+    m_graph_rows_add.m_map[ name ] = filter;
 
     for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
     {
@@ -1391,13 +1396,13 @@ void GraphRows::add_row( const std::string &name, float scale )
              m_graph_rows_list[ i ].type == TraceEvents::LOC_TYPE_Comm )
         {
             m_graph_rows_list.insert( m_graph_rows_list.begin() + i,
-                                        { name, type, size, scale, false } );
+                                        { name, filter, type, size, scale, false } );
             return;
         }
     }
 
     // Just add to the end.
-    m_graph_rows_list.push_back( { name, type, size, scale, false } );
+    m_graph_rows_list.push_back( { name, filter, type, size, scale, false } );
 }
 
 void GraphRows::move_row( const std::string &name_src, const std::string &name_dest )
@@ -2379,13 +2384,14 @@ TraceWin::~TraceWin()
     std::string str = string_implode( m_graph.rows.m_graph_rows_hide, "," );
     s_ini().PutStr( "graph_rows_hide_str", str.c_str() );
 
-    for ( size_t i = 0; i < m_graph.rows.m_graph_rows_add.size(); i++ )
+    uint32_t num = 0;
+    for ( auto i : m_graph.rows.m_graph_rows_add.m_map )
     {
         char key[ 32 ];
-        const std::string &rowname = m_graph.rows.m_graph_rows_add[ i ];
+        const std::string &val = i.first + "\t" + i.second;
 
-        snprintf_safe( key, "%02lu", i );
-        s_ini().PutStr( key, rowname.c_str(), "$graph_rows_add$" );
+        snprintf_safe( key, "%02lu", num++ );
+        s_ini().PutStr( key, val.c_str(), "$graph_rows_add$" );
     }
 
     for ( const auto &item : m_graph.rows.m_graph_rows_move.m_map )
@@ -2684,6 +2690,7 @@ bool TraceWin::render()
     if ( m_create_graph_row_dlg.render_dlg( m_trace_events ) )
     {
         m_graph.rows.add_row( m_create_graph_row_dlg.m_name_buf,
+                              m_create_graph_row_dlg.m_filter_buf,
                               m_create_graph_row_dlg.m_scale );
     }
 

@@ -433,7 +433,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         if ( grow.hidden )
             continue;
 
-        plocs = win->m_trace_events.get_locs( row_name.c_str(), &rinfo.row_type );
+        plocs = win->m_trace_events.get_locs( grow.row_filter.c_str(), &rinfo.row_type );
 
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
@@ -1241,7 +1241,7 @@ void CreatePlotDlg::add_plot( GraphRows &rows )
         auto it = rows.m_graph_rows_list.begin() + print_row_index + 1;
 
         rows.m_graph_rows_list.insert( it,
-                { m_plot_name, TraceEvents::LOC_TYPE_Plot, m_plot->m_plotdata.size(), 1.0f, false } );
+                { m_plot_name, m_plot_name, TraceEvents::LOC_TYPE_Plot, m_plot->m_plotdata.size(), 1.0f, false } );
     }
 
     std::string val = string_format( "%s\t%s", m_plot->m_filter_str.c_str(), m_plot->m_scanf_str.c_str() );

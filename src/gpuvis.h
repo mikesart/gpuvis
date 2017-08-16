@@ -376,6 +376,7 @@ public:
     struct graph_rows_info_t
     {
         std::string row_name;
+        std::string row_filter;
         TraceEvents::loc_type_t type;
         size_t event_count;
         float scale_ts;
@@ -391,11 +392,11 @@ public:
         HIDE_ROW_AND_ALL_BELOW
     };
     void show_row( const std::string &name, graph_rows_show_t show );
-    void add_row( const std::string &name, float scale );
+    void add_row( const std::string &name, const std::string &filter, float scale );
     void move_row( const std::string &name_src, const std::string &name_dest );
 
     void push_row( const std::string &name, TraceEvents::loc_type_t type, size_t event_count )
-        { m_graph_rows_list.push_back( { name, type, event_count, 1.0f, false } ); }
+        { m_graph_rows_list.push_back( { name, name, type, event_count, 1.0f, false } ); }
 
     void show_tgid( const tgid_info_t *tgid_info, graph_rows_show_t show );
 
@@ -409,8 +410,8 @@ public:
     std::vector< graph_rows_info_t > m_graph_rows_list;
     // List of graph rows we need to hide
     std::vector< std::string > m_graph_rows_hide;
-    // List of filter expression we need to add to graph rows list
-    std::vector< std::string > m_graph_rows_add;
+    // List of name / filter expressions we need to add to graph rows list
+    util_umap< std::string, std::string > m_graph_rows_add;
     // Map of user row moves: row src --> row dst
     util_umap< std::string, std::string > m_graph_rows_move;
 };
