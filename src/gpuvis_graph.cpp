@@ -1389,8 +1389,6 @@ void CreateGraphRowDlg::shutdown()
 
 bool CreateGraphRowDlg::show_dlg( TraceEvents &trace_events, uint32_t eventid )
 {
-    m_scale = 1.0f;
-
     if ( is_valid_id( eventid ) && ( eventid < trace_events.m_events.size() ) )
     {
         const trace_event_t &event = trace_events.m_events[ eventid ];
@@ -1441,25 +1439,6 @@ bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
     if ( !m_err_str.empty() )
         ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_err_str.c_str() );
 
-    // Row time scale slider
-    {
-        bool hovered = false;
-
-        ImGui::AlignFirstTextHeightToWidgets();
-        ImGui::Text( "%s", "Row Time Scale: " );
-        hovered |= ImGui::IsItemHovered();
-        ImGui::SameLine();
-        ImGui::PushItemWidth( imgui_scale( w / 2.0f ) );
-        ImGui::SliderFloat( "##scale_ts_val", &m_scale, 1.0f, 100.0f, "%.02f" );
-        ImGui::PopItemWidth();
-        hovered |= ImGui::IsItemHovered();
-
-        if ( hovered )
-        {
-            ImGui::SetTooltip( "%s", "Row Time Scale tooltip" );
-        }
-    }
-
     if ( ImGui::CollapsingHeader( "Previous Filters", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
         ImGui::BeginChild( "previous_filters", ImVec2( 0.0f, imgui_scale( 150.0f ) ) );
@@ -1499,6 +1478,7 @@ bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
                     m_filter_buf, NULL, &m_err_str );
 
         ret = !!plocs;
+
         if ( ret )
         {
             // Try to find this filter pair in our previous filters array

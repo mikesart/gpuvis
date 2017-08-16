@@ -188,8 +188,6 @@ public:
     bool render_dlg( TraceEvents &trace_events );
 
 public:
-    float m_scale = 1.0f;
-
     std::string m_buf;
     std::string m_err_str;
 
@@ -399,7 +397,7 @@ public:
         HIDE_ROW_AND_ALL_BELOW
     };
     void show_row( const std::string &name, graph_rows_show_t show );
-    void add_row( const std::string &name, const std::string &filter, float scale );
+    void add_row( const std::string &name, const std::string &filter, float scale = 1.0f );
     void move_row( const std::string &name_src, const std::string &name_dest );
 
     void push_row( const std::string &name, loc_type_t type, size_t event_count )

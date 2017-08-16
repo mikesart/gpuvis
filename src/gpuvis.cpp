@@ -2730,8 +2730,7 @@ bool TraceWin::render()
     if ( m_create_graph_row_dlg.render_dlg( m_trace_events ) )
     {
         m_graph.rows.add_row( m_create_graph_row_dlg.m_name_buf,
-                              m_create_graph_row_dlg.m_filter_buf,
-                              m_create_graph_row_dlg.m_scale );
+                              m_create_graph_row_dlg.m_filter_buf );
     }
 
     // Filter events
