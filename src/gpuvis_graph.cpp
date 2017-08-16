@@ -878,7 +878,7 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
 
     if ( ImGui::CollapsingHeader( "Previous Filters", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        ImGui::BeginChild( "eventlistbox", ImVec2( 0.0f, imgui_scale( 150.0f ) ) );
+        ImGui::BeginChild( "previous_filters", ImVec2( 0.0f, imgui_scale( 150.0f ) ) );
         ImGui::Indent();
 
         ImGuiSelectableFlags flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_DontClosePopups;
@@ -1173,7 +1173,7 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
 
     plot_input_text( "Plot Filter:", m_plot_filter_buf, x, w );
 
-    if ( m_plot_err_str.size() )
+    if ( !m_plot_err_str.empty() )
         ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_plot_err_str.c_str() );
 
     plot_input_text( "Plot Scan Str:", m_plot_scanf_buf, x, w );
@@ -1186,7 +1186,6 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
 
     if ( ImGui::Button( "Create", button_size ) && !disabled )
     {
-        m_plot_err_str.clear();
         const std::vector< uint32_t > *plocs = trace_events.get_tdopexpr_locs(
                     m_plot_filter_buf, &m_plot_err_str );
 
@@ -1356,10 +1355,23 @@ bool ParsePlotStr::parse( const char *buf )
     return false;
 }
 
-bool CreateGraphRowDlg::init( TraceEvents &trace_events )
+bool CreateGraphRowDlg::init( TraceEvents &trace_events, uint32_t eventid )
 {
-    strcpy_safe( m_name_buf, "<New Graph Row Name>" );
-    strcpy_safe( m_filter_buf, "<Enter Filter Expression>" );
+    m_scale = 1.0f;
+
+    if ( is_valid_id( eventid ) && ( eventid < trace_events.m_events.size() ) )
+    {
+        const trace_event_t &event = trace_events.m_events[ eventid ];
+
+        snprintf_safe( m_name_buf, "%s", event.comm );
+        snprintf_safe( m_filter_buf, "$comm = \"%s\"", event.comm );
+    }
+    else
+    {
+        //$ TODO: Grab a previous filter?
+        strcpy_safe( m_name_buf, "<New Graph Row Name>" );
+        strcpy_safe( m_filter_buf, "<Enter Filter Expression>" );
+    }
 
     ImGui::OpenPopup( "Add New Graph Row" );
     return false;
@@ -1372,17 +1384,15 @@ bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
 
     bool ret = false;
     float w = imgui_scale( 350.0f );
+    const char row_name[] = "Row Name:  ";
+    const char row_filter[] = "Row Filter:  ";
     const ImVec2 button_size = { imgui_scale( 120.0f ), 0.0f };
-    const ImVec2 text_size = ImGui::CalcTextSize( "Row Filter: " );
+    const ImVec2 text_size = ImGui::CalcTextSize( row_filter );
     float x = ImGui::GetCursorPos().x + text_size.x;
 
-    struct PlotNameFilter {
-        static int FilterPunct( ImGuiTextEditCallbackData *data )
-                { return ( ( data->EventChar < 256 ) && ispunct( data->EventChar ) ); }
-    };
-    plot_input_text( "Row Name: ", m_name_buf, x, w, PlotNameFilter::FilterPunct );
+    plot_input_text( row_name, m_name_buf, x, w );
 
-    plot_input_text( "Row Filter: ", m_filter_buf, x, w );
+    plot_input_text( row_filter, m_filter_buf, x, w );
     if ( ImGui::IsItemHovered() )
     {
         std::string tooltip;
@@ -1397,36 +1407,86 @@ bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
         ImGui::SetTooltip( "%s", tooltip.c_str() );
     }
 
-    if ( m_err_str.size() )
+    if ( !m_err_str.empty() )
         ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_err_str.c_str() );
 
-    ImGui::NewLine();
-
-    //$ TODO: Add previous filters in here like with Frame Markers?
-    //$ TODO: Make sure name_buf doesn't have <> chars in it?
-    bool disabled = !m_name_buf[ 0 ] || !m_filter_buf[ 0 ];
-    if ( disabled )
-        ImGui::PushStyleColor( ImGuiCol_Text, ImGui::GetColorVec4( ImGuiCol_TextDisabled ) );
-
-    //$ TODO: s_actions().get( action_return ) )
-    if ( ImGui::Button( "Create", button_size ) && !disabled )
+    // Row time scale slider
     {
-        m_err_str.clear();
-        const std::vector< uint32_t > *plocs = trace_events.get_tdopexpr_locs(
-                    m_filter_buf, &m_err_str );
+        bool hovered = false;
 
-        if ( plocs )
+        ImGui::AlignFirstTextHeightToWidgets();
+        ImGui::Text( "%s", "Row Time Scale: " );
+        hovered |= ImGui::IsItemHovered();
+        ImGui::SameLine();
+        ImGui::PushItemWidth( imgui_scale( w / 2.0f ) );
+        ImGui::SliderFloat( "##scale_ts_val", &m_scale, 0.1f, 100.0f, "%.02f" );
+        ImGui::PopItemWidth();
+        hovered |= ImGui::IsItemHovered();
+
+        if ( hovered )
         {
-            ret = true;
-        }
-        else if ( m_err_str.empty() )
-        {
-            m_err_str = "WARNING: No events found.";
+            ImGui::SetTooltip( "%s", "Row Time Scale tooltip" );
         }
     }
 
-    if ( disabled )
-        ImGui::PopStyleColor();
+    if ( ImGui::CollapsingHeader( "Previous Filters", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        ImGui::BeginChild( "previous_filters", ImVec2( 0.0f, imgui_scale( 150.0f ) ) );
+        ImGui::Indent();
+
+        ImGuiSelectableFlags flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_DontClosePopups;
+
+        //$ TODO
+        std::vector< std::string > previous_filters;
+        previous_filters.push_back( "blah0" );
+        previous_filters.push_back( "blah1" );
+        previous_filters.push_back( "blah2" );
+        previous_filters.push_back( "blah3" );
+        previous_filters.push_back( "foobar0" );
+        previous_filters.push_back( "foobar1" );
+        previous_filters.push_back( "foobar2" );
+        previous_filters.push_back( "foobar3" );
+        previous_filters.push_back( "xxyzw0" );
+        previous_filters.push_back( "xxyzw1" );
+        previous_filters.push_back( "xxyzw2" );
+        previous_filters.push_back( "xxyzw3" );
+
+        for ( auto i : previous_filters )
+        {
+            const char *str0 = i.c_str();
+
+            ImGui::PushID( str0 );
+
+            if ( ImGui::Selectable( str0, false, flags ) )
+                strcpy_safe( m_filter_buf, str0 );
+
+            ImGui::PopID();
+        }
+
+        ImGui::Unindent();
+        ImGui::EndChild();
+    }
+
+    //$ TODO: Make sure name_buf doesn't have <> chars in it?
+    bool disabled = !m_name_buf[ 0 ] || !m_filter_buf[ 0 ];
+
+    ImGui::PushStyleColor( ImGuiCol_Text,
+        ImGui::GetColorVec4( disabled ? ImGuiCol_TextDisabled : ImGuiCol_Text ) );
+
+    bool do_create = ImGui::Button( "Create", button_size ) ||
+            s_actions().get( action_return );
+
+    ImGui::PopStyleColor();
+
+    if ( do_create && !disabled )
+    {
+        const std::vector< uint32_t > *plocs = trace_events.get_tdopexpr_locs(
+                    m_filter_buf, &m_err_str );
+
+        ret = !!plocs;
+        if ( !ret && m_err_str.empty() )
+            m_err_str = "ERROR: No events found.";
+    }
 
     ImGui::SameLine();
     if ( ImGui::Button( "Cancel", button_size ) || s_keybd().is_escape_down() || ret )
@@ -3152,7 +3212,10 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     // New Graph Row
     if ( ImGui::MenuItem( "Add New Graph Row..." ) )
-        m_create_graph_row = true;
+    {
+        m_create_graph_row_eventid = is_valid_id( m_graph.hovered_eventid ) ?
+                    m_graph.hovered_eventid : m_trace_events.m_events.size();
+    }
 
     // Frame Markers
     {

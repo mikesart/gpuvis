@@ -170,11 +170,12 @@ public:
     CreateGraphRowDlg() {}
     ~CreateGraphRowDlg() {}
 
-    bool init( TraceEvents &trace_events );
+    bool init( TraceEvents &trace_events, uint32_t eventid );
     bool render_dlg( TraceEvents &trace_events );
 //    void add_graph_row( class GraphRows &rows );
 
 public:
+    float m_scale = 1.0f;
     std::string m_buf;
     std::string m_err_str;
     char m_name_buf[ 128 ];
@@ -512,7 +513,7 @@ public:
     uint32_t m_create_plot_eventid = INVALID_ID;
     CreatePlotDlg m_create_plot_dlg;
 
-    bool m_create_graph_row = false;
+    uint32_t m_create_graph_row_eventid = INVALID_ID;
     CreateGraphRowDlg m_create_graph_row_dlg;
 
     uint32_t m_create_filter_eventid = INVALID_ID;
