@@ -1097,7 +1097,7 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
             }
         }
     }
-    else
+    else if ( show == GraphRows::HIDE_ROW )
     {
         bool found = false;
 

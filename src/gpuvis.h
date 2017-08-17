@@ -194,6 +194,7 @@ public:
     char m_name_buf[ 128 ];
     char m_filter_buf[ 512 ];
 
+    uint32_t m_passes = 0;
     std::vector< std::string > m_previous_filters;
 };
 

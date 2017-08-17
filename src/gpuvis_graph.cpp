@@ -1403,8 +1403,10 @@ bool CreateGraphRowDlg::show_dlg( TraceEvents &trace_events, uint32_t eventid )
     else
     {
         strcpy_safe( m_name_buf, "<New Graph Row Name>" );
-        strcpy_safe( m_filter_buf, "<Enter Filter Expression>" );
+        strcpy_safe( m_filter_buf, m_previous_filters[ 0 ].c_str() );
     }
+
+    m_passes = 0;
 
     ImGui::OpenPopup( "Add New Graph Row" );
     return false;
@@ -1425,17 +1427,22 @@ bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
 
     plot_input_text( row_name, m_name_buf, x, w );
 
+    if ( m_passes++ < 2 )
+        ImGui::SetKeyboardFocusHere( -1 );
+
     plot_input_text( row_filter, m_filter_buf, x, w );
     if ( ImGui::IsItemHovered() )
     {
         std::string tooltip;
 
         tooltip += s_textclrs().bright_str( "Add a new row with filtered events\n\n" );
+
         tooltip += "Examples:\n";
         tooltip += "  $pid = 4615\n";
         tooltip += "  $duration >= 5.5\n";
         tooltip += "  $buf =~ \"[Compositor] Warp\"\n";
-        tooltip += "  ( $timeline = gfx ) && ( $id < 10 || $id > 100 )";
+        tooltip += "  ( $timeline = gfx ) && ( $id < 10 || $id > 100 )\n";
+        tooltip += "  gfx, gfx hw, sdma0, print, etc.";
 
         ImGui::SetTooltip( "%s", tooltip.c_str() );
     }
