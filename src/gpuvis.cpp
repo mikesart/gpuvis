@@ -224,6 +224,7 @@ void Opts::init_opt_bool( option_id_t optid, const char *description, const char
     opt.flags = OPT_Bool | flags;
     opt.desc = description;
     opt.inikey = key;
+    opt.inisection = "$options$";
     opt.valf = defval;
 }
 
@@ -235,6 +236,7 @@ void Opts::init_opt( option_id_t optid, const char *description, const char *key
     opt.flags = flags;
     opt.desc = description;
     opt.inikey = key;
+    opt.inisection = "$options$";
     opt.valf = defval;
     opt.valf_min = minval;
     opt.valf_max = maxval;
@@ -297,7 +299,7 @@ void Opts::init()
     {
         option_t &opt = m_options[ i ];
 
-        opt.valf = s_ini().GetFloat( opt.inikey.c_str(), opt.valf );
+        opt.valf = s_ini().GetFloat( opt.inikey.c_str(), opt.valf, opt.inisection.c_str() );
     }
 }
 
@@ -308,11 +310,11 @@ void Opts::shutdown()
         const option_t &opt = m_options[ i ];
 
         if ( opt.flags & OPT_Int )
-            s_ini().PutInt( opt.inikey.c_str(), ( int )opt.valf );
+            s_ini().PutInt( opt.inikey.c_str(), ( int )opt.valf, opt.inisection.c_str() );
         else if ( opt.flags & OPT_Bool )
-            s_ini().PutInt( opt.inikey.c_str(), opt.valf ? 1 : 0 );
+            s_ini().PutInt( opt.inikey.c_str(), opt.valf ? 1 : 0, opt.inisection.c_str() );
         else
-            s_ini().PutFloat( opt.inikey.c_str(), opt.valf );
+            s_ini().PutFloat( opt.inikey.c_str(), opt.valf, opt.inisection.c_str() );
     }
 }
 
@@ -326,8 +328,9 @@ option_id_t Opts::add_opt_graph_rowsize( const char *row_name, int defval )
 
     opt.flags = OPT_Int | OPT_Hidden;
     opt.desc = string_format( "%s size: %%.0f", row_name );
-    opt.inikey = string_format( "row_%s_size", row_name );
-    opt.valf = s_ini().GetInt( opt.inikey.c_str(), defval );
+    opt.inikey = row_name;
+    opt.inisection = "$row_sizes$";
+    opt.valf = s_ini().GetInt( opt.inikey.c_str(), defval, opt.inisection.c_str() );
     opt.valf_min = 4;
     opt.valf_max = 40;
 

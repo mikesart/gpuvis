@@ -680,6 +680,7 @@ struct option_t
     uint32_t flags;
     std::string desc;
     std::string inikey;
+    std::string inisection;
 
     float valf;
     float valf_min = 0.0f;
