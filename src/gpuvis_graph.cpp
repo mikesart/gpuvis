@@ -2064,15 +2064,15 @@ void TraceWin::graph_render_row( graph_info_t &gi )
 
     if ( gi.prinfo_cur->render_cb )
     {
-        float scale_ts = gi.prinfo_cur->scale_ts;
+        float scale_ts = gi.prinfo_cur->scale_ts - 1.0f;
 
         //$ TODO mikesart: Mouse hover time isn't correct when scaling rows...
-        if ( scale_ts != 1.0f )
+        if ( scale_ts > 0.0f )
         {
             int64_t start_ts = m_graph.start_ts;
             int64_t length_ts = m_graph.length_ts;
 
-            scale_ts = Clamp< float >( scale_ts, 1.0f, 100.0f );
+            scale_ts = Clamp< float >( scale_ts, 0.001f, 100.0f );
 
             start_ts -= length_ts * scale_ts;
             length_ts += length_ts * 2 * scale_ts;
@@ -2082,7 +2082,7 @@ void TraceWin::graph_render_row( graph_info_t &gi )
         // Call the render callback function
         num_events = gi.prinfo_cur->render_cb( gi );
 
-        if ( scale_ts != 1.0f )
+        if ( scale_ts > 0.0f )
         {
             float x0 = gi.ts_to_screenx( m_graph.start_ts );
             float x1 = gi.ts_to_screenx( m_graph.start_ts + m_graph.length_ts );
