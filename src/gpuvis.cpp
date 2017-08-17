@@ -1415,6 +1415,25 @@ void GraphRows::init( TraceEvents &trace_events )
 
 void GraphRows::shutdown()
 {
+    for ( auto it = m_graph_rows_hide.begin(); it != m_graph_rows_hide.end(); )
+    {
+        // Erase any added rows that the user has hidden. We
+        //   store the filters so they should be easy to recreate.
+        if ( m_graph_rows_add.erase_key( *it ) )
+        {
+            m_graph_row_scale_ts.erase_key( *it );
+
+            // Don't erase move information...
+            // m_graph_rows_move.erase_key( *it );
+
+            it = m_graph_rows_hide.erase( it );
+        }
+        else
+        {
+            it++;
+        }
+    }
+
     std::string str = string_implode( m_graph_rows_hide, "\t" );
     s_ini().PutStr( "graph_rows_hide_str", str.c_str() );
 

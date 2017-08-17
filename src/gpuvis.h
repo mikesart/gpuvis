@@ -418,11 +418,6 @@ public:
 public:
     TraceEvents *m_trace_events = nullptr;
 
-    //$ TODO: any way to clean all this crap up?
-    //$ minimally the util_umap<std::string, std::string> could share some code
-    //$ when you hide a row that is user added, delete it
-    //$   easy to add rows now with the new dialog
-
     // List of graph rows
     std::vector< graph_rows_info_t > m_graph_rows_list;
 
