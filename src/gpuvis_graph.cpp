@@ -246,6 +246,9 @@ public:
     bool mouse_over;
     ImVec2 mouse_pos;
 
+    // Time of mouse pos if mouse is over a scaled graph row
+    int64_t mouse_pos_scaled_ts = INT64_MIN;
+
     struct hovered_t
     {
         bool neg;
@@ -2089,6 +2092,9 @@ void TraceWin::graph_render_row( graph_info_t &gi )
             start_ts -= length_ts * scale_ts;
             length_ts += length_ts * 2 * scale_ts;
             gi.set_ts( this, start_ts, length_ts );
+
+            if ( gi.mouse_pos_in_graph() )
+                gi.mouse_pos_scaled_ts = gi.screenx_to_ts( gi.mouse_pos.x );
         }
 
         // Call the render callback function
@@ -3617,7 +3623,16 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
         graph_set_mouse_tooltip( gi, mouse_ts );
 
         // Check for clicking, wheeling, etc.
-        if ( ImGui::IsMouseClicked( 0 ) )
+        if ( ImGui::IsMouseDoubleClicked( 0 ) )
+        {
+            if ( gi.mouse_pos_scaled_ts != INT64_MIN )
+            {
+                // Double clicking on a scaled graph row - move to that location
+                m_graph.start_ts = gi.mouse_pos_scaled_ts - m_graph.length_ts / 2;
+                m_graph.recalc_timebufs = true;
+            }
+        }
+        else if ( ImGui::IsMouseClicked( 0 ) )
         {
             if ( s_keybd().is_ctrl_down() )
             {
