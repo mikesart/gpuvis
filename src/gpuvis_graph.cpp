@@ -3404,6 +3404,9 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
     }
     time_buf += "Time: " + ts_to_timestr( mouse_ts, 6, "" );
 
+    if ( m_graph.mouse_over_row_name != m_graph.mouse_over_row_filter )
+        time_buf += "\nFilter: " + m_graph.mouse_over_row_filter + "\n";
+
     if ( !m_graph.mouse_over_row_name.empty() &&
          ( m_graph.mouse_over_row_type == LOC_TYPE_Comm ) )
     {
