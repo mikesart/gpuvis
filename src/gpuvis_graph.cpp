@@ -50,18 +50,6 @@
 
   Check if entire rows are clipped when drawing...
 
-  From Pierre-Loup:
-    * Since I find myself zooming in and out a lot to situate myself in the
-    larger trace and analyze parts of it, I'm thinking one of the next big
-    challenges is going to find a way to have a little stripe at the top and
-    bottom that somehow displays the whole trace and efficiently shows where
-    you are in there. I have _no_ idea what data to surface there to show
-    you the trace "at a glance". I'm going to guess that it'll vary a lot
-    from one usecase to another, so maybe the answer is to be able to 'pin'
-    a graph row of any type, which would then stay like 10x zoomed out
-    compared to your real zoom level, and shows you where you are in there
-    in the middle? Does that make any sense?
-
   Feedback:
     - the gfx waterfall view was confusing to everyone, zoomed in or not.
     They were all expecting something like the gpuview "stacked" view where
