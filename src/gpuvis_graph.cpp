@@ -2083,8 +2083,6 @@ void TraceWin::graph_render_row( graph_info_t &gi )
     {
         float scale_ts = gi.prinfo_cur->scale_ts - 1.0f;
 
-        //$ TODO mikesart: add some sort of display for scaling size on the graph row
-        //$ TODO mikesart: Mouse hover time isn't correct when scaling rows...
         if ( scale_ts > 0.0f )
         {
             int64_t start_ts = m_graph.start_ts;
@@ -2410,6 +2408,10 @@ static void render_row_label( float x, float y, row_info_t &ri )
         col = ri.tgid_info->color;
 
     std::string label = string_format( "%u) %s", ri.id, ri.row_name.c_str() );
+
+    if ( ri.scale_ts > 1.0f )
+        label += s_textclrs().bright_str( string_format( " (%.1fx)", ri.scale_ts ) );
+
     imgui_draw_text( x, y, label.c_str(), col, true );
     y += ImGui::GetTextLineHeight();
 
