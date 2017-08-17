@@ -1227,6 +1227,41 @@ public:
     TraceEvents &m_trace_events;
 };
 
+static void
+save_umap_ini_entries( const util_umap< std::string, std::string > &blah,
+                       const char *section )
+{
+    uint32_t num = 0;
+
+    s_ini().ClearSection( section );
+
+    for ( const auto &i : blah.m_map )
+    {
+        char key[ 32 ];
+        const std::string &val = i.first + "\t" + i.second;
+
+        snprintf_safe( key, "%02lu", num++ );
+        s_ini().PutStr( key, val.c_str(), section );
+    }
+}
+
+static const std::vector< std::pair< std::string, std::string > >
+read_umap_ini_entries( const char *section )
+{
+    std::vector< std::pair< std::string, std::string > > ret;
+    std::vector< INIEntry > entries = s_ini().GetSectionEntries( section );
+
+    for ( const INIEntry &entry : entries )
+    {
+        const std::vector< std::string > args = string_explode( entry.second, '\t' );
+
+        if ( args.size() == 2 )
+            ret.push_back( { args[ 0 ], args[ 1 ] } );
+    }
+
+    return ret;
+}
+
 // Initialize m_graph_rows_list
 void GraphRows::init( TraceEvents &trace_events )
 {
@@ -1330,58 +1365,6 @@ void GraphRows::init( TraceEvents &trace_events )
     // Add the sorted comm events to our m_graph_rows_list array
     m_graph_rows_list.insert( m_graph_rows_list.end(), comms.begin(), comms.end() );
 
-    // Information about added rows
-    {
-        std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$graph_rows_add$" );
-        for ( const INIEntry &entry : entries )
-        {
-            const std::vector< std::string > args = string_explode( entry.second, '\t' );
-
-            if ( args.size() == 2 )
-            {
-                const std::string &name = args[ 0 ];
-                const std::string &filter = args[ 1 ];
-
-                add_row( name, filter, 1.0f );
-            }
-        }
-    }
-
-    // Information about row order
-    {
-        std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$graph_rows_move_after$" );
-
-        if ( !entries.empty() )
-        {
-            // Do the moves twice to handle move dependencies
-            for ( int i = 0; i < 2; i++ )
-            {
-                for ( const INIEntry &entry : entries )
-                {
-                    const std::vector< std::string > args = string_explode( entry.second, '\t' );
-
-                    if ( args.size() == 2 )
-                        move_row( args[ 0 ], args[ 1 ] );
-                }
-            }
-        }
-    }
-
-    // Row ts scaling
-    {
-        std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$graph_rows_scale_ts$" );
-
-        for ( auto entry : entries )
-        {
-            const std::vector< std::string > args = string_explode( entry.second, '\t' );
-
-            if ( args.size() == 2 )
-            {
-                m_graph_row_scale_ts.m_map[ args[ 0 ] ] = args[ 1 ];
-            }
-        }
-    }
-
     std::string graph_rows_hide_str = s_ini().GetStr( "graph_rows_hide_str", "" );
     if ( !graph_rows_hide_str.empty() )
     {
@@ -1394,50 +1377,50 @@ void GraphRows::init( TraceEvents &trace_events )
             row_info.hidden = ( idx != m_graph_rows_hide.end() );
         }
     }
+
+    // Check for added rows
+    {
+        auto inientries = read_umap_ini_entries( "$graph_rows_add$" );
+
+        for ( const auto &entry : inientries )
+        {
+            add_row( entry.first, entry.second, 1.0f );
+        }
+    }
+
+    // Check for row order
+    {
+        auto inientries = read_umap_ini_entries( "$graph_rows_move_after$" );
+
+        // Do the moves twice to handle move dependencies
+        for ( int i = 0; i < 2; i++ )
+        {
+            for ( const auto &entry : inientries )
+            {
+                move_row( entry.first, entry.second );
+            }
+        }
+    }
+
+    // check for row time scaling
+    {
+        auto inientries = read_umap_ini_entries( "$graph_rows_scale_ts$" );
+
+        for ( const auto &entry : inientries )
+        {
+            m_graph_row_scale_ts.m_map[ entry.first ] = entry.second;
+        }
+    }
 }
 
 void GraphRows::shutdown()
 {
-    uint32_t num;
-
     std::string str = string_implode( m_graph_rows_hide, "\t" );
     s_ini().PutStr( "graph_rows_hide_str", str.c_str() );
 
-    num = 0;
-    s_ini().ClearSection( "$graph_rows_add$" );
-    for ( const auto &i : m_graph_rows_add.m_map )
-    {
-        char key[ 32 ];
-        const std::string &val = i.first + "\t" + i.second;
-
-        snprintf_safe( key, "%02lu", num++ );
-        s_ini().PutStr( key, val.c_str(), "$graph_rows_add$" );
-    }
-
-    num = 0;
-    s_ini().ClearSection( "$graph_rows_move_after$" );
-    for ( const auto &i : m_graph_rows_move.m_map )
-    {
-        char key[ 32 ];
-        const std::string &val = i.first + "\t" + i.second;
-
-        snprintf_safe( key, "%02lu", num++ );
-        s_ini().PutStr( key, val.c_str(), "$graph_rows_move_after$" );
-    }
-
-    num = 0;
-    s_ini().ClearSection( "$graph_rows_scale_ts$" );
-    for ( const auto &i : m_graph_row_scale_ts.m_map )
-    {
-        if ( atof( i.second.c_str() ) != 1.0f )
-        {
-            char key[ 32 ];
-            const std::string &val = i.first + "\t" + i.second;
-
-            snprintf_safe( key, "%02lu", num++ );
-            s_ini().PutStr( key, val.c_str(), "$graph_rows_scale_ts$" );
-        }
-    }
+    save_umap_ini_entries( m_graph_rows_add, "$graph_rows_add$" );
+    save_umap_ini_entries( m_graph_rows_move, "$graph_rows_move_after$" );
+    save_umap_ini_entries( m_graph_row_scale_ts, "$graph_rows_scale_ts$" );
 }
 
 void GraphRows::add_row( const std::string &name, const std::string &filter, float scale )

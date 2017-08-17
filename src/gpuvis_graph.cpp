@@ -2070,6 +2070,7 @@ void TraceWin::graph_render_row( graph_info_t &gi )
     {
         float scale_ts = gi.prinfo_cur->scale_ts - 1.0f;
 
+        //$ TODO mikesart: add some sort of display for scaling size on the graph row
         //$ TODO mikesart: Mouse hover time isn't correct when scaling rows...
         if ( scale_ts > 0.0f )
         {

@@ -131,6 +131,18 @@ public:
             res.first->second = val;
     }
 
+    bool erase_key( const K key )
+    {
+        auto i = m_map.find( key );
+
+        if ( i != m_map.end() )
+        {
+            m_map.erase( i );
+            return true;
+        }
+        return false;
+    }
+
 public:
     typedef std::unordered_map< K, V > map_t;
     map_t m_map;
