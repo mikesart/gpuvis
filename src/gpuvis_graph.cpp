@@ -3399,9 +3399,17 @@ static std::string task_state_to_str( int state )
 
 void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts )
 {
-    std::string time_buf = "Time: " + ts_to_timestr( mouse_ts, 6, "" );
+    std::string time_buf;
     bool sync_event_list_to_graph = s_opts().getb( OPT_SyncEventListToGraph ) &&
             s_opts().getb( OPT_ShowEventList );
+
+    if ( gi.mouse_pos_scaled_ts != INT64_MIN )
+    {
+        time_buf += string_format( "\"%s\" Time: %s\nGraph ",
+                                   m_graph.mouse_over_row_name.c_str(),
+                                   ts_to_timestr( gi.mouse_pos_scaled_ts, 6, "" ).c_str() );
+    }
+    time_buf += "Time: " + ts_to_timestr( mouse_ts, 6, "" );
 
     if ( !m_graph.mouse_over_row_name.empty() &&
          ( m_graph.mouse_over_row_type == LOC_TYPE_Comm ) )
