@@ -191,6 +191,7 @@ struct row_info_t
 
     loc_type_t row_type;
     std::string row_name;
+    std::string row_filter;
     const std::vector< uint32_t > *plocs;
 
     float scale_ts = 1.0f;
@@ -445,6 +446,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
         rinfo.row_name = row_name;
+        rinfo.row_filter = grow.row_filter;
         rinfo.scale_ts = win->m_graph.rows.get_row_scale( row_name );
 
         if ( !plocs )
@@ -2057,6 +2059,7 @@ void TraceWin::graph_render_row( graph_info_t &gi )
     if ( gi.mouse_over )
     {
         m_graph.mouse_over_row_name = gi.prinfo_cur->row_name;
+        m_graph.mouse_over_row_filter = gi.prinfo_cur->row_filter;
         m_graph.mouse_over_row_type = gi.prinfo_cur->row_type;
     }
 
