@@ -731,8 +731,8 @@ void FrameMarkers::init()
                                         "$buf =~ \"[Compositor] After wait query\"" } );
     }
 
-    strcpy_safe( m_left_marker_buf, m_previous_filters[ 0 ].first.c_str() );
-    strcpy_safe( m_right_marker_buf, m_previous_filters[ 0 ].second.c_str() );
+    strcpy_safe( dlg.m_left_marker_buf, m_previous_filters[ 0 ].first.c_str() );
+    strcpy_safe( dlg.m_right_marker_buf, m_previous_filters[ 0 ].second.c_str() );
 }
 
 void FrameMarkers::shutdown()
@@ -751,15 +751,15 @@ void FrameMarkers::shutdown()
     }
 }
 
-void FrameMarkers::clear()
+void FrameMarkers::clear_dlg()
 {
-    m_checked = false;
+    dlg.m_checked = false;
 
-    m_left_filter_err_str.clear();
-    m_right_filter_err_str.clear();
+    dlg.m_left_filter_err_str.clear();
+    dlg.m_right_filter_err_str.clear();
 
-    m_left_plocs = NULL;
-    m_right_plocs = NULL;
+    dlg.m_left_plocs = NULL;
+    dlg.m_right_plocs = NULL;
 }
 
 void FrameMarkers::set_tooltip()
@@ -781,33 +781,33 @@ void FrameMarkers::set_tooltip()
 
 bool FrameMarkers::show_dlg( TraceEvents &trace_events, uint32_t eventid )
 {
-    clear();
+    clear_dlg();
 
     if ( is_valid_id( eventid ) && ( eventid < trace_events.m_events.size() ) )
     {
         const trace_event_t &event = trace_events.m_events[ eventid ];
 
-        m_left_marker_buf[ 0 ] = 0;
-        m_right_marker_buf[ 0 ] = 0;
+        dlg.m_left_marker_buf[ 0 ] = 0;
+        dlg.m_right_marker_buf[ 0 ] = 0;
 
         if ( event.is_vblank() )
         {
-            snprintf_safe( m_left_marker_buf, "$name = %s && $crtc == %d", event.name, event.crtc );
+            snprintf_safe( dlg.m_left_marker_buf, "$name = %s && $crtc == %d", event.name, event.crtc );
         }
         else if ( event.is_ftrace_print() )
         {
             const char *buf = get_event_field_val( event, "buf" );
 
             if ( buf[ 0 ] )
-                snprintf_safe( m_left_marker_buf, "$buf =~ \"%s\"", buf );
+                snprintf_safe( dlg.m_left_marker_buf, "$buf =~ \"%s\"", buf );
         }
 
-        if ( !m_left_marker_buf[ 0 ] )
-            snprintf_safe( m_left_marker_buf, "$name = %s", event.name );
+        if ( !dlg.m_left_marker_buf[ 0 ] )
+            snprintf_safe( dlg.m_left_marker_buf, "$name = %s", event.name );
     }
 
-    if ( !m_left_marker_buf[ 0 ] )
-        strcpy_safe( m_left_marker_buf, "$name = drm_vblank_event && $crtc = 0" );
+    if ( !dlg.m_left_marker_buf[ 0 ] )
+        strcpy_safe( dlg.m_left_marker_buf, "$name = drm_vblank_event && $crtc = 0" );
 
     ImGui::OpenPopup( "Set Frame Markers" );
     return true;
@@ -830,33 +830,33 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
 
     // Left Frame Filter
     {
-        if ( plot_input_text( left_text, m_left_marker_buf, x, w ) )
-            clear();
+        if ( plot_input_text( left_text, dlg.m_left_marker_buf, x, w ) )
+            clear_dlg();
 
         item_hovered |= ImGui::IsItemHovered();
 
-        if ( !m_left_filter_err_str.empty() )
-            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_left_filter_err_str.c_str() );
-        else if ( m_left_plocs )
-            ImGui::TextColored( ImVec4( 0, 1, 0, 1 ), "%lu events found", m_left_plocs->size() );
+        if ( !dlg.m_left_filter_err_str.empty() )
+            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", dlg.m_left_filter_err_str.c_str() );
+        else if ( dlg.m_left_plocs )
+            ImGui::TextColored( ImVec4( 0, 1, 0, 1 ), "%lu events found", dlg.m_left_plocs->size() );
     }
 
     // Right Frame Filter
     {
-        strcpy_safe( right_marker_buf, !m_right_marker_buf[ 0 ] ? m_left_marker_buf : m_right_marker_buf );
+        strcpy_safe( right_marker_buf, !dlg.m_right_marker_buf[ 0 ] ? dlg.m_left_marker_buf : dlg.m_right_marker_buf );
 
         if ( plot_input_text( right_text, right_marker_buf, x, w ) )
         {
-            clear();
-            strcpy_safe( m_right_marker_buf, right_marker_buf );
+            clear_dlg();
+            strcpy_safe( dlg.m_right_marker_buf, right_marker_buf );
         }
 
         item_hovered |= ImGui::IsItemHovered();
 
-        if ( !m_right_filter_err_str.empty() )
-            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_right_filter_err_str.c_str() );
-        else if ( m_right_plocs )
-            ImGui::TextColored( ImVec4( 0, 1, 0, 1 ), "%lu events found", m_right_plocs->size() );
+        if ( !dlg.m_right_filter_err_str.empty() )
+            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", dlg.m_right_filter_err_str.c_str() );
+        else if ( dlg.m_right_plocs )
+            ImGui::TextColored( ImVec4( 0, 1, 0, 1 ), "%lu events found", dlg.m_right_plocs->size() );
     }
 
     if ( item_hovered )
@@ -864,13 +864,13 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
 
     ImGui::Separator();
 
-    if ( m_checked && m_count )
+    if ( dlg.m_checked && dlg.m_count )
     {
-        ImGui::TextColored( ImVec4( 0, 1, 0, 1 ), "%u frames found", m_count );
+        ImGui::TextColored( ImVec4( 0, 1, 0, 1 ), "%u frames found", dlg.m_count );
         ImGui::Indent();
-        ImGui::Text( "Min frame time: %s", ts_to_timestr( m_min_ts, 4 ).c_str() );
-        ImGui::Text( "Max frame time: %s", ts_to_timestr( m_max_ts, 4 ).c_str() );
-        ImGui::Text( "Avg frame time: %s", ts_to_timestr( m_tot_ts / m_count, 4 ).c_str() );
+        ImGui::Text( "Min frame time: %s", ts_to_timestr( dlg.m_min_ts, 4 ).c_str() );
+        ImGui::Text( "Max frame time: %s", ts_to_timestr( dlg.m_max_ts, 4 ).c_str() );
+        ImGui::Text( "Avg frame time: %s", ts_to_timestr( dlg.m_tot_ts / dlg.m_count, 4 ).c_str() );
         ImGui::Unindent();
 
         ImGui::Separator();
@@ -894,10 +894,10 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
 
             if ( ImGui::Selectable( str0, false, flags ) )
             {
-                clear();
+                clear_dlg();
 
-                strcpy_safe( m_left_marker_buf, str0 );
-                strcpy_safe( m_right_marker_buf, str1 );
+                strcpy_safe( dlg.m_left_marker_buf, str0 );
+                strcpy_safe( dlg.m_right_marker_buf, str1 );
             }
             ImGui::NextColumn();
 
@@ -915,39 +915,39 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
     }
 
     // "Check filters" or "Set Frame Markers" buttons
-    if ( !m_checked )
+    if ( !dlg.m_checked )
     {
         if ( ImGui::Button( "Check filters", button_size ) || s_actions().get( action_return ) )
         {
-            m_left_plocs = trace_events.get_tdopexpr_locs( m_left_marker_buf, &m_left_filter_err_str );
-            m_right_plocs = trace_events.get_tdopexpr_locs( right_marker_buf, &m_right_filter_err_str );
+            dlg.m_left_plocs = trace_events.get_tdopexpr_locs( dlg.m_left_marker_buf, &dlg.m_left_filter_err_str );
+            dlg.m_right_plocs = trace_events.get_tdopexpr_locs( right_marker_buf, &dlg.m_right_filter_err_str );
 
-            if ( !m_left_plocs )
+            if ( !dlg.m_left_plocs )
             {
-                if ( m_left_filter_err_str.empty() )
-                    m_left_filter_err_str = "WARNING: No events found.";
+                if ( dlg.m_left_filter_err_str.empty() )
+                    dlg.m_left_filter_err_str = "WARNING: No events found.";
             }
-            if ( !m_right_plocs )
+            if ( !dlg.m_right_plocs )
             {
-                if ( m_right_filter_err_str.empty() )
-                    m_right_filter_err_str = "WARNING: No events found.";
+                if ( dlg.m_right_filter_err_str.empty() )
+                    dlg.m_right_filter_err_str = "WARNING: No events found.";
             }
 
-            if ( m_left_plocs && m_right_plocs )
+            if ( dlg.m_left_plocs && dlg.m_right_plocs )
             {
                 setup_frames( trace_events, false );
-                m_checked = true;
+                dlg.m_checked = true;
             }
         }
     }
     else if ( ImGui::Button( "Set Frame Markers", button_size ) || s_actions().get( action_return ) )
     {
         // If left filter == right filter, zero out right filter
-        if ( !strcmp( m_left_marker_buf, m_right_marker_buf ) )
-            m_right_marker_buf[ 0 ] = 0;
+        if ( !strcmp( dlg.m_left_marker_buf, dlg.m_right_marker_buf ) )
+            dlg.m_right_marker_buf[ 0 ] = 0;
 
         // Try to find this filter pair in our previous filters array
-        std::pair< std::string, std::string > filter = { m_left_marker_buf, m_right_marker_buf };
+        std::pair< std::string, std::string > filter = { dlg.m_left_marker_buf, dlg.m_right_marker_buf };
         auto idx = std::find( m_previous_filters.begin(), m_previous_filters.end(), filter );
 
         // Erase the one we found
@@ -994,13 +994,13 @@ int64_t FrameMarkers::get_frame_len( TraceEvents &trace_events, int frame )
 void FrameMarkers::setup_frames( TraceEvents &trace_events, bool set_frames )
 {
     uint32_t idx = 0;
-    const std::vector< uint32_t > &locs_left = *m_left_plocs;
-    const std::vector< uint32_t > &locs_right = *m_right_plocs;
+    const std::vector< uint32_t > &locs_left = *dlg.m_left_plocs;
+    const std::vector< uint32_t > &locs_right = *dlg.m_right_plocs;
 
-    m_count = 0;
-    m_tot_ts = 0;
-    m_min_ts = INT64_MAX;
-    m_max_ts = INT64_MIN;
+    dlg.m_count = 0;
+    dlg.m_tot_ts = 0;
+    dlg.m_min_ts = INT64_MAX;
+    dlg.m_max_ts = INT64_MIN;
 
     if ( set_frames )
     {
@@ -1022,10 +1022,10 @@ void FrameMarkers::setup_frames( TraceEvents &trace_events, bool set_frames )
                 const trace_event_t &right_event = trace_events.m_events[ right_eventid ];
                 int64_t ts = right_event.ts - left_event.ts;
 
-                m_count++;
-                m_tot_ts += ts;
-                m_min_ts = std::min< int64_t >( m_min_ts, ts );
-                m_max_ts = std::max< int64_t >( m_max_ts, ts );
+                dlg.m_count++;
+                dlg.m_tot_ts += ts;
+                dlg.m_min_ts = std::min< int64_t >( dlg.m_min_ts, ts );
+                dlg.m_max_ts = std::max< int64_t >( dlg.m_max_ts, ts );
 
                 if ( set_frames )
                 {

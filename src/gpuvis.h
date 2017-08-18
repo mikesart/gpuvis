@@ -203,8 +203,8 @@ class FrameMarkers
 public:
     FrameMarkers()
     {
-        m_left_marker_buf[ 0 ] = 0;
-        m_right_marker_buf[ 0 ] = 0;
+        dlg.m_left_marker_buf[ 0 ] = 0;
+        dlg.m_right_marker_buf[ 0 ] = 0;
     }
     ~FrameMarkers() {}
 
@@ -217,30 +217,37 @@ public:
     int64_t get_frame_len( TraceEvents &trace_events, int frame );
 
 protected:
-    void clear();
+    void clear_dlg();
     void set_tooltip();
     void setup_frames( TraceEvents &trace_events, bool set_frames );
 
 public:
-    // Whether we've checked current marker_buf filter text
-    bool m_checked = false;
-    uint32_t m_count = 0;
-    int64_t m_tot_ts = 0;
-    int64_t m_min_ts = 0;
-    int64_t m_max_ts = 0;
+    // Variables use in Frame Marker dialog
+    struct
+    {
+        // Whether we've checked current marker_buf filter text
+        bool m_checked = false;
 
-    // Left/Right marker filters
-    char m_left_marker_buf[ 512 ];
-    char m_right_marker_buf[ 512 ];
+        // Stats after checking frame marker filters
+        uint32_t m_count = 0;
+        int64_t m_tot_ts = 0;
+        int64_t m_min_ts = 0;
+        int64_t m_max_ts = 0;
 
-    // Left/Right marker filter error strings
-    std::string m_left_filter_err_str;
-    std::string m_right_filter_err_str;
+        // Left/Right marker filters
+        char m_left_marker_buf[ 512 ];
+        char m_right_marker_buf[ 512 ];
 
-    // Left/Right event locations
-    const std::vector< uint32_t > *m_left_plocs = nullptr;
-    const std::vector< uint32_t > *m_right_plocs = nullptr;
+        // Left/Right marker filter error strings
+        std::string m_left_filter_err_str;
+        std::string m_right_filter_err_str;
 
+        // Left/Right event locations
+        const std::vector< uint32_t > *m_left_plocs = nullptr;
+        const std::vector< uint32_t > *m_right_plocs = nullptr;
+    } dlg;
+
+    // Variables used to show & select set frame markers
     std::vector< uint32_t > m_left_frames;
     std::vector< uint32_t > m_right_frames;
 
