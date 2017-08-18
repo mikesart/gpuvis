@@ -978,7 +978,7 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
 
 int64_t FrameMarkers::get_frame_len( TraceEvents &trace_events, int frame )
 {
-    if ( ( size_t )frame < m_left_plocs->size() )
+    if ( ( size_t )frame < m_left_frames.size() )
     {
         uint32_t left_idx = m_left_frames[ frame ];
         uint32_t right_idx = m_right_frames[ frame ];
