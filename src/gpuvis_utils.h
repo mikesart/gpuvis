@@ -416,4 +416,15 @@ public:
     bool m_actions[ action_max ];
 };
 
+// Basic version of ImRect to avoid including imgui_internal.h (although that also work)
+// (Omar: will promote ImRect to public eventually, but API currently has issues)
+struct rect_t
+{
+    ImVec2 min;
+    ImVec2 max;
+
+    rect_t() : min{ FLT_MAX, FLT_MAX }, max{ -FLT_MAX, -FLT_MAX } {}
+    rect_t(float x1, float y1, float x2, float y2) : min{ x1, y1 }, max{ x2, y2 } {}
+};
+
 #endif // _GPUVIS_UTILS_H

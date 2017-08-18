@@ -1003,7 +1003,7 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
     uint32_t num_events = 0;
     ImU32 col_event = s_clrs().get( col_Graph_1Event );
 
-    ImRect hov_rect;
+    rect_t hov_rect;
     ImU32 last_color = 0;
     float y = gi.y;
     bool draw_label = !s_keybd().is_alt_down();
@@ -1084,8 +1084,8 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
         }
     }
 
-    if ( hov_rect.Min.x < gi.x + gi.w )
-        ImGui::GetWindowDrawList()->AddRect( hov_rect.Min, hov_rect.Max, s_clrs().get( col_Graph_BarSelRect ) );
+    if ( hov_rect.min.x < gi.x + gi.w )
+        ImGui::GetWindowDrawList()->AddRect( hov_rect.min, hov_rect.max, s_clrs().get( col_Graph_BarSelRect ) );
 
     imgui_pop_smallfont();
 
@@ -1096,7 +1096,7 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
 {
     imgui_push_smallfont();
 
-    ImRect hov_rect;
+    rect_t hov_rect;
     uint32_t num_events = 0;
     ImU32 col_hwrunning = s_clrs().get( col_Graph_BarHwRunning );
     ImU32 col_userspace = s_clrs().get( col_Graph_BarUserspace );
@@ -1202,7 +1202,7 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
                         if ( gi.mouse_over && gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + gi.text_h )
                         {
                             // If we are hovering, and no selection bar is set, do it.
-                            if ( gi.add_mouse_hovered_event( x_user_start, cs_ioctl ) && ( hov_rect.Min.x == FLT_MAX ) )
+                            if ( gi.add_mouse_hovered_event( x_user_start, cs_ioctl ) && ( hov_rect.min.x == FLT_MAX ) )
                             {
                                 hov_rect = { x_user_start, y, x_hw_end, y + gi.text_h };
 
@@ -1223,8 +1223,8 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
         }
     }
 
-    if ( hov_rect.Min.x < gi.x + gi.w )
-        ImGui::GetWindowDrawList()->AddRect( hov_rect.Min, hov_rect.Max, s_clrs().get( col_Graph_BarSelRect ) );
+    if ( hov_rect.min.x < gi.x + gi.w )
+        ImGui::GetWindowDrawList()->AddRect( hov_rect.min, hov_rect.max, s_clrs().get( col_Graph_BarSelRect ) );
 
     imgui_pop_smallfont();
 
