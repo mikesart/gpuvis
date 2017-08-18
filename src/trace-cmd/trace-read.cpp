@@ -1734,7 +1734,7 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
 
             // Trim trailing whitespace
             while ( ( seq.len > 0 ) &&
-                    isspace( seq.buffer[ seq.len - 1 ] ) )
+                    isspace( (unsigned char)seq.buffer[ seq.len - 1 ] ) )
             {
                 seq.len--;
             }
