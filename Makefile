@@ -55,6 +55,7 @@ CFILES = \
 	src/gpuvis_graph.cpp \
 	src/gpuvis_framemarkers.cpp \
 	src/gpuvis_plots.cpp \
+	src/gpuvis_graphrows.cpp \
 	src/gpuvis_utils.cpp \
     src/tdopexpr.cpp \
 	src/ya_getopt.c \
