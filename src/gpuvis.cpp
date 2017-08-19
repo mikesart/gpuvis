@@ -140,55 +140,6 @@ static int imgui_ini_load_settings_cb( std::vector< INIEntry > *entries, int ind
     return -1;
 }
 
-bool imgui_begin_columns( const char *title,
-                          const std::initializer_list< const char * > &headers,
-                          bool *resized )
-{
-    bool inited = ImGui::BeginColumns( title, headers.size() );
-    bool temp = false;
-
-    if ( !resized )
-        resized = &temp;
-
-    for ( const char *str : headers )
-    {
-        ImGui::TextColored( s_clrs().getv4( col_BrightText ), "%s", str );
-        ImGui::NextColumn();
-    }
-    ImGui::Separator();
-
-    // If we were just initialized or resized...
-    if ( inited || ( *resized && ImGui::IsMouseReleased( 0 ) ) )
-    {
-        // Go through the columns and save/restore the column width.
-        // Skip the last column - it should size to edge of window.
-        for ( size_t i = 0; i < headers.size() - 1; i++ )
-        {
-            std::string key = string_format( "column_width_%s%lu", title, i );
-
-            if ( inited )
-            {
-                // Try to restore the column widths
-                float val = s_ini().GetFloat( key.c_str(), -1.0f );
-                if ( val <= 0.0f )
-                    break;
-
-                ImGui::SetColumnWidth( i, val );
-            }
-            else
-            {
-                // Save the column widths
-                s_ini().PutFloat( key.c_str(), ImGui::GetColumnWidth( i ) );
-            }
-        }
-
-        // Clear the resized flag
-        *resized = false;
-    }
-
-    return inited;
-}
-
 /*
  * StrPool
  */
