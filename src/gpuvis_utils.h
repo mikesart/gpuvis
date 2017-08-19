@@ -141,6 +141,28 @@ bool imgui_input_text2( const char *label, char ( &buf ) [ T ], float w = 120.0f
     return ret;
 }
 
+template < size_t T >
+static bool imgui_input_text( const char *label, char ( &buf )[ T ], float x, float w, ImGuiTextEditCallback callback = nullptr )
+{
+    bool ret = false;
+    ImGuiInputTextFlags flags = callback ? ImGuiInputTextFlags_CallbackCharFilter : 0;
+
+    ImGui::PushID( label );
+
+    ImGui::AlignFirstTextHeightToWidgets();
+    ImGui::Text( "%s", label );
+
+    ImGui::SameLine();
+    ImGui::PushItemWidth( w );
+    ImGui::SetCursorPos( { x, ImGui::GetCursorPos().y } );
+    ret = ImGui::InputText( "##imgui_input_text", buf, sizeof( buf ), flags, callback );
+    ImGui::PopItemWidth();
+
+    ImGui::PopID();
+
+    return ret;
+}
+
 #define IM_COL32_R( _x ) ( ( ( _x ) >> IM_COL32_R_SHIFT ) & 0xFF )
 #define IM_COL32_G( _x ) ( ( ( _x ) >> IM_COL32_G_SHIFT ) & 0xFF )
 #define IM_COL32_B( _x ) ( ( ( _x ) >> IM_COL32_B_SHIFT ) & 0xFF )

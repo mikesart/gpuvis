@@ -53,6 +53,7 @@ LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lfreetype -lstdc++ $(SDL2LIBS) $(G
 CFILES = \
 	src/gpuvis.cpp \
 	src/gpuvis_graph.cpp \
+	src/gpuvis_framemarkers.cpp \
 	src/gpuvis_utils.cpp \
     src/tdopexpr.cpp \
 	src/ya_getopt.c \
