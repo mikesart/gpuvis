@@ -2529,7 +2529,7 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
     return true;
 }
 
-std::string get_event_fields_str( const trace_event_t &event, const char *eqstr, char sep )
+static std::string get_event_fields_str( const trace_event_t &event, const char *eqstr, char sep )
 {
     std::string fieldstr;
     const std::vector< event_field_t > &fields = event.fields;
@@ -2578,7 +2578,6 @@ static float get_keyboard_scroll_lines( float visible_rows )
 
     return scroll_lines;
 }
-
 
 bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i )
 {

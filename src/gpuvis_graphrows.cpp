@@ -446,20 +446,33 @@ void GraphRows::add_row( const std::string &name, const std::string &filter, flo
     m_graph_rows_add.m_map[ name ] = filter;
     m_graph_row_scale_ts.m_map[ name ] = string_format( "%.2f", scale );
 
-    for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
+    size_t idx = find_row( name );
+    if ( idx != ( size_t )-1 )
     {
-        // Add this new filter expression before the first comm / tdop expression event we find
-        if ( m_graph_rows_list[ i ].type == LOC_TYPE_Tdopexpr ||
-             m_graph_rows_list[ i ].type == LOC_TYPE_Comm )
-        {
-            m_graph_rows_list.insert( m_graph_rows_list.begin() + i,
-                                        { name, filter, type, size, false } );
-            return;
-        }
-    }
+        graph_rows_info_t &row = m_graph_rows_list[ idx ];
 
-    // Just add to the end.
-    m_graph_rows_list.push_back( { name, filter, type, size, false } );
+        row.row_filter = filter;
+        row.type = type;
+        row.event_count = size;
+        row.hidden = false;
+    }
+    else
+    {
+        for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
+        {
+            // Add this new filter expression before the first comm / tdop expression event we find
+            if ( m_graph_rows_list[ i ].type == LOC_TYPE_Tdopexpr ||
+                 m_graph_rows_list[ i ].type == LOC_TYPE_Comm )
+            {
+                m_graph_rows_list.insert( m_graph_rows_list.begin() + i,
+                { name, filter, type, size, false } );
+                return;
+            }
+        }
+
+        // Just add to the end.
+        m_graph_rows_list.push_back( { name, filter, type, size, false } );
+    }
 }
 
 void GraphRows::move_row( const std::string &name_src, const std::string &name_dest )

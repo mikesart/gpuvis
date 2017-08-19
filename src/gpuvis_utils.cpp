@@ -1475,4 +1475,4 @@ extern "C" int vasprintf (char **str, const char *fmt, va_list args)
   return size;
 }
 
-#endif
+#endif // WIN32
