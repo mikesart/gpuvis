@@ -1,5 +1,6 @@
 _release/*
 _debug/*
+build/*
 
 imgui.ini
 
