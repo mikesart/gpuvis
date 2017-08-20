@@ -37,7 +37,7 @@
 
 #include "GL/gl3w.h"
 #include "imgui/imgui.h"
-#include "imgui/imgui_internal.h"   // BeginColumns(), EndColumns() WIP
+#include "imgui/imgui_internal.h"   // BeginColumns(), EndColumns(), PushColumnClipRect()
 #include "imgui/imgui_impl_sdl_gl3.h"
 
 #include "gpuvis_macros.h"
@@ -2648,7 +2648,7 @@ static void draw_ts_line( const ImVec2 &pos, ImU32 color )
 {
     ImGui::PopClipRect();
 
-    float max_x = ImGui::GetWindowClipRectMax().x;
+    float max_x = ImGui::GetWindowDrawList()->GetClipRectMax().x;
     float spacing_U = ( float )( int )( ImGui::GetStyle().ItemSpacing.y * 0.5f );
     float pos_y = pos.y - spacing_U;
 

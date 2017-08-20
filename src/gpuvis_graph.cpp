@@ -2085,10 +2085,11 @@ void TraceWin::graph_render()
     if ( s_actions().get( action_focus_graph ) )
         ImGui::SetNextWindowFocus();
 
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(1, 1));
     ImGui::BeginChild( "EventGraph", ImVec2( 0, gi.visible_graph_height ), true );
     {
-        ImVec2 windowpos = ImVec2( ImGui::GetWindowClipRectMin().x, ImGui::GetWindowPos().y );
-        ImVec2 windowsize = ImGui::GetWindowSize();
+        ImVec2 windowpos = ImGui::GetCursorScreenPos();
+        ImVec2 windowsize = ImGui::GetContentRegionAvail();
 
         m_graph.has_focus = ImGui::IsWindowFocused();
 
@@ -2215,6 +2216,7 @@ void TraceWin::graph_render()
         graph_handle_mouse( gi );
     }
     ImGui::EndChild();
+    ImGui::PopStyleVar();
 
     if ( !s_opts().getb( OPT_GraphFullscreen ) )
     {
