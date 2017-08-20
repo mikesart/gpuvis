@@ -33,6 +33,7 @@
 #include <SDL.h>
 
 #include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"   // BeginColumns(), EndColumns() WIP
 #include "gpuvis_macros.h"
 #include "stlini.h"
 #include "trace-cmd/trace-read.h"

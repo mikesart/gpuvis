@@ -43,6 +43,7 @@
 #include <SDL.h>
 
 #include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"   // BeginColumns(), EndColumns() WIP
 #include "imgui/imgui_freetype.h"
 
 #include "gpuvis_macros.h"

@@ -37,6 +37,7 @@
 
 #include "GL/gl3w.h"
 #include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"   // BeginColumns(), EndColumns() WIP
 #include "imgui/imgui_impl_sdl_gl3.h"
 
 #include "gpuvis_macros.h"
