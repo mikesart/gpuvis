@@ -24,10 +24,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <algorithm>
 #include <set>
-#include <unordered_map>
 #include <vector>
+#include <algorithm>
+#include <unordered_map>
+#include <functional>
 
 #include <SDL.h>
 

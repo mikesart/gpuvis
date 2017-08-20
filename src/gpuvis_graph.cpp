@@ -25,6 +25,7 @@
 #include <string.h>
 
 #include <algorithm>
+#include <functional>
 #include <set>
 #include <unordered_map>
 #include <vector>

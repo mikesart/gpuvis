@@ -21,11 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include <set>
 #include <string>
 #include <vector>
 #include <algorithm>
-#include <future>
-#include <set>
 #include <unordered_map>
 #include <functional>
 #include <sys/stat.h>
