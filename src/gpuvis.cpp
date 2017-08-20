@@ -374,9 +374,7 @@ bool Opts::render_imgui_opt( option_id_t optid, float w )
         if ( opt.action != action_nil )
         {
             ImGui::SameLine();
-            ImGui::PushStyleColor( ImGuiCol_Text, ImGui::GetColorVec4( ImGuiCol_TextDisabled ) );
-            ImGui::Text( "%s", s_actions().hotkey_str( opt.action ).c_str() );
-            ImGui::PopStyleColor();
+            ImGui::TextDisabled( "%s", s_actions().hotkey_str( opt.action ).c_str() );
         }
 
         if ( changed )
@@ -709,7 +707,7 @@ void MainApp::render_save_filename()
 
     // Save button
     ImGui::PushStyleColor( ImGuiCol_Text,
-                           ImGui::GetColorVec4( m_saving_info.filename_buf[ 0 ] ? ImGuiCol_Text : ImGuiCol_TextDisabled ) );
+                           ImGui::GetStyleColorVec4( m_saving_info.filename_buf[ 0 ] ? ImGuiCol_Text : ImGuiCol_TextDisabled ) );
     do_save |= ImGui::Button( "Save", ImVec2( w / 3.0f, 0 ) );
     ImGui::PopStyleColor();
 
@@ -2404,7 +2402,7 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
         return false;
 
-    imgui_text_bg( "Options", ImGui::GetColorVec4( ImGuiCol_Header ) );
+    imgui_text_bg( "Options", ImGui::GetStyleColorVec4( ImGuiCol_Header ) );
     ImGui::Separator();
 
     trace_event_t &event = get_event( eventid );
@@ -3203,7 +3201,7 @@ static bool render_color_picker_colors( ColorPicker &colorpicker, colors_t selec
 
     // Color name and description
     imgui_text_bg( string_format( "%s: %s", brightname.c_str(), desc ).c_str(),
-                   ImGui::GetColorVec4( ImGuiCol_Header ) );
+                   ImGui::GetStyleColorVec4( ImGuiCol_Header ) );
 
     ImGui::NewLine();
     if ( colorpicker.render( color, is_alpha, def_color ) )
@@ -3228,7 +3226,7 @@ static bool render_color_picker_event_colors( ColorPicker &colorpicker,
         ImU32 def_color = s_clrs().get( col_Graph_1Event );
 
         // Color name and description
-        imgui_text_bg( brightname.c_str(), ImGui::GetColorVec4( ImGuiCol_Header ) );
+        imgui_text_bg( brightname.c_str(), ImGui::GetStyleColorVec4( ImGuiCol_Header ) );
 
         ImGui::NewLine();
         changed = colorpicker.render( color, false, def_color );

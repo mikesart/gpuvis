@@ -582,7 +582,7 @@ ImU32 imgui_col_complement( ImU32 col )
     return imgui_hsv( h, s, v, 1.0f );
 }
 
-void imgui_text_bg( const char *str, const ImVec4 &bgcolor )
+void imgui_text_bg( const char *str, const ImVec4& bgcolor )
 {
     ImGui::PushStyleColor( ImGuiCol_HeaderHovered, bgcolor );
     ImGui::Selectable( str, true, ImGuiSelectableFlags_SpanAllColumns );
@@ -621,7 +621,7 @@ bool imgui_collapsingheader( const char *label, bool *has_focus, ImGuiTreeNodeFl
     bool ret;
 
     if ( *has_focus )
-        ImGui::PushStyleColor( ImGuiCol_Header, ImGui::GetColorVec4( ImGuiCol_HeaderHovered ) );
+        ImGui::PushStyleColor( ImGuiCol_Header, ImGui::GetStyleColorVec4( ImGuiCol_HeaderHovered ) );
 
     ret = ImGui::CollapsingHeader( label, flags );
 

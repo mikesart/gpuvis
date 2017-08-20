@@ -191,7 +191,7 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
 
     bool disabled = !m_plot_name_buf[ 0 ] || !m_plot_filter_buf[ 0 ] || !m_plot_scanf_buf[ 0 ];
     if ( disabled )
-        ImGui::PushStyleColor( ImGuiCol_Text, ImGui::GetColorVec4( ImGuiCol_TextDisabled ) );
+        ImGui::PushStyleColor( ImGuiCol_Text, ImGui::GetStyleColorVec4( ImGuiCol_TextDisabled ) );
 
     if ( ImGui::Button( "Create", button_size ) && !disabled )
     {

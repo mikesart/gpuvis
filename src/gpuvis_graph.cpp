@@ -782,7 +782,7 @@ bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
     bool disabled = !m_name_buf[ 0 ] || !m_filter_buf[ 0 ];
 
     ImGui::PushStyleColor( ImGuiCol_Text,
-        ImGui::GetColorVec4( disabled ? ImGuiCol_TextDisabled : ImGuiCol_Text ) );
+        ImGui::GetStyleColorVec4( disabled ? ImGuiCol_TextDisabled : ImGuiCol_Text ) );
 
     bool do_create = ImGui::Button( "Create", button_size ) ||
             s_actions().get( action_return );
@@ -2291,7 +2291,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     if ( !ImGui::BeginPopup( "GraphPopup" ) )
         return false;
 
-    imgui_text_bg( "Options", ImGui::GetColorVec4( ImGuiCol_Header ) );
+    imgui_text_bg( "Options", ImGui::GetStyleColorVec4( ImGuiCol_Header ) );
     ImGui::Separator();
 
     // Zoom in / out
