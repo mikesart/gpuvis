@@ -3182,6 +3182,7 @@ process_arg_token(struct event_format *event, struct print_arg *arg,
 			type = process_paren(event, arg, &token);
 			break;
 		}
+		break;
 	case EVENT_OP:
 		/* handle single ops */
 		arg->type = PRINT_OP;
