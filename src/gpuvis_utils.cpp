@@ -592,8 +592,7 @@ void imgui_text_bg( const char *str, const ImVec4& bgcolor )
 
 bool imgui_mousepos_valid( const ImVec2 &pos )
 {
-    return ( pos.x > ImGui::GetIO().MousePosInvalid.x ) &&
-            ( pos.y > ImGui::GetIO().MousePosInvalid.y );
+    return ImGui::IsMousePosValid(&pos);
 }
 
 bool imgui_push_smallfont()
@@ -785,8 +784,8 @@ void FontInfo::update_ini()
     s_ini().PutInt( "OverSampleV", m_font_cfg.OversampleV, section );
     s_ini().PutInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
     s_ini().PutFloat( "GlyphExtraSpacing", m_font_cfg.GlyphExtraSpacing.x, section );
-    s_ini().PutInt( "FreetypeFlags", m_font_cfg.FreetypeFlags, section );
-    s_ini().PutFloat( "Brighten", m_font_cfg.Brighten, section );
+    s_ini().PutInt( "RasterizerFlags", m_font_cfg.RasterizerFlags, section );
+    s_ini().PutFloat( "RasterizerMultiply", m_font_cfg.RasterizerMultiply, section );
 }
 
 void FontInfo::load_font( const char *section, const char *defname, float defsize )
@@ -812,8 +811,8 @@ void FontInfo::load_font( const char *section, const char *defname, float defsiz
         m_font_cfg.OversampleV = s_ini().GetInt( "OversampleV", m_font_cfg.OversampleV, section );
         m_font_cfg.PixelSnapH = !!s_ini().GetInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
         m_font_cfg.GlyphExtraSpacing.x = s_ini().GetFloat( "GlyphExtraSpacing", m_font_cfg.GlyphExtraSpacing.x, section );
-        m_font_cfg.FreetypeFlags = s_ini().GetInt( "FreetypeFlags", m_font_cfg.FreetypeFlags, section );
-        m_font_cfg.Brighten = s_ini().GetFloat( "Brighten", m_font_cfg.Brighten, section );
+        m_font_cfg.RasterizerFlags = s_ini().GetInt( "RasterizerFlags", ImGuiFreeType::LightHinting, section );
+        m_font_cfg.RasterizerMultiply = s_ini().GetFloat( "RasterizerMultiply", m_font_cfg.RasterizerMultiply, section );
     }
 
     m_font_id = get_font_id( m_name.c_str(), m_filename.c_str() );
@@ -948,7 +947,7 @@ void FontInfo::render_font_options( bool m_use_freetype )
         if ( ImGui::IsItemHovered() )
             ImGui::SetTooltip( "%s", "Extra spacing (in pixels) between glyphs." );
 
-        changed |= ImGui::SliderFloat( "##Brighten", &m_font_cfg.Brighten, 0, 4, "Brighten: %.2f" );
+        changed |= ImGui::SliderFloat( "##Brighten", &m_font_cfg.RasterizerMultiply, 0, 4, "Brighten: %.2f" );
 
         if ( !m_use_freetype )
         {
@@ -977,12 +976,13 @@ void FontInfo::render_font_options( bool m_use_freetype )
                 const char *descr;
             } s_FreeTypeFlags[] =
             {
-                { "Disable hinting", ImGuiFreeType::DisableHinting,
+                { "No hinting", ImGuiFreeType::NoHinting,
                         "Disable hinting.\nThis generally generates 'blurrier' bitmap glyphs when\n"
                         "the glyph are rendered in any of the anti-aliased modes." },
+                { "No auto-hint", ImGuiFreeType::NoAutoHint, 
+                        "Disable auto-hinter." },
                 { "Force auto-hint", ImGuiFreeType::ForceAutoHint,
                         "Prefer auto-hinter over the font's native hinter." },
-                { "No auto-hint", ImGuiFreeType::NoAutoHint, "Disable auto-hinter." },
                 { "Light hinting", ImGuiFreeType::LightHinting,
                         "A lighter hinting algorithm for gray-level modes.\nMany generated glyphs are fuzzier but"
                         "better resemble their original shape.\nThis is achieved by snapping glyphs to the pixel grid"
@@ -995,14 +995,14 @@ void FontInfo::render_font_options( bool m_use_freetype )
 
             for ( size_t i = 0; i < ARRAY_SIZE( s_FreeTypeFlags ); i++ )
             {
-                bool val = !!( m_font_cfg.FreetypeFlags & s_FreeTypeFlags[ i ].flag );
+                bool val = !!( m_font_cfg.RasterizerFlags & s_FreeTypeFlags[ i ].flag );
 
                 if ( s_FreeTypeFlags[ i ].flag != ImGuiFreeType::LightHinting )
                     ImGui::SameLine();
 
                 if ( ImGui::Checkbox( s_FreeTypeFlags[ i ].name, &val ) )
                 {
-                    m_font_cfg.FreetypeFlags ^= s_FreeTypeFlags[ i ].flag;
+                    m_font_cfg.RasterizerFlags ^= s_FreeTypeFlags[ i ].flag;
                     changed = true;
                 }
 

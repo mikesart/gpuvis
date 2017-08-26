@@ -540,7 +540,7 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
     w = w_in;
 
     mouse_pos = ImGui::IsRootWindowOrAnyChildFocused() ?
-                ImGui::GetMousePos() : ImGui::GetIO().MousePosInvalid;
+        ImGui::GetMousePos() : ImVec2(-FLT_MAX, -FLT_MAX);
 
     // Check if we're supposed to render filtered events only
     graph_only_filtered = s_opts().getb( OPT_GraphOnlyFiltered ) &&
