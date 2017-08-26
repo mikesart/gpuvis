@@ -434,7 +434,7 @@ void ImGui_ImplSdlGL3_NewFrame(SDL_Window* window, bool *use_freetype)
 #endif
     else
     {
-        io.MousePos = io.MousePosInvalid;
+        io.MousePos = ImVec2(-FLT_MAX, -FLT_MAX);
     }
 
     io.MouseWheel = g_MouseWheel;
