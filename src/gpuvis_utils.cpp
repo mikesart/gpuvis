@@ -947,7 +947,7 @@ void FontInfo::render_font_options( bool m_use_freetype )
         if ( ImGui::IsItemHovered() )
             ImGui::SetTooltip( "%s", "Extra spacing (in pixels) between glyphs." );
 
-        changed |= ImGui::SliderFloat( "##Brighten", &m_font_cfg.RasterizerMultiply, 0, 4, "Brighten: %.2f" );
+        changed |= ImGui::SliderFloat( "##Brighten", &m_font_cfg.RasterizerMultiply, 0.20f, 4.0f, "Brighten: %.2f" );
 
         if ( !m_use_freetype )
         {
