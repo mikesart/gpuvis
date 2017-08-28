@@ -2127,38 +2127,64 @@ void TraceWin::graph_render()
         float start_y = gi.prinfo_zoom ? 0 : m_graph.start_y;
         if ( gi.prinfo_zoom )
         {
-            float gfx_hw_row_h = 0;
+            float zoomhw_h = 0;
+            bool render_zoomhw_after = false;
+            row_info_t *ri = gi.prinfo_zoom_hw;
 
             if ( gi.prinfo_zoom_hw )
             {
-                row_info_t &ri = *gi.prinfo_zoom_hw;
-                gfx_hw_row_h = ri.row_h + ImGui::GetStyle().FramePadding.y;
+                float y = windowpos.y + windowsize.y - ri->row_h;
 
-                gi.set_pos_y( windowpos.y + windowsize.y - ri.row_h, ri.row_h, &ri );
-                graph_render_row( gi );
+                // Zoom hw height
+                zoomhw_h = ri->row_h + ImGui::GetStyle().FramePadding.y;
+
+                // If mouse is over our zoom hw row, render it now. Otherwise render after.
+                render_zoomhw_after = !gi.mouse_pos_in_rect( gi.x, gi.w, y, ri->row_h );
+                if ( !render_zoomhw_after )
+                {
+                    gi.set_pos_y( y, ri->row_h, ri );
+                    graph_render_row( gi );
+                }
             }
 
             gi.timeline_render_user = true;
-            gi.set_pos_y( windowpos.y, windowsize.y - gfx_hw_row_h, gi.prinfo_zoom );
+            gi.set_pos_y( windowpos.y, windowsize.y - zoomhw_h, gi.prinfo_zoom );
             graph_render_row( gi );
+
+            if ( render_zoomhw_after )
+            {
+                gi.set_pos_y( windowpos.y + windowsize.y - ri->row_h, ri->row_h, ri );
+                graph_render_row( gi );
+            }
         }
         else
         {
-            // Pass 0: Render all !timeline rows
-            // Pass 1: Render all timeline rows
-            for ( int pass = 0; pass < 2; pass++ )
+            uint32_t mouse_over_id = ( uint32_t )-1;
+
+            for ( row_info_t &ri : gi.row_info )
             {
-                bool render_timelines = !!pass;
+                float y = windowpos.y + ri.row_y + start_y;
 
-                for ( row_info_t &ri : gi.row_info )
+                // If the mouse is over this row, render it now
+                if ( gi.mouse_pos_in_rect( gi.x, gi.w, y, ri.row_h ) )
                 {
-                    bool is_timeline = ( ri.row_type == LOC_TYPE_Timeline );
+                    gi.set_pos_y( y, ri.row_h, &ri );
+                    graph_render_row( gi );
 
-                    if ( is_timeline == render_timelines )
-                    {
-                        gi.set_pos_y( windowpos.y + ri.row_y + start_y, ri.row_h, &ri );
-                        graph_render_row( gi );
-                    }
+                    mouse_over_id = ri.id;
+                    break;
+                }
+            }
+
+            // Go through all rows and render them
+            for ( row_info_t &ri : gi.row_info )
+            {
+                if ( ri.id != mouse_over_id )
+                {
+                    float y = windowpos.y + ri.row_y + start_y;
+
+                    gi.set_pos_y( y, ri.row_h, &ri );
+                    graph_render_row( gi );
                 }
             }
         }
