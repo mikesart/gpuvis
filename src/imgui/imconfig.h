@@ -24,7 +24,7 @@
 //---- It is very strongly recommended to NOT disable the test windows. Please read the comment at the top of imgui_demo.cpp to learn why.
 //#define IMGUI_DISABLE_TEST_WINDOWS
 
-//---- Don't define obsolete functions names
+//---- Don't define obsolete functions names. Consider enabling from time to time or when updating to reduce like hood of using already obsolete function/names
 //#define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
 
 //---- Pack colors to BGRA instead of RGBA (remove need to post process vertex buffer in back ends)
@@ -56,6 +56,23 @@ namespace ImGui
 }
 */
 
-// We were crashing in AddDrawListToRenderList() due to using more than 64k indices.
-// Workaround is to use 32-bit indices for now.
+// Allow meshes with more than 64k indices (NB: probably a sign that we aren't clipping enough when using ImDrawList? but doesn't hurt/cost too much to have 32-bit indices anyway)
 #define ImDrawIdx uint32_t
+
+//$ TODO mikesart: quick hack to change text color until imgui gets official method.
+//    https://github.com/ocornut/imgui/issues/902
+#define IMGUI_TEXT_ESCAPE_SKIP()    \
+        if (c == '\033' && s[1] && s[2] && s[3] && s[4]) \
+        { \
+            s += 5; \
+            continue; \
+        }
+
+#define IMGUI_TEXT_ESCAPE_RENDER()  \
+        if (c == '\033' && s[1] && s[2] && s[3] && s[4]) \
+        { \
+            const unsigned char *us = (const unsigned char *)s; \
+            col = IM_COL32(us[1], us[2], us[3], us[4]); \
+            s += 5; \
+            continue; \
+        }

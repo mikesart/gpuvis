@@ -1,4 +1,4 @@
-// dear imgui, v1.51 WIP
+// dear imgui, v1.52 WIP
 // (internals)
 
 // You may use this file to debug, understand or extend ImGui features but we don't provide any guarantee of forward compatibility!
@@ -109,8 +109,8 @@ IMGUI_API char*         ImStrdup(const char* str);
 IMGUI_API int           ImStrlenW(const ImWchar* str);
 IMGUI_API const ImWchar*ImStrbolW(const ImWchar* buf_mid_line, const ImWchar* buf_begin); // Find beginning-of-line
 IMGUI_API const char*   ImStristr(const char* haystack, const char* haystack_end, const char* needle, const char* needle_end);
-IMGUI_API int           ImFormatString(char* buf, int buf_size, const char* fmt, ...) IM_PRINTFARGS(3);
-IMGUI_API int           ImFormatStringV(char* buf, int buf_size, const char* fmt, va_list args);
+IMGUI_API int           ImFormatString(char* buf, int buf_size, const char* fmt, ...) IM_FMTARGS(3);
+IMGUI_API int           ImFormatStringV(char* buf, int buf_size, const char* fmt, va_list args) IM_FMTLIST(3);
 
 // Helpers: Math
 // We are keeping those not leaking to the user by default, in the case the user has implicit cast operators between ImVec2 and its own types (when IM_VEC2_CLASS_EXTRA is defined)
@@ -183,6 +183,15 @@ enum ImGuiSliderFlags_
     ImGuiSliderFlags_Vertical               = 1 << 0
 };
 
+enum ImGuiColumnsFlags_
+{
+    // Default: 0
+    ImGuiColumnsFlags_NoBorder              = 1 << 0,   // Disable column dividers
+    ImGuiColumnsFlags_NoResize              = 1 << 1,   // Disable resizing columns when clicking on the dividers
+    ImGuiColumnsFlags_NoPreserveWidths      = 1 << 2,   // Disable column width preservation when adjusting columns
+    ImGuiColumnsFlags_NoForceWithinWindow   = 1 << 3    // Disable forcing columns to fit within window
+};
+
 enum ImGuiSelectableFlagsPrivate_
 {
     // NB: need to be in sync with last value of ImGuiSelectableFlags_
@@ -230,6 +239,48 @@ enum ImGuiCorner
     ImGuiCorner_All         = 0x0F
 };
 
+// 2D axis aligned bounding-box
+// NB: we can't rely on ImVec2 math operators being available here
+struct IMGUI_API ImRect
+{
+    ImVec2      Min;    // Upper-left
+    ImVec2      Max;    // Lower-right
+
+    ImRect()                                        : Min(FLT_MAX,FLT_MAX), Max(-FLT_MAX,-FLT_MAX)  {}
+    ImRect(const ImVec2& min, const ImVec2& max)    : Min(min), Max(max)                            {}
+    ImRect(const ImVec4& v)                         : Min(v.x, v.y), Max(v.z, v.w)                  {}
+    ImRect(float x1, float y1, float x2, float y2)  : Min(x1, y1), Max(x2, y2)                      {}
+
+    ImVec2      GetCenter() const               { return ImVec2((Min.x+Max.x)*0.5f, (Min.y+Max.y)*0.5f); }
+    ImVec2      GetSize() const                 { return ImVec2(Max.x-Min.x, Max.y-Min.y); }
+    float       GetWidth() const                { return Max.x-Min.x; }
+    float       GetHeight() const               { return Max.y-Min.y; }
+    ImVec2      GetTL() const                   { return Min; }                   // Top-left
+    ImVec2      GetTR() const                   { return ImVec2(Max.x, Min.y); }  // Top-right
+    ImVec2      GetBL() const                   { return ImVec2(Min.x, Max.y); }  // Bottom-left
+    ImVec2      GetBR() const                   { return Max; }                   // Bottom-right
+    bool        Contains(const ImVec2& p) const { return p.x >= Min.x     && p.y >= Min.y     && p.x < Max.x     && p.y < Max.y; }
+    bool        Contains(const ImRect& r) const { return r.Min.x >= Min.x && r.Min.y >= Min.y && r.Max.x < Max.x && r.Max.y < Max.y; }
+    bool        Overlaps(const ImRect& r) const { return r.Min.y < Max.y  && r.Max.y > Min.y  && r.Min.x < Max.x && r.Max.x > Min.x; }
+    void        Add(const ImVec2& rhs)          { if (Min.x > rhs.x)     Min.x = rhs.x;     if (Min.y > rhs.y) Min.y = rhs.y;         if (Max.x < rhs.x) Max.x = rhs.x;         if (Max.y < rhs.y) Max.y = rhs.y; }
+    void        Add(const ImRect& rhs)          { if (Min.x > rhs.Min.x) Min.x = rhs.Min.x; if (Min.y > rhs.Min.y) Min.y = rhs.Min.y; if (Max.x < rhs.Max.x) Max.x = rhs.Max.x; if (Max.y < rhs.Max.y) Max.y = rhs.Max.y; }
+    void        Expand(const float amount)      { Min.x -= amount;   Min.y -= amount;   Max.x += amount;   Max.y += amount; }
+    void        Expand(const ImVec2& amount)    { Min.x -= amount.x; Min.y -= amount.y; Max.x += amount.x; Max.y += amount.y; }
+    void        Translate(const ImVec2& v)      { Min.x += v.x; Min.y += v.y; Max.x += v.x; Max.y += v.y; }
+    void        ClipWith(const ImRect& clip)    { if (Min.x < clip.Min.x) Min.x = clip.Min.x; if (Min.y < clip.Min.y) Min.y = clip.Min.y; if (Max.x > clip.Max.x) Max.x = clip.Max.x; if (Max.y > clip.Max.y) Max.y = clip.Max.y; }
+    void        Floor()                         { Min.x = (float)(int)Min.x; Min.y = (float)(int)Min.y; Max.x = (float)(int)Max.x; Max.y = (float)(int)Max.y; }
+    ImVec2      GetClosestPoint(ImVec2 p, bool on_edge) const
+    {
+        if (!on_edge && Contains(p))
+            return p;
+        if (p.x > Max.x) p.x = Max.x;
+        else if (p.x < Min.x) p.x = Min.x;
+        if (p.y > Max.y) p.y = Max.y;
+        else if (p.y < Min.y) p.y = Min.y;
+        return p;
+    }
+};
+
 // Stacked color modifier, backup of modified data so we can restore it
 struct ImGuiColMod
 {
@@ -265,6 +316,7 @@ struct ImGuiGroupData
 struct ImGuiColumnData
 {
     float       OffsetNorm; // Column start offset, normalized 0.0 (far left) -> 1.0 (far right)
+    ImRect      ClipRect;
     //float     IndentX;
 };
 
@@ -335,8 +387,8 @@ struct ImGuiContext
     ImGuiIO                 IO;
     ImGuiStyle              Style;
     ImFont*                 Font;                               // (Shortcut) == FontStack.empty() ? IO.Font : FontStack.back()
-    float                   FontSize;                           // (Shortcut) == FontBaseSize * g.CurrentWindow->FontWindowScale == window->FontSize()
-    float                   FontBaseSize;                       // (Shortcut) == IO.FontGlobalScale * Font->Scale * Font->FontSize. Size of characters.
+    float                   FontSize;                           // (Shortcut) == FontBaseSize * g.CurrentWindow->FontWindowScale == window->FontSize(). Text height for current window.
+    float                   FontBaseSize;                       // (Shortcut) == IO.FontGlobalScale * Font->Scale * Font->FontSize. Base text height.
     ImVec2                  FontTexUvWhitePixel;                // (Shortcut) == Font->TexUvWhitePixel
 
     float                   Time;
@@ -345,9 +397,9 @@ struct ImGuiContext
     int                     FrameCountRendered;
     ImVector<ImGuiWindow*>  Windows;
     ImVector<ImGuiWindow*>  WindowsSortBuffer;
-    ImGuiWindow*            CurrentWindow;                      // Being drawn into
     ImVector<ImGuiWindow*>  CurrentWindowStack;
-    ImGuiWindow*            FocusedWindow;                      // Will catch keyboard inputs
+    ImGuiWindow*            CurrentWindow;                      // Being drawn into
+    ImGuiWindow*            NavWindow;                          // Nav/focused window for navigation
     ImGuiWindow*            HoveredWindow;                      // Will catch mouse inputs
     ImGuiWindow*            HoveredRootWindow;                  // Will catch mouse inputs (for focus/move only)
     ImGuiID                 HoveredId;                          // Hovered widget
@@ -355,9 +407,10 @@ struct ImGuiContext
     ImGuiID                 HoveredIdPreviousFrame;
     ImGuiID                 ActiveId;                           // Active widget
     ImGuiID                 ActiveIdPreviousFrame;
-    bool                    ActiveIdIsAlive;
+    bool                    ActiveIdIsAlive;                    // Active widget has been seen this frame
     bool                    ActiveIdIsJustActivated;            // Set at the time of activation for one frame
-    bool                    ActiveIdAllowOverlap;               // Set only by active widget
+    bool                    ActiveIdAllowOverlap;               // Active widget allows another widget to steal active id (generally for overlapping widgets, but not always)
+
     ImVec2                  ActiveIdClickOffset;                // Clicked offset from upper-left corner, if applicable (currently only set by ButtonBehavior)
     ImGuiWindow*            ActiveIdWindow;
     ImGuiWindow*            MovedWindow;                        // Track the child window we clicked on to move a window.
@@ -408,7 +461,7 @@ struct ImGuiContext
     float                   DragSpeedScaleFast;
     ImVec2                  ScrollbarClickDeltaToGrabCenter;    // Distance between mouse and center of grab box, normalized in parent space. Use storage?
     int                     TooltipOverrideCount;
-    char*                   PrivateClipboard;                   // If no custom clipboard handler is defined
+    ImVector<char>          PrivateClipboard;                   // If no custom clipboard handler is defined
     ImVec2                  OsImePosRequest, OsImePosSet;       // Cursor position request & last passed to the OS Input Method Editor
 
     // Logging
@@ -437,7 +490,7 @@ struct ImGuiContext
         FrameCount = 0;
         FrameCountEnded = FrameCountRendered = -1;
         CurrentWindow = NULL;
-        FocusedWindow = NULL;
+        NavWindow = NULL;
         HoveredWindow = NULL;
         HoveredRootWindow = NULL;
         HoveredId = 0;
@@ -478,7 +531,6 @@ struct ImGuiContext
         DragSpeedScaleFast = 10.0f;
         ScrollbarClickDeltaToGrabCenter = ImVec2(0.0f, 0.0f);
         TooltipOverrideCount = 0;
-        PrivateClipboard = NULL;
         OsImePosRequest = OsImePosSet = ImVec2(-1.0f, -1.0f);
 
         ModalWindowDarkeningRatio = 0.0f;
@@ -544,9 +596,10 @@ struct IMGUI_API ImGuiDrawContext
     float                   ColumnsMinX;
     float                   ColumnsMaxX;
     float                   ColumnsStartPosY;
+    float                   ColumnsStartMaxPosX;   // Backup of CursorMaxPos
     float                   ColumnsCellMinY;
     float                   ColumnsCellMaxY;
-    ImGuiColumnsFlags        ColumnsFlags;
+    ImGuiColumnsFlags       ColumnsFlags;
     ImGuiID                 ColumnsSetId;
     ImVector<ImGuiColumnData> ColumnsData;
 
@@ -577,6 +630,7 @@ struct IMGUI_API ImGuiDrawContext
         ColumnsCount = 1;
         ColumnsMinX = ColumnsMaxX = 0.0f;
         ColumnsStartPosY = 0.0f;
+        ColumnsStartMaxPosX = 0.0f;
         ColumnsCellMinY = ColumnsCellMaxY = 0.0f;
         ColumnsFlags = 0;
         ColumnsSetId = 0;
@@ -614,6 +668,7 @@ struct IMGUI_API ImGuiWindow
     ImGuiID                 PopupId;                            // ID in the popup stack when this window is used as a popup/menu (because we use generic Name/ID for recycling)
     int                     AutoFitFramesX, AutoFitFramesY;
     bool                    AutoFitOnlyGrows;
+    int                     AutoFitChildAxises;
     int                     AutoPosLastDirection;
     int                     HiddenFrames;
     ImGuiCond               SetWindowPosAllowFlags;             // store condition flags for next SetWindowPos() call.
@@ -676,10 +731,11 @@ namespace ImGui
     IMGUI_API ImGuiWindow*  FindWindowByName(const char* name);
     IMGUI_API void          FocusWindow(ImGuiWindow* window);
 
+    IMGUI_API void          Initialize();
     IMGUI_API void          EndFrame();                 // Ends the ImGui frame. Automatically called by Render()! you most likely don't need to ever call that yourself directly. If you don't need to render you can call EndFrame() but you'll have wasted CPU already. If you don't need to render, don't create any windows instead!
 
     IMGUI_API void          SetActiveID(ImGuiID id, ImGuiWindow* window);
-	IMGUI_API void          ClearActiveID();
+    IMGUI_API void          ClearActiveID();
     IMGUI_API void          SetHoveredID(ImGuiID id);
     IMGUI_API void          KeepAliveID(ImGuiID id);
 
@@ -696,6 +752,11 @@ namespace ImGui
     IMGUI_API void          OpenPopupEx(ImGuiID id, bool reopen_existing);
     IMGUI_API bool          IsPopupOpen(ImGuiID id);
 
+    // New Columns API
+    IMGUI_API bool          BeginColumns(const char* id, int count, ImGuiColumnsFlags flags = 0); // setup number of columns. use an identifier to distinguish multiple column sets. close with EndColumns().
+    IMGUI_API bool          EndColumns();                                                         // close columns
+    IMGUI_API void          PushColumnClipRect(int column_index = -1);
+    
     // NB: All position are in absolute pixels coordinates (never using window coordinates internally)
     // AVOID USING OUTSIDE OF IMGUI.CPP! NOT FOR PUBLIC CONSUMPTION. THOSE FUNCTIONS ARE A MESS. THEIR SIGNATURE AND BEHAVIOR WILL CHANGE, THEY NEED TO BE REFACTORED INTO SOMETHING DECENT.
     IMGUI_API void          RenderText(ImVec2 pos, const char* text, const char* text_end = NULL, bool hide_text_after_hash = true);
@@ -739,6 +800,15 @@ namespace ImGui
     IMGUI_API float         RoundScalar(float value, int decimal_precision);
 
 } // namespace ImGui
+
+// ImFontAtlas internals
+IMGUI_API bool              ImFontAtlasBuildWithStbTruetype(ImFontAtlas* atlas);
+IMGUI_API void              ImFontAtlasBuildRegisterDefaultCustomRects(ImFontAtlas* atlas);
+IMGUI_API void              ImFontAtlasBuildSetupFont(ImFontAtlas* atlas, ImFont* font, ImFontConfig* font_config, float ascent, float descent); 
+IMGUI_API void              ImFontAtlasBuildPackCustomRects(ImFontAtlas* atlas, void* spc);
+IMGUI_API void              ImFontAtlasBuildRenderDefaultTexData(ImFontAtlas* atlas);
+IMGUI_API void              ImFontAtlasBuildMultiplyCalcLookupTable(unsigned char out_table[256], float in_multiply_factor);
+IMGUI_API void              ImFontAtlasBuildMultiplyRectAlpha8(const unsigned char table[256], unsigned char* pixels, int x, int y, int w, int h, int stride);
 
 #ifdef __clang__
 #pragma clang diagnostic pop

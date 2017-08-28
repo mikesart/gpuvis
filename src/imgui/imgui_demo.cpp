@@ -1,4 +1,4 @@
-// dear imgui, v1.51 WIP
+// dear imgui, v1.52 WIP
 // (demo code)
 
 // Message to the person tempted to delete this file when integrating ImGui into their code base:
@@ -192,7 +192,7 @@ void ImGui::ShowTestWindow(bool* p_open)
     //ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.65f);    // 2/3 of the space for widget and 1/3 for labels
     ImGui::PushItemWidth(-140);                                 // Right align, keep 140 pixels for labels
 
-    ImGui::Text("Dear ImGui says hello.");
+    ImGui::Text("dear imgui says hello. (%s)", IMGUI_VERSION);
 
     // Menu
     if (ImGui::BeginMenuBar())
@@ -285,9 +285,9 @@ void ImGui::ShowTestWindow(bool* p_open)
             {
                 if (i > 0) ImGui::SameLine();
                 ImGui::PushID(i);
-                ImGui::PushStyleColor(ImGuiCol_Button, ImColor::HSV(i/7.0f, 0.6f, 0.6f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColor::HSV(i/7.0f, 0.7f, 0.7f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColor::HSV(i/7.0f, 0.8f, 0.8f));
+                ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(i/7.0f, 0.6f, 0.6f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(i/7.0f, 0.7f, 0.7f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(i/7.0f, 0.8f, 0.8f));
                 ImGui::Button("Click");
                 ImGui::PopStyleColor(3);
                 ImGui::PopID();
@@ -913,10 +913,10 @@ void ImGui::ShowTestWindow(bool* p_open)
             {
                 if (i > 0) ImGui::SameLine();
                 ImGui::PushID(i);
-                ImGui::PushStyleColor(ImGuiCol_FrameBg, ImColor::HSV(i/7.0f, 0.5f, 0.5f));
-                ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImColor::HSV(i/7.0f, 0.6f, 0.5f));
-                ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImColor::HSV(i/7.0f, 0.7f, 0.5f));
-                ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImColor::HSV(i/7.0f, 0.9f, 0.9f));
+                ImGui::PushStyleColor(ImGuiCol_FrameBg, (ImVec4)ImColor::HSV(i/7.0f, 0.5f, 0.5f));
+                ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, (ImVec4)ImColor::HSV(i/7.0f, 0.6f, 0.5f));
+                ImGui::PushStyleColor(ImGuiCol_FrameBgActive, (ImVec4)ImColor::HSV(i/7.0f, 0.7f, 0.5f));
+                ImGui::PushStyleColor(ImGuiCol_SliderGrab, (ImVec4)ImColor::HSV(i/7.0f, 0.9f, 0.9f));
                 ImGui::VSliderFloat("##v", ImVec2(18,160), &values[i], 0.0f, 1.0f, "");
                 if (ImGui::IsItemActive() || ImGui::IsItemHovered())
                     ImGui::SetTooltip("%.3f", values[i]);
@@ -1271,9 +1271,9 @@ void ImGui::ShowTestWindow(bool* p_open)
                     char num_buf[16];
                     const char* label = (!(n%15)) ? "FizzBuzz" : (!(n%3)) ? "Fizz" : (!(n%5)) ? "Buzz" : (sprintf(num_buf, "%d", n), num_buf);
                     float hue = n*0.05f;
-                    ImGui::PushStyleColor(ImGuiCol_Button, ImColor::HSV(hue, 0.6f, 0.6f));
-                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColor::HSV(hue, 0.7f, 0.7f));
-                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColor::HSV(hue, 0.8f, 0.8f));
+                    ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(hue, 0.6f, 0.6f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(hue, 0.7f, 0.7f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(hue, 0.8f, 0.8f));
                     ImGui::Button(label, ImVec2(40.0f + sinf((float)(line + n)) * 20.0f, 0.0f));
                     ImGui::PopStyleColor(3);
                     ImGui::PopID();
@@ -1527,75 +1527,6 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::TreePop();
         }
 
-        // Scrolling columns
-        /*
-        if (ImGui::TreeNode("Scrolling"))
-        {
-            ImGui::BeginChild("##header", ImVec2(0, ImGui::GetTextLineHeightWithSpacing()+ImGui::GetStyle().ItemSpacing.y));
-            ImGui::Columns(3);
-            ImGui::Text("ID"); ImGui::NextColumn();
-            ImGui::Text("Name"); ImGui::NextColumn();
-            ImGui::Text("Path"); ImGui::NextColumn();
-            ImGui::Columns(1);
-            ImGui::Separator();
-            ImGui::EndChild();
-            ImGui::BeginChild("##scrollingregion", ImVec2(0, 60));
-            ImGui::Columns(3);
-            for (int i = 0; i < 10; i++)
-            {
-                ImGui::Text("%04d", i); ImGui::NextColumn();
-                ImGui::Text("Foobar"); ImGui::NextColumn();
-                ImGui::Text("/path/foobar/%04d/", i); ImGui::NextColumn();
-            }
-            ImGui::Columns(1);
-            ImGui::EndChild();
-            ImGui::TreePop();
-        }
-        */
-
-        if (ImGui::TreeNode("Advanced settings"))
-        {
-            static bool border = true;
-            static bool preserveWidths = true;
-            static bool forceWithinWindow = true;
-
-            ImGui::Checkbox("Border", &border);
-            ImGui::SameLine();
-            ImGui::Checkbox("Preserve widths", &preserveWidths);
-            ImGui::SameLine();
-            ImGui::Checkbox("Force within window", &forceWithinWindow);
-
-            ImGuiColumnsFlags flags = 0;
-            flags |= (border ? 0 : ImGuiColumnsFlags_NoBorder);
-            flags |= (preserveWidths ? 0 : ImGuiColumnsFlags_NoPreserveWidths);
-            flags |= (forceWithinWindow ? 0 : ImGuiColumnsFlags_NoForceWithinWindow);
-
-            ImGui::BeginColumns("AdvancedColumns", 4, flags);
-            ImGui::Separator();
-            ImGui::Text("ID"); ImGui::NextColumn();
-            ImGui::Text("Name"); ImGui::NextColumn();
-            ImGui::Text("Path"); ImGui::NextColumn();
-            ImGui::Text("Flags"); ImGui::NextColumn();
-            ImGui::Separator();
-            const char* names[3] = { "One", "Two", "Three" };
-            const char* paths[3] = { "/path/one", "/path/two", "/path/three" };
-            static int selected = -1;
-            for (int i = 0; i < 3; i++)
-            {
-                char label[32];
-                sprintf(label, "%04d", i);
-                if (ImGui::Selectable(label, selected == i, ImGuiSelectableFlags_SpanAllColumns))
-                    selected = i;
-                ImGui::NextColumn();
-                ImGui::Text(names[i]); ImGui::NextColumn();
-                ImGui::Text(paths[i]); ImGui::NextColumn();
-                ImGui::Text("...."); ImGui::NextColumn();
-            }
-            ImGui::EndColumns();
-            ImGui::Separator();
-            ImGui::TreePop();
-        }
-
         // Create multiple items in a same cell before switching to next column
         if (ImGui::TreeNode("Mixed items"))
         {
@@ -1613,7 +1544,7 @@ void ImGui::ShowTestWindow(bool* p_open)
             ImGui::Text("An extra line here.");
             ImGui::NextColumn();
 
-            ImGui::Text("Sailor");
+                ImGui::Text("Sailor");
             ImGui::Button("Corniflower");
             static float bar = 1.0f;
             ImGui::InputFloat("blue", &bar, 0.05f, 0, 3);
@@ -1644,20 +1575,66 @@ void ImGui::ShowTestWindow(bool* p_open)
 
         if (ImGui::TreeNode("Borders"))
         {
+            // NB: Future columns API should allow automatic horizontal borders.
             static bool h_borders = true;
             static bool v_borders = true;
             ImGui::Checkbox("horizontal", &h_borders);
             ImGui::SameLine();
             ImGui::Checkbox("vertical", &v_borders);
             ImGui::Columns(4, NULL, v_borders);
-            if (h_borders) ImGui::Separator();
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < 4*3; i++)
             {
+                if (h_borders && ImGui::GetColumnIndex() == 0)
+                    ImGui::Separator();
                 ImGui::Text("%c%c%c", 'a'+i, 'a'+i, 'a'+i);
+                ImGui::Text("Width %.2f\nOffset %.2f", ImGui::GetColumnWidth(), ImGui::GetColumnOffset());
                 ImGui::NextColumn();
             }
             ImGui::Columns(1);
-            if (h_borders) ImGui::Separator();
+            if (h_borders)
+                ImGui::Separator();
+            ImGui::TreePop();
+        }
+
+        // Scrolling columns
+        /*
+        if (ImGui::TreeNode("Vertical Scrolling"))
+        {
+            ImGui::BeginChild("##header", ImVec2(0, ImGui::GetTextLineHeightWithSpacing()+ImGui::GetStyle().ItemSpacing.y));
+            ImGui::Columns(3);
+            ImGui::Text("ID"); ImGui::NextColumn();
+            ImGui::Text("Name"); ImGui::NextColumn();
+            ImGui::Text("Path"); ImGui::NextColumn();
+            ImGui::Columns(1);
+            ImGui::Separator();
+            ImGui::EndChild();
+            ImGui::BeginChild("##scrollingregion", ImVec2(0, 60));
+            ImGui::Columns(3);
+            for (int i = 0; i < 10; i++)
+            {
+                ImGui::Text("%04d", i); ImGui::NextColumn();
+                ImGui::Text("Foobar"); ImGui::NextColumn();
+                ImGui::Text("/path/foobar/%04d/", i); ImGui::NextColumn();
+            }
+            ImGui::Columns(1);
+            ImGui::EndChild();
+            ImGui::TreePop();
+        }
+        */
+
+        if (ImGui::TreeNode("Horizontal Scrolling"))
+        {
+            ImGui::SetNextWindowContentWidth(1500);
+            ImGui::BeginChild("##scrollingregion", ImVec2(0, 120), false, ImGuiWindowFlags_HorizontalScrollbar);
+            ImGui::Columns(10);
+            for (int i = 0; i < 20; i++)
+                for (int j = 0; j < 10; j++)
+                {
+                    ImGui::Text("Line %d Column %d...", i, j);
+                    ImGui::NextColumn();
+                }
+            ImGui::Columns(1);
+            ImGui::EndChild();
             ImGui::TreePop();
         }
 
@@ -1874,7 +1851,7 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
             for (int i = 0; i < ImGuiCol_COUNT; i++)
             {
                 const ImVec4& col = style.Colors[i];
-                const char* name = ImGui::GetStyleColName(i);
+                const char* name = ImGui::GetStyleColorName(i);
                 if (!output_only_modified || memcmp(&col, (ref ? &ref->Colors[i] : &default_style.Colors[i]), sizeof(ImVec4)) != 0)
                     ImGui::LogText("style.Colors[ImGuiCol_%s]%*s= ImVec4(%.2ff, %.2ff, %.2ff, %.2ff);" IM_NEWLINE, name, 22 - (int)strlen(name), "", col.x, col.y, col.z, col.w);
             }
@@ -1897,7 +1874,7 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
         ImGui::PushItemWidth(-160);
         for (int i = 0; i < ImGuiCol_COUNT; i++)
         {
-            const char* name = ImGui::GetStyleColName(i);
+            const char* name = ImGui::GetStyleColorName(i);
             if (!filter.PassFilter(name))
                 continue;
             ImGui::PushID(i);
@@ -1915,9 +1892,10 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("Fonts", "Fonts (%d)", ImGui::GetIO().Fonts->Fonts.Size))
+    bool fonts_opened = ImGui::TreeNode("Fonts", "Fonts (%d)", ImGui::GetIO().Fonts->Fonts.Size);
+    ImGui::SameLine(); ShowHelpMarker("Tip: Load fonts with io.Fonts->AddFontFromFileTTF()\nbefore calling io.Fonts->GetTex* functions.");
+    if (fonts_opened)
     {
-        ImGui::SameLine(); ShowHelpMarker("Tip: Load fonts with io.Fonts->AddFontFromFileTTF()\nbefore calling io.Fonts->GetTex* functions.");
         ImFontAtlas* atlas = ImGui::GetIO().Fonts;
         if (ImGui::TreeNode("Atlas texture", "Atlas texture (%dx%d pixels)", atlas->TexWidth, atlas->TexHeight))
         {
@@ -1928,14 +1906,13 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
         for (int i = 0; i < atlas->Fonts.Size; i++)
         {
             ImFont* font = atlas->Fonts[i];
-            ImGui::BulletText("Font %d: \'%s\', %.2f px, %d glyphs", i, font->ConfigData ? font->ConfigData[0].Name : "", font->FontSize, font->Glyphs.Size);
-            ImGui::TreePush((void*)(intptr_t)i);
+            bool font_details_opened = ImGui::TreeNode(font, "Font %d: \'%s\', %.2f px, %d glyphs", i, font->ConfigData ? font->ConfigData[0].Name : "", font->FontSize, font->Glyphs.Size);
             ImGui::SameLine(); if (ImGui::SmallButton("Set as default")) ImGui::GetIO().FontDefault = font;
-            ImGui::PushFont(font);
-            ImGui::Text("The quick brown fox jumps over the lazy dog");
-            ImGui::PopFont();
-            if (ImGui::TreeNode("Details"))
+            if (font_details_opened)
             {
+                ImGui::PushFont(font);
+                ImGui::Text("The quick brown fox jumps over the lazy dog");
+                ImGui::PopFont();
                 ImGui::DragFloat("Font scale", &font->Scale, 0.005f, 0.3f, 2.0f, "%.1f");   // Scale only this font
                 ImGui::SameLine(); ShowHelpMarker("Note than the default embedded font is NOT meant to be scaled.\n\nFont are currently rendered into bitmaps at a given size at the time of building the atlas. You may oversample them to get some flexibility with scaling. You can also render at multiple sizes and select which one to use at runtime.\n\n(Glimmer of hope: the atlas system should hopefully be rewritten in the future to make scaling more natural and automatic.)");
                 ImGui::Text("Ascent: %f, Descent: %f, Height: %f", font->Ascent, font->Descent, font->Ascent - font->Descent);
@@ -1989,7 +1966,6 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
                 }
                 ImGui::TreePop();
             }
-            ImGui::TreePop();
         }
         static float window_scale = 1.0f;
         ImGui::DragFloat("this window scale", &window_scale, 0.005f, 0.3f, 2.0f, "%.1f");              // scale only this window
@@ -2072,7 +2048,7 @@ static void ShowExampleMenuFile()
     if (ImGui::BeginMenu("Colors"))
     {
         for (int i = 0; i < ImGuiCol_COUNT; i++)
-            ImGui::MenuItem(ImGui::GetStyleColName((ImGuiCol)i));
+            ImGui::MenuItem(ImGui::GetStyleColorName((ImGuiCol)i));
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Disabled", false)) // Disabled
@@ -2322,7 +2298,7 @@ struct ExampleAppConsole
         ScrollToBottom = true;
     }
 
-    void    AddLog(const char* fmt, ...) IM_PRINTFARGS(2)
+    void    AddLog(const char* fmt, ...) IM_FMTARGS(2)
     {
         char buf[1024];
         va_list args;
@@ -2584,7 +2560,7 @@ struct ExampleAppLog
 
     void    Clear()     { Buf.clear(); LineOffsets.clear(); }
 
-    void    AddLog(const char* fmt, ...) IM_PRINTFARGS(2)
+    void    AddLog(const char* fmt, ...) IM_FMTARGS(2)
     {
         int old_size = Buf.size();
         va_list args;
