@@ -229,6 +229,8 @@ constexpr size_t ARRAY_SIZE( const T (&)[ size ] )
 }
 
 template < size_t T  >
+int snprintf_safe( char ( &buf )[ T ], const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
+template < size_t T  >
 int snprintf_safe( char ( &buf )[ T ], const char *fmt, ... )
 {
     va_list ap;
@@ -236,7 +238,7 @@ int snprintf_safe( char ( &buf )[ T ], const char *fmt, ... )
 
     va_start( ap, fmt );
 
-    retval = SDL_vsnprintf( buf, T, fmt, ap );
+    retval = vsnprintf( buf, T, fmt, ap );
     buf[ T - 1 ] = 0;
 
     va_end(ap);
@@ -245,11 +247,13 @@ int snprintf_safe( char ( &buf )[ T ], const char *fmt, ... )
 }
 
 template < size_t T  >
+int vsnprintf_safe( char ( &buf )[ T ], const char *fmt, va_list ap ) ATTRIBUTE_PRINTF( 2, 0 );
+template < size_t T  >
 int vsnprintf_safe( char ( &buf )[ T ], const char *fmt, va_list ap )
 {
     int retval;
 
-    retval = SDL_vsnprintf( buf, T, fmt, ap );
+    retval = vsnprintf( buf, T, fmt, ap );
     buf[ T - 1 ] = 0;
 
     return retval;

@@ -235,7 +235,7 @@ save_umap_ini_entries( const util_umap< std::string, std::string > &blah,
         char key[ 32 ];
         const std::string &val = i.first + "\t" + i.second;
 
-        snprintf_safe( key, "%02lu", num++ );
+        snprintf_safe( key, "%02u", num++ );
         s_ini().PutStr( key, val.c_str(), section );
     }
 }
