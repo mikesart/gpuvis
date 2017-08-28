@@ -358,6 +358,16 @@ struct IMGUI_API ImGuiTextEditState
     void                OnKeyPressed(int key);
 };
 
+// Data saved in imgui.ini file
+struct ImGuiIniData
+{
+    char*       Name;
+    ImGuiID     Id;
+    ImVec2      Pos;
+    ImVec2      Size;
+    bool        Collapsed;
+};
+
 // Mouse cursor data (used when io.MouseDrawCursor is set)
 struct ImGuiMouseCursorData
 {

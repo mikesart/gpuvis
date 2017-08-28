@@ -769,19 +769,6 @@ struct ImGuiStyle
     IMGUI_API ImGuiStyle();
 };
 
-// Data saved in imgui.ini file
-struct ImGuiIniData
-{
-    char*       Name;
-    ImGuiID     Id;
-    ImVec2      Pos;
-    ImVec2      Size;
-    bool        Collapsed;
-};
-
-typedef std::function< int ( int index, const ImGuiIniData &data ) > IniSaveSettingsCallback;
-typedef std::function< int ( int index, ImGuiIniData &data ) > IniLoadSettingsCallback;
-
 // This is where your app communicate with ImGui. Access via ImGui::GetIO().
 // Read 'Programmer guide' section in .cpp file for general usage.
 struct ImGuiIO
@@ -794,8 +781,6 @@ struct ImGuiIO
     float         DeltaTime;                // = 1.0f/60.0f         // Time elapsed since last frame, in seconds.
     float         IniSavingRate;            // = 5.0f               // Maximum time between saving positions/sizes to .ini file, in seconds.
     const char*   IniFilename;              // = "imgui.ini"        // Path to .ini file. NULL to disable .ini saving.
-    IniSaveSettingsCallback IniSaveSettingCB;
-    IniLoadSettingsCallback IniLoadSettingCB;
     const char*   LogFilename;              // = "imgui_log.txt"    // Path to .log file (default parameter to ImGui::LogToFile when no file is specified).
     float         MouseDoubleClickTime;     // = 0.30f              // Time for a double-click, in seconds.
     float         MouseDoubleClickMaxDist;  // = 6.0f               // Distance threshold to stay in to validate a double-click, in pixels.

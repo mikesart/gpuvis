@@ -114,32 +114,6 @@ static bool imgui_input_int( int *val, float w, const char *label, const char *l
     return ret;
 }
 
-static int imgui_ini_save_settings_cb( int index, const ImGuiIniData &data )
-{
-    std::string value = string_format( "%.2f,%.2f,%.2f,%.2f",
-                                       data.Pos.x, data.Pos.y, data.Size.x, data.Size.y );
-
-    s_ini().PutStr( data.Name, value.c_str(), "$imguiwindows$" );
-    return 0;
-}
-
-static int imgui_ini_load_settings_cb( std::vector< INIEntry > *entries, int index, ImGuiIniData &data )
-{
-    if ( ( size_t )index < entries->size() )
-    {
-        const std::string &key = entries->at( index ).first;
-        const std::string &val = entries->at( index ).second;
-
-        sscanf( val.c_str(), "%f,%f,%f,%f", &data.Pos.x, &data.Pos.y, &data.Size.x, &data.Size.y );
-
-        data.Collapsed = false;
-        data.Name = strdup( key.c_str() );
-        return 0;
-    }
-
-    return -1;
-}
-
 /*
  * StrPool
  */
@@ -641,12 +615,6 @@ int SDLCALL MainApp::thread_func( void *data )
 
 void MainApp::init( int argc, char **argv )
 {
-    ImGuiIO &io = ImGui::GetIO();
-
-    m_imguiwindow_entries = s_ini().GetSectionEntries( "$imguiwindows$" );
-    io.IniLoadSettingCB = std::bind( imgui_ini_load_settings_cb, &m_imguiwindow_entries, _1, _2 );
-    io.IniSaveSettingCB = std::bind( imgui_ini_save_settings_cb, _1, _2 );
-
     parse_cmdline( argc, argv );
 
     imgui_set_custom_style( s_clrs().getalpha( col_ThemeAlpha ) );
@@ -3678,6 +3646,10 @@ int main( int argc, char **argv )
 
     // Initialize logging system
     logf_init();
+
+    std::string imguiini = util_get_config_dir( "gpuvis" ) + "/imgui.ini";
+    ImGuiIO &io = ImGui::GetIO();
+    io.IniFilename = imguiini.c_str();
 
     // Init ini singleton
     s_ini().Open( "gpuvis", "gpuvis.ini" );
