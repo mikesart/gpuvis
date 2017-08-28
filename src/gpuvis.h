@@ -826,8 +826,6 @@ public:
     size_t m_log_size = ( size_t )-1;
     std::vector< std::string > m_log;
 
-    std::vector< INIEntry > m_imguiwindow_entries;
-
     std::string m_colorpicker_event;
     colors_t m_colorpicker_color = 0;
     ColorPicker m_colorpicker;
