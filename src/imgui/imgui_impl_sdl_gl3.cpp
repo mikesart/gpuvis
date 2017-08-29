@@ -182,11 +182,15 @@ void ImGui_ImplSdlGL3_CreateFontsTexture(bool *use_freetype)
     unsigned char* pixels;
     int width, height;
 
+#ifndef USE_FREETYPE
+    *use_freetype = false;
+#else
     if ( use_freetype && *use_freetype )
     {
         if ( !ImGuiFreeType::BuildFontAtlas( io.Fonts ) )
             *use_freetype = false;
     }
+#endif
 
     // Load as RGBA 32-bits for OpenGL3 demo because it is more likely to be compatible with user's existing shader.
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);

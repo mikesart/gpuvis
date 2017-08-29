@@ -6,6 +6,8 @@
 // - v0.50: imported from https://github.com/Vuhdo/imgui_freetype, updated for latest changes in ImFontAtlas, minor tweaks.
 // - v0.51: cleanup, optimizations, support for ImFontConfig::RasterizerFlags, ImFontConfig::RasterizerMultiply.
 
+#ifdef USE_FREETYPE
+
 #include "imgui_freetype.h"
 #include "imgui_internal.h"   // ImMin,ImMax,ImFontAtlasBuild*,
 #include <stdint.h>
@@ -367,3 +369,5 @@ bool ImGuiFreeType::BuildFontAtlas(ImFontAtlas* atlas, unsigned int extra_flags)
 
     return true;
 }
+
+#endif // USE_FREETYPE
