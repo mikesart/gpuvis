@@ -53,6 +53,8 @@ Uses [stb_textedit.h, stb_truetype.h, stb_rectpack.h](https://github.com/nothing
 
 trace-cmd is [GNU GPL v2](https://git.kernel.org/pub/scm/linux/kernel/git/rostedt/trace-cmd.git)
 
+miniz is MIT licensed: [miniz](https://github.com/richgel999/miniz)
+
 stlini has e-mail author & credit license: [stlini](http://source.robertk.com/)
 
 ya_getopt is 2-clause BSD-style licensed: [ya_getopt](https://github.com/kubo/ya_getopt/blob/master/README.md)

@@ -68,6 +68,7 @@ set ( SRC_LIST
     src/tdopexpr.cpp
     src/ya_getopt.c
     src/hash_fnv.c
+    src/miniz.c
     src/stlini.cpp
     src/imgui/imgui_impl_sdl_gl3.cpp
     src/imgui/imgui.cpp

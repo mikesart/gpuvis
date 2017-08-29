@@ -36,12 +36,13 @@ GTK3FLAGS=$(shell pkg-config --cflags gtk+-3.0) -DUSE_GTK3
 GTK3LIBS=$(shell pkg-config --libs gtk+-3.0)
 endif
 
-WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wshadow -Wno-unused-parameter -Wno-missing-field-initializers -DUSE_FREETYPE
+WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wshadow -Wno-unused-parameter -Wno-missing-field-initializers
 ifneq ($(COMPILER),clang)
   WARNINGS += -Wsuggest-attribute=format
 endif
 
 CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 $(SDL2FLAGS) $(GTK3FLAGS) -I/usr/include/freetype2
+CFLAGS += -DUSE_FREETYPE -D_LARGEFILE64_SOURCE
 CXXFLAGS = -fno-rtti -Woverloaded-virtual
 LDFLAGS = -march=native -gdwarf-4 -g2 -Wl,--build-id=sha1
 LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lfreetype -lstdc++ $(SDL2LIBS) $(GTK3LIBS)
@@ -57,9 +58,10 @@ CFILES = \
 	src/gpuvis_plots.cpp \
 	src/gpuvis_graphrows.cpp \
 	src/gpuvis_utils.cpp \
-    src/tdopexpr.cpp \
+	src/tdopexpr.cpp \
 	src/ya_getopt.c \
 	src/hash_fnv.c \
+	src/miniz.c \
 	src/stlini.cpp \
 	src/imgui/imgui_impl_sdl_gl3.cpp \
 	src/imgui/imgui.cpp \
