@@ -49,6 +49,8 @@
 #include "gpuvis_utils.h"
 #include "gpuvis.h"
 
+#include "miniz.h"
+
 // https://github.com/ocornut/imgui/issues/88
 #if defined( USE_GTK3 )
   #define NOC_FILE_DIALOG_IMPLEMENTATION
@@ -414,12 +416,63 @@ void MainApp::cancel_load_file()
     SDL_AtomicCAS( &m_loading_info.state, State_Loading, State_CancelLoading );
 }
 
+static std::string unzip_first_file( const char *zipfile )
+{
+    std::string ret;
+    mz_zip_archive zip_archive;
+
+    memset( &zip_archive, 0, sizeof( zip_archive ) );
+
+    if ( mz_zip_reader_init_file( &zip_archive, zipfile, 0 ) )
+    {
+        mz_uint fileCount = mz_zip_reader_get_num_files( &zip_archive );
+
+        if ( fileCount )
+        {
+            mz_zip_archive_file_stat file_stat;
+
+            if ( mz_zip_reader_file_stat( &zip_archive, 0, &file_stat ) )
+            {
+                for ( mz_uint i = 0; i < fileCount; i++ )
+                {
+                    if ( !mz_zip_reader_file_stat( &zip_archive, i, &file_stat ) )
+                        continue;
+
+                    if ( mz_zip_reader_is_file_a_directory( &zip_archive, i ) )
+                        continue;
+
+                    ret = string_format( "%s_%s", std::tmpnam( NULL ), file_stat.m_filename );
+                    if ( mz_zip_reader_extract_to_file( &zip_archive, i, ret.c_str(), 0 ) )
+                        break;
+
+                    ret.clear();
+                }
+            }
+        }
+
+        mz_zip_reader_end( &zip_archive );
+    }
+
+    return ret;
+}
+
 bool MainApp::load_file( const char *filename )
 {
+    std::string tmpfile;
+    const char *ext = strrchr( filename, '.' );
+
     if ( is_loading() )
     {
         logf( "[Error] %s failed, currently loading %s.", __func__, m_loading_info.filename.c_str() );
         return false;
+    }
+
+    if ( ext && !strcmp( ext, ".zip" ) )
+    {
+        tmpfile = unzip_first_file( filename );
+
+        if ( !tmpfile.empty() )
+            filename = tmpfile.c_str();
     }
 
     size_t filesize = get_file_size( filename );
