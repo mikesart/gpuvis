@@ -6,7 +6,7 @@ gpuvis
 Credits
 -------
 
-gpuvis code is [MIT](http://opensource.org/licenses/MIT) licensed.·
+gpuvis code is [MIT](http://opensource.org/licenses/MIT) licensed.
 
 ```
 Copyright 2017 Valve Software
@@ -36,7 +36,7 @@ Simple DirectMedia Layer is [zlib licensed](https://www.libsdl.org/license.php)
 
 gl3w is [public domain](https://github.com/skaslev/gl3w)
 
-Dear ImGui was developed by [Omar Cornut](http://www.miracleworld.net) and every direct or indirect contributors to the GitHub. The early version of this library was developed with the support of [Media Molecule](http://www.mediamolecule.com) and first used internally on the game [Tearaway](http://tearaway.mediamolecule.com). 
+Dear ImGui was developed by [Omar Cornut](http://www.miracleworld.net) and every direct or indirect contributors to the GitHub. The early version of this library was developed with the support of [Media Molecule](http://www.mediamolecule.com) and first used internally on the game [Tearaway](http://tearaway.mediamolecule.com).
 
 Dear ImGui is licensed under the [MIT License](https://github.com/ocornut/imgui/blob/master/LICENSE)
 

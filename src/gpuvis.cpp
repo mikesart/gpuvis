@@ -438,7 +438,7 @@ static std::string unzip_first_file( const char *zipfile )
                     if ( !mz_zip_reader_file_stat( &zip_archive, i, &file_stat ) )
                         continue;
 
-                    if ( mz_zip_reader_is_file_a_directory( &zip_archive, i ) )
+                    if ( file_stat.m_is_directory )
                         continue;
 
                     ret = string_format( "%s_%s", std::tmpnam( NULL ), file_stat.m_filename );
