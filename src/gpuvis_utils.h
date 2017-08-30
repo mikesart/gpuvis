@@ -163,6 +163,8 @@ static bool imgui_input_text( const char *label, char ( &buf )[ T ], float x, fl
     return ret;
 }
 
+bool imgui_save_screenshot( const char *filename );
+
 #define IM_COL32_R( _x ) ( ( ( _x ) >> IM_COL32_R_SHIFT ) & 0xFF )
 #define IM_COL32_G( _x ) ( ( ( _x ) >> IM_COL32_G_SHIFT ) & 0xFF )
 #define IM_COL32_B( _x ) ( ( ( _x ) >> IM_COL32_B_SHIFT ) & 0xFF )
