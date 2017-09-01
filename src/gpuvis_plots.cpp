@@ -179,6 +179,8 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
                 { return ( ( data->EventChar < 256 ) && ispunct( data->EventChar ) ); }
     };
     imgui_input_text( "Plot Name:", m_plot_name_buf, x, w, PlotNameFilter::FilterPunct );
+    if ( ImGui::IsWindowAppearing() )
+        ImGui::SetKeyboardFocusHere( -1 );
 
     imgui_input_text( "Plot Filter:", m_plot_filter_buf, x, w );
 

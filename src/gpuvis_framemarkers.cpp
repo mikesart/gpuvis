@@ -165,6 +165,9 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
         if ( imgui_input_text( left_text, dlg.m_left_marker_buf, x, w ) )
             clear_dlg();
 
+        if ( ImGui::IsWindowAppearing() )
+            ImGui::SetKeyboardFocusHere( -1 );
+
         item_hovered |= ImGui::IsItemHovered();
 
         if ( !dlg.m_left_filter_err_str.empty() )
