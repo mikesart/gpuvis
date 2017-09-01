@@ -194,7 +194,6 @@ public:
     char m_name_buf[ 128 ];
     char m_filter_buf[ 512 ];
 
-    uint32_t m_passes = 0;
     std::vector< std::string > m_previous_filters;
 };
 
@@ -808,7 +807,6 @@ public:
 
     struct save_info_t
     {
-        int passes = 0;
         char filename_buf[ PATH_MAX ] = { 0 };
 
         std::string title;

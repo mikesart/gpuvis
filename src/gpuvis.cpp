@@ -705,14 +705,14 @@ void MainApp::render_save_filename()
 {
     struct stat st;
     float w = imgui_scale( 300.0f );
-    bool firstpass = ( m_saving_info.passes++ < 2 );
+    bool window_appearing = ImGui::IsWindowAppearing();
     bool do_save = s_actions().get( action_return );
 
     // Text label
     ImGui::Text( "%s", m_saving_info.title.c_str() );
 
     // New filename input text field
-    if ( imgui_input_text2( "New Filename:", m_saving_info.filename_buf, w, 0 ) || firstpass )
+    if ( imgui_input_text2( "New Filename:", m_saving_info.filename_buf, w, 0 ) || window_appearing )
     {
         m_saving_info.errstr.clear();
         m_saving_info.filename_new = get_realpath( m_saving_info.filename_buf );
@@ -726,7 +726,7 @@ void MainApp::render_save_filename()
     }
 
     // Set focus to input text on first pass through
-    if ( firstpass )
+    if ( window_appearing )
         ImGui::SetKeyboardFocusHere( -1 );
 
     // Spew out any error / warning messages
@@ -762,7 +762,6 @@ void MainApp::render_save_filename()
     {
         ImGui::CloseCurrentPopup();
 
-        m_saving_info.passes = 0;
         m_saving_info.filename_buf[ 0 ] = 0;
         m_saving_info.title.clear();
         m_saving_info.filename_new.clear();

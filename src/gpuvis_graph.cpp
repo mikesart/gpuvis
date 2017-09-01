@@ -712,8 +712,6 @@ bool CreateGraphRowDlg::show_dlg( TraceEvents &trace_events, uint32_t eventid )
         strcpy_safe( m_filter_buf, m_previous_filters[ 0 ].c_str() );
     }
 
-    m_passes = 0;
-
     ImGui::OpenPopup( "Add New Graph Row" );
     return false;
 }
@@ -733,7 +731,7 @@ bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
 
     imgui_input_text( row_name, m_name_buf, x, w );
 
-    if ( m_passes++ < 2 )
+    if ( ImGui::IsWindowAppearing() )
         ImGui::SetKeyboardFocusHere( -1 );
 
     imgui_input_text( row_filter, m_filter_buf, x, w );
