@@ -748,15 +748,7 @@ void MainApp::render_save_filename()
 
     bool close_popup = false;
     if ( do_save && !disabled )
-    {
-        close_popup = copy_file( m_saving_info.filename_orig.c_str(), m_saving_info.filename_new.c_str() );
-
-        if ( !close_popup )
-        {
-            m_saving_info.errstr = string_format( "ERROR: copy_file to %s failed",
-                                                    m_saving_info.filename_new.c_str() );
-        }
-    }
+        close_popup = m_saving_info.save_cb( m_saving_info );
 
     // Cancel button (or escape key)
     ImGui::SameLine();
@@ -3552,6 +3544,19 @@ void MainApp::render_menu( const char *str_id )
             {
                 m_saving_info.filename_orig = get_realpath( filename.c_str() );
                 m_saving_info.title = string_format( "Save '%s' as:", m_saving_info.filename_orig.c_str() );
+
+                // Lambda for copying filename_orig to filename_new
+                m_saving_info.save_cb = []( save_info_t &save_info )
+                {
+                    bool close_popup = copy_file( save_info.filename_orig.c_str(), save_info.filename_new.c_str() );
+
+                    if ( !close_popup )
+                    {
+                        save_info.errstr = string_format( "ERROR: copy_file to %s failed",
+                                                              save_info.filename_new.c_str() );
+                    }
+                    return close_popup;
+                };
             }
         }
 

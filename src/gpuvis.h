@@ -806,7 +806,7 @@ public:
         std::vector< std::string > inputfiles;
     } m_loading_info;
 
-    struct
+    struct save_info_t
     {
         int passes = 0;
         char filename_buf[ PATH_MAX ] = { 0 };
@@ -815,7 +815,10 @@ public:
         std::string filename_new;
         std::string filename_orig;
         std::string errstr;
-    } m_saving_info;
+
+        std::function< bool ( save_info_t &save_info ) > save_cb;
+    };
+    save_info_t m_saving_info;
 
     // Max drm_vblank_event crc value we've seen
     uint32_t m_crtc_max = 0;
