@@ -780,100 +780,95 @@ void imgui_set_custom_style( float alpha )
     }
 }
 
-// From:
-//   https://github.com/ocornut/imgui/wiki/screenshot_tool
-//
-// Helper class for simple bitmap manipulation (not particularly efficient!)
-struct ImageBuf
+void ImageBuf::CreateEmpty( int w, int h )
 {
-    typedef unsigned int u32;
+    Clear();
 
-    int             Width, Height;
-    u32             *Data;
+    Width = w;
+    Height = h;
 
-    ImageBuf()      { Width = Height = 0; Data = NULL; }
-    ~ImageBuf()     { Clear(); }
-    void Clear()    { if (Data) free(Data); Data = NULL; }
+    Data = ( uint32_t * )malloc( Width * Height * 4 );
+    memset( Data, 0, Width * Height * 4 );
+}
 
-    void CreateEmpty(int w, int h)
+void ImageBuf::CreateFromCaptureGL( int x, int y, int w, int h )
+{
+    Clear();
+
+    Width = w;
+    Height = h;
+
+    Data = ( uint32_t * )malloc(Width * Height * 4);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(x, y, w, h, GL_RGBA, GL_UNSIGNED_BYTE, Data);
+
+    RemoveAlpha();
+}
+
+int ImageBuf::SaveFile( const char *filename )
+{
+    return stbi_write_png( filename, Width, Height, 4, Data, Width * 4 );
+}
+
+void ImageBuf::RemoveAlpha()
+{
+    uint32_t *p = Data;
+    int n = Width * Height;
+
+    while (n-- > 0)
     {
-        Clear();
-        Width = w;
-        Height = h;
-        Data = (u32*)malloc(Width * Height * 4);
-        memset(Data, 0, Width * Height * 4);
+        *p |= 0xFF000000;
+        p++;
+    }
+}
+
+void ImageBuf::BlitTo( ImageBuf* dst, int src_x, int src_y, int dst_x, int dst_y, int w, int h )
+{
+    ImageBuf *src = this;
+
+    IM_ASSERT( dst != src );
+    IM_ASSERT( dst != NULL );
+    IM_ASSERT( src_x >= 0 && src_y >= 0 );
+    IM_ASSERT( src_x + w <= src->Width );
+    IM_ASSERT( src_y + h <= src->Height );
+    IM_ASSERT( dst_x >= 0 && dst_y >= 0 );
+    IM_ASSERT( dst_x + w <= dst->Width );
+    IM_ASSERT( dst_y + h <= dst->Height );
+
+    for ( int y = 0; y < h; y++ )
+        memcpy( dst->Data + dst_x + (dst_y + y) * dst->Width, src->Data + src_x + (src_y + y) * src->Width, w * 4 );
+}
+
+void ImageBuf::FlipVertical()
+{
+    int comp = 4;
+    int stride = Width * comp;
+    unsigned char *line_tmp = new unsigned char[ stride ];
+    unsigned char *line_a = ( unsigned char * )Data;
+    unsigned char *line_b = ( unsigned char * )Data + ( stride * ( Height - 1 ) );
+
+    while ( line_a < line_b )
+    {
+        memcpy( line_tmp, line_a, stride );
+        memcpy( line_a, line_b, stride );
+        memcpy( line_b, line_tmp, stride );
+
+        line_a += stride;
+        line_b -= stride;
     }
 
-    void CreateFromCaptureGL(int x, int y, int w, int h)
-    {
-        Clear();
-        Width = w;
-        Height = h;
-        Data = (u32*)malloc(Width * Height * 4);
-        glPixelStorei(GL_PACK_ALIGNMENT, 1);
-        glReadPixels(x, y, w, h, GL_RGBA, GL_UNSIGNED_BYTE, Data);
-        RemoveAlpha();
-    }
+    delete [] line_tmp;
+}
 
-    int SaveFile(const char* filename)
-    {
-        return stbi_write_png(filename, Width, Height, 4, Data, Width * 4);
-    }
+uint32_t *ImageBuf::GetPtr( int x, int y )
+{
+    return &Data[ x + y * Width ];
+}
 
-    void RemoveAlpha()
-    {
-        u32* p = Data;
-        int n = Width * Height;
-        while (n-- > 0)
-        {
-            *p |= 0xFF000000;
-            p++;
-        }
-    }
-
-    void BlitTo(ImageBuf* dst, int src_x, int src_y, int dst_x, int dst_y, int w, int h)
-    {
-        ImageBuf* src = this;
-        IM_ASSERT(dst != src);
-        IM_ASSERT(dst != NULL);
-        IM_ASSERT(src_x >= 0 && src_y >= 0);
-        IM_ASSERT(src_x + w <= src->Width);
-        IM_ASSERT(src_y + h <= src->Height);
-        IM_ASSERT(dst_x >= 0 && dst_y >= 0);
-        IM_ASSERT(dst_x + w <= dst->Width);
-        IM_ASSERT(dst_y + h <= dst->Height);
-        for (int y = 0; y < h; y++)
-            memcpy(dst->Data + dst_x + (dst_y + y) * dst->Width, src->Data + src_x + (src_y + y) * src->Width, w * 4);
-    }
-
-    void FlipVertical()
-    {
-        int comp = 4;
-        int stride = Width * comp;
-        unsigned char* line_tmp = new unsigned char[stride];
-        unsigned char* line_a = (unsigned char*)Data;
-        unsigned char* line_b = (unsigned char*)Data + (stride * (Height - 1));
-        while (line_a < line_b)
-        {
-            memcpy(line_tmp, line_a, stride);
-            memcpy(line_a, line_b, stride);
-            memcpy(line_b, line_tmp, stride);
-            line_a += stride;
-            line_b -= stride;
-        }
-        delete[] line_tmp;
-    }
-
-    u32* GetPtr(int x, int y)
-    {
-        return &Data[x + y * Width];
-    }
-
-    u32 GetPixel(int x, int y) const
-    {
-        return Data[x + y * Width];
-    }
-};
+uint32_t ImageBuf::GetPixel( int x, int y ) const
+{
+    return Data[ x + y * Width ];
+}
 
 bool imgui_save_screenshot( const char *filename )
 {
@@ -882,7 +877,6 @@ bool imgui_save_screenshot( const char *filename )
 
     Output.CreateFromCaptureGL( 0, 0,
                 ( int )io.DisplaySize.x, ( int )io.DisplaySize.y );
-
     Output.FlipVertical();
 
     return !!Output.SaveFile( filename );
@@ -1388,6 +1382,8 @@ void Actions::init()
     m_actionmap.push_back( { action_graph_zoom_mouse, KMOD_NONE, SDLK_z, "Toggle hovered graph location zoom to 3ms / restore pre-zoom" } );
 
     m_actionmap.push_back( { action_toggle_graph_fullscreen, KMOD_NONE, SDLK_F11, "Toggle fullscreen graph" } );
+
+    m_actionmap.push_back( { action_save_screenshot, KMOD_NONE, SDLK_F12, "Capture screenshot" } );
 
     m_actionmap.push_back( { action_toggle_vblank0, KMOD_CTRL | KMOD_SHIFT, SDLK_m, "Toggle showing vblank 0 markers" } );
     m_actionmap.push_back( { action_toggle_vblank1, KMOD_CTRL | KMOD_SHIFT, SDLK_n, "Toggle showing vblank 1 markers" } );

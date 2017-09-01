@@ -163,6 +163,37 @@ static bool imgui_input_text( const char *label, char ( &buf )[ T ], float x, fl
     return ret;
 }
 
+// From:
+//   https://github.com/ocornut/imgui/wiki/screenshot_tool
+//
+// Helper class for simple bitmap manipulation (not particularly efficient!)
+class ImageBuf
+{
+public:
+    ImageBuf() {}
+    ~ImageBuf() { Clear(); }
+
+    void Clear() { free( Data ); Data = NULL; }
+
+    void CreateEmpty(int w, int h);
+    void CreateFromCaptureGL(int x, int y, int w, int h);
+
+    int SaveFile(const char *filename);
+
+    void RemoveAlpha();
+    void BlitTo( ImageBuf *dst, int src_x, int src_y, int dst_x, int dst_y, int w, int h );
+
+    void FlipVertical();
+
+    uint32_t* GetPtr( int x, int y );
+    uint32_t GetPixel(int x, int y ) const;
+
+public:
+    int Width = 0;
+    int Height = 0;
+    uint32_t *Data = nullptr;
+};
+
 bool imgui_save_screenshot( const char *filename );
 
 #define IM_COL32_R( _x ) ( ( ( _x ) >> IM_COL32_R_SHIFT ) & 0xFF )
@@ -378,6 +409,8 @@ enum action_t
     action_frame_marker_next_fit,
     action_frame_marker_prev,
     action_frame_marker_next,
+
+    action_save_screenshot,
 
     action_return,
 

@@ -899,8 +899,6 @@ void MainApp::render()
     if ( !m_saving_info.title.empty() && !ImGui::IsPopupOpen( "Save Filename" ) )
     {
         ImGui::OpenPopup( "Save Filename" );
-
-        strcpy_safe( m_saving_info.filename_buf, "blah.dat" );
     }
     if ( ImGui::BeginPopupModal( "Save Filename", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
     {
@@ -3544,6 +3542,7 @@ void MainApp::render_menu( const char *str_id )
             {
                 m_saving_info.filename_orig = get_realpath( filename.c_str() );
                 m_saving_info.title = string_format( "Save '%s' as:", m_saving_info.filename_orig.c_str() );
+                strcpy_safe( m_saving_info.filename_buf, "blah.trace" );
 
                 // Lambda for copying filename_orig to filename_new
                 m_saving_info.save_cb = []( save_info_t &save_info )
@@ -3628,6 +3627,34 @@ void MainApp::handle_hotkeys()
 
     if ( s_actions().get( action_toggle_graph_fullscreen ) )
         s_opts().setb( OPT_GraphFullscreen, !s_opts().getb( OPT_GraphFullscreen ) );
+
+    if ( s_actions().get( action_save_screenshot ) )
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        int w = ( int )io.DisplaySize.x;
+        int h = ( int )io.DisplaySize.y;
+
+        // Capture image
+        m_imagebuf.CreateFromCaptureGL( 0, 0, w, h );
+        m_imagebuf.FlipVertical();
+
+        m_saving_info.filename_orig.clear();
+        m_saving_info.title = string_format( "Save gpuvis screenshot (%dx%d) as:", w, h );
+        strcpy_safe( m_saving_info.filename_buf, "gpuvis.png" );
+
+        // Lambda for copying filename_orig to filename_new
+        m_saving_info.save_cb = [&]( save_info_t &save_info )
+        {
+            bool close_popup = !!m_imagebuf.SaveFile( save_info.filename_new.c_str() );
+
+            if ( !close_popup )
+            {
+                save_info.errstr = string_format( "ERROR: save_file to %s failed",
+                                                  save_info.filename_new.c_str() );
+            }
+            return close_popup;
+        };
+    }
 }
 
 void MainApp::parse_cmdline( int argc, char **argv )

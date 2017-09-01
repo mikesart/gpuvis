@@ -837,6 +837,8 @@ public:
     colors_t m_colorpicker_color = 0;
     ColorPicker m_colorpicker;
 
+    ImageBuf m_imagebuf;
+
     bool m_quit = false;
     bool m_show_gpuvis_console = true;
     bool m_show_imgui_test_window = false;
