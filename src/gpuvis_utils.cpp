@@ -434,6 +434,9 @@ std::string get_realpath( const char *filename )
 {
     char buf[ PATH_MAX ];
 
+    if ( !filename || !filename[ 0 ] )
+        return "";
+
 #if defined( WIN32 )
 
     char *basename;

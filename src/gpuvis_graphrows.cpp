@@ -466,7 +466,7 @@ void GraphRows::add_row( const std::string &name, const std::string &filter, flo
                  m_graph_rows_list[ i ].type == LOC_TYPE_Comm )
             {
                 m_graph_rows_list.insert( m_graph_rows_list.begin() + i,
-                { name, filter, type, size, false } );
+                    { name, filter, type, size, false } );
                 return;
             }
         }

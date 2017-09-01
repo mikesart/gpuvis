@@ -808,9 +808,13 @@ public:
 
     struct
     {
+        int passes = 0;
         char filename_buf[ PATH_MAX ] = { 0 };
-        std::string filename;
-        std::string filename_errstr;
+
+        std::string title;
+        std::string filename_new;
+        std::string filename_orig;
+        std::string errstr;
     } m_saving_info;
 
     // Max drm_vblank_event crc value we've seen
