@@ -896,9 +896,7 @@ void MainApp::render()
     }
 
     if ( !m_saving_info.title.empty() && !ImGui::IsPopupOpen( "Save Filename" ) )
-    {
         ImGui::OpenPopup( "Save Filename" );
-    }
     if ( ImGui::BeginPopupModal( "Save Filename", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
     {
         render_save_filename();

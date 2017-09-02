@@ -798,9 +798,10 @@ void ImageBuf::CreateFromCaptureGL( int x, int y, int w, int h )
     Width = w;
     Height = h;
 
-    Data = ( uint32_t * )malloc(Width * Height * 4);
-    glPixelStorei(GL_PACK_ALIGNMENT, 1);
-    glReadPixels(x, y, w, h, GL_RGBA, GL_UNSIGNED_BYTE, Data);
+    Data = (  uint32_t * )malloc( Width * Height * 4 );
+
+    glPixelStorei( GL_PACK_ALIGNMENT, 1 );
+    glReadPixels( x, y, w, h, GL_RGBA, GL_UNSIGNED_BYTE, Data );
 
     RemoveAlpha();
 }
@@ -822,7 +823,7 @@ void ImageBuf::RemoveAlpha()
     }
 }
 
-void ImageBuf::BlitTo( ImageBuf* dst, int src_x, int src_y, int dst_x, int dst_y, int w, int h )
+void ImageBuf::BlitTo( ImageBuf *dst, int src_x, int src_y, int dst_x, int dst_y, int w, int h )
 {
     ImageBuf *src = this;
 

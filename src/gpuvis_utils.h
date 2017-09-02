@@ -175,18 +175,18 @@ public:
 
     void Clear() { free( Data ); Data = NULL; }
 
-    void CreateEmpty(int w, int h);
-    void CreateFromCaptureGL(int x, int y, int w, int h);
+    void CreateEmpty( int w, int h );
+    void CreateFromCaptureGL( int x, int y, int w, int h );
 
-    int SaveFile(const char *filename);
+    int SaveFile( const char *filename );
 
     void RemoveAlpha();
     void BlitTo( ImageBuf *dst, int src_x, int src_y, int dst_x, int dst_y, int w, int h );
 
     void FlipVertical();
 
-    uint32_t* GetPtr( int x, int y );
-    uint32_t GetPixel(int x, int y ) const;
+    uint32_t *GetPtr( int x, int y );
+    uint32_t GetPixel( int x, int y ) const;
 
 public:
     int Width = 0;
