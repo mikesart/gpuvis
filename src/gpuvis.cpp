@@ -441,7 +441,8 @@ static std::string unzip_first_file( const char *zipfile )
                     if ( file_stat.m_is_directory )
                         continue;
 
-                    ret = string_format( "%s_%s", std::tmpnam( NULL ), file_stat.m_filename );
+                    const char *filename = util_basename( file_stat.m_filename );
+                    ret = string_format( "%s_%s", std::tmpnam( NULL ), filename );
                     if ( mz_zip_reader_extract_to_file( &zip_archive, i, ret.c_str(), 0 ) )
                         break;
 

@@ -61,6 +61,16 @@ inline float util_time_to_ms( util_time_t start, util_time_t end )
     return ( float )std::chrono::duration< double, std::milli >( diff ).count();
 }
 
+inline const char *util_basename( const char *s )
+{
+    const char *slash = strrchr( s, '/' );
+
+    if ( !slash )
+        slash = strrchr( s, '\\' );
+
+    return slash ? ( slash + 1 ) : s;
+}
+
 void logf_init();
 void logf_shutdown();
 void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
