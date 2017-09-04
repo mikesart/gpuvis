@@ -2285,7 +2285,7 @@ void TraceWin::trace_render_info()
         int tree_tgid = -1;
         bool display_event = true;
 
-        if ( imgui_begin_columns( "row_info", { "Name", "Events" } ) )
+        if ( imgui_begin_columns( "row_info", { "Row Name", "Events" } ) )
             ImGui::SetColumnWidth( 0, imgui_scale( 250.0f ) );
 
         for ( const GraphRows::graph_rows_info_t &info : m_graph.rows.m_graph_rows_list )
@@ -2359,7 +2359,7 @@ void TraceWin::trace_render_info()
     if ( ImGui::CollapsingHeader( "Event info" ) )
     {
         if ( imgui_begin_columns( "event_info", { "Event Name", "Count" } ) )
-            ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
+            ImGui::SetColumnWidth( 0, imgui_scale( 250.0f ) );
 
         for ( auto item : m_trace_events.m_eventnames_locations.m_locs.m_map )
         {
@@ -2370,7 +2370,6 @@ void TraceWin::trace_render_info()
             ImGui::NextColumn();
             ImGui::Text( "%lu", locs.size() );
             ImGui::NextColumn();
-            ImGui::Separator();
         }
 
         ImGui::EndColumns();
@@ -2380,7 +2379,7 @@ void TraceWin::trace_render_info()
          ImGui::CollapsingHeader( "CPU Info" ) )
     {
         if ( imgui_begin_columns( "cpu_stats", { "CPU", "Stats" } ) )
-            ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
+            ImGui::SetColumnWidth( 0, imgui_scale( 250.0f ) );
 
         for ( const std::string &str : trace_info.cpustats )
         {
