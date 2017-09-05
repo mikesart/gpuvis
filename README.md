@@ -1,6 +1,9 @@
-gpuvis
-=====
+#### gpuvis
+-------
 
+Wiki: https://github.com/mikesart/gpuvis/wiki
+
+-------
 ![Alt text](images/gpuvis.jpg?raw=true "gpuvis")
 
 Credits
