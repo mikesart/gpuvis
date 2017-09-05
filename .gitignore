@@ -1,8 +1,7 @@
 _release/*
 _debug/*
 build/*
-
-imgui.ini
+traces_x/*
 
 qtcreator/gpuvis.creator.user
 qtcreator/gpuvis.config
