@@ -1,16 +1,16 @@
-#### GPUVis
-=====
+GPUVis
+======
 
-#### Documentation
-=====
+Documentation
+-------------
 https://github.com/mikesart/gpuvis/wiki
 
-#### Screenshot
-=====
+Screenshot
+----------
 ![Alt text](images/gpuvis.jpg?raw=true "gpuvis")
 
-#### Credits
-=====
+Credits
+-------
 gpuvis code is [MIT](http://opensource.org/licenses/MIT) licensed.
 
 ```
