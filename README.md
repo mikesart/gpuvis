@@ -1,3 +1,6 @@
+#### GPUVis
+-----------
+
 #### Documentation
 https://github.com/mikesart/gpuvis/wiki
 
