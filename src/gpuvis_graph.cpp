@@ -2204,23 +2204,29 @@ void TraceWin::graph_render()
         ImU32 color = s_clrs().get( col_Graph_LocationText );
         if ( color & IM_COL32_A_MASK )
         {
+            ImVec2 pos;
+
             imgui_push_bigfont();
 
-            int64_t ts = gi.ts0 + ( gi.ts1 - gi.ts0 );
-            std::string str = ts_to_timestr( ts / 1000, 4, "" );
-            ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
+            pos.y = windowpos.y + ( windowsize.y - ImGui::GetTextLineHeight() ) / 2;
 
-            ImVec2 pos = ImVec2( windowpos.x + ( windowsize.x - textsize.x ) / 2,
-                                 windowpos.y + ( windowsize.y - textsize.y ) / 2 );
+            if ( 1 )
+            {
+                int64_t ts = gi.ts0 + ( gi.ts1 - gi.ts0 );
+                const std::string str = ts_to_timestr( ts / 1000, 4, "" );
+                const ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
 
-            ImGui::GetWindowDrawList()->AddText( pos, color, str.c_str() );
+                pos.x = windowpos.x + ( windowsize.x - textsize.x ) / 2;
+                ImGui::GetWindowDrawList()->AddText( pos, color, str.c_str() );
+
+                pos.y += ImGui::GetTextLineHeight();
+            }
 
             if ( m_frame_markers.m_frame_marker_selected != -1 )
             {
-                str = string_format( "Frame #%d", m_frame_markers.m_frame_marker_selected );
-                textsize = ImGui::CalcTextSize( str.c_str() );
+                const std::string str = string_format( "Frame #%d", m_frame_markers.m_frame_marker_selected );
+                const ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
 
-                pos.y += textsize.y;
                 pos.x = windowpos.x + ( windowsize.x - textsize.x ) / 2;
                 ImGui::GetWindowDrawList()->AddText( pos, color, str.c_str() );
             }
