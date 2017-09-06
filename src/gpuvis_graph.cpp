@@ -412,7 +412,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
 
     total_graph_height = graph_row_padding;
 
-    imgui_pop_smallfont();
+    imgui_pop_font();
 
     for ( const GraphRows::graph_rows_info_t &grow : graph_rows )
     {
@@ -988,7 +988,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         }
     }
 
-    imgui_pop_smallfont();
+    imgui_pop_font();
 
     return num_events;
 }
@@ -1085,7 +1085,7 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
     if ( hov_rect.min.x < gi.x + gi.w )
         ImGui::GetWindowDrawList()->AddRect( hov_rect.min, hov_rect.max, s_clrs().get( col_Graph_BarSelRect ) );
 
-    imgui_pop_smallfont();
+    imgui_pop_font();
 
     return num_events;
 }
@@ -1224,7 +1224,7 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
     if ( hov_rect.min.x < gi.x + gi.w )
         ImGui::GetWindowDrawList()->AddRect( hov_rect.min, hov_rect.max, s_clrs().get( col_Graph_BarSelRect ) );
 
-    imgui_pop_smallfont();
+    imgui_pop_font();
 
     return num_events;
 }
@@ -2052,7 +2052,7 @@ void TraceWin::graph_render()
     {
         imgui_push_smallfont();
         m_trace_events.update_ftraceprint_colors();
-        imgui_pop_smallfont();
+        imgui_pop_font();
     }
 
     // Initialize our row size, location, etc information based on our graph rows
@@ -2204,29 +2204,28 @@ void TraceWin::graph_render()
         ImU32 color = s_clrs().get( col_Graph_LocationText );
         if ( color & IM_COL32_A_MASK )
         {
-            float fontscale = 6.0f;
+            imgui_push_bigfont();
+
             int64_t ts = gi.ts0 + ( gi.ts1 - gi.ts0 );
             std::string str = ts_to_timestr( ts / 1000, 4, "" );
             ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
 
-            ImVec2 pos = ImVec2( windowpos.x + ( windowsize.x - textsize.x * fontscale ) / 2,
-                                 windowpos.y + ( windowsize.y - textsize.y * fontscale ) / 2 );
+            ImVec2 pos = ImVec2( windowpos.x + ( windowsize.x - textsize.x ) / 2,
+                                 windowpos.y + ( windowsize.y - textsize.y ) / 2 );
 
-            ImGui::GetWindowDrawList()->AddText( ImGui::GetFont(),
-                                                 ImGui::GetFontSize() * fontscale,
-                                                 pos, color, str.c_str() );
+            ImGui::GetWindowDrawList()->AddText( pos, color, str.c_str() );
 
             if ( m_frame_markers.m_frame_marker_selected != -1 )
             {
                 str = string_format( "Frame #%d", m_frame_markers.m_frame_marker_selected );
                 textsize = ImGui::CalcTextSize( str.c_str() );
 
-                pos.y += textsize.y * fontscale;
-                pos.x = windowpos.x + ( windowsize.x - textsize.x * fontscale ) / 2;
-                ImGui::GetWindowDrawList()->AddText( ImGui::GetFont(),
-                                                     ImGui::GetFontSize() * fontscale,
-                                                     pos, color, str.c_str() );
+                pos.y += textsize.y;
+                pos.x = windowpos.x + ( windowsize.x - textsize.x ) / 2;
+                ImGui::GetWindowDrawList()->AddText( pos, color, str.c_str() );
             }
+
+            imgui_pop_font();
         }
 
         // Handle right, left, pgup, pgdown, etc in graph

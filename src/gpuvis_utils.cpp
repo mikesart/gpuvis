@@ -615,7 +615,20 @@ bool imgui_push_smallfont()
     return false;
 }
 
-void imgui_pop_smallfont()
+bool imgui_push_bigfont()
+{
+    ImFontAtlas *atlas = ImGui::GetIO().Fonts;
+
+    if ( atlas->Fonts.Size > 2 )
+    {
+        ImGui::PushFont( atlas->Fonts[ 2 ] );
+        return true;
+    }
+
+    return false;
+}
+
+void imgui_pop_font()
 {
     ImFontAtlas *atlas = ImGui::GetIO().Fonts;
 
@@ -898,8 +911,25 @@ void FontInfo::update_ini()
     s_ini().PutFloat( "RasterizerMultiply", m_font_cfg.RasterizerMultiply, section );
 }
 
-void FontInfo::load_font( const char *section, const char *defname, float defsize )
+void FontInfo::load_font( const char *section, const char *defname, float defsize, const ImWchar *glyph_ranges )
 {
+    ImGuiIO &io = ImGui::GetIO();
+
+    if ( !glyph_ranges )
+    {
+        static const ImWchar def_ranges[] =
+        {
+            // Basic Latin + Latin Supplement
+            // https://en.wikipedia.org/wiki/Latin-1_Supplement_(Unicode_block)
+            // ISO 8859-1: 0080-00FF. Controls C1 (0080–009F) are not graphic.
+            0x0020, 0x007F,
+            0x00A0, 0x00FF,
+            0,
+        };
+
+        glyph_ranges = &def_ranges[ 0 ];
+    }
+
     m_section = section;
     m_font_cfg = ImFontConfig();
 
@@ -932,19 +962,9 @@ void FontInfo::load_font( const char *section, const char *defname, float defsiz
 
     m_input_filename_err = "";
 
-    ImGuiIO &io = ImGui::GetIO();
-    static const ImWchar ranges[] =
-    {
-        // Basic Latin + Latin Supplement
-        // https://en.wikipedia.org/wiki/Latin-1_Supplement_(Unicode_block)
-        // ISO 8859-1: 0080-00FF. Controls C1 (0080–009F) are not graphic.
-        0x0020, 0x007F,
-        0x00A0, 0x00FF,
-        0,
-    };
     if ( m_font_id == FontID_TTFFile )
     {
-        ImFont *font = io.Fonts->AddFontFromFileTTF( m_filename.c_str(), m_size, &m_font_cfg, &ranges[ 0 ] );
+        ImFont *font = io.Fonts->AddFontFromFileTTF( m_filename.c_str(), m_size, &m_font_cfg, glyph_ranges );
 
         if ( font )
         {
@@ -969,7 +989,7 @@ void FontInfo::load_font( const char *section, const char *defname, float defsiz
             io.Fonts->AddFontFromMemoryCompressedTTF(
                         g_font_info[ m_font_id ].ttf_data,
                         g_font_info[ m_font_id ].ttf_size,
-                        m_size, &m_font_cfg, &ranges[ 0 ] );
+                        m_size, &m_font_cfg, glyph_ranges );
         }
         else
         {
@@ -1089,7 +1109,7 @@ void FontInfo::render_font_options( bool m_use_freetype )
                 { "No hinting", ImGuiFreeType::NoHinting,
                         "Disable hinting.\nThis generally generates 'blurrier' bitmap glyphs when\n"
                         "the glyph are rendered in any of the anti-aliased modes." },
-                { "No auto-hint", ImGuiFreeType::NoAutoHint, 
+                { "No auto-hint", ImGuiFreeType::NoAutoHint,
                         "Disable auto-hinter." },
                 { "Force auto-hint", ImGuiFreeType::ForceAutoHint,
                         "Prefer auto-hinter over the font's native hinter." },

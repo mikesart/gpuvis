@@ -976,6 +976,14 @@ void MainApp::load_fonts()
     // Add small font
     m_font_small.load_font( "$imgui_font_small$", "Roboto Condensed", 14.0f );
 
+    static const ImWchar ranges[] =
+    {
+        0x0020, 0x007F,
+        0,
+    };
+    m_font_big.m_reset = true;
+    m_font_big.load_font( "$imgui_font_big$", m_font_main.m_name.c_str(), m_font_main.m_size * 6.0f, &ranges[ 0 ] );
+
     // Reset max rect size for the print events so they'll redo the CalcTextSize for the
     //  print graph row backgrounds (in graph_render_print_timeline).
     for ( TraceEvents *trace_event : m_trace_events_list )
@@ -3056,6 +3064,7 @@ void MainApp::render_font_options()
         {
             m_font_main.m_reset = true;
             m_font_small.m_reset = true;
+            m_font_big.m_reset = true;
             changed = true;
         }
 
@@ -3084,7 +3093,7 @@ void MainApp::render_font_options()
 
         imgui_push_smallfont();
         ImGui::TextWrapped( "%s: %s", font_name.c_str(), lorem_str );
-        imgui_pop_smallfont();
+        imgui_pop_font();
 
         ImGui::EndChild();
 

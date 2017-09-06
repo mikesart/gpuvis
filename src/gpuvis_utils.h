@@ -106,7 +106,8 @@ void imgui_text_bg( const char *str, const ImVec4 &bgcolor );
 bool imgui_mousepos_valid( const ImVec2 &pos );
 
 bool imgui_push_smallfont();
-void imgui_pop_smallfont();
+bool imgui_push_bigfont();
+void imgui_pop_font();
 
 bool imgui_collapsingheader( const char *label, bool *has_focus, ImGuiTreeNodeFlags flags = 0 );
 
@@ -217,7 +218,7 @@ public:
     FontInfo() {}
     ~FontInfo() {}
 
-    void load_font( const char *section, const char *defname, float defsize );
+    void load_font( const char *section, const char *defname, float defsize, const ImWchar *glyph_ranges = NULL );
     void render_font_options( bool m_use_freetype );
 
 protected:

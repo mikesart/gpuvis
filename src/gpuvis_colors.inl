@@ -62,7 +62,7 @@ _XTAG( col_Graph_BarHwQueue, 0x80613030, "Graph timeline hw queue bar" )
 _XTAG( col_Graph_BarHwRunning, 0xd9ffaa00, "Graph timeline hw running bar" )
 _XTAG( col_Graph_BarSelRect, 0xd9fff300, "Graph timeline selected bar rectangle" )
 _XTAG( col_Graph_BarText, IM_COL32( 0xff, 0xff, 0xff, 255 ), "Graph timeline bar text" )
-_XTAG( col_Graph_LocationText, 0x4f17e62b, "Graph location text" )
+_XTAG( col_Graph_LocationText, 0x2517e62b, "Graph location text" )
 _XTAG( col_Graph_TaskRunning, 0x4fff00ff, "Sched_switch task running block" )
 _XTAG( col_Graph_TaskSleeping, 0x4fffff00, "Sched_switch task sleeping block" )
 
