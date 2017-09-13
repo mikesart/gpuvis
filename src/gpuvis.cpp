@@ -141,9 +141,9 @@ const char *StrPool::findstr( uint32_t hashval )
 }
 
 /*
- * TraceLocationsAMD
+ * TraceLocationsRingCtxSeq
  */
-uint64_t TraceLocationsAMD::db_key( const trace_event_t &event )
+uint64_t TraceLocationsRingCtxSeq::db_key( const trace_event_t &event )
 {
     if ( event.seqno )
     {
@@ -164,7 +164,7 @@ uint64_t TraceLocationsAMD::db_key( const trace_event_t &event )
     return 0;
 }
 
-bool TraceLocationsAMD::add_location( const trace_event_t &event )
+bool TraceLocationsRingCtxSeq::add_location( const trace_event_t &event )
 {
     uint64_t key = db_key( event );
 
@@ -179,7 +179,7 @@ bool TraceLocationsAMD::add_location( const trace_event_t &event )
     return false;
 }
 
-std::vector< uint32_t > *TraceLocationsAMD::get_locations( const trace_event_t &event )
+std::vector< uint32_t > *TraceLocationsRingCtxSeq::get_locations( const trace_event_t &event )
 {
     uint64_t key = db_key( event );
 
@@ -254,8 +254,6 @@ void Opts::init()
 
     add_opt_graph_rowsize( "gfx", 8 );
     add_opt_graph_rowsize( "print", 10 );
-    add_opt_graph_rowsize( "sdma0" );
-    add_opt_graph_rowsize( "sdma1" );
 
     // Create all the entries for the compute shader rows
     for ( uint32_t val = 0; ; val++ )
@@ -1678,17 +1676,26 @@ void TraceEvents::init_new_event( trace_event_t &event )
     {
         if ( !strcmp( event.name, "i915_gem_request_wait_begin" ) )
         {
-             i915_gem_request_wait_begin_locations.add_location( event );
+             m_i915_reqwait_begin_locations.add_location( event );
         }
         else if ( !strcmp( event.name, "i915_gem_request_wait_end" ) )
         {
-            std::vector< uint32_t > *plocs = i915_gem_request_wait_begin_locations.get_locations( event );
+            std::vector< uint32_t > *plocs = m_i915_reqwait_begin_locations.get_locations( event );
 
             if ( plocs )
             {
                 const trace_event_t &event_begin = m_events[ plocs->back() ];
+                const char *ring = get_event_field_val( event, "ring", NULL );
 
                 event.duration = event.ts - event_begin.ts;
+
+                if ( ring )
+                {
+                    char buf[ 128 ];
+
+                    snprintf_safe( buf, "i915_reqwait%s", ring );
+                    m_i915_reqwait_end_locations.add_location_str( buf, event.id );
+                }
             }
         }
     }
@@ -1870,6 +1877,11 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
         type = LOC_TYPE_Print;
         plocs = get_tdopexpr_locs( "$name=print" );
     }
+    else if ( !strncmp( name, "i915_reqwait", 12 ) )
+    {
+        type = LOC_TYPE_i915RequestWait;
+        plocs = m_i915_reqwait_end_locations.get_locations_str( name );
+    }
     else if ( !strncmp( name, "plot:", 5 ) )
     {
         GraphPlot *plot = get_plot_ptr( name );
@@ -1889,7 +1901,7 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
             // Check for "gfx hw", "comp_1.1.1 hw", etc.
             uint32_t hashval = fnv_hashstr32( name, len - 3 );
 
-            type = LOC_TYPE_Timeline_hw;
+            type = LOC_TYPE_AMDTimeline_hw;
             plocs = m_timeline_locations.get_locations_u32( hashval );
         }
 
@@ -1908,7 +1920,7 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
                 if ( !plocs )
                 {
                     // Timelines: sdma0, gfx, comp_1.2.1, etc.
-                    type = LOC_TYPE_Timeline;
+                    type = LOC_TYPE_AMDTimeline;
                     plocs = get_timeline_locs( name );
                 }
             }

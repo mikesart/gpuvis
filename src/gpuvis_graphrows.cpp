@@ -269,50 +269,66 @@ void GraphRows::init( TraceEvents &trace_events )
     loc_type_t type;
     const std::vector< uint32_t > *plocs;
 
-    if ( ( plocs = trace_events.get_locs( "gfx", &type ) ) )
-        push_row( "gfx", type, plocs->size() );
-
-    // Andres: full list of compute rings is comp_[1-2].[0-3].[0-8]
-    for ( int c0 = 1; c0 < 3; c0++)
     {
-        for ( int c1 = 0; c1 < 4; c1++ )
-        {
-            for ( int c2 = 0; c2 < 9; c2++ )
-            {
-                std::string str = string_format( "comp_%d.%d.%d", c0, c1, c2 );
+        // AMD gpu events
 
-                if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                    push_row( str, type, plocs->size() );
+        if ( ( plocs = trace_events.get_locs( "gfx", &type ) ) )
+            push_row( "gfx", type, plocs->size() );
+
+        // Andres: full list of compute rings is comp_[1-2].[0-3].[0-8]
+        for ( int c0 = 1; c0 < 3; c0++)
+        {
+            for ( int c1 = 0; c1 < 4; c1++ )
+            {
+                for ( int c2 = 0; c2 < 9; c2++ )
+                {
+                    std::string str = string_format( "comp_%d.%d.%d", c0, c1, c2 );
+
+                    if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                        push_row( str, type, plocs->size() );
+                }
             }
         }
-    }
 
-    if ( ( plocs = trace_events.get_locs( "gfx hw", &type ) ) )
-        push_row( "gfx hw", type, plocs->size() );
+        if ( ( plocs = trace_events.get_locs( "gfx hw", &type ) ) )
+            push_row( "gfx hw", type, plocs->size() );
 
-    for ( int c0 = 1; c0 < 3; c0++)
-    {
-        for ( int c1 = 0; c1 < 4; c1++ )
+        for ( int c0 = 1; c0 < 3; c0++)
         {
-            for ( int c2 = 0; c2 < 9; c2++ )
+            for ( int c1 = 0; c1 < 4; c1++ )
             {
-                std::string str = string_format( "comp_%d.%d.%d hw", c0, c1, c2 );
+                for ( int c2 = 0; c2 < 9; c2++ )
+                {
+                    std::string str = string_format( "comp_%d.%d.%d hw", c0, c1, c2 );
 
-                if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                    push_row( str, type, plocs->size() );
+                    if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                        push_row( str, type, plocs->size() );
+                }
             }
         }
+
+        if ( ( plocs = trace_events.get_locs( "sdma0", &type ) ) )
+            push_row( "sdma0", type, plocs->size() );
+        if ( ( plocs = trace_events.get_locs( "sdma1", &type ) ) )
+            push_row( "sdma1", type, plocs->size() );
+
+        if ( ( plocs = trace_events.get_locs( "sdma0 hw", &type ) ) )
+            push_row( "sdma0 hw", type, plocs->size() );
+        if ( ( plocs = trace_events.get_locs( "sdma1 hw", &type ) ) )
+            push_row( "sdma1 hw", type, plocs->size() );
     }
 
-    if ( ( plocs = trace_events.get_locs( "sdma0", &type ) ) )
-        push_row( "sdma0", type, plocs->size() );
-    if ( ( plocs = trace_events.get_locs( "sdma1", &type ) ) )
-        push_row( "sdma1", type, plocs->size() );
+    {
+        // Intel gpu events
+        for ( uint32_t ring = 0; ring < 9; ring++ )
+        {
+            char buf[ 32 ];
 
-    if ( ( plocs = trace_events.get_locs( "sdma0 hw", &type ) ) )
-        push_row( "sdma0 hw", type, plocs->size() );
-    if ( ( plocs = trace_events.get_locs( "sdma1 hw", &type ) ) )
-        push_row( "sdma1 hw", type, plocs->size() );
+            snprintf_safe( buf, "i915_reqwait%u", ring );
+            if ( ( plocs = trace_events.get_locs( buf, &type ) ) )
+                push_row( buf, type, plocs->size() );
+        }
+    }
 
     if ( ( plocs = trace_events.get_locs( "print", &type ) ) )
         push_row( "print", type, plocs->size() );

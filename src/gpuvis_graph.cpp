@@ -388,7 +388,7 @@ static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t r
 
     if ( row_type == LOC_TYPE_Print ||
          row_type == LOC_TYPE_Plot ||
-         row_type == LOC_TYPE_Timeline )
+         row_type == LOC_TYPE_AMDTimeline )
     {
         return s_opts().add_opt_graph_rowsize( row_name.c_str() );
     }
@@ -448,12 +448,12 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
             optid = get_comm_option_id( rinfo.row_name, rinfo.row_type );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_plot, win, _1 );
         }
-        else if ( rinfo.row_type == LOC_TYPE_Timeline )
+        else if ( rinfo.row_type == LOC_TYPE_AMDTimeline )
         {
             optid = get_comm_option_id( rinfo.row_name, rinfo.row_type );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_row_timeline, win, _1 );
         }
-        else if ( rinfo.row_type == LOC_TYPE_Timeline_hw )
+        else if ( rinfo.row_type == LOC_TYPE_AMDTimeline_hw )
         {
             rinfo.row_h = 2 * text_h;
             rinfo.render_cb = std::bind( &TraceWin::graph_render_hw_row_timeline, win, _1 );
@@ -1800,8 +1800,8 @@ bool TraceWin::is_graph_row_zoomable()
     {
         if ( m_graph.zoom_row_name != m_graph.mouse_over_row_name )
         {
-            if ( m_graph.mouse_over_row_type == LOC_TYPE_Timeline ||
-                 m_graph.mouse_over_row_type == LOC_TYPE_Timeline_hw ||
+            if ( m_graph.mouse_over_row_type == LOC_TYPE_AMDTimeline ||
+                 m_graph.mouse_over_row_type == LOC_TYPE_AMDTimeline_hw ||
                  m_graph.mouse_over_row_type == LOC_TYPE_Plot ||
                  m_graph.mouse_over_row_type == LOC_TYPE_Print )
             {
@@ -1817,7 +1817,7 @@ void TraceWin::zoom_graph_row()
 {
     m_graph.zoom_row_name = m_graph.mouse_over_row_name;
 
-    if ( m_graph.mouse_over_row_type == LOC_TYPE_Timeline_hw )
+    if ( m_graph.mouse_over_row_type == LOC_TYPE_AMDTimeline_hw )
     {
         // Trim " hw" from end of string so, for example, we zoom "gfx" and not "gfx hw".
         m_graph.zoom_row_name.resize( m_graph.zoom_row_name.size() - 3 );

@@ -36,8 +36,9 @@ enum loc_type_t
     LOC_TYPE_Tdopexpr,
     LOC_TYPE_Print,
     LOC_TYPE_Plot,
-    LOC_TYPE_Timeline,
-    LOC_TYPE_Timeline_hw,
+    LOC_TYPE_AMDTimeline,
+    LOC_TYPE_AMDTimeline_hw,
+    LOC_TYPE_i915RequestWait,
     LOC_TYPE_Max
 };
 
@@ -74,11 +75,11 @@ public:
     util_umap< uint32_t, std::vector< uint32_t > > m_locs;
 };
 
-class TraceLocationsAMD
+class TraceLocationsRingCtxSeq
 {
 public:
-    TraceLocationsAMD() {}
-    ~TraceLocationsAMD() {}
+    TraceLocationsRingCtxSeq() {}
+    ~TraceLocationsRingCtxSeq() {}
 
     bool add_location( const trace_event_t &event );
     std::vector< uint32_t > *get_locations( const trace_event_t &event );
@@ -379,7 +380,10 @@ public:
     TraceLocations m_sched_switch_prev_locations;
     TraceLocations m_sched_switch_next_locations;
 
-    TraceLocationsAMD i915_gem_request_wait_begin_locations;
+    // Intel request_wait_begin events key'd on ring/ctx/seqno
+    TraceLocationsRingCtxSeq m_i915_reqwait_begin_locations;
+    // Intel request_wait_end events key'd on: "i915_reqwait%u",ring
+    TraceLocations m_i915_reqwait_end_locations;
 
     // Map vblank seq to m_drm_vblank_event_queued event id
     util_umap< uint32_t, uint32_t > m_drm_vblank_event_queued;
