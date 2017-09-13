@@ -43,6 +43,8 @@
 /*
   **** TODO list... ****
 
+  "timeline=xxx, context=yyy, seqno=zzz, msg=text here"
+
   Check if entire rows are clipped when drawing...
 
   Feedback:
@@ -457,6 +459,10 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         {
             rinfo.row_h = 2 * text_h;
             rinfo.render_cb = std::bind( &TraceWin::graph_render_hw_row_timeline, win, _1 );
+        }
+        else if ( rinfo.row_type == LOC_TYPE_i915RequestWait )
+        {
+            rinfo.render_cb = std::bind( &TraceWin::graph_render_i915_reqwait_events, win, _1 );
         }
         else
         {
@@ -1348,6 +1354,131 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
             }
         }
     }
+
+    return num_events;
+}
+
+uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
+{
+    uint32_t num_events = 0;
+    bool draw_hovered_event = false;
+    bool draw_selected_event = false;
+    const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
+    event_renderer_t event_renderer( gi.y + 4, gi.w, gi.h - 8 );
+    bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
+
+    // Calculate how many pixels .0001ms takes
+    const float dx = ( .0001f * NSECS_PER_MSEC ) * gi.w * gi.tsdxrcp;
+
+    // Scale width of drawn event from 0..4 when .0001ms takes .1 - 1.5 pixels
+    const float minx = 0.1f;
+    const float maxx = 1.5f;
+    event_renderer.m_width = std::max< float >( 1.0f,
+        event_renderer.m_maxwidth * ( dx - minx ) / ( maxx - minx ) );
+
+    for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
+          idx < locs.size();
+          idx++ )
+    {
+        uint32_t eventid = locs[ idx ];
+        const trace_event_t &event = get_event( eventid );
+
+        if ( eventid > gi.eventend )
+            break;
+        else if ( gi.graph_only_filtered && event.is_filtered_out )
+            continue;
+        else if ( hide_sched_switch && event.is_sched_switch() )
+            continue;
+
+        float x = gi.ts_to_screenx( event.ts );
+
+        if ( eventid == m_eventlist.hovered_eventid )
+            draw_hovered_event = true;
+        else if ( eventid == m_eventlist.selected_eventid )
+            draw_selected_event = true;
+
+        // Check if we're mouse hovering this event
+        if ( gi.mouse_over )
+            gi.add_mouse_hovered_event( x, event );
+
+        event_renderer.add_event( x, event.color );
+        num_events++;
+    }
+
+    event_renderer.done();
+
+    if ( draw_hovered_event )
+    {
+        trace_event_t &event = get_event( m_eventlist.hovered_eventid );
+        float x = gi.ts_to_screenx( event.ts );
+
+        ImGui::GetWindowDrawList()->AddCircleFilled(
+                    ImVec2( x, gi.y + gi.h / 2.0f ),
+                    imgui_scale( 5.0f ),
+                    s_clrs().get( col_Graph_HovEvent ) );
+    }
+
+    if ( draw_selected_event )
+    {
+        trace_event_t &event = get_event( m_eventlist.selected_eventid );
+        float x = gi.ts_to_screenx( event.ts );
+
+        ImGui::GetWindowDrawList()->AddCircleFilled(
+                    ImVec2( x, gi.y + gi.h / 2.0f ),
+                    imgui_scale( 5.0f ),
+                    s_clrs().get( col_Graph_SelEvent ) );
+    }
+
+#if 0
+    if ( gi.prinfo_cur->pid >= 0 )
+    {
+        // Grab all the sched_switch events that have our comm listed as prev_comm
+        const std::vector< uint32_t > *plocs = m_trace_events.get_sched_switch_locs(
+                    gi.prinfo_cur->pid, TraceEvents::SCHED_SWITCH_PREV );
+
+        if ( plocs )
+        {
+            ImU32 colors[ 2 ] =
+            {
+                s_clrs().get( col_Graph_TaskRunning ),
+                s_clrs().get( col_Graph_TaskSleeping )
+            };
+
+            for ( size_t idx = vec_find_eventid( *plocs, gi.eventstart );
+                  idx < plocs->size();
+                  idx++ )
+            {
+                float row_h = gi.text_h;
+                float y = gi.y + ( gi.h - row_h ) / 2;
+                const trace_event_t &sched_switch = get_event( plocs->at( idx ) );
+
+                if ( sched_switch.duration != ( uint32_t )-1 )
+                {
+                    float x0 = gi.ts_to_screenx( sched_switch.ts - sched_switch.duration );
+                    float x1 = gi.ts_to_screenx( sched_switch.ts );
+                    int running = !!( sched_switch.flags & TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING );
+
+                    // Bail if we're off the right side of our graph
+                    if ( x0 > gi.x + gi.w )
+                        break;
+
+                    imgui_drawrect( x0, x1 - x0, y, row_h, colors[ running ] );
+
+                    if ( gi.mouse_over &&
+                         gi.mouse_pos.x > x0 && gi.mouse_pos.x <= x1 &&
+                         gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + gi.row_h )
+                    {
+                        gi.sched_switch_bars.push_back( sched_switch.id );
+
+                        ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ),
+                                                             ImVec2( x1, y + row_h ),
+                                                             s_clrs().get( col_Graph_BarSelRect ) );
+                    }
+                }
+            }
+        }
+    }
+#endif
 
     return num_events;
 }
