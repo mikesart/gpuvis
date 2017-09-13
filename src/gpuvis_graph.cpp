@@ -294,7 +294,7 @@ static void imgui_draw_text( float x, float y, const char *text, ImU32 color, bo
     ImGui::GetWindowDrawList()->AddText( ImVec2( x, y ), color, text );
 }
 
-const char *get_event_field_val( const trace_event_t &event, const char *name )
+const char *get_event_field_val( const trace_event_t &event, const char *name, const char *defval )
 {
     for ( const event_field_t &field : event.fields )
     {
@@ -302,7 +302,7 @@ const char *get_event_field_val( const trace_event_t &event, const char *name )
             return field.value;
     }
 
-    return "";
+    return defval;
 }
 
 /*

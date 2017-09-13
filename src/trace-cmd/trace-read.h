@@ -130,7 +130,6 @@ struct trace_event_t
     uint32_t id;                // event id
     uint32_t cpu;               // cpu this event was hit on
     uint32_t flags;             // TRACE_FLAGS_IRQS_OFF, TRACE_FLAG_HARDIRQ, TRACE_FLAG_SOFTIRQ
-    uint32_t context;           // event context (from fields)
     uint32_t seqno;             // event seqno (from fields)
     uint32_t id_start;          // start event if this is a graph sequence event (ie amdgpu_sched_run_job, fence_signaled)
     uint32_t graph_row_id;
@@ -142,13 +141,12 @@ struct trace_event_t
     const char *comm;           // command name
     const char *system;         // event system (ftrace-print, etc.)
     const char *name;           // event name
-    const char *timeline;       // event timeline (gfx, sdma0, ...)
     const char *user_comm;      // User space comm (if we can figure this out)
 
     std::vector< event_field_t > fields;
 };
 
-const char *get_event_field_val( const trace_event_t &event, const char *name );
+const char *get_event_field_val( const trace_event_t &event, const char *name, const char *defval = "" );
 
 typedef std::function< int ( const trace_info_t &info, const trace_event_t &event ) > EventCallback;
 int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb );

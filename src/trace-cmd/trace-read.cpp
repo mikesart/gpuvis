@@ -1620,8 +1620,6 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
         trace_event.system = strpool.getstr( event->system );
         trace_event.name = strpool.getstr( event->name );
 
-        trace_event.timeline = "";
-        trace_event.context = 0;
         trace_event.seqno = 0;
         trace_event.crtc = -1;
         trace_event.user_comm = trace_event.comm;
@@ -1659,18 +1657,7 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
             trace_seq_reset( &seq );
             pevent_print_field( &seq, record->data, format );
 
-            if ( !strcmp( format->name, "timeline" ) )
-            {
-                trace_event.timeline = strpool.getstr( seq.buffer );
-            }
-            else if ( !strcmp( format->name, "context" ) )
-            {
-                unsigned long long val = pevent_read_number( pevent,
-                        ( char * )record->data + format->offset, format->size );
-
-                trace_event.context = val;
-            }
-            else if ( !strcmp( format->name, "seqno" ) )
+            if ( !strcmp( format->name, "seqno" ) )
             {
                 unsigned long long val = pevent_read_number( pevent,
                         ( char * )record->data + format->offset, format->size );

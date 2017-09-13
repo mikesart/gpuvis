@@ -570,7 +570,13 @@ void MainApp::close_event_file( TraceEvents *trace_events, bool close_file )
 // See notes at top of gpuvis_graph.cpp for explanation of these events.
 static bool is_timeline_event( const trace_event_t &event )
 {
-    if ( !event.timeline || !event.seqno || !event.context )
+    if ( !event.seqno )
+        return false;
+
+    const char *context = get_event_field_val( event, "context", NULL );
+    const char *timeline = get_event_field_val( event, "timeline", NULL );
+
+    if ( !context || !timeline )
         return false;
 
     return ( event.is_fence_signaled() ||
@@ -1587,9 +1593,10 @@ void TraceEvents::init_new_event( trace_event_t &event )
     if ( is_timeline_event( event ) )
     {
         const std::string gfxcontext = get_event_gfxcontext_str( event );
+        const char *timeline = get_event_field_val( event, "timeline" );
 
         // Add this event under the "gfx", "sdma0", etc timeline map
-        m_timeline_locations.add_location_str( event.timeline, event.id );
+        m_timeline_locations.add_location_str( timeline, event.id );
 
         // Add this event under our "gfx_ctx_seq" or "sdma0_ctx_seq", etc. map
         m_gfxcontext_locations.add_location_str( gfxcontext.c_str(), event.id );

@@ -85,8 +85,18 @@ inline size_t vec_find_eventid( const std::vector< uint32_t > &vec, uint32_t eve
 
 inline std::string get_event_gfxcontext_str( const trace_event_t &event )
 {
-    if ( event.timeline && event.context && event.seqno )
-        return string_format( "%s_%u_%u", event.timeline, event.context, event.seqno );
+    if ( event.seqno )
+    {
+        const char *context = get_event_field_val( event, "context", NULL );
+        const char *timeline = get_event_field_val( event, "timeline", NULL );
+
+        if ( timeline && context )
+        {
+            uint32_t ctx = strtoul( context, NULL, 10 );
+
+            return string_format( "%s_%u_%u", timeline, ctx, event.seqno );
+        }
+    }
     return "";
 }
 
