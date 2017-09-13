@@ -1519,6 +1519,25 @@ const tgid_info_t *TraceEvents::tgid_from_commstr( const char *comm )
     return NULL;
 }
 
+const char *TraceEvents::get_event_gfxcontext_str( const trace_event_t &event )
+{
+    if ( event.seqno )
+    {
+        const char *context = get_event_field_val( event, "context", NULL );
+        const char *timeline = get_event_field_val( event, "timeline", NULL );
+
+        if ( timeline && context )
+        {
+            char buf[ 256 ];
+
+            snprintf_safe( buf, "%s_%s_%u", timeline, context, event.seqno );
+            return m_strpool.getstr( buf );
+        }
+    }
+
+    return "";
+}
+
 void TraceEvents::init_sched_switch_event( trace_event_t &event )
 {
     const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
@@ -1636,17 +1655,17 @@ void TraceEvents::init_new_event( trace_event_t &event )
 
     if ( is_amd_timeline_event( event ) )
     {
-        const std::string gfxcontext = get_event_gfxcontext_str( event );
+        const char *gfxcontext = get_event_gfxcontext_str( event );
         const char *timeline = get_event_field_val( event, "timeline" );
 
         // Add this event under the "gfx", "sdma0", etc timeline map
         m_timeline_locations.add_location_str( timeline, event.id );
 
         // Add this event under our "gfx_ctx_seq" or "sdma0_ctx_seq", etc. map
-        m_gfxcontext_locations.add_location_str( gfxcontext.c_str(), event.id );
+        m_gfxcontext_locations.add_location_str( gfxcontext, event.id );
 
         // Grab the event locations for this event context
-        const std::vector< uint32_t > *plocs = get_gfxcontext_locs( gfxcontext.c_str() );
+        const std::vector< uint32_t > *plocs = get_gfxcontext_locs( gfxcontext );
         if ( plocs->size() > 1 )
         {
             // First event.
@@ -1698,6 +1717,15 @@ void TraceEvents::init_new_event( trace_event_t &event )
                 }
             }
         }
+    }
+
+    if ( !strcmp( event.name, "amdgpu_job_msg" ) )
+    {
+        const char *msg = get_event_field_val( event, "msg", NULL );
+        const char *gfxcontext = get_event_gfxcontext_str( event );
+
+        if ( msg && msg[ 0 ] && gfxcontext[ 0 ] )
+            m_gfxcontext_msg_locations.add_location_str( gfxcontext, event.id );
     }
 
     // 1+ means loading events

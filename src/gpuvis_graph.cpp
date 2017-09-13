@@ -566,8 +566,8 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
     if ( is_valid_id( event_hov ) && events[ event_hov ].is_timeline() )
     {
         // Find the fence signaled event for this timeline
-        std::string context = get_event_gfxcontext_str( events[ event_hov ] );
-        const std::vector< uint32_t > *plocs = win->m_trace_events.get_gfxcontext_locs( context.c_str() );
+        const char *gfxcontext = win->m_trace_events.get_event_gfxcontext_str( events[ event_hov ] );
+        const std::vector< uint32_t > *plocs = win->m_trace_events.get_gfxcontext_locs( gfxcontext );
 
         // Mark it as hovered so it'll have a selection rectangle
         hovered_fence_signaled = plocs->back();
@@ -3034,8 +3034,8 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
     if ( is_valid_id( gi.hovered_fence_signaled ) )
     {
         const trace_event_t &event_hov = get_event( gi.hovered_fence_signaled );
-        std::string context = get_event_gfxcontext_str( event_hov );
-        const std::vector< uint32_t > *plocs = m_trace_events.get_gfxcontext_locs( context.c_str() );
+        const char *gfxcontext = m_trace_events.get_event_gfxcontext_str( event_hov );
+        const std::vector< uint32_t > *plocs = m_trace_events.get_gfxcontext_locs( gfxcontext );
 
         time_buf += string_format( "\n\n%s",
                                    m_trace_events.tgidcomm_from_commstr( event_hov.user_comm ) );
@@ -3060,6 +3060,21 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             // Sync event list to first event id in this context
             m_eventlist.do_gotoevent = true;
             m_eventlist.goto_eventid = plocs->at( 0 );
+        }
+
+        plocs = m_trace_events.m_gfxcontext_msg_locations.get_locations_str( gfxcontext );
+        if ( plocs )
+        {
+            time_buf += "\n";
+
+            for ( uint32_t id : *plocs )
+            {
+                const trace_event_t &event = get_event( id );
+                const char *msg = get_event_field_val( event, "msg" );
+
+                time_buf += string_format( "\n  %s%s%s",
+                                           s_textclrs().str( TClr_Bright ), msg, s_textclrs().str( TClr_Def ) );
+            }
         }
     }
 

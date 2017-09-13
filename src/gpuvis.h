@@ -100,23 +100,6 @@ inline size_t vec_find_eventid( const std::vector< uint32_t > &vec, uint32_t eve
     return i - vec.begin();
 }
 
-inline std::string get_event_gfxcontext_str( const trace_event_t &event )
-{
-    if ( event.seqno )
-    {
-        const char *contextstr = get_event_field_val( event, "context", NULL );
-        const char *timeline = get_event_field_val( event, "timeline", NULL );
-
-        if ( timeline && contextstr )
-        {
-            uint32_t ctx = strtoul( contextstr, NULL, 10 );
-
-            return string_format( "%s_%u_%u", timeline, ctx, event.seqno );
-        }
-    }
-    return "";
-}
-
 /*
    [Compositor] NewFrame idx=2776
    [Compositor Client] WaitGetPoses End ThreadId=5125
@@ -341,6 +324,8 @@ public:
 
     void set_event_color( const std::string &eventname, ImU32 color );
 
+    const char *get_event_gfxcontext_str( const trace_event_t &event );
+
 public:
     // Called once on background thread after all events loaded.
     void init();
@@ -372,6 +357,7 @@ public:
 
     // Map of timeline/context/seqno to array of event locations.
     TraceLocations m_gfxcontext_locations;
+    TraceLocations m_gfxcontext_msg_locations;
 
     // Map of timeline (gfx, sdma0, etc) event locations.
     TraceLocations m_timeline_locations;
