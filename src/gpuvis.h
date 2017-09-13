@@ -74,6 +74,22 @@ public:
     util_umap< uint32_t, std::vector< uint32_t > > m_locs;
 };
 
+class TraceLocationsAMD
+{
+public:
+    TraceLocationsAMD() {}
+    ~TraceLocationsAMD() {}
+
+    bool add_location( const trace_event_t &event );
+    std::vector< uint32_t > *get_locations( const trace_event_t &event );
+
+    uint64_t db_key( const trace_event_t &event );
+
+public:
+    // Map of db_key to array of event locations.
+    util_umap< uint64_t, std::vector< uint32_t > > m_locs;
+};
+
 // Given a sorted array (like from TraceLocations), binary search for eventid
 //   and return the vector index, or vec.size() if not found.
 inline size_t vec_find_eventid( const std::vector< uint32_t > &vec, uint32_t eventid )
@@ -87,12 +103,12 @@ inline std::string get_event_gfxcontext_str( const trace_event_t &event )
 {
     if ( event.seqno )
     {
-        const char *context = get_event_field_val( event, "context", NULL );
+        const char *contextstr = get_event_field_val( event, "context", NULL );
         const char *timeline = get_event_field_val( event, "timeline", NULL );
 
-        if ( timeline && context )
+        if ( timeline && contextstr )
         {
-            uint32_t ctx = strtoul( context, NULL, 10 );
+            uint32_t ctx = strtoul( contextstr, NULL, 10 );
 
             return string_format( "%s_%u_%u", timeline, ctx, event.seqno );
         }
@@ -362,6 +378,8 @@ public:
     // Map of pid to sched_switch event locations.
     TraceLocations m_sched_switch_prev_locations;
     TraceLocations m_sched_switch_next_locations;
+
+    TraceLocationsAMD i915_gem_request_wait_begin_locations;
 
     // Map vblank seq to m_drm_vblank_event_queued event id
     util_umap< uint32_t, uint32_t > m_drm_vblank_event_queued;

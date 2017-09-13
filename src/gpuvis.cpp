@@ -141,6 +141,52 @@ const char *StrPool::findstr( uint32_t hashval )
 }
 
 /*
+ * TraceLocationsAMD
+ */
+uint64_t TraceLocationsAMD::db_key( const trace_event_t &event )
+{
+    if ( event.seqno )
+    {
+        const char *ctxstr = get_event_field_val( event, "ctx", NULL );
+        const char *ringstr = get_event_field_val( event, "ring", NULL );
+
+        if ( ctxstr && ringstr )
+        {
+            uint32_t ctx = strtoul( ctxstr, NULL, 10 );
+            uint32_t ring = strtoul( ringstr, NULL, 10 );
+
+            // ring | ctx      | seqno
+            //  0xe | 1fffffff | ffffffff
+            return ( ( uint64_t )ring << 61 ) | ( ( uint64_t )ctx << 32 ) | event.seqno;
+        }
+    }
+
+    return 0;
+}
+
+bool TraceLocationsAMD::add_location( const trace_event_t &event )
+{
+    uint64_t key = db_key( event );
+
+    if ( key )
+    {
+        std::vector< uint32_t > *plocs = m_locs.get_val( key, std::vector< uint32_t >() );
+
+        plocs->push_back( event.id );
+        return true;
+    }
+
+    return false;
+}
+
+std::vector< uint32_t > *TraceLocationsAMD::get_locations( const trace_event_t &event )
+{
+    uint64_t key = db_key( event );
+
+    return m_locs.get_val( key );
+}
+
+/*
  * Opts
  */
 void Opts::init_opt_bool( option_id_t optid, const char *description, const char *key,
@@ -568,7 +614,7 @@ void MainApp::close_event_file( TraceEvents *trace_events, bool close_file )
 }
 
 // See notes at top of gpuvis_graph.cpp for explanation of these events.
-static bool is_timeline_event( const trace_event_t &event )
+static bool is_amd_timeline_event( const trace_event_t &event )
 {
     if ( !event.seqno )
         return false;
@@ -1590,7 +1636,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
     if ( event.is_sched_switch() )
         init_sched_switch_event( event );
 
-    if ( is_timeline_event( event ) )
+    if ( is_amd_timeline_event( event ) )
     {
         const std::string gfxcontext = get_event_gfxcontext_str( event );
         const char *timeline = get_event_field_val( event, "timeline" );
@@ -1625,6 +1671,24 @@ void TraceEvents::init_new_event( trace_event_t &event )
                 {
                     m_events[ idx ].flags |= TRACE_FLAG_TIMELINE;
                 }
+            }
+        }
+    }
+    else if ( event.seqno )
+    {
+        if ( !strcmp( event.name, "i915_gem_request_wait_begin" ) )
+        {
+             i915_gem_request_wait_begin_locations.add_location( event );
+        }
+        else if ( !strcmp( event.name, "i915_gem_request_wait_end" ) )
+        {
+            std::vector< uint32_t > *plocs = i915_gem_request_wait_begin_locations.get_locations( event );
+
+            if ( plocs )
+            {
+                const trace_event_t &event_begin = m_events[ plocs->back() ];
+
+                event.duration = event.ts - event_begin.ts;
             }
         }
     }
