@@ -148,8 +148,10 @@ class event_renderer_t
 public:
     event_renderer_t( class graph_info_t &gi, float y_in, float w_in, float h_in );
 
-    void add_event( float x, ImU32 color );
+    void add_event( uint32_t eventid, float x, ImU32 color );
     void done();
+
+    void draw_hovered_selected_events( TraceWin *win, class graph_info_t &gi );
 
     void set_y( float y_in, float h_in );
 
@@ -166,6 +168,11 @@ public:
 
     float m_width = 1.0f;
     float m_maxwidth = imgui_scale( 4.0f );
+
+    uint32_t m_selected_eventid = INVALID_ID;
+    uint32_t m_hovered_eventid = INVALID_ID;
+    bool m_draw_hovered_event = false;
+    bool m_draw_selected_event = false;
 };
 
 typedef std::function< uint32_t ( class graph_info_t &gi ) > RenderGraphRowCallback;
@@ -339,8 +346,11 @@ void event_renderer_t::set_y( float y_in, float h_in )
     }
 }
 
-void event_renderer_t::add_event( float x, ImU32 color )
+void event_renderer_t::add_event( uint32_t eventid, float x, ImU32 color )
 {
+    m_draw_selected_event |= ( eventid == m_selected_eventid );
+    m_draw_hovered_event |= ( eventid == m_hovered_eventid );
+
     if ( x0 < 0.0f )
     {
         // First event
@@ -368,6 +378,31 @@ void event_renderer_t::done()
     {
         draw();
         start( -1.0f, 0 );
+    }
+}
+
+void event_renderer_t::draw_hovered_selected_events( TraceWin *win, class graph_info_t &gi )
+{
+    if ( m_draw_hovered_event )
+    {
+        trace_event_t &event = win->get_event( win->m_eventlist.hovered_eventid );
+        float x = gi.ts_to_screenx( event.ts );
+
+        ImGui::GetWindowDrawList()->AddCircleFilled(
+                    ImVec2( x, gi.y + gi.h / 2.0f ),
+                    imgui_scale( 5.0f ),
+                    s_clrs().get( col_Graph_HovEvent ) );
+    }
+
+    if ( m_draw_selected_event )
+    {
+        trace_event_t &event = win->get_event( win->m_eventlist.selected_eventid );
+        float x = gi.ts_to_screenx( event.ts );
+
+        ImGui::GetWindowDrawList()->AddCircleFilled(
+                    ImVec2( x, gi.y + gi.h / 2.0f ),
+                    imgui_scale( 5.0f ),
+                    s_clrs().get( col_Graph_SelEvent ) );
     }
 }
 
@@ -1247,11 +1282,12 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
 uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 {
     uint32_t num_events = 0;
-    bool draw_hovered_event = false;
-    bool draw_selected_event = false;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
     bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
+
+    event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
+    event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -1269,42 +1305,16 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 
         float x = gi.ts_to_screenx( event.ts );
 
-        if ( eventid == m_eventlist.hovered_eventid )
-            draw_hovered_event = true;
-        else if ( eventid == m_eventlist.selected_eventid )
-            draw_selected_event = true;
-
         // Check if we're mouse hovering this event
         if ( gi.mouse_over )
             gi.add_mouse_hovered_event( x, event );
 
-        event_renderer.add_event( x, event.color );
+        event_renderer.add_event( event.id, x, event.color );
         num_events++;
     }
 
     event_renderer.done();
-
-    if ( draw_hovered_event )
-    {
-        trace_event_t &event = get_event( m_eventlist.hovered_eventid );
-        float x = gi.ts_to_screenx( event.ts );
-
-        ImGui::GetWindowDrawList()->AddCircleFilled(
-                    ImVec2( x, gi.y + gi.h / 2.0f ),
-                    imgui_scale( 5.0f ),
-                    s_clrs().get( col_Graph_HovEvent ) );
-    }
-
-    if ( draw_selected_event )
-    {
-        trace_event_t &event = get_event( m_eventlist.selected_eventid );
-        float x = gi.ts_to_screenx( event.ts );
-
-        ImGui::GetWindowDrawList()->AddCircleFilled(
-                    ImVec2( x, gi.y + gi.h / 2.0f ),
-                    imgui_scale( 5.0f ),
-                    s_clrs().get( col_Graph_SelEvent ) );
-    }
+    event_renderer.draw_hovered_selected_events( this, gi );
 
     if ( gi.prinfo_cur->pid >= 0 )
     {
@@ -1361,11 +1371,12 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 {
     uint32_t num_events = 0;
-    bool draw_hovered_event = false;
-    bool draw_selected_event = false;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
     ImU32 barcolor = s_clrs().get( col_Graph_Bari915ReqWait );
+
+    event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
+    event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -1375,20 +1386,11 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
         float y = gi.y + ( gi.h - row_h ) / 2;
         const trace_event_t &event = get_event( locs[ idx ] );
         const trace_event_t &event_begin = get_event( event.id_start );
-
         float x0 = gi.ts_to_screenx( event_begin.ts );
         float x1 = gi.ts_to_screenx( event.ts );
 
-        if ( ( event.id == m_eventlist.hovered_eventid ) ||
-             ( event_begin.id == m_eventlist.hovered_eventid ) )
-        {
-            draw_hovered_event = true;
-        }
-        else if ( ( event.id == m_eventlist.selected_eventid ) ||
-                  ( event_begin.id == m_eventlist.selected_eventid ) )
-        {
-            draw_selected_event = true;
-        }
+        if ( ( x0 > gi.x + gi.w ) || ( x1 < gi.x ) )
+            continue;
 
         // Check if we're mouse hovering this event
         if ( gi.mouse_over )
@@ -1397,8 +1399,8 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
             gi.add_mouse_hovered_event( x1, event );
         }
 
-        event_renderer.add_event( x0, event_begin.color );
-        event_renderer.add_event( x1, event.color );
+        event_renderer.add_event( event_begin.id, x0, event_begin.color );
+        event_renderer.add_event( event.id, x1, event.color );
         num_events++;
 
         // Draw bar
@@ -1408,6 +1410,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
              gi.mouse_pos.x > x0 && gi.mouse_pos.x <= x1 &&
              gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + gi.row_h )
         {
+            //$ TODO mikesart: add this event to gi.i915_reqwait_bars or something...
             // gi.sched_switch_bars.push_back( sched_switch.id );
 
             ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ),
@@ -1417,28 +1420,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
     }
 
     event_renderer.done();
-
-    if ( draw_hovered_event )
-    {
-        trace_event_t &event = get_event( m_eventlist.hovered_eventid );
-        float x = gi.ts_to_screenx( event.ts );
-
-        ImGui::GetWindowDrawList()->AddCircleFilled(
-                    ImVec2( x, gi.y + gi.h / 2.0f ),
-                    imgui_scale( 5.0f ),
-                    s_clrs().get( col_Graph_HovEvent ) );
-    }
-
-    if ( draw_selected_event )
-    {
-        trace_event_t &event = get_event( m_eventlist.selected_eventid );
-        float x = gi.ts_to_screenx( event.ts );
-
-        ImGui::GetWindowDrawList()->AddCircleFilled(
-                    ImVec2( x, gi.y + gi.h / 2.0f ),
-                    imgui_scale( 5.0f ),
-                    s_clrs().get( col_Graph_SelEvent ) );
-    }
+    event_renderer.draw_hovered_selected_events( this, gi );
 
     return num_events;
 }
