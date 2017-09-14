@@ -1261,7 +1261,7 @@ const std::vector< uint32_t > *TraceEvents::get_sched_switch_locs( int pid, swit
 
 const std::vector< uint32_t > *TraceEvents::get_timeline_locs( const char *name )
 {
-    return m_timeline_locs.get_locations_str( name );
+    return m_amd_timeline_locs.get_locations_str( name );
 }
 
 // Pass a string like "gfx_249_91446"
@@ -1406,7 +1406,7 @@ void TraceEvents::update_fence_signaled_timeline_colors()
     float label_sat = s_clrs().getalpha( col_Graph_TimelineLabelSat );
     float label_alpha = s_clrs().getalpha( col_Graph_TimelineLabelAlpha );
 
-    for ( auto &timeline_locs : m_timeline_locs.m_locs.m_map )
+    for ( auto &timeline_locs : m_amd_timeline_locs.m_locs.m_map )
     {
         std::vector< uint32_t > &locs = timeline_locs.second;
 
@@ -1661,7 +1661,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
         const char *timeline = get_event_field_val( event, "timeline" );
 
         // Add this event under the "gfx", "sdma0", etc timeline map
-        m_timeline_locs.add_location_str( timeline, event.id );
+        m_amd_timeline_locs.add_location_str( timeline, event.id );
 
         // Add this event under our "gfx_ctx_seq" or "sdma0_ctx_seq", etc. map
         m_gfxcontext_locs.add_location_str( gfxcontext, event.id );
@@ -1755,7 +1755,7 @@ void TraceEvents::init()
         init_new_event( event );
 
     // Init event durations
-    calculate_event_durations();
+    calculate_amd_event_durations();
 
     // Init print column information
     calculate_event_print_info();
@@ -1820,14 +1820,14 @@ void TraceEvents::set_event_color( const std::string &eventname, ImU32 color )
 }
 
 // Go through gfx, sdma0, sdma1, etc. timelines and calculate event durations
-void TraceEvents::calculate_event_durations()
+void TraceEvents::calculate_amd_event_durations()
 {
     std::vector< uint32_t > erase_list;
     std::vector< trace_event_t > &events = m_events;
     float label_sat = s_clrs().getalpha( col_Graph_TimelineLabelSat );
     float label_alpha = s_clrs().getalpha( col_Graph_TimelineLabelAlpha );
 
-    for ( auto &timeline_locs : m_timeline_locs.m_locs.m_map )
+    for ( auto &timeline_locs : m_amd_timeline_locs.m_locs.m_map )
     {
         uint32_t graph_row_id = 0;
         int64_t last_fence_signaled_ts = 0;
@@ -1900,7 +1900,7 @@ void TraceEvents::calculate_event_durations()
     for ( uint32_t hashval : erase_list )
     {
         // Completely erase timeline rows with zero entries.
-        m_timeline_locs.m_locs.m_map.erase( hashval );
+        m_amd_timeline_locs.m_locs.m_map.erase( hashval );
     }
 }
 
@@ -1943,7 +1943,7 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
             uint32_t hashval = fnv_hashstr32( name, len - 3 );
 
             type = LOC_TYPE_AMDTimeline_hw;
-            plocs = m_timeline_locs.get_locations_u32( hashval );
+            plocs = m_amd_timeline_locs.get_locations_u32( hashval );
         }
 
         if ( !plocs )

@@ -287,7 +287,7 @@ public:
     enum switch_t { SCHED_SWITCH_PREV, SCHED_SWITCH_NEXT };
     const std::vector< uint32_t > *get_sched_switch_locs( int pid, switch_t switch_type );
 
-    void calculate_event_durations();
+    void calculate_amd_event_durations();
     void calculate_event_print_info();
 
     void invalidate_ftraceprint_colors();
@@ -360,7 +360,7 @@ public:
     TraceLocations m_gfxcontext_msg_locs;
 
     // Map of timeline (gfx, sdma0, etc) event locations.
-    TraceLocations m_timeline_locs;
+    TraceLocations m_amd_timeline_locs;
 
     // Map of pid to sched_switch event locations.
     TraceLocations m_sched_switch_prev_locs;
