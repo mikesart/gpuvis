@@ -602,38 +602,25 @@ bool imgui_mousepos_valid( const ImVec2 &pos )
     return ImGui::IsMousePosValid(&pos);
 }
 
-bool imgui_push_smallfont()
+void imgui_push_smallfont()
 {
     ImFontAtlas *atlas = ImGui::GetIO().Fonts;
+    int index = ( atlas->Fonts.Size > 1 ) ? 1 : 0;
 
-    if ( atlas->Fonts.Size > 1 )
-    {
-        ImGui::PushFont( atlas->Fonts[ 1 ] );
-        return true;
-    }
-
-    return false;
+    ImGui::PushFont( atlas->Fonts[ index ] );
 }
 
-bool imgui_push_bigfont()
+void imgui_push_bigfont()
 {
     ImFontAtlas *atlas = ImGui::GetIO().Fonts;
+    int index = ( atlas->Fonts.Size > 2 ) ? 2 : 0;
 
-    if ( atlas->Fonts.Size > 2 )
-    {
-        ImGui::PushFont( atlas->Fonts[ 2 ] );
-        return true;
-    }
-
-    return false;
+    ImGui::PushFont( atlas->Fonts[ index ] );
 }
 
 void imgui_pop_font()
 {
-    ImFontAtlas *atlas = ImGui::GetIO().Fonts;
-
-    if ( atlas->Fonts.Size > 1 )
-        ImGui::PopFont();
+    ImGui::PopFont();
 }
 
 bool imgui_collapsingheader( const char *label, bool *has_focus, ImGuiTreeNodeFlags flags )

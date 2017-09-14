@@ -105,8 +105,8 @@ void imgui_text_bg( const char *str, const ImVec4 &bgcolor );
 
 bool imgui_mousepos_valid( const ImVec2 &pos );
 
-bool imgui_push_smallfont();
-bool imgui_push_bigfont();
+void imgui_push_smallfont();
+void imgui_push_bigfont();
 void imgui_pop_font();
 
 bool imgui_collapsingheader( const char *label, bool *has_focus, ImGuiTreeNodeFlags flags = 0 );
