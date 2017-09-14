@@ -371,6 +371,9 @@ public:
     // Intel request_wait_end events key'd on: "i915_reqwait%u",ring
     TraceLocations m_i915_reqwait_end_locations;
 
+    // i915_gem_request_[add|submit|in|out], intel_engine_notify events
+    TraceLocationsRingCtxSeq m_i915_gem_req_locs;
+
     // Map vblank seq to m_drm_vblank_event_queued event id
     util_umap< uint32_t, uint32_t > m_drm_vblank_event_queued;
 

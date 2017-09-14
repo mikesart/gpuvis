@@ -147,10 +147,11 @@ uint64_t TraceLocationsRingCtxSeq::db_key( const trace_event_t &event )
 {
     if ( event.seqno )
     {
-        const char *ctxstr = get_event_field_val( event, "ctx", NULL );
+        // i915:intel_engine_notify has only seqno & ring
+        const char *ctxstr = get_event_field_val( event, "ctx", "0" );
         const char *ringstr = get_event_field_val( event, "ring", NULL );
 
-        if ( ctxstr && ringstr )
+        if ( ringstr )
         {
             uint32_t ctx = strtoul( ctxstr, NULL, 10 );
             uint32_t ring = strtoul( ringstr, NULL, 10 );
@@ -1720,6 +1721,14 @@ void TraceEvents::init_new_event( trace_event_t &event )
                     event.id_start = event_begin.id;
                 }
             }
+        }
+        else if ( !strcmp( event.name, "i915_gem_request_add" ) ||
+                  !strcmp( event.name, "i915_gem_request_submit" ) ||
+                  !strcmp( event.name, "i915_gem_request_in" ) ||
+                  !strcmp( event.name, "i915_gem_request_out" ) ||
+                  !strcmp( event.name, "intel_engine_notify" ) )
+        {
+            m_i915_gem_req_locs.add_location( event );
         }
     }
 
