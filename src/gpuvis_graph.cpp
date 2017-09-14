@@ -43,8 +43,6 @@
 /*
   **** TODO list... ****
 
-  "timeline=xxx, context=yyy, seqno=zzz, msg=text here"
-
   Check if entire rows are clipped when drawing...
 
   Feedback:
@@ -223,7 +221,7 @@ public:
 
     row_info_t *find_row( const char *name );
 
-    bool add_mouse_hovered_event( float x, const trace_event_t &event );
+    bool add_mouse_hovered_event( float x, const trace_event_t &event, bool force = false );
 
 public:
     float x, y, w, h;
@@ -681,7 +679,7 @@ row_info_t *graph_info_t::find_row( const char *name )
     return NULL;
 }
 
-bool graph_info_t::add_mouse_hovered_event( float xin, const trace_event_t &event )
+bool graph_info_t::add_mouse_hovered_event( float xin, const trace_event_t &event, bool force )
 {
     bool inserted = false;
     float xdist_mouse = xin - mouse_pos.x;
@@ -690,7 +688,7 @@ bool graph_info_t::add_mouse_hovered_event( float xin, const trace_event_t &even
     if ( neg )
         xdist_mouse = -xdist_mouse;
 
-    if ( xdist_mouse < imgui_scale( 8.0f ) )
+    if ( ( xdist_mouse < imgui_scale( 8.0f ) ) || force )
     {
         int64_t dist_ts = dx_to_ts( xdist_mouse );
 
@@ -1392,13 +1390,6 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
         if ( ( x0 > gi.x + gi.w ) || ( x1 < gi.x ) )
             continue;
 
-        // Check if we're mouse hovering this event
-        if ( gi.mouse_over )
-        {
-            gi.add_mouse_hovered_event( x0, event_begin );
-            gi.add_mouse_hovered_event( x1, event );
-        }
-
         event_renderer.add_event( event_begin.id, x0, event_begin.color );
         event_renderer.add_event( event.id, x1, event.color );
         num_events++;
@@ -1406,16 +1397,25 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
         // Draw bar
         imgui_drawrect( x0, x1 - x0, y, row_h, barcolor );
 
-        if ( gi.mouse_over &&
-             gi.mouse_pos.x > x0 && gi.mouse_pos.x <= x1 &&
-             gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + gi.row_h )
+        if ( gi.mouse_over )
         {
-            //$ TODO mikesart: add this event to gi.i915_reqwait_bars or something...
-            // gi.sched_switch_bars.push_back( sched_switch.id );
+            if ( gi.mouse_pos.x > x0 &&
+                 gi.mouse_pos.x <= x1 &&
+                 gi.mouse_pos.y >= y &&
+                 gi.mouse_pos.y <= y + gi.row_h )
+            {
+                gi.add_mouse_hovered_event( x0, event_begin, true );
+                gi.add_mouse_hovered_event( x1, event, true );
 
-            ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ),
-                                                 ImVec2( x1, y + row_h ),
-                                                 s_clrs().get( col_Graph_BarSelRect ) );
+                ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ),
+                                                     ImVec2( x1, y + row_h ),
+                                                     s_clrs().get( col_Graph_BarSelRect ) );
+            }
+            else
+            {
+                gi.add_mouse_hovered_event( x0, event_begin );
+                gi.add_mouse_hovered_event( x1, event );
+            }
         }
     }
 
@@ -2960,6 +2960,12 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
                     time_buf += string_format( " %s (%s)", prev_comm, timestr.c_str() );
                 }
+            }
+            else if ( event.duration != ( uint32_t )-1 )
+            {
+                std::string timestr = ts_to_timestr( event.duration, 4 );
+
+                time_buf += " (" + timestr + ")";
             }
         }
 
