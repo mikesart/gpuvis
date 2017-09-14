@@ -1703,10 +1703,11 @@ void TraceEvents::init_new_event( trace_event_t &event )
 
             if ( plocs )
             {
-                const trace_event_t &event_begin = m_events[ plocs->back() ];
+                trace_event_t &event_begin = m_events[ plocs->back() ];
                 const char *ring = get_event_field_val( event, "ring", NULL );
 
-                event.duration = event.ts - event_begin.ts;
+                event_begin.duration = event.ts - event_begin.ts;
+                event.duration = event_begin.duration;
 
                 if ( ring )
                 {
@@ -1714,6 +1715,8 @@ void TraceEvents::init_new_event( trace_event_t &event )
 
                     snprintf_safe( buf, "i915_reqwait%s", ring );
                     m_i915_reqwait_end_locations.add_location_str( buf, event.id );
+
+                    event.id_start = event_begin.id;
                 }
             }
         }
