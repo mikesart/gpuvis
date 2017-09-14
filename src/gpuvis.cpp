@@ -1201,7 +1201,7 @@ const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name,
 
     // Try to find whatever our name hashed to. Name should be something like:
     //   $name=drm_vblank_event
-    plocs = m_tdopexpr_locations.get_locations_u32( hashval );
+    plocs = m_tdopexpr_locs.get_locations_u32( hashval );
     if ( plocs )
         return plocs;
 
@@ -1232,7 +1232,7 @@ const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name,
 
                 ret = tdopexpr_exec( tdop_expr, get_keyval_func );
                 if ( ret[ 0 ] )
-                    m_tdopexpr_locations.add_location_u32( hashval, event.id );
+                    m_tdopexpr_locs.add_location_u32( hashval, event.id );
             }
 
             tdopexpr_delete( tdop_expr );
@@ -1240,7 +1240,7 @@ const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name,
     }
 
     // Try to find this name/expression again and add to failed list if we miss again
-    plocs = m_tdopexpr_locations.get_locations_u32( hashval );
+    plocs = m_tdopexpr_locs.get_locations_u32( hashval );
     if ( !plocs )
         m_failed_commands.insert( hashval );
 
@@ -1249,25 +1249,25 @@ const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name,
 
 const std::vector< uint32_t > *TraceEvents::get_comm_locs( const char *name )
 {
-    return m_comm_locations.get_locations_str( name );
+    return m_comm_locs.get_locations_str( name );
 }
 
 const std::vector< uint32_t > *TraceEvents::get_sched_switch_locs( int pid, switch_t switch_type )
 {
     return ( switch_type == SCHED_SWITCH_PREV ) ?
-                m_sched_switch_prev_locations.get_locations_u32( pid ) :
-                m_sched_switch_next_locations.get_locations_u32( pid );
+                m_sched_switch_prev_locs.get_locations_u32( pid ) :
+                m_sched_switch_next_locs.get_locations_u32( pid );
 }
 
 const std::vector< uint32_t > *TraceEvents::get_timeline_locs( const char *name )
 {
-    return m_timeline_locations.get_locations_str( name );
+    return m_timeline_locs.get_locations_str( name );
 }
 
 // Pass a string like "gfx_249_91446"
 const std::vector< uint32_t > *TraceEvents::get_gfxcontext_locs( const char *name )
 {
-    return m_gfxcontext_locations.get_locations_str( name );
+    return m_gfxcontext_locs.get_locations_str( name );
 }
 
 /*
@@ -1406,7 +1406,7 @@ void TraceEvents::update_fence_signaled_timeline_colors()
     float label_sat = s_clrs().getalpha( col_Graph_TimelineLabelSat );
     float label_alpha = s_clrs().getalpha( col_Graph_TimelineLabelAlpha );
 
-    for ( auto &timeline_locs : m_timeline_locations.m_locs.m_map )
+    for ( auto &timeline_locs : m_timeline_locs.m_locs.m_map )
     {
         std::vector< uint32_t > &locs = timeline_locs.second;
 
@@ -1571,21 +1571,21 @@ void TraceEvents::init_sched_switch_event( trace_event_t &event )
             event.duration = event.ts - event_prev.ts;
         }
 
-        m_sched_switch_prev_locations.add_location_u32( prev_pid, event.id );
-        m_sched_switch_next_locations.add_location_u32( next_pid, event.id );
+        m_sched_switch_prev_locs.add_location_u32( prev_pid, event.id );
+        m_sched_switch_next_locs.add_location_u32( next_pid, event.id );
 
-        //$ TODO mikesart: This is messing up the m_comm_locations event counts
+        //$ TODO mikesart: This is messing up the m_comm_locs event counts
         if ( prev_pid != event.pid )
         {
             const char *comm = comm_from_pid( prev_pid );
             if ( comm )
-                m_comm_locations.add_location_str( comm, event.id );
+                m_comm_locs.add_location_str( comm, event.id );
         }
         if ( next_pid != event.pid )
         {
             const char *comm = comm_from_pid( next_pid );
             if ( comm )
-                m_comm_locations.add_location_str( comm, event.id );
+                m_comm_locs.add_location_str( comm, event.id );
         }
     }
 }
@@ -1625,7 +1625,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
             event_vblank_queued.duration = event.ts - event_vblank_queued.ts;
         }
 
-        m_tdopexpr_locations.add_location_str( "$name=drm_vblank_event", event.id );
+        m_tdopexpr_locs.add_location_str( "$name=drm_vblank_event", event.id );
     }
     else if ( !strcmp( event.name, "drm_vblank_event_queued" ) )
     {
@@ -1636,7 +1636,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
     }
 
     // Add this event comm to our comm locations map (ie, 'thread_main-1152')
-    m_comm_locations.add_location_str( event.comm, event.id );
+    m_comm_locs.add_location_str( event.comm, event.id );
 
     // Add this event name to event name map
     if ( event.is_vblank() )
@@ -1645,11 +1645,11 @@ void TraceEvents::init_new_event( trace_event_t &event )
 
         // Add vblanks as "drm_vblank_event1", etc
         snprintf_safe( buf, "%s%d", event.name, event.crtc );
-        m_eventnames_locations.add_location_str( m_strpool.getstr( buf ), event.id );
+        m_eventnames_locs.add_location_str( m_strpool.getstr( buf ), event.id );
     }
     else
     {
-        m_eventnames_locations.add_location_str( event.name, event.id );
+        m_eventnames_locs.add_location_str( event.name, event.id );
     }
 
     if ( event.is_sched_switch() )
@@ -1661,10 +1661,10 @@ void TraceEvents::init_new_event( trace_event_t &event )
         const char *timeline = get_event_field_val( event, "timeline" );
 
         // Add this event under the "gfx", "sdma0", etc timeline map
-        m_timeline_locations.add_location_str( timeline, event.id );
+        m_timeline_locs.add_location_str( timeline, event.id );
 
         // Add this event under our "gfx_ctx_seq" or "sdma0_ctx_seq", etc. map
-        m_gfxcontext_locations.add_location_str( gfxcontext, event.id );
+        m_gfxcontext_locs.add_location_str( gfxcontext, event.id );
 
         // Grab the event locations for this event context
         const std::vector< uint32_t > *plocs = get_gfxcontext_locs( gfxcontext );
@@ -1697,11 +1697,11 @@ void TraceEvents::init_new_event( trace_event_t &event )
     {
         if ( !strcmp( event.name, "i915_gem_request_wait_begin" ) )
         {
-             m_i915_reqwait_begin_locations.add_location( event );
+             m_i915_reqwait_begin_locs.add_location( event );
         }
         else if ( !strcmp( event.name, "i915_gem_request_wait_end" ) )
         {
-            std::vector< uint32_t > *plocs = m_i915_reqwait_begin_locations.get_locations( event );
+            std::vector< uint32_t > *plocs = m_i915_reqwait_begin_locs.get_locations( event );
 
             if ( plocs )
             {
@@ -1716,7 +1716,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
                     char buf[ 128 ];
 
                     snprintf_safe( buf, "i915_reqwait%s", ring );
-                    m_i915_reqwait_end_locations.add_location_str( buf, event.id );
+                    m_i915_reqwait_end_locs.add_location_str( buf, event.id );
 
                     event.id_start = event_begin.id;
                 }
@@ -1738,7 +1738,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
         const char *gfxcontext = get_event_gfxcontext_str( event );
 
         if ( msg && msg[ 0 ] && gfxcontext[ 0 ] )
-            m_gfxcontext_msg_locations.add_location_str( gfxcontext, event.id );
+            m_gfxcontext_msg_locs.add_location_str( gfxcontext, event.id );
     }
 
     // 1+ means loading events
@@ -1802,7 +1802,7 @@ void TraceEvents::remove_single_tgids()
 void TraceEvents::set_event_color( const std::string &eventname, ImU32 color )
 {
     const std::vector< uint32_t > *plocs =
-            m_eventnames_locations.get_locations_str( eventname.c_str() );
+            m_eventnames_locs.get_locations_str( eventname.c_str() );
 
     if ( plocs )
     {
@@ -1827,7 +1827,7 @@ void TraceEvents::calculate_event_durations()
     float label_sat = s_clrs().getalpha( col_Graph_TimelineLabelSat );
     float label_alpha = s_clrs().getalpha( col_Graph_TimelineLabelAlpha );
 
-    for ( auto &timeline_locs : m_timeline_locations.m_locs.m_map )
+    for ( auto &timeline_locs : m_timeline_locs.m_locs.m_map )
     {
         uint32_t graph_row_id = 0;
         int64_t last_fence_signaled_ts = 0;
@@ -1900,7 +1900,7 @@ void TraceEvents::calculate_event_durations()
     for ( uint32_t hashval : erase_list )
     {
         // Completely erase timeline rows with zero entries.
-        m_timeline_locations.m_locs.m_map.erase( hashval );
+        m_timeline_locs.m_locs.m_map.erase( hashval );
     }
 }
 
@@ -1921,7 +1921,7 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
     else if ( !strncmp( name, "i915_reqwait", 12 ) )
     {
         type = LOC_TYPE_i915RequestWait;
-        plocs = m_i915_reqwait_end_locations.get_locations_str( name );
+        plocs = m_i915_reqwait_end_locs.get_locations_str( name );
     }
     else if ( !strncmp( name, "plot:", 5 ) )
     {
@@ -1943,7 +1943,7 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
             uint32_t hashval = fnv_hashstr32( name, len - 3 );
 
             type = LOC_TYPE_AMDTimeline_hw;
-            plocs = m_timeline_locations.get_locations_u32( hashval );
+            plocs = m_timeline_locs.get_locations_u32( hashval );
         }
 
         if ( !plocs )
@@ -2494,7 +2494,7 @@ void TraceWin::trace_render_info()
         if ( imgui_begin_columns( "event_info", { "Event Name", "Count" } ) )
             ImGui::SetColumnWidth( 0, imgui_scale( 250.0f ) );
 
-        for ( auto item : m_trace_events.m_eventnames_locations.m_locs.m_map )
+        for ( auto item : m_trace_events.m_eventnames_locs.m_locs.m_map )
         {
             const char *eventname = m_trace_events.m_strpool.findstr( item.first );
             const std::vector< uint32_t > &locs = item.second;
@@ -3279,7 +3279,7 @@ static trace_event_t *get_first_colorable_event(
         TraceEvents &trace_events, const char *eventname )
 {
     const std::vector< uint32_t > *plocs =
-            trace_events.m_eventnames_locations.get_locations_str( eventname );
+            trace_events.m_eventnames_locs.get_locations_str( eventname );
 
     if ( plocs )
     {
@@ -3304,7 +3304,7 @@ static void render_color_event_items( TraceEvents &trace_events,
     const float text_h = ImGui::GetTextLineHeight();
 
     // Iterate through all the event names
-    for ( auto item : trace_events.m_eventnames_locations.m_locs.m_map )
+    for ( auto item : trace_events.m_eventnames_locs.m_locs.m_map )
     {
         const char *eventname = trace_events.m_strpool.findstr( item.first );
         const trace_event_t *event = get_first_colorable_event( trace_events, eventname );

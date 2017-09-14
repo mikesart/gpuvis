@@ -3012,7 +3012,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             m_eventlist.goto_eventid = plocs->at( 0 );
         }
 
-        plocs = m_trace_events.m_gfxcontext_msg_locations.get_locations_str( gfxcontext );
+        plocs = m_trace_events.m_gfxcontext_msg_locs.get_locations_str( gfxcontext );
         if ( plocs )
         {
             time_buf += "\n";

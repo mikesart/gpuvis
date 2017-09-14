@@ -346,30 +346,30 @@ public:
     std::vector< trace_event_t > m_events;
 
     // Map of vblanks hashval to array of event locations.
-    TraceLocations m_tdopexpr_locations;
+    TraceLocations m_tdopexpr_locs;
     std::set< uint32_t > m_failed_commands;
 
     // Map of comm hashval to array of event locations.
-    TraceLocations m_comm_locations;
+    TraceLocations m_comm_locs;
 
     // Map of event names to event locations
-    TraceLocations m_eventnames_locations;
+    TraceLocations m_eventnames_locs;
 
     // Map of timeline/context/seqno to array of event locations.
-    TraceLocations m_gfxcontext_locations;
-    TraceLocations m_gfxcontext_msg_locations;
+    TraceLocations m_gfxcontext_locs;
+    TraceLocations m_gfxcontext_msg_locs;
 
     // Map of timeline (gfx, sdma0, etc) event locations.
-    TraceLocations m_timeline_locations;
+    TraceLocations m_timeline_locs;
 
     // Map of pid to sched_switch event locations.
-    TraceLocations m_sched_switch_prev_locations;
-    TraceLocations m_sched_switch_next_locations;
+    TraceLocations m_sched_switch_prev_locs;
+    TraceLocations m_sched_switch_next_locs;
 
     // Intel request_wait_begin events key'd on ring/ctx/seqno
-    TraceLocationsRingCtxSeq m_i915_reqwait_begin_locations;
+    TraceLocationsRingCtxSeq m_i915_reqwait_begin_locs;
     // Intel request_wait_end events key'd on: "i915_reqwait%u",ring
-    TraceLocations m_i915_reqwait_end_locations;
+    TraceLocations m_i915_reqwait_end_locs;
 
     // i915_gem_request_[add|submit|in|out], intel_engine_notify events
     TraceLocationsRingCtxSeq m_i915_gem_req_locs;
