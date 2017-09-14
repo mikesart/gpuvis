@@ -1032,7 +1032,8 @@ void MainApp::load_fonts()
         0,
     };
     m_font_big.m_reset = true;
-    m_font_big.load_font( "$imgui_font_big$", m_font_main.m_name.c_str(), m_font_main.m_size * 6.0f, &ranges[ 0 ] );
+    m_font_big.load_font( "$imgui_font_big$", m_font_main.m_name.c_str(),
+                          m_font_main.m_size * 4.0f, &ranges[ 0 ] );
 
     // Reset max rect size for the print events so they'll redo the CalcTextSize for the
     //  print graph row backgrounds (in graph_render_print_timeline).

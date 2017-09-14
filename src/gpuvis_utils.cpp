@@ -902,7 +902,7 @@ void FontInfo::update_ini()
 
     s_ini().PutStr( "name", m_name.c_str(), section );
     s_ini().PutStr( "filename", m_filename.c_str(), section );
-    s_ini().PutFloat( "size", m_size / g_scale, section );
+    s_ini().PutFloat( "size", m_size, section );
     s_ini().PutInt( "OverSampleH", m_font_cfg.OversampleH, section );
     s_ini().PutInt( "OverSampleV", m_font_cfg.OversampleV, section );
     s_ini().PutInt( "PixelSnapH", m_font_cfg.PixelSnapH, section );
@@ -945,7 +945,7 @@ void FontInfo::load_font( const char *section, const char *defname, float defsiz
     {
         m_name = s_ini().GetStr( "name", defname, section );
         m_filename = s_ini().GetStr( "filename", "", section );
-        m_size = s_ini().GetFloat( "size", defsize, section ) * g_scale;
+        m_size = s_ini().GetFloat( "size", defsize, section );
 
         m_font_cfg.OversampleH = s_ini().GetInt( "OversampleH", m_font_cfg.OversampleH, section );
         m_font_cfg.OversampleV = s_ini().GetInt( "OversampleV", m_font_cfg.OversampleV, section );
@@ -962,9 +962,10 @@ void FontInfo::load_font( const char *section, const char *defname, float defsiz
 
     m_input_filename_err = "";
 
+    float fontsize = Clamp< float >( imgui_scale( m_size ), 6.0, 96.0f );
     if ( m_font_id == FontID_TTFFile )
     {
-        ImFont *font = io.Fonts->AddFontFromFileTTF( m_filename.c_str(), m_size, &m_font_cfg, glyph_ranges );
+        ImFont *font = io.Fonts->AddFontFromFileTTF( m_filename.c_str(), fontsize, &m_font_cfg, glyph_ranges );
 
         if ( font )
         {
@@ -989,16 +990,16 @@ void FontInfo::load_font( const char *section, const char *defname, float defsiz
             io.Fonts->AddFontFromMemoryCompressedTTF(
                         g_font_info[ m_font_id ].ttf_data,
                         g_font_info[ m_font_id ].ttf_size,
-                        m_size, &m_font_cfg, glyph_ranges );
+                        fontsize, &m_font_cfg, glyph_ranges );
         }
         else
         {
-            m_font_cfg.SizePixels = m_size;
+            m_font_cfg.SizePixels = fontsize;
             io.Fonts->AddFontDefault( &m_font_cfg );
         }
     }
 
-    snprintf_safe( m_font_cfg.Name, "%s, %.1fpx", m_name.c_str(), m_size );
+    snprintf_safe( m_font_cfg.Name, "%s, %.1fpx", m_name.c_str(), fontsize );
 
     update_ini();
 
