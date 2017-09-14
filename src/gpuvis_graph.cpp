@@ -1793,7 +1793,9 @@ static void render_row_label( float x, float y, row_info_t &ri )
     }
     else if ( ri.num_events )
     {
-        label = string_format( "%u events", ri.num_events );
+        const char *suffix = ( ri.num_events > 1 ) ? "s" : "";
+
+        label = string_format( "%u event%s", ri.num_events, suffix );
         imgui_draw_text( x, y, label.c_str(), col, true );
     }
 }
