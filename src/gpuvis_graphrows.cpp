@@ -324,7 +324,16 @@ void GraphRows::init( TraceEvents &trace_events )
         {
             char buf[ 32 ];
 
-            snprintf_safe( buf, "i915_reqwait%u", ring );
+            snprintf_safe( buf, "i915_reqwait ring%u", ring );
+            if ( ( plocs = trace_events.get_locs( buf, &type ) ) )
+                push_row( buf, type, plocs->size() );
+        }
+
+        for ( uint32_t ring = 0; ring < 9; ring++ )
+        {
+            char buf[ 32 ];
+
+            snprintf_safe( buf, "i915_req ring%u", ring );
             if ( ( plocs = trace_events.get_locs( buf, &type ) ) )
                 push_row( buf, type, plocs->size() );
         }

@@ -39,6 +39,7 @@ enum loc_type_t
     LOC_TYPE_AMDTimeline,
     LOC_TYPE_AMDTimeline_hw,
     LOC_TYPE_i915RequestWait,
+    LOC_TYPE_i915Request,
     LOC_TYPE_Max
 };
 
@@ -288,6 +289,7 @@ public:
     const std::vector< uint32_t > *get_sched_switch_locs( int pid, switch_t switch_type );
 
     void calculate_amd_event_durations();
+    void calculate_intel_event_durations();
     void calculate_event_print_info();
 
     void invalidate_ftraceprint_colors();
@@ -368,11 +370,13 @@ public:
 
     // Intel request_wait_begin events key'd on ring/ctx/seqno
     TraceLocationsRingCtxSeq m_i915_reqwait_begin_locs;
-    // Intel request_wait_end events key'd on: "i915_reqwait%u",ring
+    // Intel request_wait_end events key'd on: "i915_reqwait ring%u",ring
     TraceLocations m_i915_reqwait_end_locs;
 
     // i915_gem_request_[add|submit|in|out], intel_engine_notify events
     TraceLocationsRingCtxSeq m_i915_gem_req_locs;
+    // Intel request events key'd on: "i915_req ring%u",ring
+    TraceLocations m_i915_req_locs;
 
     // Map vblank seq to m_drm_vblank_event_queued event id
     util_umap< uint32_t, uint32_t > m_drm_vblank_event_queued;
