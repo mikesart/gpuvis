@@ -143,23 +143,29 @@ const char *StrPool::findstr( uint32_t hashval )
 /*
  * TraceLocationsRingCtxSeq
  */
+uint64_t TraceLocationsRingCtxSeq::db_key( const char *ringstr, uint32_t seqno, const char *ctxstr )
+{
+    uint32_t ctx = strtoul( ctxstr, NULL, 10 );
+    uint32_t ring = strtoul( ringstr, NULL, 10 );
+
+    // ring | ctx      | seqno
+    //  0xe | 1fffffff | ffffffff
+    return ( ( uint64_t )ring << 61 ) | ( ( uint64_t )ctx << 32 ) | seqno;
+}
+
 uint64_t TraceLocationsRingCtxSeq::db_key( const trace_event_t &event )
 {
     if ( event.seqno )
     {
-        // i915:intel_engine_notify has only seqno & ring
-        const char *ctxstr = get_event_field_val( event, "ctx", "0" );
         const char *ringstr = get_event_field_val( event, "ring", NULL );
+        const char *ctxstr = get_event_field_val( event, "ctx", NULL );
 
-        if ( ringstr )
-        {
-            uint32_t ctx = strtoul( ctxstr, NULL, 10 );
-            uint32_t ring = strtoul( ringstr, NULL, 10 );
+        // i915:intel_engine_notify has only ring & seqno, so default ctx to "0"
+        if ( !ctxstr && !strcmp( event.name, "intel_engine_notify" ) )
+            ctxstr = "0";
 
-            // ring | ctx      | seqno
-            //  0xe | 1fffffff | ffffffff
-            return ( ( uint64_t )ring << 61 ) | ( ( uint64_t )ctx << 32 ) | event.seqno;
-        }
+        if ( ringstr && ctxstr )
+            return db_key( ringstr, event.seqno, ctxstr );
     }
 
     return 0;
@@ -183,6 +189,13 @@ bool TraceLocationsRingCtxSeq::add_location( const trace_event_t &event )
 std::vector< uint32_t > *TraceLocationsRingCtxSeq::get_locations( const trace_event_t &event )
 {
     uint64_t key = db_key( event );
+
+    return m_locs.get_val( key );
+}
+
+std::vector< uint32_t > *TraceLocationsRingCtxSeq::get_locations( const char *ringstr, uint32_t seqno, const char *ctxstr )
+{
+    uint64_t key = db_key( ringstr, seqno, ctxstr );
 
     return m_locs.get_val( key );
 }
@@ -1926,23 +1939,24 @@ void TraceEvents::calculate_intel_event_durations()
     {
         enum
         {
-            PREQ_Add,
-            PREQ_Submit,
-            PREQ_In,
-            PREQ_Notify,
-            PREQ_Out,
-            PREQ_Max,
+            REQ_Add,
+            REQ_Submit,
+            REQ_In,
+            REQ_Notify,
+            REQ_Out,
+            REQ_Max,
 
-            Mask_Add_Submit = ( ( 1 << PREQ_Add ) | ( 1 << PREQ_Submit ) ),
-            Mask_Submit_In = ( ( 1 << PREQ_Submit ) | ( 1 << PREQ_In ) ),
-            Mask_In_Notify = ( ( 1 << PREQ_In ) | ( 1 << PREQ_Notify ) ),
-            Mask_Notify_Out = ( ( 1 << PREQ_Notify ) | ( 1 << PREQ_Out ) ),
-            Mask_In_Out = ( ( 1 << PREQ_In ) | ( 1 << PREQ_Out ) ),
+            Mask_Add_Submit = ( ( 1 << REQ_Add ) | ( 1 << REQ_Submit ) ),
+            Mask_Submit_In = ( ( 1 << REQ_Submit ) | ( 1 << REQ_In ) ),
+            Mask_In_Notify = ( ( 1 << REQ_In ) | ( 1 << REQ_Notify ) ),
+            Mask_Notify_Out = ( ( 1 << REQ_Notify ) | ( 1 << REQ_Out ) ),
+            Mask_In_Out = ( ( 1 << REQ_In ) | ( 1 << REQ_Out ) ),
+            Mask_In_Notify_Out = ( ( 1 << REQ_In ) | ( 1 << REQ_Notify ) | ( 1 << REQ_Out ) ),
         };
         const char *ring = "";
         uint32_t event_mask = 0;
         uint32_t set_mask = 0;
-        trace_event_t *events[ PREQ_Max ] = { NULL };
+        trace_event_t *events[ REQ_Max ] = { NULL };
         const std::vector< uint32_t > &locs = req_locs.second;
 
         for ( uint32_t index : locs )
@@ -1951,15 +1965,15 @@ void TraceEvents::calculate_intel_event_durations()
             trace_event_t &event = m_events[ index ];
 
             if ( !strcmp( event.name, "i915_gem_request_add" ) )
-                event_type = PREQ_Add;
+                event_type = REQ_Add;
             else if ( !strcmp( event.name, "i915_gem_request_submit" ) )
-                event_type = PREQ_Submit;
+                event_type = REQ_Submit;
             else if ( !strcmp( event.name, "i915_gem_request_in" ) )
-                event_type = PREQ_In;
+                event_type = REQ_In;
             else if ( !strcmp( event.name, "i915_gem_request_out" ) )
-                event_type = PREQ_Out;
+                event_type = REQ_Out;
             else if ( !strcmp( event.name, "intel_engine_notify" ) )
-                event_type = PREQ_Notify;
+                event_type = REQ_Notify;
 
             if ( event_type >= 0 )
             {
@@ -1971,28 +1985,53 @@ void TraceEvents::calculate_intel_event_durations()
                 ring = get_event_field_val( event, "ring" );
         }
 
+        // Notify shouldn't be in this list. It has ring + seqno, and no ctx.
+        if ( ( event_mask & Mask_In_Notify_Out ) == Mask_In_Out )
+        {
+            uint32_t seqno = events[ REQ_In ]->seqno;
+            const std::vector< uint32_t > *plocs =
+                    m_i915_gem_req_locs.get_locations( ring, seqno, "0" );
+
+            // We found some events that match our ring and seqno.
+            if ( plocs )
+            {
+                // Go through looking for an intel_engine_notify event.
+                for ( uint32_t i : *plocs )
+                {
+                    trace_event_t &event_notify = m_events[ i ];
+
+                    if ( !strcmp( event_notify.name, "intel_engine_notify" ) )
+                    {
+                        events[ REQ_Notify ] = &event_notify;
+                        event_mask |= ( 1 << REQ_Notify );
+                        break;
+                    }
+                }
+            }
+        }
+
         // submit-delay: req_add -> req_submit
         if ( ( event_mask & Mask_Add_Submit ) == Mask_Add_Submit )
-            set_mask |= intel_set_duration( events[ PREQ_Add ], events[ PREQ_Submit ], Mask_Add_Submit );
+            set_mask |= intel_set_duration( events[ REQ_Add ], events[ REQ_Submit ], Mask_Add_Submit );
 
         // execute-delay: req_submit -> req_in
         if ( ( event_mask & Mask_Submit_In ) == Mask_Submit_In )
-            set_mask |= intel_set_duration( events[ PREQ_Submit ], events[ PREQ_In ], Mask_Submit_In );
+            set_mask |= intel_set_duration( events[ REQ_Submit ], events[ REQ_In ], Mask_Submit_In );
 
         // execute-delay (start to user interrupt): req_in -> engine_notify
         if ( ( event_mask & Mask_In_Notify ) == Mask_In_Notify )
-            set_mask |= intel_set_duration( events[ PREQ_In ], events[ PREQ_Notify ], Mask_In_Notify );
+            set_mask |= intel_set_duration( events[ REQ_In ], events[ REQ_Notify ], Mask_In_Notify );
 
         // context-complete-delay (user interrupt to context complete): engine_notify -> req_out
         if ( ( event_mask & Mask_Notify_Out ) == Mask_Notify_Out )
-            set_mask |= intel_set_duration( events[ PREQ_Notify ], events[ PREQ_Out ], Mask_Notify_Out );
+            set_mask |= intel_set_duration( events[ REQ_Notify ], events[ REQ_Out ], Mask_Notify_Out );
 
         // If we didn't get an intel_engine_notify event, do req_in -> req_out
         if ( ( event_mask & Mask_In_Out ) == Mask_In_Out )
         {
             // execute-delay: req_in -> req_out
-            if ( events[ PREQ_Out ]->id_start == ( uint32_t )-1 )
-                set_mask |= intel_set_duration( events[ PREQ_In ], events[ PREQ_Out ], Mask_In_Out );
+            if ( events[ REQ_Out ]->id_start == ( uint32_t )-1 )
+                set_mask |= intel_set_duration( events[ REQ_In ], events[ REQ_Out ], Mask_In_Out );
         }
 
         if ( set_mask )
@@ -2002,7 +2041,7 @@ void TraceEvents::calculate_intel_event_durations()
 
             snprintf_safe( buf, "i915_req ring%u", ringno );
 
-            for ( uint32_t i = 0; i < PREQ_Max; i++ )
+            for ( uint32_t i = 0; i < REQ_Max; i++ )
             {
                 if ( set_mask & ( 1 << i ) )
                     m_i915_req_locs.add_location_str( buf, events[ i ]->id );

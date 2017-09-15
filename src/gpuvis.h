@@ -84,8 +84,10 @@ public:
 
     bool add_location( const trace_event_t &event );
     std::vector< uint32_t > *get_locations( const trace_event_t &event );
+    std::vector< uint32_t > *get_locations( const char *ringstr, uint32_t seqno, const char *ctxstr );
 
     uint64_t db_key( const trace_event_t &event );
+    uint64_t db_key( const char *ringstr, uint32_t seqno, const char *ctxstr );
 
 public:
     // Map of db_key to array of event locations.
