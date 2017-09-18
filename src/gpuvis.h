@@ -509,6 +509,8 @@ protected:
     uint32_t graph_render_row_events( class graph_info_t &gi );
     // Render i915 request_wait events
     uint32_t graph_render_i915_reqwait_events( class graph_info_t &gi );
+    // Render i915 request_add, request_submit, request_in, request_out, intel_engine_notify
+    uint32_t graph_render_i915_req_events( class graph_info_t &gi );
 
     void graph_render_time_ticks( class graph_info_t &gi );
     void graph_render_vblanks( class graph_info_t &gi );

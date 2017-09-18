@@ -502,6 +502,10 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
             rinfo.row_h = 2 * text_h;
             rinfo.render_cb = std::bind( &TraceWin::graph_render_hw_row_timeline, win, _1 );
         }
+        else if ( rinfo.row_type == LOC_TYPE_i915Request )
+        {
+            rinfo.render_cb = std::bind( &TraceWin::graph_render_i915_req_events, win, _1 );
+        }
         else if ( rinfo.row_type == LOC_TYPE_i915RequestWait )
         {
             rinfo.render_cb = std::bind( &TraceWin::graph_render_i915_reqwait_events, win, _1 );
@@ -684,6 +688,13 @@ bool graph_info_t::add_mouse_hovered_event( float xin, const trace_event_t &even
     bool inserted = false;
     float xdist_mouse = xin - mouse_pos.x;
     bool neg = xdist_mouse < 0.0f;
+
+    // Check if we've already added this event
+    for ( const auto &it : hovered_items )
+    {
+        if ( it.eventid == event.id )
+            return true;
+    }
 
     if ( neg )
         xdist_mouse = -xdist_mouse;
@@ -1399,13 +1410,14 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 
         if ( gi.mouse_over )
         {
+            bool add_hovered = false;
+
             if ( gi.mouse_pos.x > x0 &&
                  gi.mouse_pos.x <= x1 &&
                  gi.mouse_pos.y >= y &&
                  gi.mouse_pos.y <= y + gi.row_h )
             {
-                gi.add_mouse_hovered_event( x0, event_begin, true );
-                gi.add_mouse_hovered_event( x1, event, true );
+                add_hovered = true;
 
                 ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ),
                                                      ImVec2( x1, y + row_h ),
@@ -1413,8 +1425,87 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
             }
             else
             {
-                gi.add_mouse_hovered_event( x0, event_begin );
-                gi.add_mouse_hovered_event( x1, event );
+                add_hovered |= gi.add_mouse_hovered_event( x0, event_begin );
+                add_hovered |= gi.add_mouse_hovered_event( x1, event );
+            }
+
+            if ( add_hovered )
+            {
+                gi.add_mouse_hovered_event( x0, event_begin, true );
+                gi.add_mouse_hovered_event( x1, event, true );
+            }
+        }
+    }
+
+    event_renderer.done();
+    event_renderer.draw_hovered_selected_events( this, gi );
+
+    return num_events;
+}
+
+uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
+{
+    uint32_t num_events = 0;
+    const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
+    event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
+
+    event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
+    event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
+
+    for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
+          idx < locs.size();
+          idx++ )
+    {
+        float row_h = gi.text_h;
+        float y = gi.y + ( gi.h - row_h ) / 2;
+        const trace_event_t &event = get_event( locs[ idx ] );
+        float x1 = gi.ts_to_screenx( event.ts );
+
+        if ( x1 < gi.x )
+            continue;
+
+        event_renderer.add_event( event.id, x1, event.color );
+        num_events++;
+
+        if ( gi.mouse_over )
+            gi.add_mouse_hovered_event( x1, event );
+
+        if ( event.duration != ( uint32_t )-1 )
+        {
+            float x0 = gi.ts_to_screenx( event.ts - event.duration );
+
+            // Draw bar
+            imgui_drawrect( x0, x1 - x0, y, row_h, s_clrs().get( event.color_index ) );
+
+            if ( gi.mouse_over )
+            {
+                if ( gi.mouse_pos.x > x0 &&
+                     gi.mouse_pos.x <= x1 &&
+                     gi.mouse_pos.y >= y &&
+                     gi.mouse_pos.y <= y + gi.row_h )
+                {
+                    const std::vector< uint32_t > *plocs;
+                    const trace_event_t *pevent = !strcmp( event.name, "intel_engine_notify" ) ?
+                                &get_event( event.id_start ) : &event;
+
+                    plocs = m_trace_events.m_i915_gem_req_locs.get_locations( *pevent );
+                    if ( plocs )
+                    {
+                        for ( uint32_t i : *plocs )
+                        {
+                            const trace_event_t &e = get_event( i );
+                            gi.add_mouse_hovered_event( gi.ts_to_screenx( e.ts ), e, true );
+                        }
+                    }
+
+                    ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ),
+                                                         ImVec2( x1, y + row_h ),
+                                                         s_clrs().get( col_Graph_BarSelRect ) );
+                }
+                else
+                {
+                    gi.add_mouse_hovered_event( x1, event );
+                }
             }
         }
     }
@@ -2909,6 +3000,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
         }
     }
 
+    int64_t dist_ts = INT64_MAX;
     m_graph.hovered_eventid = INVALID_ID;
     if ( !gi.hovered_items.empty() )
     {
@@ -2969,15 +3061,18 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
                 time_buf += " (" + timestr + ")";
             }
-        }
 
-        // Mark the first event in the list as our hovered graph event
-        m_graph.hovered_eventid = gi.hovered_items[ 0 ].eventid;
+            if ( hov.dist_ts < dist_ts )
+            {
+                m_graph.hovered_eventid = hov.eventid;
+                dist_ts = hov.dist_ts;
+            }
+        }
 
         if ( sync_event_list_to_graph && !m_eventlist.do_gotoevent )
         {
             m_eventlist.do_gotoevent = true;
-            m_eventlist.goto_eventid = gi.hovered_items[ 0 ].eventid;
+            m_eventlist.goto_eventid = m_graph.hovered_eventid;
         }
     }
 

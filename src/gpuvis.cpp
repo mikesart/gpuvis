@@ -1921,11 +1921,12 @@ void TraceEvents::calculate_amd_event_durations()
     }
 }
 
-static uint32_t intel_set_duration( trace_event_t *event0, trace_event_t *event1, uint32_t mask )
+static uint32_t intel_set_duration( trace_event_t *event0, trace_event_t *event1, uint32_t mask, uint32_t color_index )
 {
     if ( event1->ts >= event0->ts )
     {
         event1->duration = event1->ts - event0->ts;
+        event1->color_index = color_index;
         event1->id_start = event0->id;
         return mask;
     }
@@ -1935,29 +1936,31 @@ static uint32_t intel_set_duration( trace_event_t *event0, trace_event_t *event1
 
 void TraceEvents::calculate_intel_event_durations()
 {
-    for ( const auto &req_locs : m_i915_gem_req_locs.m_locs.m_map )
+    enum
     {
-        enum
-        {
-            REQ_Add,
-            REQ_Submit,
-            REQ_In,
-            REQ_Notify,
-            REQ_Out,
-            REQ_Max,
+        REQ_Add,
+        REQ_Submit,
+        REQ_In,
+        REQ_Notify,
+        REQ_Out,
+        REQ_Max,
 
-            Mask_Add_Submit = ( ( 1 << REQ_Add ) | ( 1 << REQ_Submit ) ),
-            Mask_Submit_In = ( ( 1 << REQ_Submit ) | ( 1 << REQ_In ) ),
-            Mask_In_Notify = ( ( 1 << REQ_In ) | ( 1 << REQ_Notify ) ),
-            Mask_Notify_Out = ( ( 1 << REQ_Notify ) | ( 1 << REQ_Out ) ),
-            Mask_In_Out = ( ( 1 << REQ_In ) | ( 1 << REQ_Out ) ),
-            Mask_In_Notify_Out = ( ( 1 << REQ_In ) | ( 1 << REQ_Notify ) | ( 1 << REQ_Out ) ),
-        };
+        Mask_Add_Submit = ( ( 1 << REQ_Add ) | ( 1 << REQ_Submit ) ),
+        Mask_Submit_In = ( ( 1 << REQ_Submit ) | ( 1 << REQ_In ) ),
+        Mask_In_Notify = ( ( 1 << REQ_In ) | ( 1 << REQ_Notify ) ),
+        Mask_Notify_Out = ( ( 1 << REQ_Notify ) | ( 1 << REQ_Out ) ),
+        Mask_In_Out = ( ( 1 << REQ_In ) | ( 1 << REQ_Out ) ),
+        Mask_In_Notify_Out = ( ( 1 << REQ_In ) | ( 1 << REQ_Notify ) | ( 1 << REQ_Out ) ),
+    };
+
+    // Our map should have events with the same ring/ctx/seqno
+    for ( auto &req_locs : m_i915_gem_req_locs.m_locs.m_map )
+    {
         const char *ring = "";
         uint32_t event_mask = 0;
         uint32_t set_mask = 0;
         trace_event_t *events[ REQ_Max ] = { NULL };
-        const std::vector< uint32_t > &locs = req_locs.second;
+        std::vector< uint32_t > &locs = req_locs.second;
 
         for ( uint32_t index : locs )
         {
@@ -1985,26 +1988,41 @@ void TraceEvents::calculate_intel_event_durations()
                 ring = get_event_field_val( event, "ring" );
         }
 
-        // Notify shouldn't be in this list. It has ring + seqno, and no ctx.
+        // Notify shouldn't be set yet. It only has a ring and global seqno.
+        // Check if we have request_in + request_out events and search for the notify.
         if ( ( event_mask & Mask_In_Notify_Out ) == Mask_In_Out )
         {
-            uint32_t seqno = events[ REQ_In ]->seqno;
-            const std::vector< uint32_t > *plocs =
-                    m_i915_gem_req_locs.get_locations( ring, seqno, "0" );
+            // Try to find the global seqno from our request_in event
+            const char *globalstr = get_event_field_val( *events[ REQ_In ], "global", NULL );
 
-            // We found some events that match our ring and seqno.
-            if ( plocs )
+            if ( globalstr )
             {
-                // Go through looking for an intel_engine_notify event.
-                for ( uint32_t i : *plocs )
-                {
-                    trace_event_t &event_notify = m_events[ i ];
+                uint32_t global_seqno = strtoul( globalstr, NULL, 10 );
+                const std::vector< uint32_t > *plocs =
+                        m_i915_gem_req_locs.get_locations( ring, global_seqno, "0" );
 
-                    if ( !strcmp( event_notify.name, "intel_engine_notify" ) )
+                // We found event(s) that match our ring and global seqno.
+                if ( plocs )
+                {
+                    // Go through looking for an intel_engine_notify event.
+                    for ( uint32_t i : *plocs )
                     {
-                        events[ REQ_Notify ] = &event_notify;
-                        event_mask |= ( 1 << REQ_Notify );
-                        break;
+                        trace_event_t &event_notify = m_events[ i ];
+
+                        if ( !strcmp( event_notify.name, "intel_engine_notify" ) )
+                        {
+                            // Set id_start to point to the request_in event
+                            event_notify.id_start = events[ REQ_In ]->id;
+
+                            // Add our notify event to the event list for this ring/ctx/seqno
+                            locs.push_back( event_notify.id );
+                            std::sort( locs.begin(), locs.end() );
+
+                            // Mark that we found a notify event
+                            events[ REQ_Notify ] = &event_notify;
+                            event_mask |= ( 1 << REQ_Notify );
+                            break;
+                        }
                     }
                 }
             }
@@ -2012,26 +2030,26 @@ void TraceEvents::calculate_intel_event_durations()
 
         // submit-delay: req_add -> req_submit
         if ( ( event_mask & Mask_Add_Submit ) == Mask_Add_Submit )
-            set_mask |= intel_set_duration( events[ REQ_Add ], events[ REQ_Submit ], Mask_Add_Submit );
+            set_mask |= intel_set_duration( events[ REQ_Add ], events[ REQ_Submit ], Mask_Add_Submit, col_Graph_Bari915SubmitDelay );
 
         // execute-delay: req_submit -> req_in
         if ( ( event_mask & Mask_Submit_In ) == Mask_Submit_In )
-            set_mask |= intel_set_duration( events[ REQ_Submit ], events[ REQ_In ], Mask_Submit_In );
+            set_mask |= intel_set_duration( events[ REQ_Submit ], events[ REQ_In ], Mask_Submit_In, col_Graph_Bari915ExecuteDelay );
 
-        // execute-delay (start to user interrupt): req_in -> engine_notify
+        // execute (start to user interrupt): req_in -> engine_notify
         if ( ( event_mask & Mask_In_Notify ) == Mask_In_Notify )
-            set_mask |= intel_set_duration( events[ REQ_In ], events[ REQ_Notify ], Mask_In_Notify );
+            set_mask |= intel_set_duration( events[ REQ_In ], events[ REQ_Notify ], Mask_In_Notify, col_Graph_Bari915Execute );
 
         // context-complete-delay (user interrupt to context complete): engine_notify -> req_out
         if ( ( event_mask & Mask_Notify_Out ) == Mask_Notify_Out )
-            set_mask |= intel_set_duration( events[ REQ_Notify ], events[ REQ_Out ], Mask_Notify_Out );
+            set_mask |= intel_set_duration( events[ REQ_Notify ], events[ REQ_Out ], Mask_Notify_Out, col_Graph_Bari915CtxCompleteDelay );
 
         // If we didn't get an intel_engine_notify event, do req_in -> req_out
         if ( ( event_mask & Mask_In_Out ) == Mask_In_Out )
         {
-            // execute-delay: req_in -> req_out
-            if ( events[ REQ_Out ]->id_start == ( uint32_t )-1 )
-                set_mask |= intel_set_duration( events[ REQ_In ], events[ REQ_Out ], Mask_In_Out );
+            // execute: req_in -> req_out
+            if ( events[ REQ_Out ]->duration == ( uint32_t )-1 )
+                set_mask |= intel_set_duration( events[ REQ_In ], events[ REQ_Out ], Mask_In_Out, col_Graph_Bari915Execute );
         }
 
         if ( set_mask )

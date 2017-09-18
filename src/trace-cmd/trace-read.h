@@ -135,7 +135,8 @@ struct trace_event_t
     uint32_t graph_row_id;
     uint32_t duration;          // how long this timeline event took (or -1 for not set)
 
-    uint32_t color;
+    uint32_t color;             // color of the event (or 0 for default)
+    uint32_t color_index;       // -1 or colors_t enum value like col_Graph_Bari915SubmitDelay
 
     int64_t ts;                 // timestamp
     const char *comm;           // command name

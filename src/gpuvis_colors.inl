@@ -68,6 +68,11 @@ _XTAG( col_Graph_TaskSleeping, 0x4fffff00, "Sched_switch task sleeping block" )
 
 _XTAG( col_Graph_Bari915ReqWait, 0x4f0000ff, "i915 reqwait bar" )
 
+_XTAG( col_Graph_Bari915SubmitDelay, 0xc8f8552e, "Requests waiting on fences and dependencies before they are runnable" )
+_XTAG( col_Graph_Bari915ExecuteDelay, 0xc89e9e9e, "Runnable requests waiting for a slot on GPU" )
+_XTAG( col_Graph_Bari915Execute, 0xc8aa149a, "Requests executing on the GPU" )
+_XTAG( col_Graph_Bari915CtxCompleteDelay, 0xc800a5ff, "User interrupt to context complete" )
+
 _XTAG( col_FrameMarkerBk0, 0x4fff00ff, "Frame Marker Background #0" )
 _XTAG( col_FrameMarkerBk1, 0x4f00ffff, "Frame Marker Background #1" )
 _XTAG( col_FrameMarkerSelected, 0x1a00ff31, "Selected Frame Marker Background" )
