@@ -1933,6 +1933,10 @@ i915_type_t get_i915_reqtype( const trace_event_t &event )
         return i915_req_Out;
     else if ( !strcmp( event.name, "intel_engine_notify" ) )
         return i915_req_Notify;
+    else if ( !strcmp( event.name, "i915_gem_request_wait_begin" ) )
+        return i915_reqwait_begin;
+    else if ( !strcmp( event.name, "i915_gem_request_wait_end" ) )
+        return i915_reqwait_end;
 
     return i915_req_Max;
 }
@@ -1964,7 +1968,7 @@ void TraceEvents::calculate_intel_event_durations()
             trace_event_t &event = m_events[ index ];
             i915_type_t event_type = get_i915_reqtype( event );
 
-            if ( event_type < i915_req_Max )
+            if ( event_type <= i915_req_Out )
             {
                 events[ event_type ] = &event;
 

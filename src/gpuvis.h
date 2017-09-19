@@ -50,6 +50,10 @@ enum i915_type_t
     i915_req_In,
     i915_req_Notify,
     i915_req_Out,
+
+    i915_reqwait_begin,
+    i915_reqwait_end,
+
     i915_req_Max
 };
 i915_type_t get_i915_reqtype( const trace_event_t &event );

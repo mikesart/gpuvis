@@ -289,6 +289,16 @@ static void imgui_drawrect( float x, float w, float y, float h, ImU32 color )
         ImGui::GetWindowDrawList()->AddRectFilled( ImVec2( x, y ), ImVec2( x + w, y + h ), color );
 }
 
+static void imgui_push_cliprect( float x0, float y0, float x1, float y1 )
+{
+    ImGui::PushClipRect( ImVec2( x0, y0 ), ImVec2( x1, y1 ), true );
+}
+
+static void imgui_pop_cliprect()
+{
+    ImGui::PopClipRect();
+}
+
 static void imgui_draw_text( float x, float y, const char *text, ImU32 color, bool draw_background = false )
 {
     if ( draw_background )
@@ -296,7 +306,8 @@ static void imgui_draw_text( float x, float y, const char *text, ImU32 color, bo
         ImVec2 textsize = ImGui::CalcTextSize( text );
 
         ImGui::GetWindowDrawList()->AddRectFilled(
-                    ImVec2( x - 1, y - 1 ), ImVec2( x + textsize.x + 2, y + textsize.y + 2 ),
+                    ImVec2( x - 1, y - 1 ),
+                    ImVec2( x + textsize.x + 2, y + textsize.y + 2 ),
                     s_clrs().get( col_Graph_RowLabelTextBk ) );
     }
 
@@ -1118,17 +1129,15 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
                     if ( tgid_info )
                     {
                         char tgidstr[ 64 ];
-                        const ImVec2 rect_min( x0, y );
-                        const ImVec2 rect_max( x1, y + row_h );
 
-                        ImGui::PushClipRect( rect_min, rect_max, true );
+                        imgui_push_cliprect( x0, y, x1, y + row_h );
 
                         snprintf_safe( tgidstr, "(%s)", tgid_info->commstr );
                         ImGui::GetWindowDrawList()->AddText(
                                     ImVec2( x0 + imgui_scale( 2.0f ), y + size.y + imgui_scale( 2.0f ) ),
                                     s_clrs().get( col_Graph_BarText ), tgidstr );
 
-                        ImGui::PopClipRect();
+                        imgui_pop_cliprect();
                     }
                 }
             }
@@ -1246,16 +1255,14 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
                         if ( tgid_info )
                         {
                             char tgidstr[ 64 ];
-                            const ImVec2 rect_min( x_text, y + imgui_scale( 1.0f ) );
-                            const ImVec2 rect_max( x_hw_end, rect_min.y + size.y );
 
-                            ImGui::PushClipRect( rect_min, rect_max, true );
+                            imgui_push_cliprect( x_text, y, x_hw_end, y + size.y );
 
                             snprintf_safe( tgidstr, "  (%s)", tgid_info->commstr );
                             ImGui::GetWindowDrawList()->AddText( ImVec2( x_text + size.x, y + imgui_scale( 1.0f ) ),
                                                                  s_clrs().get( col_Graph_BarText ), tgidstr );
 
-                            ImGui::PopClipRect();
+                            imgui_pop_cliprect();
                         }
                     }
                 }
@@ -1418,6 +1425,21 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
         // Draw bar
         imgui_drawrect( x0, x1 - x0, y, row_h, barcolor );
 
+        if ( x1 - x0 >= imgui_scale( 16.0f ) )
+        {
+            char label[ 64 ];
+            const char *ctxstr = get_event_field_val( event, "ctx", "0" );
+
+            imgui_push_cliprect( x0, y, x1, y + row_h );
+
+            snprintf_safe( label, "%s/%u", ctxstr, event.seqno );
+            ImGui::GetWindowDrawList()->AddText(
+                        ImVec2( x0 + imgui_scale( 1.0f ), y + imgui_scale( 1.0f ) ),
+                        s_clrs().get( col_Graph_BarText ), label );
+
+            imgui_pop_cliprect();
+        }
+
         if ( gi.mouse_over )
         {
             bool add_hovered = false;
@@ -1487,6 +1509,8 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
         {
             // Draw bar
             imgui_drawrect( x0, x1 - x0, y, row_h, s_clrs().get( event.color_index ) );
+
+            //$ TODO mikesart: labels
 
             if ( gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
             {
@@ -3042,17 +3066,16 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             if ( i915_type < i915_req_Max )
             {
                 const char *ctxstr = get_event_field_val( event, "ctx", NULL );
-                const char *seqno = get_event_field_val( event, "seqno" );
 
                 if ( ctxstr )
                 {
-                    time_buf += string_format( " key:[%s%s%s/%s%s%s]",
+                    time_buf += string_format( " key:[%s%s%s/%s%u%s]",
                                                clr_bright, ctxstr, clr_def,
-                                               clr_bright, seqno, clr_def );
+                                               clr_bright, event.seqno, clr_def );
                 }
                 else
                 {
-                    time_buf += string_format( " key:[%s%s%s]", clr_bright, seqno, clr_def );
+                    time_buf += string_format( " key:[%s%u%s]", clr_bright, event.seqno, clr_def );
                 }
 
                 const char *global = get_event_field_val( event, "global_seqno", NULL );
