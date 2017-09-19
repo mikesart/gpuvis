@@ -1921,29 +1921,20 @@ void TraceEvents::calculate_amd_event_durations()
     }
 }
 
-enum
-{
-    REQ_Add,
-    REQ_Submit,
-    REQ_In,
-    REQ_Notify,
-    REQ_Out,
-    REQ_Max,
-};
-static int get_intelreq_type( const trace_event_t &event )
+i915_type_t get_i915_reqtype( const trace_event_t &event )
 {
     if ( !strcmp( event.name, "i915_gem_request_add" ) )
-        return REQ_Add;
+        return i915_req_Add;
     else if ( !strcmp( event.name, "i915_gem_request_submit" ) )
-        return REQ_Submit;
+        return i915_req_Submit;
     else if ( !strcmp( event.name, "i915_gem_request_in" ) )
-        return REQ_In;
+        return i915_req_In;
     else if ( !strcmp( event.name, "i915_gem_request_out" ) )
-        return REQ_Out;
+        return i915_req_Out;
     else if ( !strcmp( event.name, "intel_engine_notify" ) )
-        return REQ_Notify;
+        return i915_req_Notify;
 
-    return -1;
+    return i915_req_Max;
 }
 
 static bool intel_set_duration( trace_event_t *event0, trace_event_t *event1, uint32_t color_index )
@@ -1965,15 +1956,15 @@ void TraceEvents::calculate_intel_event_durations()
     for ( auto &req_locs : m_i915_gem_req_locs.m_locs.m_map )
     {
         const char *ring = "";
-        trace_event_t *events[ REQ_Max ] = { NULL };
+        trace_event_t *events[ i915_req_Max ] = { NULL };
         std::vector< uint32_t > &locs = req_locs.second;
 
         for ( uint32_t index : locs )
         {
             trace_event_t &event = m_events[ index ];
-            int event_type = get_intelreq_type( event );
+            i915_type_t event_type = get_i915_reqtype( event );
 
-            if ( event_type >= 0 )
+            if ( event_type < i915_req_Max )
             {
                 events[ event_type ] = &event;
 
@@ -1984,13 +1975,13 @@ void TraceEvents::calculate_intel_event_durations()
 
         // Notify shouldn't be set yet. It only has a ring and global seqno.
         // If we have request_in, search for the corresponding notify.
-        if ( !events[ REQ_Notify ] && events[ REQ_In ] )
+        if ( !events[ i915_req_Notify ] && events[ i915_req_In ] )
         {
             // Try to find the global seqno from our request_in event
-            const char *globalstr = get_event_field_val( *events[ REQ_In ], "global_seqno", NULL );
+            const char *globalstr = get_event_field_val( *events[ i915_req_In ], "global_seqno", NULL );
 
             if ( !globalstr )
-                globalstr = get_event_field_val( *events[ REQ_In ], "global", NULL );
+                globalstr = get_event_field_val( *events[ i915_req_In ], "global", NULL );
             if ( globalstr )
             {
                 uint32_t global_seqno = strtoul( globalstr, NULL, 10 );
@@ -2008,14 +1999,14 @@ void TraceEvents::calculate_intel_event_durations()
                         if ( !strcmp( event_notify.name, "intel_engine_notify" ) )
                         {
                             // Set id_start to point to the request_in event
-                            event_notify.id_start = events[ REQ_In ]->id;
+                            event_notify.id_start = events[ i915_req_In ]->id;
 
                             // Add our notify event to the event list for this ring/ctx/seqno
                             locs.push_back( event_notify.id );
                             std::sort( locs.begin(), locs.end() );
 
                             // Mark that we found a notify event
-                            events[ REQ_Notify ] = &event_notify;
+                            events[ i915_req_Notify ] = &event_notify;
                             break;
                         }
                     }
@@ -2024,19 +2015,19 @@ void TraceEvents::calculate_intel_event_durations()
         }
 
         // submit-delay: req_add -> req_submit
-        bool set_duration = intel_set_duration( events[ REQ_Add ], events[ REQ_Submit ], col_Graph_Bari915SubmitDelay );
+        bool set_duration = intel_set_duration( events[ i915_req_Add ], events[ i915_req_Submit ], col_Graph_Bari915SubmitDelay );
 
         // execute-delay: req_submit -> req_in
-        set_duration |= intel_set_duration( events[ REQ_Submit ], events[ REQ_In ], col_Graph_Bari915ExecuteDelay );
+        set_duration |= intel_set_duration( events[ i915_req_Submit ], events[ i915_req_In ], col_Graph_Bari915ExecuteDelay );
 
         // execute (start to user interrupt): req_in -> engine_notify
-        set_duration |= intel_set_duration( events[ REQ_In ], events[ REQ_Notify ], col_Graph_Bari915Execute );
+        set_duration |= intel_set_duration( events[ i915_req_In ], events[ i915_req_Notify ], col_Graph_Bari915Execute );
 
         // context-complete-delay (user interrupt to context complete): engine_notify -> req_out
-        set_duration |= intel_set_duration( events[ REQ_Notify ], events[ REQ_Out ], col_Graph_Bari915CtxCompleteDelay );
+        set_duration |= intel_set_duration( events[ i915_req_Notify ], events[ i915_req_Out ], col_Graph_Bari915CtxCompleteDelay );
 
         // If we didn't get an intel_engine_notify event, do req_in -> req_out
-        set_duration |= intel_set_duration( events[ REQ_In ], events[ REQ_Out ], col_Graph_Bari915Execute );
+        set_duration |= intel_set_duration( events[ i915_req_In ], events[ i915_req_Out ], col_Graph_Bari915Execute );
 
         if ( set_duration )
         {
@@ -2046,7 +2037,7 @@ void TraceEvents::calculate_intel_event_durations()
             snprintf_safe( buf, "i915_req ring%u", ringno );
             uint32_t hashval = fnv_hashstr32( buf );
 
-            for ( uint32_t i = 0; i < REQ_Max; i++ )
+            for ( uint32_t i = 0; i < i915_req_Max; i++ )
             {
                 if ( events[ i ] )
                 {

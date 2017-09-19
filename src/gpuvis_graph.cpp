@@ -350,14 +350,12 @@ void event_renderer_t::add_event( uint32_t eventid, float x, ImU32 color )
 {
     if ( eventid == m_selected_eventid )
     {
-        m_sely.x = y;
-        m_sely.y = h;
+        m_sely = ImVec2( y, h );
         m_draw_selected_event = true;
     }
     if ( eventid == m_hovered_eventid )
     {
-        m_hovy.x = y;
-        m_hovy.y = h;
+        m_hovy = ImVec2( y, h );
         m_draw_hovered_event = true;
     }
 
@@ -2908,6 +2906,8 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
     std::string time_buf;
     bool sync_event_list_to_graph = s_opts().getb( OPT_SyncEventListToGraph ) &&
             s_opts().getb( OPT_ShowEventList );
+    const char *clr_bright = s_textclrs().str( TClr_Bright );
+    const char *clr_def = s_textclrs().str( TClr_Def );
 
     if ( gi.mouse_pos_scaled_ts != INT64_MIN )
     {
@@ -2997,7 +2997,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
                 std::string timestr = ts_to_timestr( event.duration, 4 );
 
                 time_buf += string_format( "\n%s%u%s sched_switch %s (%s) %s",
-                                           s_textclrs().str( TClr_Bright ), event.id, s_textclrs().str( TClr_Def ),
+                                           clr_bright, event.id, clr_def,
                                            prev_comm, timestr.c_str(),
                                            task_state_str.c_str() );
             }
@@ -3026,7 +3026,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
             // Add event id and distance from cursor to this event
             time_buf += string_format( "\n%s%u%s %c%s",
-                                       s_textclrs().str( TClr_Bright ), hov.eventid, s_textclrs().str( TClr_Def ),
+                                       clr_bright, hov.eventid, clr_def,
                                        hov.neg ? '-' : ' ',
                                        ts_to_timestr( hov.dist_ts, 4 ).c_str() );
 
@@ -3038,32 +3038,75 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
             if ( event.crtc >= 0 )
                 time_buf += std::to_string( event.crtc );
 
-            // Add colored string for ftrace print events
-            if ( event.is_ftrace_print() )
+            i915_type_t i915_type = get_i915_reqtype( event );
+            if ( i915_type < i915_req_Max )
             {
+                const char *ctxstr = get_event_field_val( event, "ctx", NULL );
+                const char *seqno = get_event_field_val( event, "seqno" );
+
+                if ( ctxstr )
+                {
+                    time_buf += string_format( " key:[%s%s%s/%s%s%s]",
+                                               clr_bright, ctxstr, clr_def,
+                                               clr_bright, seqno, clr_def );
+                }
+                else
+                {
+                    time_buf += string_format( " key:[%s%s%s]", clr_bright, seqno, clr_def );
+                }
+
+                const char *global = get_event_field_val( event, "global_seqno", NULL );
+                if ( !global )
+                    global = get_event_field_val( event, "global", NULL );
+                if ( global && atoi( global ) )
+                    time_buf += string_format( " gkey:[%s%s%s]", clr_bright, global, clr_def );
+
+                if ( ( event.color_index >= col_Graph_Bari915SubmitDelay ) &&
+                     ( event.color_index <= col_Graph_Bari915CtxCompleteDelay ) )
+                {
+                    char buf[ 6 ];
+                    const char *str;
+                    ImU32 color = s_clrs().get( event.color_index );
+
+                    if ( event.color_index == col_Graph_Bari915SubmitDelay )
+                        str = " submit-delay: ";
+                    else if ( event.color_index == col_Graph_Bari915ExecuteDelay )
+                        str = " execute-delay: ";
+                    else if ( event.color_index == col_Graph_Bari915Execute )
+                        str = " execute: ";
+                    else // if ( event.color_index == col_Graph_Bari915CtxCompleteDelay )
+                        str = " context-complete-delay: ";
+
+                    time_buf += s_textclrs().set( buf, color );
+                    time_buf += str;
+                }
+            }
+            else if ( event.is_ftrace_print() )
+            {
+                // Add colored string for ftrace print events
                 const char *buf = get_event_field_val( event, "buf" );
 
                 if ( buf[ 0 ] )
                     time_buf += " " + s_textclrs().mstr( buf, event.color );
             }
-            else if ( event.is_sched_switch() && ( event.duration != ( uint32_t )-1 ) )
+            else if ( event.is_sched_switch() )
             {
                 const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
+                int prev_pid = atoi( prev_pid_str );
 
-                if ( prev_pid_str )
+                if ( prev_pid )
                 {
-                    int prev_pid = atoi( prev_pid_str );
                     const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
-                    std::string timestr = ts_to_timestr( event.duration, 4 );
 
-                    time_buf += string_format( " %s (%s)", prev_comm, timestr.c_str() );
+                    time_buf += string_format( " %s", prev_comm );
                 }
             }
-            else if ( event.duration != ( uint32_t )-1 )
+
+            if ( event.duration != ( uint32_t )-1 )
             {
                 std::string timestr = ts_to_timestr( event.duration, 4 );
 
-                time_buf += " (" + timestr + ")";
+                time_buf += " (" + timestr + ")" + clr_def;
             }
 
             if ( hov.dist_ts < dist_ts )
@@ -3099,7 +3142,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
                 m_eventlist.highlight_ids.push_back( id );
 
             time_buf += string_format( "\n  %s%u%s %s duration: %s",
-                                       s_textclrs().str( TClr_Bright ), event.id, s_textclrs().str( TClr_Def ),
+                                       clr_bright, event.id, clr_def,
                                        name,
                                        s_textclrs().mstr( timestr, event_hov.color ).c_str() );
         }
@@ -3121,8 +3164,7 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
                 const trace_event_t &event = get_event( id );
                 const char *msg = get_event_field_val( event, "msg" );
 
-                time_buf += string_format( "\n  %s%s%s",
-                                           s_textclrs().str( TClr_Bright ), msg, s_textclrs().str( TClr_Def ) );
+                time_buf += string_format( "\n  %s%s%s", clr_bright, msg, clr_def );
             }
         }
     }

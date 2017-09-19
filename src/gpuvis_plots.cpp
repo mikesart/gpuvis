@@ -161,11 +161,13 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
         const char *val_end = parse_plot_str.m_val_end;
         int buf_len = ( int )( val_start - buf );
         int val_len = ( int )( val_end - val_start );
+        const char *clr_bright = s_textclrs().str( TClr_Bright );
+        const char *clr_brightcomp = s_textclrs().str( TClr_BrightComp );
 
         ImGui::Text( "%s%.*s%s%.*s%s%s",
-                     s_textclrs().str( TClr_Bright ), buf_len, buf,
-                     s_textclrs().str( TClr_BrightComp ), val_len, val_start,
-                     s_textclrs().str( TClr_Bright ), val_end );
+                     clr_bright, buf_len, buf,
+                     clr_brightcomp, val_len, val_start,
+                     clr_bright, val_end );
     }
     else
     {

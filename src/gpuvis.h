@@ -43,6 +43,17 @@ enum loc_type_t
     LOC_TYPE_Max
 };
 
+enum i915_type_t
+{
+    i915_req_Add,
+    i915_req_Submit,
+    i915_req_In,
+    i915_req_Notify,
+    i915_req_Out,
+    i915_req_Max
+};
+i915_type_t get_i915_reqtype( const trace_event_t &event );
+
 class TraceLocations
 {
 public:
