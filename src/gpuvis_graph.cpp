@@ -169,6 +169,8 @@ public:
 
     uint32_t m_selected_eventid = INVALID_ID;
     uint32_t m_hovered_eventid = INVALID_ID;
+
+    ImVec2 m_hovy, m_sely;
     bool m_draw_hovered_event = false;
     bool m_draw_selected_event = false;
 };
@@ -265,7 +267,7 @@ public:
     row_info_t *prinfo_zoom_hw = nullptr;
 
     float text_h;
-    float row_h;
+    float row_h_xxx;
     float visible_graph_height;
     float total_graph_height;
 
@@ -346,8 +348,18 @@ void event_renderer_t::set_y( float y_in, float h_in )
 
 void event_renderer_t::add_event( uint32_t eventid, float x, ImU32 color )
 {
-    m_draw_selected_event |= ( eventid == m_selected_eventid );
-    m_draw_hovered_event |= ( eventid == m_hovered_eventid );
+    if ( eventid == m_selected_eventid )
+    {
+        m_sely.x = y;
+        m_sely.y = h;
+        m_draw_selected_event = true;
+    }
+    if ( eventid == m_hovered_eventid )
+    {
+        m_hovy.x = y;
+        m_hovy.y = h;
+        m_draw_hovered_event = true;
+    }
 
     if ( x0 < 0.0f )
     {
@@ -387,7 +399,7 @@ void event_renderer_t::draw_hovered_selected_events( TraceWin *win, class graph_
         float x = gi.ts_to_screenx( event.ts );
 
         ImGui::GetWindowDrawList()->AddCircleFilled(
-                    ImVec2( x, gi.y + gi.h / 2.0f ),
+                    ImVec2( x, m_hovy.x + m_hovy.y / 2.0f ),
                     imgui_scale( 5.0f ),
                     s_clrs().get( col_Graph_HovEvent ) );
     }
@@ -398,7 +410,7 @@ void event_renderer_t::draw_hovered_selected_events( TraceWin *win, class graph_
         float x = gi.ts_to_screenx( event.ts );
 
         ImGui::GetWindowDrawList()->AddCircleFilled(
-                    ImVec2( x, gi.y + gi.h / 2.0f ),
+                    ImVec2( x, m_sely.x + m_sely.y / 2.0f ),
                     imgui_scale( 5.0f ),
                     s_clrs().get( col_Graph_SelEvent ) );
     }
@@ -432,7 +444,8 @@ static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t r
 
     if ( row_type == LOC_TYPE_Print ||
          row_type == LOC_TYPE_Plot ||
-         row_type == LOC_TYPE_AMDTimeline )
+         row_type == LOC_TYPE_AMDTimeline ||
+         row_type == LOC_TYPE_i915Request )
     {
         return s_opts().add_opt_graph_rowsize( row_name.c_str() );
     }
@@ -452,7 +465,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
     float graph_row_padding = ImGui::GetStyle().FramePadding.y;
 
     text_h = ImGui::GetTextLineHeightWithSpacing();
-    row_h = text_h * 2 + graph_row_padding;
+    row_h_xxx = text_h * 2 + graph_row_padding;
 
     total_graph_height = graph_row_padding;
 
@@ -504,6 +517,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         }
         else if ( rinfo.row_type == LOC_TYPE_i915Request )
         {
+            optid = get_comm_option_id( rinfo.row_name, rinfo.row_type );
             rinfo.render_cb = std::bind( &TraceWin::graph_render_i915_req_events, win, _1 );
         }
         else if ( rinfo.row_type == LOC_TYPE_i915RequestWait )
@@ -571,7 +585,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
     }
 
     total_graph_height += imgui_scale( 2.0f );
-    total_graph_height = std::max< float >( total_graph_height, 4 * row_h );
+    total_graph_height = std::max< float >( total_graph_height, 4 * row_h_xxx );
 }
 
 void graph_info_t::set_ts( TraceWin *win, int64_t start_ts, int64_t length_ts )
@@ -1019,7 +1033,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         imgui_drawrect( x, imgui_scale( 2.0f ), y, gi.text_h, event.color );
 
         // Check if we're mouse hovering this event
-        if ( gi.mouse_over && gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + gi.text_h )
+        if ( gi.mouse_over && ( gi.mouse_pos.y >= y ) && ( gi.mouse_pos.y <= y + gi.text_h ) )
             gi.add_mouse_hovered_event( x, event );
 
         num_events++;
@@ -1256,7 +1270,7 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
                         imgui_drawrect( x_user_start, 1.0, y, gi.text_h, color_1event );
 
                         // Check if we're mouse hovering starting event
-                        if ( gi.mouse_over && gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + gi.text_h )
+                        if ( gi.mouse_over && ( gi.mouse_pos.y >= y ) && ( gi.mouse_pos.y <= y + gi.text_h ) )
                         {
                             // If we are hovering, and no selection bar is set, do it.
                             if ( gi.add_mouse_hovered_event( x_user_start, cs_ioctl ) && ( hov_rect.min.x == FLT_MAX ) )
@@ -1359,9 +1373,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 
                     imgui_drawrect( x0, x1 - x0, y, row_h, colors[ running ] );
 
-                    if ( gi.mouse_over &&
-                         gi.mouse_pos.x > x0 && gi.mouse_pos.x <= x1 &&
-                         gi.mouse_pos.y >= y && gi.mouse_pos.y <= y + gi.row_h )
+                    if ( gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
                     {
                         gi.sched_switch_bars.push_back( sched_switch.id );
 
@@ -1380,6 +1392,8 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 {
     uint32_t num_events = 0;
+    float row_h = gi.text_h;
+    float y = gi.y + ( gi.h - row_h ) / 2;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
     ImU32 barcolor = s_clrs().get( col_Graph_Bari915ReqWait );
@@ -1391,8 +1405,6 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
           idx < locs.size();
           idx++ )
     {
-        float row_h = gi.text_h;
-        float y = gi.y + ( gi.h - row_h ) / 2;
         const trace_event_t &event = get_event( locs[ idx ] );
         const trace_event_t &event_begin = get_event( event.id_start );
         float x0 = gi.ts_to_screenx( event_begin.ts );
@@ -1412,10 +1424,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
         {
             bool add_hovered = false;
 
-            if ( gi.mouse_pos.x > x0 &&
-                 gi.mouse_pos.x <= x1 &&
-                 gi.mouse_pos.y >= y &&
-                 gi.mouse_pos.y <= y + gi.row_h )
+            if ( gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
             {
                 add_hovered = true;
 
@@ -1446,8 +1455,10 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
 {
     uint32_t num_events = 0;
+    float row_h = gi.text_h;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
+    uint32_t row_count = std::max< uint32_t >( 1, gi.h / gi.text_h - 1 );
 
     event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
     event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
@@ -1456,56 +1467,48 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
           idx < locs.size();
           idx++ )
     {
-        float row_h = gi.text_h;
-        float y = gi.y + ( gi.h - row_h ) / 2;
+        float y;
         const trace_event_t &event = get_event( locs[ idx ] );
+        bool has_duration = ( event.duration != ( uint32_t )-1 );
         float x1 = gi.ts_to_screenx( event.ts );
+        float x0 = has_duration ? gi.ts_to_screenx( event.ts - event.duration ) : x1;
 
-        if ( x1 < gi.x )
+        if ( ( x0 > gi.x + gi.w ) || ( x1 < gi.x ) )
             continue;
 
+        y = gi.y + ( event.graph_row_id % row_count ) * gi.text_h;
+
+        event_renderer.set_y( y, row_h );
         event_renderer.add_event( event.id, x1, event.color );
         num_events++;
 
-        if ( gi.mouse_over )
+        if ( gi.mouse_over && ( gi.mouse_pos.y >= y ) && ( gi.mouse_pos.y <= y + row_h ) )
             gi.add_mouse_hovered_event( x1, event );
 
-        if ( event.duration != ( uint32_t )-1 )
+        if ( has_duration )
         {
-            float x0 = gi.ts_to_screenx( event.ts - event.duration );
-
             // Draw bar
             imgui_drawrect( x0, x1 - x0, y, row_h, s_clrs().get( event.color_index ) );
 
-            if ( gi.mouse_over )
+            if ( gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
             {
-                if ( gi.mouse_pos.x > x0 &&
-                     gi.mouse_pos.x <= x1 &&
-                     gi.mouse_pos.y >= y &&
-                     gi.mouse_pos.y <= y + gi.row_h )
-                {
-                    const std::vector< uint32_t > *plocs;
-                    const trace_event_t *pevent = !strcmp( event.name, "intel_engine_notify" ) ?
-                                &get_event( event.id_start ) : &event;
+                const std::vector< uint32_t > *plocs;
+                const trace_event_t *pevent = !strcmp( event.name, "intel_engine_notify" ) ?
+                            &get_event( event.id_start ) : &event;
 
-                    plocs = m_trace_events.m_i915_gem_req_locs.get_locations( *pevent );
-                    if ( plocs )
+                plocs = m_trace_events.m_i915_gem_req_locs.get_locations( *pevent );
+                if ( plocs )
+                {
+                    for ( uint32_t i : *plocs )
                     {
-                        for ( uint32_t i : *plocs )
-                        {
-                            const trace_event_t &e = get_event( i );
-                            gi.add_mouse_hovered_event( gi.ts_to_screenx( e.ts ), e, true );
-                        }
+                        const trace_event_t &e = get_event( i );
+                        gi.add_mouse_hovered_event( gi.ts_to_screenx( e.ts ), e, true );
                     }
+                }
 
-                    ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ),
-                                                         ImVec2( x1, y + row_h ),
-                                                         s_clrs().get( col_Graph_BarSelRect ) );
-                }
-                else
-                {
-                    gi.add_mouse_hovered_event( x1, event );
-                }
+                ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ),
+                                                     ImVec2( x1, y + row_h ),
+                                                     s_clrs().get( col_Graph_BarSelRect ) );
             }
         }
     }
@@ -1969,7 +1972,8 @@ bool TraceWin::is_graph_row_zoomable()
             if ( m_graph.mouse_over_row_type == LOC_TYPE_AMDTimeline ||
                  m_graph.mouse_over_row_type == LOC_TYPE_AMDTimeline_hw ||
                  m_graph.mouse_over_row_type == LOC_TYPE_Plot ||
-                 m_graph.mouse_over_row_type == LOC_TYPE_Print )
+                 m_graph.mouse_over_row_type == LOC_TYPE_Print ||
+                 m_graph.mouse_over_row_type == LOC_TYPE_i915Request )
             {
                 return true;
             }
@@ -2176,7 +2180,7 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
     // Zoom mode if we have a gfx row and zoom option is set
     option_id_t optid;
     float max_graph_size;
-    const float valf_min = 4.0f * gi.row_h;
+    const float valf_min = 4.0f * gi.row_h_xxx;
 
     if ( s_opts().getb( OPT_GraphFullscreen ) )
     {
@@ -2188,7 +2192,7 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
     if ( gi.prinfo_zoom )
     {
         optid = OPT_GraphHeightZoomed;
-        max_graph_size = imgui_scale( 60.0f ) * gi.row_h;
+        max_graph_size = 60.0f * gi.row_h_xxx;
     }
     else
     {
@@ -2202,7 +2206,7 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
 
     // First time initialization - start with about 15 rows
     if ( !valf )
-        valf = 15.0f * gi.row_h;
+        valf = 15.0f * gi.row_h_xxx;
 
     valf = Clamp< float >( valf, valf_min, valf_max );
     s_opts().setf( optid, valf, valf_min, valf_max );
