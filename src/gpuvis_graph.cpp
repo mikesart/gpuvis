@@ -1510,7 +1510,22 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
             // Draw bar
             imgui_drawrect( x0, x1 - x0, y, row_h, s_clrs().get( event.color_index ) );
 
-            //$ TODO mikesart: labels
+            if ( x1 - x0 >= imgui_scale( 16.0f ) )
+            {
+                char label[ 64 ];
+                const trace_event_t *pevent = !strcmp( event.name, "intel_engine_notify" ) ?
+                            &get_event( event.id_start ) : &event;
+                const char *ctxstr = get_event_field_val( *pevent, "ctx", "0" );
+
+                imgui_push_cliprect( x0, y, x1, y + row_h );
+
+                snprintf_safe( label, "%s/%u", ctxstr, event.seqno );
+                ImGui::GetWindowDrawList()->AddText(
+                            ImVec2( x0 + imgui_scale( 1.0f ), y + imgui_scale( 1.0f ) ),
+                            s_clrs().get( col_Graph_BarText ), label );
+
+                imgui_pop_cliprect();
+            }
 
             if ( gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
             {
