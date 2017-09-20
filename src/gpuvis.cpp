@@ -2009,7 +2009,7 @@ void TraceEvents::calculate_intel_event_durations()
                             locs.push_back( event_notify.id );
                             std::sort( locs.begin(), locs.end() );
 
-                            // Mark that we found a notify event
+                            // Set our notify event
                             events[ i915_req_Notify ] = &event_notify;
                             break;
                         }

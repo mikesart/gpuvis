@@ -1432,7 +1432,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 
             imgui_push_cliprect( x0, y, x1, y + row_h );
 
-            snprintf_safe( label, "%s/%u", ctxstr, event.seqno );
+            snprintf_safe( label, "%s-%u", ctxstr, event.seqno );
             ImGui::GetWindowDrawList()->AddText(
                         ImVec2( x0 + imgui_scale( 1.0f ), y + imgui_scale( 1.0f ) ),
                         s_clrs().get( col_Graph_BarText ), label );
@@ -1507,19 +1507,27 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
 
         if ( has_duration )
         {
+            const trace_event_t *pevent;
+            bool do_label = ( x1 - x0 >= imgui_scale( 16.0f ) );
+            bool do_popup = gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h );
+
             // Draw bar
             imgui_drawrect( x0, x1 - x0, y, row_h, s_clrs().get( event.color_index ) );
 
-            if ( x1 - x0 >= imgui_scale( 16.0f ) )
+            if ( do_label || do_popup )
+            {
+                pevent = !strcmp( event.name, "intel_engine_notify" ) ?
+                            &get_event( event.id_start ) : &event;
+            }
+
+            if ( do_label )
             {
                 char label[ 64 ];
-                const trace_event_t *pevent = !strcmp( event.name, "intel_engine_notify" ) ?
-                            &get_event( event.id_start ) : &event;
                 const char *ctxstr = get_event_field_val( *pevent, "ctx", "0" );
 
                 imgui_push_cliprect( x0, y, x1, y + row_h );
 
-                snprintf_safe( label, "%s/%u", ctxstr, event.seqno );
+                snprintf_safe( label, "%s-%u", ctxstr, pevent->seqno );
                 ImGui::GetWindowDrawList()->AddText(
                             ImVec2( x0 + imgui_scale( 1.0f ), y + imgui_scale( 1.0f ) ),
                             s_clrs().get( col_Graph_BarText ), label );
@@ -1527,11 +1535,9 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
                 imgui_pop_cliprect();
             }
 
-            if ( gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
+            if ( do_popup )
             {
                 const std::vector< uint32_t > *plocs;
-                const trace_event_t *pevent = !strcmp( event.name, "intel_engine_notify" ) ?
-                            &get_event( event.id_start ) : &event;
 
                 plocs = m_trace_events.m_i915_gem_req_locs.get_locations( *pevent );
                 if ( plocs )
@@ -3084,13 +3090,13 @@ void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts
 
                 if ( ctxstr )
                 {
-                    time_buf += string_format( " key:[%s%s%s/%s%u%s]",
+                    time_buf += string_format( " key:[%s%s%s-%s%u%s]",
                                                clr_bright, ctxstr, clr_def,
                                                clr_bright, event.seqno, clr_def );
                 }
                 else
                 {
-                    time_buf += string_format( " key:[%s%u%s]", clr_bright, event.seqno, clr_def );
+                    time_buf += string_format( " gkey:[%s%u%s]", clr_bright, event.seqno, clr_def );
                 }
 
                 const char *global = get_event_field_val( event, "global_seqno", NULL );
