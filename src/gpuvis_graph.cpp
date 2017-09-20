@@ -583,7 +583,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         {
             int rows = ( optid != OPT_Invalid ) ? s_opts().geti( optid ) : 4;
 
-            rinfo.row_h = Clamp< int >( rows, 2, 50 ) * text_h;
+            rinfo.row_h = Clamp< int >( rows, 2, 64 ) * text_h;
         }
 
         rinfo.id = id++;

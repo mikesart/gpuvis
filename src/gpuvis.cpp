@@ -317,7 +317,7 @@ option_id_t Opts::add_opt_graph_rowsize( const char *row_name, int defval )
     opt.inisection = "$row_sizes$";
     opt.valf = s_ini().GetInt( opt.inikey.c_str(), defval, opt.inisection.c_str() );
     opt.valf_min = 4;
-    opt.valf_max = 40;
+    opt.valf_max = 64;
 
     // Upper case first letter in description
     opt.desc[ 0 ] = toupper( opt.desc[ 0 ] );
@@ -2060,7 +2060,7 @@ void TraceEvents::calculate_intel_event_durations()
 
         std::sort( locs.begin(), locs.end() );
 
-        row_pos.resize( 64 );
+        row_pos.resize( 128 );
 
         for ( uint32_t idx : locs )
         {
