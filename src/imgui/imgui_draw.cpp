@@ -1591,22 +1591,6 @@ void ImFontAtlasBuildSetupFont(ImFontAtlas* atlas, ImFont* font, ImFontConfig* f
     font->ConfigDataCount++;
 }
 
-void ImFontAtlasBuildSetupFont(ImFontAtlas* atlas, ImFont* font, ImFontConfig* font_config, float ascent, float descent)
-{
-    if (!font_config->MergeMode)
-    {
-        font->ContainerAtlas = atlas;
-        font->ConfigData = font_config;
-        font->ConfigDataCount = 0;
-        font->FontSize = font_config->SizePixels;
-        font->Ascent = ascent;
-        font->Descent = descent;
-        font->Glyphs.resize(0);
-        font->MetricsTotalSurface = 0;
-    }
-    font->ConfigDataCount++;
-}
-
 void ImFontAtlasBuildPackCustomRects(ImFontAtlas* atlas, void* pack_context_opaque)
 {
     stbrp_context* pack_context = (stbrp_context*)pack_context_opaque;
