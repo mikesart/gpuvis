@@ -43,6 +43,10 @@
 /*
   **** TODO list... ****
 
+  intel: when going full zoom, show waits as well?
+
+  Fix overwriting rows: Ie, adding a row named gfx
+
   Check if entire rows are clipped when drawing...
 
   Feedback:
@@ -225,6 +229,9 @@ public:
 
     bool add_mouse_hovered_event( float x, const trace_event_t &event, bool force = false );
 
+    void set_selected_i915_ringctxseq( const trace_event_t &event );
+    bool is_i915_ringctxseq_selected( const trace_event_t &event );
+
 public:
     float x, y, w, h;
 
@@ -250,6 +257,14 @@ public:
     };
     const size_t hovered_max = 6;
     std::vector< hovered_t > hovered_items;
+
+    // Selected i915 ring/seq/ctx info
+    struct
+    {
+        uint32_t selected_ringno = 0;
+        uint32_t selected_seqno = 0;
+        uint32_t selected_ctx = 0;
+    } i915;
 
     std::vector< uint32_t > sched_switch_bars;
 
@@ -328,7 +343,7 @@ const char *get_event_field_val( const trace_event_t &event, const char *name, c
 /*
  * event_renderer_t
  */
-event_renderer_t::event_renderer_t( class graph_info_t &gi, float y_in, float w_in, float h_in )
+event_renderer_t::event_renderer_t( graph_info_t &gi, float y_in, float w_in, float h_in )
 {
     // Calculate how many pixels .0001ms takes
     const float dx = ( .0001f * NSECS_PER_MSEC ) * gi.w * gi.tsdxrcp;
@@ -400,7 +415,7 @@ void event_renderer_t::done()
     }
 }
 
-void event_renderer_t::draw_hovered_selected_events( TraceWin *win, class graph_info_t &gi )
+void event_renderer_t::draw_hovered_selected_events( TraceWin *win, graph_info_t &gi )
 {
     if ( m_draw_hovered_event )
     {
@@ -748,6 +763,34 @@ bool graph_info_t::add_mouse_hovered_event( float xin, const trace_event_t &even
     }
 
     return inserted;
+}
+
+void graph_info_t::set_selected_i915_ringctxseq( const trace_event_t &event )
+{
+    if ( !i915.selected_seqno )
+    {
+        const char *ringstr = get_event_field_val( event, "ring", "0" );
+        const char *ctxstr = get_event_field_val( event, "ctx", "0" );
+
+        i915.selected_seqno = event.seqno;
+        i915.selected_ringno = strtoul( ringstr, NULL, 10 );
+        i915.selected_ctx = strtoul( ctxstr, NULL, 10 );
+    }
+}
+
+bool graph_info_t::is_i915_ringctxseq_selected( const trace_event_t &event )
+{
+    if ( i915.selected_seqno == event.seqno )
+    {
+        const char *ringstr = get_event_field_val( event, "ring", "0" );
+        const char *ctxstr = get_event_field_val( event, "ctx", "0" );
+        uint32_t ring = strtoul( ringstr, NULL, 10 );
+        uint32_t ctx = strtoul( ctxstr, NULL, 10 );
+
+        return ( ( i915.selected_ringno == ring ) && ( i915.selected_ctx == ctx ) );
+    }
+
+    return false;
 }
 
 void CreateGraphRowDlg::init()
@@ -1410,6 +1453,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
           idx < locs.size();
           idx++ )
     {
+        bool do_selrect = false;
         const trace_event_t &event = get_event( locs[ idx ] );
         const trace_event_t &event_begin = get_event( event.id_start );
         float x0 = gi.ts_to_screenx( event_begin.ts );
@@ -1442,19 +1486,16 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 
         if ( gi.mouse_over )
         {
-            bool add_hovered = false;
+            bool add_hovered;
 
             if ( gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
             {
+                do_selrect = true;
                 add_hovered = true;
-
-                ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ),
-                                                     ImVec2( x1, y + row_h ),
-                                                     s_clrs().get( col_Graph_BarSelRect ) );
             }
             else
             {
-                add_hovered |= gi.add_mouse_hovered_event( x0, event_begin );
+                add_hovered = gi.add_mouse_hovered_event( x0, event_begin );
                 add_hovered |= gi.add_mouse_hovered_event( x1, event );
             }
 
@@ -1463,6 +1504,14 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
                 gi.add_mouse_hovered_event( x0, event_begin, true );
                 gi.add_mouse_hovered_event( x1, event, true );
             }
+        }
+
+        if ( do_selrect || gi.is_i915_ringctxseq_selected( event ) )
+        {
+            gi.set_selected_i915_ringctxseq( event );
+
+            ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ), ImVec2( x1, y + row_h ),
+                                                 s_clrs().get( col_Graph_BarSelRect ) );
         }
     }
 
@@ -1507,20 +1556,14 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
 
         if ( has_duration )
         {
-            const trace_event_t *pevent;
-            bool do_label = ( x1 - x0 >= imgui_scale( 16.0f ) );
-            bool do_popup = gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h );
+            bool do_selrect = false;
+            const trace_event_t *pevent = !strcmp( event.name, "intel_engine_notify" ) ?
+                        &get_event( event.id_start ) : &event;
 
             // Draw bar
             imgui_drawrect( x0, x1 - x0, y, row_h, s_clrs().get( event.color_index ) );
 
-            if ( do_label || do_popup )
-            {
-                pevent = !strcmp( event.name, "intel_engine_notify" ) ?
-                            &get_event( event.id_start ) : &event;
-            }
-
-            if ( do_label )
+            if ( ( x1 - x0 >= imgui_scale( 16.0f ) ) )
             {
                 char label[ 64 ];
                 const char *ctxstr = get_event_field_val( *pevent, "ctx", "0" );
@@ -1535,7 +1578,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
                 imgui_pop_cliprect();
             }
 
-            if ( do_popup )
+            if ( gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
             {
                 const std::vector< uint32_t > *plocs;
 
@@ -1545,12 +1588,19 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
                     for ( uint32_t i : *plocs )
                     {
                         const trace_event_t &e = get_event( i );
+
                         gi.add_mouse_hovered_event( gi.ts_to_screenx( e.ts ), e, true );
                     }
                 }
 
-                ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ),
-                                                     ImVec2( x1, y + row_h ),
+                do_selrect = true;
+            }
+
+            if ( do_selrect || gi.is_i915_ringctxseq_selected( *pevent ) )
+            {
+                gi.set_selected_i915_ringctxseq( *pevent );
+
+                ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ), ImVec2( x1, y + row_h ),
                                                      s_clrs().get( col_Graph_BarSelRect ) );
             }
         }
@@ -1624,7 +1674,7 @@ void TraceWin::graph_render_row( graph_info_t &gi )
     gi.prinfo_cur->num_events = num_events;
 }
 
-void TraceWin::graph_render_time_ticks( class graph_info_t &gi )
+void TraceWin::graph_render_time_ticks( graph_info_t &gi )
 {
     // Draw time ticks every millisecond
     int64_t tsstart = std::max< int64_t >( gi.ts0 / NSECS_PER_MSEC - 1, 0 ) * NSECS_PER_MSEC;
@@ -1731,7 +1781,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
     }
 }
 
-void TraceWin::graph_render_framemarker_frames( class graph_info_t &gi )
+void TraceWin::graph_render_framemarker_frames( graph_info_t &gi )
 {
     if ( m_frame_markers.m_right_frames.empty() )
         return;
@@ -1840,7 +1890,7 @@ void TraceWin::graph_render_mouse_pos( graph_info_t &gi )
     }
 }
 
-void TraceWin::graph_render_eventids( class graph_info_t &gi )
+void TraceWin::graph_render_eventids( graph_info_t &gi )
 {
     if ( is_valid_id( m_eventlist.hovered_eventid ) )
     {
@@ -1871,7 +1921,7 @@ void TraceWin::graph_render_eventids( class graph_info_t &gi )
     }
 }
 
-void TraceWin::graph_render_mouse_selection( class graph_info_t &gi )
+void TraceWin::graph_render_mouse_selection( graph_info_t &gi )
 {
     // Draw mouse selection location
     if ( ( m_graph.mouse_captured == MOUSE_CAPTURED_ZOOM ) ||
@@ -1886,7 +1936,7 @@ void TraceWin::graph_render_mouse_selection( class graph_info_t &gi )
     }
 }
 
-void TraceWin::graph_render_eventlist_selection( class graph_info_t &gi )
+void TraceWin::graph_render_eventlist_selection( graph_info_t &gi )
 {
     if ( s_opts().getb( OPT_ShowEventList ) )
     {
@@ -2946,7 +2996,7 @@ static std::string task_state_to_str( int state )
     return ret;
 }
 
-void TraceWin::graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts )
+void TraceWin::graph_set_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
 {
     std::string time_buf;
     bool sync_event_list_to_graph = s_opts().getb( OPT_SyncEventListToGraph ) &&
