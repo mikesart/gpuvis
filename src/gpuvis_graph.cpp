@@ -1445,6 +1445,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
     ImU32 barcolor = s_clrs().get( col_Graph_Bari915ReqWait );
+    const trace_event_t *pevent_sel = NULL;
 
     event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
     event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
@@ -1508,7 +1509,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 
         if ( do_selrect || gi.is_i915_ringctxseq_selected( event ) )
         {
-            gi.set_selected_i915_ringctxseq( event );
+            pevent_sel = &event;
 
             ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ), ImVec2( x1, y + row_h ),
                                                  s_clrs().get( col_Graph_BarSelRect ) );
@@ -1517,6 +1518,9 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 
     event_renderer.done();
     event_renderer.draw_hovered_selected_events( this, gi );
+
+    if ( pevent_sel )
+        gi.set_selected_i915_ringctxseq( *pevent_sel );
 
     return num_events;
 }
@@ -1528,6 +1532,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
     uint32_t row_count = std::max< uint32_t >( 1, gi.h / gi.text_h - 1 );
+    const trace_event_t *pevent_sel = NULL;
 
     event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
     event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
@@ -1598,7 +1603,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
 
             if ( do_selrect || gi.is_i915_ringctxseq_selected( *pevent ) )
             {
-                gi.set_selected_i915_ringctxseq( *pevent );
+                pevent_sel = pevent;
 
                 ImGui::GetWindowDrawList()->AddRect( ImVec2( x0, y ), ImVec2( x1, y + row_h ),
                                                      s_clrs().get( col_Graph_BarSelRect ) );
@@ -1608,6 +1613,9 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
 
     event_renderer.done();
     event_renderer.draw_hovered_selected_events( this, gi );
+
+    if ( pevent_sel )
+        gi.set_selected_i915_ringctxseq( *pevent_sel );
 
     return num_events;
 }
