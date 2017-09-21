@@ -766,6 +766,8 @@ public:
     option_id_t add_opt_graph_rowsize( const char *row_name, int defval = 4 );
     option_id_t get_opt_graph_rowsize_id( const std::string &row_name );
 
+    uint32_t max_row_size() { return 128; }
+
 private:
     typedef uint32_t OPT_Flags;
     enum : uint32_t
