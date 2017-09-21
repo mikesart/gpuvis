@@ -2325,7 +2325,18 @@ void TraceWin::graph_render()
     {
         gi.prinfo_zoom = gi.find_row( m_graph.zoom_row_name.c_str() );
         if ( gi.prinfo_zoom )
+        {
             gi.prinfo_zoom_hw = gi.find_row( ( m_graph.zoom_row_name + " hw" ).c_str() );
+
+            if ( !gi.prinfo_zoom_hw && !strncmp( m_graph.zoom_row_name.c_str(), "i915_req ring", 13 ) )
+            {
+                char buf[ 128 ];
+
+                // We are zooming i915_req row, show the i915_reqwait row as well
+                snprintf_safe( buf, "i915_reqwait ring%s", m_graph.zoom_row_name.c_str() + 13 );
+                gi.prinfo_zoom_hw = gi.find_row( buf );
+            }
+        }
     }
 
     if ( gi.prinfo_zoom )
