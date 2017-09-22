@@ -267,6 +267,9 @@ void Opts::init()
     m_options[ OPT_RenderFrameMarkers ].action = action_toggle_framemarkers;
 
     add_opt_graph_rowsize( "gfx", 8 );
+    add_opt_graph_rowsize( "i915_req ring0", 8 );
+    add_opt_graph_rowsize( "i915_req ring1", 8 );
+    add_opt_graph_rowsize( "i915_req ring2", 8 );
     add_opt_graph_rowsize( "print", 10 );
 
     // Create all the entries for the compute shader rows
