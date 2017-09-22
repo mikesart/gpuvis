@@ -241,7 +241,7 @@ int snprintf_safe( char ( &buf )[ T ], const char *fmt, ... )
     retval = vsnprintf( buf, T, fmt, ap );
     buf[ T - 1 ] = 0;
 
-    va_end(ap);
+    va_end( ap );
 
     return retval;
 }

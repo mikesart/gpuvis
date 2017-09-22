@@ -365,19 +365,33 @@ static void imgui_drawrect( const rect_t &rect, ImU32 color )
     imgui_drawrect( rect.x, rect.y, rect.w, rect.h, color );
 }
 
-static void imgui_draw_text( float x, float y, const char *text, ImU32 color, bool draw_background = false )
+static void imgui_draw_text( float x, float y, ImU32 color, const char *text, bool background = false )
 {
     ImDrawList *DrawList = ImGui::GetWindowDrawList();
 
-    if ( draw_background )
+    if ( background )
     {
         ImVec2 textsize = ImGui::CalcTextSize( text );
 
-        imgui_drawrect_filled( x - 1, y - 1, textsize.x + 2, textsize.y + 2,
+        imgui_drawrect_filled( x - 1, y - 1,
+                               textsize.x + 2, textsize.y + 2,
                                s_clrs().get( col_Graph_RowLabelTextBk ) );
     }
 
     DrawList->AddText( ImVec2( x, y ), color, text );
+}
+
+static void imgui_draw_textf( float x, float y, ImU32 color, const char *fmt, ... ) ATTRIBUTE_PRINTF( 4, 0 );
+static void imgui_draw_textf( float x, float y, ImU32 color, const char *fmt, ... )
+{
+    va_list ap;
+    char buf[ 512 ];
+
+    va_start( ap, fmt );
+    vsnprintf_safe( buf, fmt, ap );
+    va_end( ap );
+
+    imgui_draw_text( x, y, color, buf );
 }
 
 const char *get_event_field_val( const trace_event_t &event, const char *name, const char *defval )
@@ -1130,7 +1144,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
             // If we did and there is room, draw the ftrace print buf
             if ( x - x0 > print_info->rect_size.x )
-                imgui_draw_text( x0, y + imgui_scale( 2.0f ), print_info->buf, draw_info.event->color );
+                imgui_draw_text( x0, y + imgui_scale( 2.0f ), draw_info.event->color, print_info->buf );
         }
 
         // Otherwise draw a little tick for it
@@ -1161,7 +1175,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
             float y = gi.y + row_id * gi.text_h;
             const trace_event_t *event = draw_info.event;
 
-            imgui_draw_text( x0, y + imgui_scale( 2.0f ), print_info->buf, event->color );
+            imgui_draw_text( x0, y + imgui_scale( 2.0f ), event->color, print_info->buf );
         }
     }
 
@@ -1215,10 +1229,11 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
 
                 if ( size.x + imgui_scale( 4 ) < x1 - x0 )
                 {
+                    ImU32 color = s_clrs().get( col_Graph_BarText );
                     const tgid_info_t *tgid_info = m_trace_events.tgid_from_commstr( fence_signaled.user_comm );
 
                     imgui_draw_text( x0 + imgui_scale( 2.0f ), y + imgui_scale( 2.0f ),
-                                     label, s_clrs().get( col_Graph_BarText ) );
+                                     color, label );
 
                     if ( tgid_info )
                     {
@@ -1228,7 +1243,7 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
 
                         snprintf_safe( tgidstr, "(%s)", tgid_info->commstr );
                         imgui_draw_text( x0 + imgui_scale( 2.0f ), y + size.y + imgui_scale( 2.0f ),
-                                    tgidstr, s_clrs().get( col_Graph_BarText ) );
+                                     color, tgidstr );
 
                         imgui_pop_cliprect();
                     }
@@ -1349,20 +1364,18 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
 
                     if ( x_hw_end - x_text >= size.x )
                     {
+                        ImU32 color = s_clrs().get( col_Graph_BarText );
                         const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( cs_ioctl.pid );
 
                         imgui_draw_text( x_text, y + imgui_scale( 1.0f ),
-                                         cs_ioctl.user_comm, s_clrs().get( col_Graph_BarText ) );
+                                         color, cs_ioctl.user_comm );
 
                         if ( tgid_info )
                         {
-                            char tgidstr[ 64 ];
-
                             imgui_push_cliprect( x_text, y, x_hw_end - x_text, size.y );
 
-                            snprintf_safe( tgidstr, "  (%s)", tgid_info->commstr );
-                            imgui_draw_text( x_text + size.x, y + imgui_scale( 1.0f ),
-                                             tgidstr, s_clrs().get( col_Graph_BarText ) );
+                            imgui_draw_textf( x_text + size.x, y + imgui_scale( 1.0f ),
+                                             color, "  (%s)", tgid_info->commstr );
 
                             imgui_pop_cliprect();
                         }
@@ -1503,6 +1516,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
     ImU32 barcolor = s_clrs().get( col_Graph_Bari915ReqWait );
+    ImU32 textcolor = s_clrs().get( col_Graph_BarText );
     const trace_event_t *pevent_sel = NULL;
 
     event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
@@ -1530,14 +1544,12 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 
         if ( x1 - x0 >= imgui_scale( 16.0f ) )
         {
-            char label[ 64 ];
             const char *ctxstr = get_event_field_val( event, "ctx", "0" );
 
             imgui_push_cliprect( x0, y, x1 - x0, row_h );
 
-            snprintf_safe( label, "%s-%u", ctxstr, event.seqno );
-            imgui_draw_text( x0 + imgui_scale( 1.0f ), y + imgui_scale( 1.0f ),
-                             label, s_clrs().get( col_Graph_BarText ) );
+            imgui_draw_textf( x0 + imgui_scale( 1.0f ), y + imgui_scale( 1.0f ),
+                             textcolor, "%s-%u", ctxstr, event.seqno );
 
             imgui_pop_cliprect();
         }
@@ -1585,6 +1597,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
 {
     uint32_t num_events = 0;
     float row_h = gi.text_h;
+    ImU32 textcolor = s_clrs().get( col_Graph_BarText );
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
     uint32_t row_count = std::max< uint32_t >( 1, gi.h / gi.text_h - 1 );
@@ -1626,14 +1639,12 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
 
             if ( ( x1 - x0 >= imgui_scale( 16.0f ) ) )
             {
-                char label[ 64 ];
                 const char *ctxstr = get_event_field_val( *pevent, "ctx", "0" );
 
                 imgui_push_cliprect( x0, y, x1 - x0, row_h );
 
-                snprintf_safe( label, "%s-%u", ctxstr, pevent->seqno );
-                imgui_draw_text( x0 + imgui_scale( 1.0f ), y + imgui_scale( 1.0f ),
-                            label, s_clrs().get( col_Graph_BarText ) );
+                imgui_draw_textf( x0 + imgui_scale( 1.0f ), y + imgui_scale( 1.0f ),
+                                  textcolor, "%s-%u", ctxstr, pevent->seqno );
 
                 imgui_pop_cliprect();
             }
@@ -2021,30 +2032,27 @@ void TraceWin::graph_render_eventlist_selection( graph_info_t &gi )
 
 static void render_row_label( float x, float y, row_info_t &ri )
 {
-    ImU32 col = s_clrs().get( col_Graph_RowLabelText );
-
-    if ( ri.tgid_info )
-        col = ri.tgid_info->color;
-
+    ImU32 color = ri.tgid_info ? ri.tgid_info->color :
+                s_clrs().get( col_Graph_RowLabelText );
     std::string label = string_format( "%u) %s", ri.id, ri.row_name.c_str() );
 
     if ( ri.scale_ts > 1.0f )
         label += s_textclrs().bright_str( string_format( " (%.1fx)", ri.scale_ts ) );
 
-    imgui_draw_text( x, y, label.c_str(), col, true );
+    imgui_draw_text( x, y, color, label.c_str(), true );
     y += ImGui::GetTextLineHeight();
 
     if ( ri.minval <= ri.maxval )
     {
         label = string_format( "min:%.2f max:%.2f", ri.minval, ri.maxval );
-        imgui_draw_text( x, y, label.c_str(), col, true );
+        imgui_draw_text( x, y, color, label.c_str(), true );
     }
     else if ( ri.num_events )
     {
         const char *suffix = ( ri.num_events > 1 ) ? "s" : "";
 
         label = string_format( "%u event%s", ri.num_events, suffix );
-        imgui_draw_text( x, y, label.c_str(), col, true );
+        imgui_draw_text( x, y, color, label.c_str(), true );
     }
 }
 
@@ -2119,22 +2127,23 @@ void TraceWin::graph_zoom( int64_t center_ts, int64_t ts0, bool zoomin, int64_t 
 
 bool TraceWin::is_graph_row_zoomable()
 {
-    if ( !m_graph.mouse_over_row_name.empty() )
-    {
-        if ( m_graph.zoom_row_name != m_graph.mouse_over_row_name )
-        {
-            if ( m_graph.mouse_over_row_type == LOC_TYPE_AMDTimeline ||
-                 m_graph.mouse_over_row_type == LOC_TYPE_AMDTimeline_hw ||
-                 m_graph.mouse_over_row_type == LOC_TYPE_Plot ||
-                 m_graph.mouse_over_row_type == LOC_TYPE_Print ||
-                 m_graph.mouse_over_row_type == LOC_TYPE_i915Request )
-            {
-                return true;
-            }
-        }
-    }
+    if ( m_graph.mouse_over_row_name.empty() )
+        return false;
 
-    return false;
+    if ( m_graph.zoom_row_name == m_graph.mouse_over_row_name )
+        return false;
+
+    switch ( m_graph.mouse_over_row_type )
+    {
+    case LOC_TYPE_AMDTimeline:
+    case LOC_TYPE_AMDTimeline_hw:
+    case LOC_TYPE_Plot:
+    case LOC_TYPE_Print:
+    case LOC_TYPE_i915Request:
+        return true;
+    default:
+        return false;
+    }
 }
 
 void TraceWin::zoom_graph_row()
@@ -2556,7 +2565,7 @@ void TraceWin::graph_render()
                 const ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
 
                 pos.x = windowpos.x + ( windowsize.x - textsize.x ) / 2;
-                imgui_draw_text( pos.x, pos.y, str.c_str(), color );
+                imgui_draw_text( pos.x, pos.y, color, str.c_str() );
 
                 pos.y += ImGui::GetTextLineHeight();
             }
@@ -2567,7 +2576,7 @@ void TraceWin::graph_render()
                 const ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
 
                 pos.x = windowpos.x + ( windowsize.x - textsize.x ) / 2;
-                imgui_draw_text( pos.x, pos.y, str.c_str(), color );
+                imgui_draw_text( pos.x, pos.y, color, str.c_str() );
             }
 
             imgui_pop_font();
