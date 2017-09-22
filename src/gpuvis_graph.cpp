@@ -1237,13 +1237,10 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
 
                     if ( tgid_info )
                     {
-                        char tgidstr[ 64 ];
-
                         imgui_push_cliprect( x0, y, x1 - x0, row_h );
 
-                        snprintf_safe( tgidstr, "(%s)", tgid_info->commstr );
-                        imgui_draw_text( x0 + imgui_scale( 2.0f ), y + size.y + imgui_scale( 2.0f ),
-                                     color, tgidstr );
+                        imgui_draw_textf( x0 + imgui_scale( 2.0f ), y + size.y + imgui_scale( 2.0f ),
+                                     color, "(%s)", tgid_info->commstr );
 
                         imgui_pop_cliprect();
                     }
@@ -1393,7 +1390,8 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
                         if ( gi.mouse_over && ( gi.mouse_pos.y >= y ) && ( gi.mouse_pos.y <= y + gi.text_h ) )
                         {
                             // If we are hovering, and no selection bar is set, do it.
-                            if ( gi.add_mouse_hovered_event( x_user_start, cs_ioctl ) && ( hov_rect.x == FLT_MAX ) )
+                            if ( gi.add_mouse_hovered_event( x_user_start, cs_ioctl ) &&
+                                 ( hov_rect.x == FLT_MAX ) )
                             {
                                 hov_rect = { x_user_start, y, x_hw_end - x_user_start, gi.text_h };
 
