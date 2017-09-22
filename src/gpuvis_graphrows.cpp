@@ -92,7 +92,8 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
             }
         }
     }
-    else if ( show == GraphRows::HIDE_ROW )
+    else if ( ( show == GraphRows::HIDE_ROW ) ||
+              ( show == GraphRows::HIDE_ROW_AND_ALL_BELOW ) )
     {
         bool found = false;
 
