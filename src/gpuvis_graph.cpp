@@ -282,7 +282,6 @@ public:
     row_info_t *prinfo_zoom_hw = nullptr;
 
     float text_h;
-    float row_h_xxx;
     float visible_graph_height;
     float total_graph_height;
 
@@ -489,7 +488,6 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
     float graph_row_padding = ImGui::GetStyle().FramePadding.y;
 
     text_h = ImGui::GetTextLineHeightWithSpacing();
-    row_h_xxx = text_h * 2 + graph_row_padding;
 
     total_graph_height = graph_row_padding;
 
@@ -609,7 +607,7 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
     }
 
     total_graph_height += imgui_scale( 2.0f );
-    total_graph_height = std::max< float >( total_graph_height, 4 * row_h_xxx );
+    total_graph_height = std::max< float >( total_graph_height, 8.0f * text_h );
 }
 
 void graph_info_t::set_ts( TraceWin *win, int64_t start_ts, int64_t length_ts )
@@ -2281,19 +2279,24 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
     // Zoom mode if we have a gfx row and zoom option is set
     option_id_t optid;
     float max_graph_size;
-    const float valf_min = 4.0f * gi.row_h_xxx;
+    const float valf_min = 8.0f * gi.text_h;
 
+    // Check if user hit F11 and only the graph is showing (no event list).
     if ( s_opts().getb( OPT_GraphFullscreen ) )
     {
-        gi.visible_graph_height = Clamp< float >( gi.total_graph_height,
-                valf_min, ImGui::GetContentRegionAvail().y );
+        // If we have a zoomed row, use up all the available window space,
+        // otherwise just use the total graph height
+        float valf = gi.prinfo_zoom ?
+                    ImGui::GetContentRegionAvail().y : gi.total_graph_height;;
+
+        gi.visible_graph_height = Clamp< float >( valf, valf_min, ImGui::GetContentRegionAvail().y );
         return;
     }
 
     if ( gi.prinfo_zoom )
     {
         optid = OPT_GraphHeightZoomed;
-        max_graph_size = 60.0f * gi.row_h_xxx;
+        max_graph_size = ImGui::GetWindowHeight() * 10.0f;
     }
     else
     {
@@ -2303,14 +2306,13 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
 
     // Set up min / max sizes and clamp value in that range
     float valf = s_opts().getf( optid );
-    float valf_max = Clamp< float >( max_graph_size, valf_min, ImGui::GetWindowHeight() );
 
-    // First time initialization - start with about 15 rows
+    // First time initialization - start with about 16 rows
     if ( !valf )
-        valf = 15.0f * gi.row_h_xxx;
+        valf = 16.0f * gi.text_h;
 
-    valf = Clamp< float >( valf, valf_min, valf_max );
-    s_opts().setf( optid, valf, valf_min, valf_max );
+    valf = Clamp< float >( valf, valf_min, max_graph_size );
+    s_opts().setf( optid, valf, valf_min, max_graph_size );
 
     gi.visible_graph_height = valf;
 }
@@ -2782,7 +2784,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     }
 
     // Change row size. Ie "Gfx size: 10"
-    if ( optid != OPT_Invalid )
+    if ( !gi.prinfo_zoom && ( optid != OPT_Invalid ) )
         s_opts().render_imgui_opt( optid );
 
     ImGui::Separator();
