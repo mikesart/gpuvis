@@ -265,7 +265,7 @@ public:
         int64_t dist_ts;
         uint32_t eventid;
     };
-    const size_t hovered_max = 6;
+    const size_t hovered_max = 10;
     std::vector< hovered_t > hovered_items;
 
     // Selected i915 ring/seq/ctx info
