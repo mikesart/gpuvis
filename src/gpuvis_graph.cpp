@@ -2650,10 +2650,13 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     if ( !ImGui::BeginPopup( "GraphPopup" ) )
         return false;
 
-    if ( !m_graph.mouse_over_row_name.empty() )
+    std::string row_name = m_graph.mouse_over_row_name;
+    std::string row_name_bright = s_textclrs().bright_str( row_name );
+
+    if ( !row_name.empty() )
     {
         imgui_text_bg( ImGui::GetStyleColorVec4( ImGuiCol_Header ), "Options for '%s'",
-                       s_textclrs().bright_str( m_graph.mouse_over_row_name ).c_str() );
+                       row_name_bright.c_str() );
     }
     else
     {
@@ -2702,31 +2705,31 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     }
 
     // Zoom / Hide row
-    if ( !m_graph.mouse_over_row_name.empty() )
+    if ( !row_name.empty() )
     {
         std::string label;
 
         if ( is_graph_row_zoomable() )
         {
-            label = string_format( "Zoom row '%s'", m_graph.mouse_over_row_name.c_str() );
+            label = string_format( "Zoom row '%s'", row_name_bright.c_str() );
 
             if ( ImGui::MenuItem( label.c_str(), s_actions().hotkey_str( action_graph_zoom_row ).c_str() ) )
                 zoom_graph_row();
         }
 
-        optid = get_comm_option_id( m_graph.mouse_over_row_name.c_str(), m_graph.mouse_over_row_type );
-        label = string_format( "Hide row '%s'", m_graph.mouse_over_row_name.c_str() );
+        optid = get_comm_option_id( row_name.c_str(), m_graph.mouse_over_row_type );
+        label = string_format( "Hide row '%s'", row_name_bright.c_str() );
 
         if ( ImGui::MenuItem( label.c_str() ) )
-            m_graph.rows.show_row( m_graph.mouse_over_row_name, GraphRows::HIDE_ROW );
+            m_graph.rows.show_row( row_name, GraphRows::HIDE_ROW );
 
-        label = string_format( "Hide row '%s' and below", m_graph.mouse_over_row_name.c_str() );
+        label = string_format( "Hide row '%s' and below", row_name_bright.c_str() );
         if ( ImGui::MenuItem( label.c_str() ) )
-            m_graph.rows.show_row( m_graph.mouse_over_row_name, GraphRows::HIDE_ROW_AND_ALL_BELOW );
+            m_graph.rows.show_row( row_name, GraphRows::HIDE_ROW_AND_ALL_BELOW );
 
         if ( m_graph.mouse_over_row_type == LOC_TYPE_Comm )
         {
-            const tgid_info_t *tgid_info = m_trace_events.tgid_from_commstr( m_graph.mouse_over_row_name.c_str() );
+            const tgid_info_t *tgid_info = m_trace_events.tgid_from_commstr( row_name.c_str() );
 
             if ( tgid_info )
             {
@@ -2793,22 +2796,22 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     }
 
     // Move row after...
-    if ( !m_graph.mouse_over_row_name.empty() )
+    if ( !row_name.empty() )
     {
-        std::string move_label = string_format( "Move '%s' after", m_graph.mouse_over_row_name.c_str() );
+        std::string move_label = string_format( "Move '%s' after", row_name_bright.c_str() );
 
         if ( ImGui::BeginMenu( move_label.c_str() ) )
         {
             for ( const GraphRows::graph_rows_info_t &entry : m_graph.rows.m_graph_rows_list )
             {
-                if ( !entry.hidden && ( entry.row_name != m_graph.mouse_over_row_name ) )
+                if ( !entry.hidden && ( entry.row_name != row_name ) )
                 {
                     const char *commstr = ( entry.type == LOC_TYPE_Comm ) ?
                                 m_trace_events.tgidcomm_from_commstr( entry.row_name.c_str() ) :
                                 entry.row_name.c_str();
                     if ( ImGui::MenuItem( commstr ) )
                     {
-                        m_graph.rows.move_row( m_graph.mouse_over_row_name, entry.row_name );
+                        m_graph.rows.move_row( row_name, entry.row_name );
                         ImGui::CloseCurrentPopup();
                         break;
                     }
@@ -2821,7 +2824,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     // Create Plot for hovered event
     if ( is_valid_id( m_graph.hovered_eventid ) &&
-         strncmp( m_graph.mouse_over_row_name.c_str(), "plot:", 5 ) )
+         strncmp( row_name.c_str(), "plot:", 5 ) )
     {
         const trace_event_t &event = m_trace_events.m_events[ m_graph.hovered_eventid ];
         const std::string plot_str = CreatePlotDlg::get_plot_str( event );
@@ -2841,16 +2844,18 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     ImGui::Separator();
 
-    if ( !m_graph.mouse_over_row_name.empty() )
+    if ( !row_name.empty() )
     {
-        float valf = m_graph.rows.get_row_scale( m_graph.mouse_over_row_name );
-        std::string label = string_format( "Scale '%s' time: %sx", m_graph.mouse_over_row_name.c_str(), "%.02f" );
+        float valf = m_graph.rows.get_row_scale( row_name );
+        std::string label = string_format( "Scale time: %sx", "%.02f" );
 
+        ImGui::PushItemWidth( imgui_scale( 200.0f ) );
         if ( ImGui::SliderFloat( "##opt_valf", &valf, 1.0f, 100.0f, label.c_str() ) )
-            m_graph.rows.m_graph_row_scale_ts.m_map[ m_graph.mouse_over_row_name ] = string_format( "%.02f", valf );
-    }
+            m_graph.rows.m_graph_row_scale_ts.m_map[ row_name ] = string_format( "%.02f", valf );
+        ImGui::PopItemWidth();
 
-    ImGui::Separator();
+        ImGui::Separator();
+    }
 
     // Set / Goto / Clear Markers
     {

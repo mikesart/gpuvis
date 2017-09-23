@@ -319,7 +319,7 @@ option_id_t Opts::add_opt_graph_rowsize( const char *row_name, int defval )
         row_name = fullname + 5;
 
     opt.flags = OPT_Int | OPT_Hidden;
-    opt.desc = string_format( "%s height: %%.0f", row_name );
+    opt.desc = string_format( "Row height: %%.0f" );
     opt.inikey = row_name;
     opt.inisection = "$row_sizes$";
     opt.valf = s_ini().GetInt( opt.inikey.c_str(), defval, opt.inisection.c_str() );
