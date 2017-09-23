@@ -180,10 +180,12 @@ protected:
 
 public:
     float m_x0, m_x1;
-    uint32_t m_num_events;
+    uint32_t m_count;
     ImU32 m_event_color;
 
     float m_y, m_w, m_h;
+
+    uint32_t m_num_events = 0;
 
     float m_width = 1.0f;
     float m_maxwidth = imgui_scale( 4.0f );
@@ -451,6 +453,8 @@ void event_renderer_t::set_y( float y_in, float h_in )
 
 void event_renderer_t::add_event( uint32_t eventid, float x, ImU32 color )
 {
+    m_num_events++;
+
     if ( ( eventid == m_selected_eventid ) ||
          ( eventid == m_hovered_eventid ) )
     {
@@ -480,7 +484,7 @@ void event_renderer_t::add_event( uint32_t eventid, float x, ImU32 color )
     {
         // New event real close to last event with same color
         m_x1 = x;
-        m_num_events++;
+        m_count++;
     }
 }
 
@@ -505,7 +509,7 @@ void event_renderer_t::draw_event_markers( TraceWin *win, graph_info_t &gi )
 
 void event_renderer_t::start( float x, ImU32 color )
 {
-    m_num_events = 0;
+    m_count = 0;
     m_event_color = color;
 
     m_x0 = x;
@@ -514,9 +518,9 @@ void event_renderer_t::start( float x, ImU32 color )
 
 void event_renderer_t::draw()
 {
-    uint32_t index = std::min< uint32_t >( col_Graph_1Event + m_num_events, col_Graph_6Event );
+    uint32_t index = std::min< uint32_t >( col_Graph_1Event + m_count, col_Graph_6Event );
     ImU32 color = m_event_color ? m_event_color : s_clrs().get( index );
-    float min_width = std::min< float >( m_num_events + m_width, m_maxwidth );
+    float min_width = std::min< float >( m_count + m_width, m_maxwidth );
     float width = std::max< float >( m_x1 - m_x0, min_width );
 
     imgui_drawrect_filled( m_x0, m_y, width, m_h, color );
@@ -1078,89 +1082,79 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
     struct row_draw_info_t
     {
-        float x = 0.0f;
-        const trace_event_t *event = nullptr;
-        const TraceEvents::event_print_info_t *print_info = nullptr;
+        float m_x = 0.0f;
+        float m_y = 0.0f;
+        const trace_event_t *m_event = nullptr;
+        const TraceEvents::event_print_info_t *m_print_info = nullptr;
+
+        void set_event( float x, float y, const trace_event_t *event = NULL,
+                        const TraceEvents::event_print_info_t *print_info = NULL )
+        {
+            // Adding a new event at x,y. If we had a previous event and
+            // there is room for the label, draw it.
+            if ( m_print_info && ( x - m_x > m_print_info->rect_size.x ) )
+                imgui_draw_text( m_x, m_y, m_event->color, m_print_info->buf );
+
+            m_x = x + imgui_scale( 3.0f );
+            m_y = y + imgui_scale( 2.0f );
+            m_print_info = print_info;
+            m_event = event;
+        }
     };
-    std::vector< row_draw_info_t > row_draw_info;
-
-    uint32_t num_events = 0;
-    const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
-    bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
-            !s_keybd().is_alt_down();
-
     uint32_t row_count = std::max< uint32_t >( 1, gi.h / gi.text_h - 1 );
-
-    row_draw_info.resize( row_count + 1 );
+    std::vector< row_draw_info_t > row_draw_info( row_count + 1 );
 
     // We need to start drawing to the left of 0 for timeline_labels
+    bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
+            !s_keybd().is_alt_down();
     int64_t ts = timeline_labels ? gi.screenx_to_ts( gi.x - m_trace_events.m_rect_size_max_x ) : gi.ts0;
     uint32_t eventstart = ts_to_eventid( ts );
 
-    static float dx = imgui_scale( 3.0f );
+    event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
 
+    event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
+    event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
+
+    const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     for ( size_t idx = vec_find_eventid( locs, eventstart );
           idx < locs.size();
           idx++ )
     {
-        uint32_t eventid = locs[ idx ];
-        const trace_event_t &event = get_event( eventid );
+        const trace_event_t &event = get_event( locs[ idx ] );
         uint32_t row_id = event.graph_row_id ? ( event.graph_row_id % row_count + 1 ) : 0;
         float x = gi.ts_to_screenx( event.ts );
         float y = gi.y + row_id * gi.text_h;
 
-        if ( eventid > gi.eventend )
+        if ( event.id > gi.eventend )
             break;
         else if ( gi.graph_only_filtered && event.is_filtered_out )
             continue;
 
-        // Check if we drew something on this row already
-        if ( row_draw_info[ row_id ].print_info )
+        if ( timeline_labels )
         {
-            const row_draw_info_t &draw_info = row_draw_info[ row_id ];
-            float x0 = draw_info.x + dx;
-            const TraceEvents::event_print_info_t *print_info = draw_info.print_info;
-
-            // If we did and there is room, draw the ftrace print buf
-            if ( x - x0 > print_info->rect_size.x )
-                imgui_draw_text( x0, y + imgui_scale( 2.0f ), draw_info.event->color, print_info->buf );
+            row_draw_info[ row_id ].set_event( x, y, &event,
+                m_trace_events.m_print_buf_info.get_val( event.id ) );
         }
 
-        // Otherwise draw a little tick for it
-        imgui_drawrect_filled( x, y, imgui_scale( 2.0f ), gi.text_h, event.color );
+        // Draw a tick for this event
+        event_renderer.set_y( y, gi.text_h );
+        event_renderer.add_event( event.id, x, event.color );
 
         // Check if we're mouse hovering this event
         if ( gi.mouse_over && ( gi.mouse_pos.y >= y ) && ( gi.mouse_pos.y <= y + gi.text_h ) )
             gi.add_mouse_hovered_event( x, event );
-
-        num_events++;
-
-        if ( timeline_labels )
-        {
-            row_draw_info[ row_id ].x = x;
-            row_draw_info[ row_id ].print_info = m_trace_events.m_print_buf_info.get_val( event.id );
-            row_draw_info[ row_id ].event = &event;
-        }
     }
 
+    event_renderer.done();
+    event_renderer.draw_event_markers( this, gi );
+
+    // Flush print labels
     for ( uint32_t row_id = 0; row_id < row_draw_info.size(); row_id++ )
-    {
-        const row_draw_info_t &draw_info = row_draw_info[ row_id ];
-        const TraceEvents::event_print_info_t *print_info = draw_info.print_info;
-
-        if ( print_info )
-        {
-            float x0 = draw_info.x + dx;
-            float y = gi.y + row_id * gi.text_h;
-            const trace_event_t *event = draw_info.event;
-
-            imgui_draw_text( x0, y + imgui_scale( 2.0f ), event->color, print_info->buf );
-        }
-    }
+        row_draw_info[ row_id ].set_event( FLT_MAX, FLT_MAX );
 
     imgui_pop_font();
 
-    return num_events;
+    return event_renderer.m_num_events;
 }
 
 uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
@@ -1402,7 +1396,6 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
 
 uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 {
-    uint32_t num_events = 0;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
     bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
@@ -1431,7 +1424,6 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
             gi.add_mouse_hovered_event( x, event );
 
         event_renderer.add_event( event.id, x, event.color );
-        num_events++;
     }
 
     event_renderer.done();
@@ -1482,12 +1474,11 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
         }
     }
 
-    return num_events;
+    return event_renderer.m_num_events;
 }
 
 uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 {
-    uint32_t num_events = 0;
     float row_h = gi.text_h;
     float y = gi.y + ( gi.h - row_h ) / 2;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
@@ -1514,7 +1505,6 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 
         event_renderer.add_event( event_begin.id, x0, event_begin.color );
         event_renderer.add_event( event.id, x1, event.color );
-        num_events++;
 
         // Draw bar
         imgui_drawrect_filled( x0, y, x1 - x0, row_h, barcolor );
@@ -1567,12 +1557,11 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
     if ( pevent_sel )
         gi.set_selected_i915_ringctxseq( *pevent_sel );
 
-    return num_events;
+    return event_renderer.m_num_events / 2;
 }
 
 uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
 {
-    uint32_t num_events = 0;
     float row_h = gi.text_h;
     ImU32 textcolor = s_clrs().get( col_Graph_BarText );
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
@@ -1600,7 +1589,6 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
 
         event_renderer.set_y( y, row_h );
         event_renderer.add_event( event.id, x1, event.color );
-        num_events++;
 
         if ( gi.mouse_over && ( gi.mouse_pos.y >= y ) && ( gi.mouse_pos.y <= y + row_h ) )
             gi.add_mouse_hovered_event( x1, event );
@@ -1659,7 +1647,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     if ( pevent_sel )
         gi.set_selected_i915_ringctxseq( *pevent_sel );
 
-    return num_events;
+    return event_renderer.m_num_events;
 }
 
 void TraceWin::graph_render_row( graph_info_t &gi )
