@@ -223,7 +223,7 @@ struct row_info_t
     int pid = -1;
     const tgid_info_t *tgid_info = NULL;
 
-    RenderGraphRowCallback render_cb;
+    RenderGraphRowCallback render_cb = nullptr;
 };
 
 class graph_info_t
@@ -251,6 +251,8 @@ public:
 
     void set_selected_i915_ringctxseq( const trace_event_t &event );
     bool is_i915_ringctxseq_selected( const trace_event_t &event );
+
+    RenderGraphRowCallback get_render_cb( TraceWin *win, loc_type_t row_type );
 
 public:
     float x, y, w, h;
@@ -541,6 +543,28 @@ static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t r
 /*
  * graph_info_t
  */
+RenderGraphRowCallback graph_info_t::get_render_cb( TraceWin *win, loc_type_t row_type )
+{
+    switch ( row_type )
+    {
+    case LOC_TYPE_Print:
+        return std::bind( &TraceWin::graph_render_print_timeline, win, _1 );
+    case LOC_TYPE_Plot:
+        return std::bind( &TraceWin::graph_render_plot, win, _1 );
+    case LOC_TYPE_AMDTimeline:
+        return std::bind( &TraceWin::graph_render_row_timeline, win, _1 );
+    case LOC_TYPE_AMDTimeline_hw:
+        return std::bind( &TraceWin::graph_render_hw_row_timeline, win, _1 );
+    case LOC_TYPE_i915Request:
+        return std::bind( &TraceWin::graph_render_i915_req_events, win, _1 );
+    case LOC_TYPE_i915RequestWait:
+        return std::bind( &TraceWin::graph_render_i915_reqwait_events, win, _1 );
+    default:
+        // LOC_TYPE_Comm or LOC_TYPE_Tdopexpr hopefully...
+        return std::bind( &TraceWin::graph_render_row_events, win, _1 );
+    }
+}
+
 void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows )
 {
     uint32_t id = 0;
@@ -558,7 +582,6 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
     for ( const GraphRows::graph_rows_info_t &grow : graph_rows )
     {
         row_info_t rinfo;
-        option_id_t optid = OPT_Invalid;
         const std::vector< uint32_t > *plocs;
         const std::string &row_name = grow.row_name;
 
@@ -573,89 +596,52 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         rinfo.row_filter = grow.row_filter;
         rinfo.scale_ts = win->m_graph.rows.get_row_scale( row_name );
 
-        if ( !plocs )
-        {
-            // Nothing to render
-            rinfo.render_cb = nullptr;
-        }
-        else if ( rinfo.row_type == LOC_TYPE_Print )
-        {
-            // ftrace print row
-            optid = get_comm_option_id( rinfo.row_name, rinfo.row_type );
-            rinfo.render_cb = std::bind( &TraceWin::graph_render_print_timeline, win, _1 );
-        }
-        else if ( rinfo.row_type == LOC_TYPE_Plot )
-        {
-            optid = get_comm_option_id( rinfo.row_name, rinfo.row_type );
-            rinfo.render_cb = std::bind( &TraceWin::graph_render_plot, win, _1 );
-        }
-        else if ( rinfo.row_type == LOC_TYPE_AMDTimeline )
-        {
-            optid = get_comm_option_id( rinfo.row_name, rinfo.row_type );
-            rinfo.render_cb = std::bind( &TraceWin::graph_render_row_timeline, win, _1 );
-        }
-        else if ( rinfo.row_type == LOC_TYPE_AMDTimeline_hw )
-        {
-            rinfo.render_cb = std::bind( &TraceWin::graph_render_hw_row_timeline, win, _1 );
-        }
-        else if ( rinfo.row_type == LOC_TYPE_i915Request )
-        {
-            optid = get_comm_option_id( rinfo.row_name, rinfo.row_type );
-            rinfo.render_cb = std::bind( &TraceWin::graph_render_i915_req_events, win, _1 );
-        }
-        else if ( rinfo.row_type == LOC_TYPE_i915RequestWait )
-        {
-            rinfo.render_cb = std::bind( &TraceWin::graph_render_i915_reqwait_events, win, _1 );
-        }
-        else
-        {
-            // LOC_TYPE_Comm or LOC_TYPE_Tdopexpr hopefully
+        if ( plocs )
+            rinfo.render_cb = get_render_cb( win, rinfo.row_type );
 
-            if ( rinfo.row_type == LOC_TYPE_Comm )
+        if ( rinfo.row_type == LOC_TYPE_Comm )
+        {
+            const char *pidstr = strrchr( row_name.c_str(), '-' );
+
+            if ( pidstr )
             {
-                const char *pidstr = strrchr( row_name.c_str(), '-' );
-
-                if ( pidstr )
-                {
-                    rinfo.pid = atoi( pidstr + 1 );
-                    rinfo.tgid_info = win->m_trace_events.tgid_from_pid( rinfo.pid );
-                }
-
-                if ( win->m_graph.show_row_name && ( row_name == win->m_graph.show_row_name ) )
-                {
-                    show_row_id = id;
-                    win->m_graph.show_row_name = NULL;
-                }
-
-                // If we're graphing only filtered events, check if this comm has any events
-                if ( s_opts().getb( OPT_GraphOnlyFiltered ) &&
-                     s_opts().getb( OPT_Graph_HideEmptyFilteredRows ) &&
-                     !win->m_eventlist.filtered_events.empty() )
-                {
-                    bool no_events = true;
-
-                    for ( size_t idx : *plocs )
-                    {
-                        const trace_event_t &event = win->get_event( idx );
-
-                        if ( ( event.pid == rinfo.pid ) && !event.is_filtered_out )
-                        {
-                            no_events = false;
-                            break;
-                        }
-                    }
-
-                    if ( no_events )
-                        continue;
-                }
+                rinfo.pid = atoi( pidstr + 1 );
+                rinfo.tgid_info = win->m_trace_events.tgid_from_pid( rinfo.pid );
             }
 
-            rinfo.render_cb = std::bind( &TraceWin::graph_render_row_events, win, _1 );
+            if ( win->m_graph.show_row_name && ( row_name == win->m_graph.show_row_name ) )
+            {
+                show_row_id = id;
+                win->m_graph.show_row_name = NULL;
+            }
+
+            // If we're graphing only filtered events, check if this comm has any events
+            if ( s_opts().getb( OPT_GraphOnlyFiltered ) &&
+                 s_opts().getb( OPT_Graph_HideEmptyFilteredRows ) &&
+                 !win->m_eventlist.filtered_events.empty() )
+            {
+                bool no_events = true;
+
+                for ( size_t idx : *plocs )
+                {
+                    const trace_event_t &event = win->get_event( idx );
+
+                    if ( ( event.pid == rinfo.pid ) && !event.is_filtered_out )
+                    {
+                        no_events = false;
+                        break;
+                    }
+                }
+
+                if ( no_events )
+                    continue;
+            }
         }
 
+        option_id_t optid = get_comm_option_id( rinfo.row_name, rinfo.row_type );
         if ( optid != OPT_Invalid )
         {
-            int rows = ( optid != OPT_Invalid ) ? s_opts().geti( optid ) : 4;
+            int rows = s_opts().geti( optid );
 
             rinfo.row_h = Clamp< int >( rows, 2, s_opts().max_row_size() ) * text_h;
         }

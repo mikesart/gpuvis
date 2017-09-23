@@ -271,9 +271,8 @@ void GraphRows::init( TraceEvents &trace_events )
     loc_type_t type;
     const std::vector< uint32_t > *plocs;
 
+    // AMD gpu events
     {
-        // AMD gpu events
-
         if ( ( plocs = trace_events.get_locs( "gfx", &type ) ) )
             push_row( "gfx", type, plocs->size() );
 
@@ -320,13 +319,13 @@ void GraphRows::init( TraceEvents &trace_events )
             push_row( "sdma1 hw", type, plocs->size() );
     }
 
+    // Intel gpu events
     {
-        // Intel gpu events
         for ( uint32_t ring = 0; ring < 9; ring++ )
         {
             char buf[ 32 ];
 
-            snprintf_safe( buf, "i915_reqwait ring%u", ring );
+            snprintf_safe( buf, "i915_req ring%u", ring );
             if ( ( plocs = trace_events.get_locs( buf, &type ) ) )
                 push_row( buf, type, plocs->size() );
         }
@@ -335,7 +334,7 @@ void GraphRows::init( TraceEvents &trace_events )
         {
             char buf[ 32 ];
 
-            snprintf_safe( buf, "i915_req ring%u", ring );
+            snprintf_safe( buf, "i915_reqwait ring%u", ring );
             if ( ( plocs = trace_events.get_locs( buf, &type ) ) )
                 push_row( buf, type, plocs->size() );
         }
