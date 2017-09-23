@@ -1705,6 +1705,20 @@ void TraceWin::graph_render_row( graph_info_t &gi )
                         0x5fffffff, 9.0f, 0x0f );
             gi.set_ts( this, m_graph.start_ts, m_graph.length_ts );
         }
+
+#if 0
+        // Experiment for vertical slider on right side of graph rows
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        static int int_value = 2;
+        ImGui::SetCursorScreenPos( ImVec2( gi.x + gi.w - 16.0f, gi.y ) );
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, (ImVec4)ImColor::HSV(0.9f, 0.5f, 0.5f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, (ImVec4)ImColor::HSV(0.9f, 0.6f, 0.5f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, (ImVec4)ImColor::HSV(0.9f, 0.7f, 0.5f));
+        ImGui::PushStyleColor(ImGuiCol_SliderGrab, (ImVec4)ImColor::HSV(0.9f, 0.9f, 0.9f));
+        ImGui::VSliderInt( "##int", ImVec2( 16.0f, gi.h ), &int_value, 0, 5 );
+        ImGui::PopStyleColor(4);
+        ImGui::SetCursorScreenPos( pos );
+#endif
     }
 
     gi.prinfo_cur->num_events = num_events;
@@ -2396,8 +2410,9 @@ void TraceWin::graph_render()
     if ( s_actions().get( action_focus_graph ) )
         ImGui::SetNextWindowFocus();
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(1, 1));
-    ImGui::BeginChild( "EventGraph", ImVec2( 0, gi.visible_graph_height ), true );
+    ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 1, 1 ) );
+    ImGui::BeginChild( "EventGraph", ImVec2( 0, gi.visible_graph_height ), false,
+                       ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoCollapse );
     {
         ImVec2 windowpos = ImGui::GetCursorScreenPos();
         ImVec2 windowsize = ImGui::GetContentRegionAvail();
@@ -2635,7 +2650,15 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     if ( !ImGui::BeginPopup( "GraphPopup" ) )
         return false;
 
-    imgui_text_bg( "Options", ImGui::GetStyleColorVec4( ImGuiCol_Header ) );
+    if ( !m_graph.mouse_over_row_name.empty() )
+    {
+        imgui_text_bg( ImGui::GetStyleColorVec4( ImGuiCol_Header ), "Options for '%s'",
+                       s_textclrs().bright_str( m_graph.mouse_over_row_name ).c_str() );
+    }
+    else
+    {
+        imgui_text_bg( ImGui::GetStyleColorVec4( ImGuiCol_Header ), "Options" );
+    }
     ImGui::Separator();
 
     // Zoom in / out
@@ -2821,7 +2844,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     if ( !m_graph.mouse_over_row_name.empty() )
     {
         float valf = m_graph.rows.get_row_scale( m_graph.mouse_over_row_name );
-        std::string label = string_format( "Zoom row '%s' out: %sx", m_graph.mouse_over_row_name.c_str(), "%.02f" );
+        std::string label = string_format( "Scale '%s' time: %sx", m_graph.mouse_over_row_name.c_str(), "%.02f" );
 
         if ( ImGui::SliderFloat( "##opt_valf", &valf, 1.0f, 100.0f, label.c_str() ) )
             m_graph.rows.m_graph_row_scale_ts.m_map[ m_graph.mouse_over_row_name ] = string_format( "%.02f", valf );

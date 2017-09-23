@@ -2751,7 +2751,7 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
         return false;
 
-    imgui_text_bg( "Options", ImGui::GetStyleColorVec4( ImGuiCol_Header ) );
+    imgui_text_bg( ImGui::GetStyleColorVec4( ImGuiCol_Header ), "%s", "Options" );
     ImGui::Separator();
 
     trace_event_t &event = get_event( eventid );
@@ -3550,8 +3550,8 @@ static bool render_color_picker_colors( ColorPicker &colorpicker, colors_t selec
     ImU32 def_color = s_clrs().getdef( selected_color );
 
     // Color name and description
-    imgui_text_bg( string_format( "%s: %s", brightname.c_str(), desc ).c_str(),
-                   ImGui::GetStyleColorVec4( ImGuiCol_Header ) );
+    imgui_text_bg( ImGui::GetStyleColorVec4( ImGuiCol_Header ),
+                   "%s: %s", brightname.c_str(), desc );
 
     ImGui::NewLine();
     if ( colorpicker.render( color, is_alpha, def_color ) )
@@ -3576,7 +3576,7 @@ static bool render_color_picker_event_colors( ColorPicker &colorpicker,
         ImU32 def_color = s_clrs().get( col_Graph_1Event );
 
         // Color name and description
-        imgui_text_bg( brightname.c_str(), ImGui::GetStyleColorVec4( ImGuiCol_Header ) );
+        imgui_text_bg( ImGui::GetStyleColorVec4( ImGuiCol_Header ), "%s", brightname.c_str() );
 
         ImGui::NewLine();
         changed = colorpicker.render( color, false, def_color );

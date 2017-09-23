@@ -590,10 +590,17 @@ ImU32 imgui_col_complement( ImU32 col )
     return imgui_hsv( h, s, v, 1.0f );
 }
 
-void imgui_text_bg( const char *str, const ImVec4& bgcolor )
+void imgui_text_bg( const ImVec4& bgcolor, const char *fmt, ... )
 {
+    va_list args;
+    char buf[ 512 ];
+
+    va_start( args, fmt );
+    vsnprintf_safe( buf, fmt, args );
+    va_end( args );
+
     ImGui::PushStyleColor( ImGuiCol_HeaderHovered, bgcolor );
-    ImGui::Selectable( str, true, ImGuiSelectableFlags_SpanAllColumns );
+    ImGui::Selectable( buf, true, ImGuiSelectableFlags_SpanAllColumns );
     ImGui::PopStyleColor();
 }
 

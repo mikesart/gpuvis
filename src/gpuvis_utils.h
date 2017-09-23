@@ -101,7 +101,7 @@ ImU32 imgui_col_from_hashval( uint32_t hashval, float sat = 0.9f, float alpha = 
 ImU32 imgui_hsv( float h, float s, float v, float a );
 ImU32 imgui_col_complement( ImU32 col );
 
-void imgui_text_bg( const char *str, const ImVec4 &bgcolor );
+void imgui_text_bg( const ImVec4& bgcolor, const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
 
 bool imgui_mousepos_valid( const ImVec2 &pos );
 
