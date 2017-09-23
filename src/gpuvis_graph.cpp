@@ -163,7 +163,7 @@ public:
     void add_event( uint32_t eventid, float x, ImU32 color );
     void done();
 
-    void draw_hovered_selected_events( TraceWin *win, class graph_info_t &gi );
+    void draw_event_markers( TraceWin *win, class graph_info_t &gi );
 
     void set_y( float y_in, float h_in );
 
@@ -184,9 +184,12 @@ public:
     uint32_t m_selected_eventid = INVALID_ID;
     uint32_t m_hovered_eventid = INVALID_ID;
 
-    ImVec2 m_hovy, m_sely;
-    bool m_draw_hovered_event = false;
-    bool m_draw_selected_event = false;
+    struct markers_t
+    {
+        ImVec2 pos;
+        ImU32 color;
+    };
+    std::vector< markers_t > m_markers;
 };
 
 typedef std::function< uint32_t ( class graph_info_t &gi ) > RenderGraphRowCallback;
@@ -439,15 +442,16 @@ void event_renderer_t::set_y( float y_in, float h_in )
 
 void event_renderer_t::add_event( uint32_t eventid, float x, ImU32 color )
 {
-    if ( eventid == m_selected_eventid )
+    if ( ( eventid == m_selected_eventid ) ||
+         ( eventid == m_hovered_eventid ) )
     {
-        m_sely = ImVec2( y, h );
-        m_draw_selected_event = true;
-    }
-    if ( eventid == m_hovered_eventid )
-    {
-        m_hovy = ImVec2( y, h );
-        m_draw_hovered_event = true;
+        colors_t colidx = ( eventid == m_selected_eventid ) ?
+                    col_Graph_SelEvent : col_Graph_HovEvent;
+
+        float width = std::min< float >( m_width, m_maxwidth );
+
+        m_markers.push_back( { ImVec2( x + width / 2, y + h / 2.0f ),
+                               s_clrs().get( colidx ) } );
     }
 
     if ( x0 < 0.0f )
@@ -480,30 +484,13 @@ void event_renderer_t::done()
     }
 }
 
-void event_renderer_t::draw_hovered_selected_events( TraceWin *win, graph_info_t &gi )
+void event_renderer_t::draw_event_markers( TraceWin *win, graph_info_t &gi )
 {
     ImDrawList *DrawList = ImGui::GetWindowDrawList();
 
-    if ( m_draw_hovered_event )
+    for ( const markers_t &marker : m_markers )
     {
-        trace_event_t &event = win->get_event( win->m_eventlist.hovered_eventid );
-        float x = gi.ts_to_screenx( event.ts );
-
-        DrawList->AddCircleFilled(
-                    ImVec2( x, m_hovy.x + m_hovy.y / 2.0f ),
-                    imgui_scale( 5.0f ),
-                    s_clrs().get( col_Graph_HovEvent ) );
-    }
-
-    if ( m_draw_selected_event )
-    {
-        trace_event_t &event = win->get_event( win->m_eventlist.selected_eventid );
-        float x = gi.ts_to_screenx( event.ts );
-
-        DrawList->AddCircleFilled(
-                    ImVec2( x, m_sely.x + m_sely.y / 2.0f ),
-                    imgui_scale( 5.0f ),
-                    s_clrs().get( col_Graph_SelEvent ) );
+        DrawList->AddCircleFilled( marker.pos, imgui_scale( 5.0f ), marker.color );
     }
 }
 
@@ -1456,7 +1443,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
     }
 
     event_renderer.done();
-    event_renderer.draw_hovered_selected_events( this, gi );
+    event_renderer.draw_event_markers( this, gi );
 
     if ( gi.prinfo_cur->pid >= 0 )
     {
@@ -1583,7 +1570,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
     }
 
     event_renderer.done();
-    event_renderer.draw_hovered_selected_events( this, gi );
+    event_renderer.draw_event_markers( this, gi );
 
     if ( pevent_sel )
         gi.set_selected_i915_ringctxseq( *pevent_sel );
@@ -1598,7 +1585,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     ImU32 textcolor = s_clrs().get( col_Graph_BarText );
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
-    uint32_t row_count = std::max< uint32_t >( 1, gi.h / gi.text_h - 1 );
+    uint32_t row_count = std::max< uint32_t >( 1, gi.h / row_h );
     const trace_event_t *pevent_sel = NULL;
 
     event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
@@ -1617,7 +1604,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
         if ( ( x0 > gi.x + gi.w ) || ( x1 < gi.x ) )
             continue;
 
-        y = gi.y + ( event.graph_row_id % row_count ) * gi.text_h;
+        y = gi.y + ( event.graph_row_id % row_count ) * row_h;
 
         event_renderer.set_y( y, row_h );
         event_renderer.add_event( event.id, x1, event.color );
@@ -1675,7 +1662,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     }
 
     event_renderer.done();
-    event_renderer.draw_hovered_selected_events( this, gi );
+    event_renderer.draw_event_markers( this, gi );
 
     if ( pevent_sel )
         gi.set_selected_i915_ringctxseq( *pevent_sel );
