@@ -179,11 +179,11 @@ protected:
     void draw();
 
 public:
-    float x0, x1;
-    uint32_t num_events;
-    ImU32 event_color;
+    float m_x0, m_x1;
+    uint32_t m_num_events;
+    ImU32 m_event_color;
 
-    float y, w, h;
+    float m_y, m_w, m_h;
 
     float m_width = 1.0f;
     float m_maxwidth = imgui_scale( 4.0f );
@@ -429,21 +429,21 @@ event_renderer_t::event_renderer_t( graph_info_t &gi, float y_in, float w_in, fl
 
     m_width = std::max< float >( 1.0f, m_maxwidth * ( dx - minx ) / ( maxx - minx ) );
 
-    y = y_in;
-    w = w_in;
-    h = h_in;
+    m_y = y_in;
+    m_w = w_in;
+    m_h = h_in;
 
     start( -1.0f, 0 );
 }
 
 void event_renderer_t::set_y( float y_in, float h_in )
 {
-    if ( y != y_in || h != h_in )
+    if ( m_y != y_in || m_h != h_in )
     {
         done();
 
-        y = y_in;
-        h = h_in;
+        m_y = y_in;
+        m_h = h_in;
     }
 }
 
@@ -457,16 +457,16 @@ void event_renderer_t::add_event( uint32_t eventid, float x, ImU32 color )
 
         float width = std::min< float >( m_width, m_maxwidth );
 
-        m_markers.push_back( { ImVec2( x + width / 2, y + h / 2.0f ),
+        m_markers.push_back( { ImVec2( x + width / 2, m_y + m_h / 2.0f ),
                                s_clrs().get( colidx ) } );
     }
 
-    if ( x0 < 0.0f )
+    if ( m_x0 < 0.0f )
     {
         // First event
         start( x, color );
     }
-    else if ( ( x - x1 > 1.0f ) || ( event_color != color ) )
+    else if ( ( x - m_x1 > 1.0f ) || ( m_event_color != color ) )
     {
         // New event is away from current group or new color
         draw();
@@ -477,14 +477,14 @@ void event_renderer_t::add_event( uint32_t eventid, float x, ImU32 color )
     else
     {
         // New event real close to last event with same color
-        x1 = x;
-        num_events++;
+        m_x1 = x;
+        m_num_events++;
     }
 }
 
 void event_renderer_t::done()
 {
-    if ( x0 != -1 )
+    if ( m_x0 != -1 )
     {
         draw();
         start( -1.0f, 0 );
@@ -503,21 +503,21 @@ void event_renderer_t::draw_event_markers( TraceWin *win, graph_info_t &gi )
 
 void event_renderer_t::start( float x, ImU32 color )
 {
-    num_events = 0;
-    event_color = color;
+    m_num_events = 0;
+    m_event_color = color;
 
-    x0 = x;
-    x1 = x + .0001f;
+    m_x0 = x;
+    m_x1 = x + .0001f;
 }
 
 void event_renderer_t::draw()
 {
-    int index = std::min< int >( col_Graph_1Event + num_events, col_Graph_6Event );
-    ImU32 color = event_color ? event_color : s_clrs().get( index );
-    float min_width = std::min< float >( num_events + m_width, m_maxwidth );
-    float width = std::max< float >( x1 - x0, min_width );
+    uint32_t index = std::min< uint32_t >( col_Graph_1Event + m_num_events, col_Graph_6Event );
+    ImU32 color = m_event_color ? m_event_color : s_clrs().get( index );
+    float min_width = std::min< float >( m_num_events + m_width, m_maxwidth );
+    float width = std::max< float >( m_x1 - m_x0, min_width );
 
-    imgui_drawrect_filled( x0, y, width, h, color );
+    imgui_drawrect_filled( m_x0, m_y, width, m_h, color );
 }
 
 static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t row_type )
@@ -596,7 +596,6 @@ void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::g
         }
         else if ( rinfo.row_type == LOC_TYPE_AMDTimeline_hw )
         {
-            rinfo.row_h = 2 * text_h;
             rinfo.render_cb = std::bind( &TraceWin::graph_render_hw_row_timeline, win, _1 );
         }
         else if ( rinfo.row_type == LOC_TYPE_i915Request )
