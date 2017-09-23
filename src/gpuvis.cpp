@@ -52,7 +52,11 @@
 #include "miniz.h"
 
 // https://github.com/ocornut/imgui/issues/88
-#if defined( USE_GTK3 )
+#if defined( __APPLE__ )
+  #define NOC_FILE_DIALOG_IMPLEMENTATION
+  #define NOC_FILE_DIALOG_OSX
+  #include "noc_file_dialog.h"
+#elif defined( USE_GTK3 )
   #define NOC_FILE_DIALOG_IMPLEMENTATION
   #define NOC_FILE_DIALOG_GTK
   #include "noc_file_dialog.h"

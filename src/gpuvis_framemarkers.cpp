@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <functional>
+#include <string>
 
 #include <SDL.h>
 

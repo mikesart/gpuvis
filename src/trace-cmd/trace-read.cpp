@@ -46,6 +46,23 @@
 #include <sys/mman.h>
 #include <sys/param.h>
 #include <unistd.h>
+
+#ifdef __APPLE__
+#define lseek64 lseek
+#define off64_t off_t
+#endif
+
+#ifndef TEMP_FAILURE_RETRY
+#define TEMP_FAILURE_RETRY(exp)            \
+  ({                                       \
+    decltype(exp) _rc;                     \
+    do {                                   \
+      _rc = (exp);                         \
+    } while (_rc == -1 && errno == EINTR); \
+    _rc;                                   \
+  })
+#endif
+
 #endif
 
 extern "C"

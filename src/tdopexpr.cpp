@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <vector>
 #include <unordered_map>
+#include <string>
 
 #include "tdopexpr.h"
 #include "gpuvis_macros.h"

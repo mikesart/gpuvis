@@ -40,15 +40,20 @@ ucm_set_runtime( STATIC )
 ucm_add_flags( -O0 -DDEBUG CONFIG Debug )
 ucm_add_flags( -O2 -DNDEBUG CONFIG Release )
 
-if ( CMAKE_COMPILER_IS_GNUCC )
+if ( CMAKE_COMPILER_IS_GNUCC OR APPLE )
     ucm_add_flags( CXX -std=c++11 )
+endif()
+
+if ( APPLE )
+    ucm_add_flags( CXX -stdlib=libc++ )
+    ucm_add_linker_flags( -stdlib=libc++ )
 endif()
 
 if ( WIN32 )
     ucm_add_flags( -D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4244 /wd4090 /wd4018 /wd4267 )
 
     LINK_LIBRARIES( shlwapi opengl32 comctl32 )
-elseif ( UNIX )
+elseif ( UNIX AND NOT APPLE )
     find_package( PkgConfig REQUIRED )
     pkg_check_modules( GTK3 REQUIRED gtk+-3.0 )
 
@@ -81,6 +86,10 @@ set ( SRC_LIST
     src/trace-cmd/kbuffer-parse.c
     src/trace-cmd/trace-read.cpp
     )
+
+if ( APPLE )
+    list ( APPEND SRC_LIST src/noc_file_dialog_osx.mm )
+endif()
 
 include_directories(
     ${CMAKE_CURRENT_LIST_DIR}/src

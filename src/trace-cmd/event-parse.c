@@ -44,7 +44,12 @@
 #pragma GCC diagnostic ignored "-Wimplicit-function-declaration"
 #endif
 
-#ifndef WIN32
+#ifdef __APPLE__
+#include <sys/socket.h>
+#include <netinet/in.h>
+#define	s6_addr16   __u6_addr.__u6_addr16
+#define	s6_addr32   __u6_addr.__u6_addr32
+#elif !defined(WIN32)
 #include <netinet/ip6.h>
 #else
 #define __func__ __FUNCTION__
