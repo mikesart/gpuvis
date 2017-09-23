@@ -26,17 +26,6 @@
 
 #ifndef WIN32
 #include <unistd.h>
-// https://android.googlesource.com/platform/system/core/+/master/base/include/android-base/macros.h
-#ifndef TEMP_FAILURE_RETRY
-#define TEMP_FAILURE_RETRY(exp)            \
-  ({                                       \
-    decltype(exp) _rc;                     \
-    do {                                   \
-      _rc = (exp);                         \
-    } while (_rc == -1 && errno == EINTR); \
-    _rc;                                   \
-  })
-#endif
 #else
 #define WIN32_LEAN_AND_MEAN 1
 #include <windows.h>

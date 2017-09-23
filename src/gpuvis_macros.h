@@ -24,6 +24,20 @@
 #ifndef _GPUVIS_MACROS_H_
 #define _GPUVIS_MACROS_H_
 
+#if defined( __APPLE__ )
+// https://android.googlesource.com/platform/system/core/+/master/base/include/android-base/macros.h
+#ifndef TEMP_FAILURE_RETRY
+#define TEMP_FAILURE_RETRY(exp)            \
+  ({                                       \
+    decltype(exp) _rc;                     \
+    do {                                   \
+      _rc = (exp);                         \
+    } while (_rc == -1 && errno == EINTR); \
+    _rc;                                   \
+  })
+#endif
+#endif
+
 // Super handy macros from Jonathan Wakely / Patrick Horgan:
 //   http://dbp-consulting.com/tutorials/SuppressingGCCWarnings.html
 #if defined( __GNUC__ )
