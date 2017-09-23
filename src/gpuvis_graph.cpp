@@ -46,6 +46,12 @@
 
   Fix overwriting rows: Ie, adding a row named gfx
 
+  From https://people.freedesktop.org/~cbrill/dri-log/?channel=dri-devel&highlight_names=&date=2017-09-19&show_html=true
+  > 12:35 hanna: Speaking of gpuvis, it would also be cool to be able to extend the
+  > "print" line, using a standardized format. I want my events to show up as
+  > separate rows in the graph, and I also want to be able to define "begin" and
+  > "end" events which gets translate into bars in gpuvis
+
   Check if entire rows are clipped when drawing...
 
   Feedback:
