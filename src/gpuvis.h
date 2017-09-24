@@ -512,19 +512,19 @@ protected:
     // Render regular graph row
     void graph_render_row( class graph_info_t &gi );
 
-    // Render timeline graph row
-    uint32_t graph_render_row_timeline( class graph_info_t &gi );
-    // Render hw graph row
-    uint32_t graph_render_hw_row_timeline( class graph_info_t &gi );
+    // Render amd timeline graph row
+    uint32_t graph_render_amd_timeline( class graph_info_t &gi );
+    // Render amd hw graph row
+    uint32_t graph_render_amdhw_timeline( class graph_info_t &gi );
     // Render ftrace print row
     uint32_t graph_render_print_timeline( class graph_info_t &gi );
     // Render plot row
     uint32_t graph_render_plot( class graph_info_t &gi );
     // Render regular trace events
     uint32_t graph_render_row_events( class graph_info_t &gi );
-    // Render i915 request_wait events
+    // Render intel i915 request_wait events
     uint32_t graph_render_i915_reqwait_events( class graph_info_t &gi );
-    // Render i915 request_add, request_submit, request_in, request_out, intel_engine_notify
+    // Render intel i915 request_add, request_submit, request_in, request_out, intel_engine_notify
     uint32_t graph_render_i915_req_events( class graph_info_t &gi );
 
     void graph_render_time_ticks( class graph_info_t &gi );

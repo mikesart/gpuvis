@@ -490,7 +490,7 @@ void event_renderer_t::add_event( uint32_t eventid, float x, ImU32 color )
 
 void event_renderer_t::done()
 {
-    if ( m_x0 != -1 )
+    if ( m_x0 != -1.0f )
     {
         draw();
         start( -1.0f, 0 );
@@ -556,9 +556,9 @@ RenderGraphRowCallback graph_info_t::get_render_cb( TraceWin *win, loc_type_t ro
     case LOC_TYPE_Plot:
         return std::bind( &TraceWin::graph_render_plot, win, _1 );
     case LOC_TYPE_AMDTimeline:
-        return std::bind( &TraceWin::graph_render_row_timeline, win, _1 );
+        return std::bind( &TraceWin::graph_render_amd_timeline, win, _1 );
     case LOC_TYPE_AMDTimeline_hw:
-        return std::bind( &TraceWin::graph_render_hw_row_timeline, win, _1 );
+        return std::bind( &TraceWin::graph_render_amdhw_timeline, win, _1 );
     case LOC_TYPE_i915Request:
         return std::bind( &TraceWin::graph_render_i915_req_events, win, _1 );
     case LOC_TYPE_i915RequestWait:
@@ -1127,7 +1127,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     int64_t ts = timeline_labels ? gi.screenx_to_ts( gi.x - m_trace_events.m_print_size_max ) : gi.ts0;
     uint32_t eventstart = ts_to_eventid( ts );
 
-    event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
+    event_renderer_t event_renderer( gi, gi.y, gi.w, gi.h );
 
     event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
     event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
@@ -1174,7 +1174,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     return event_renderer.m_num_events;
 }
 
-uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
+uint32_t TraceWin::graph_render_amdhw_timeline( graph_info_t &gi )
 {
     imgui_push_smallfont();
 
@@ -1264,23 +1264,26 @@ uint32_t TraceWin::graph_render_hw_row_timeline( graph_info_t &gi )
     return num_events;
 }
 
-uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
+uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
 {
     imgui_push_smallfont();
 
     rect_t hov_rect;
     uint32_t num_events = 0;
+    uint32_t timeline_row_count = gi.h / gi.text_h;
     ImU32 col_hwrunning = s_clrs().get( col_Graph_BarHwRunning );
     ImU32 col_userspace = s_clrs().get( col_Graph_BarUserspace );
     ImU32 col_hwqueue = s_clrs().get( col_Graph_BarHwQueue );
-    ImU32 color_1event = s_clrs().get( col_Graph_1Event );
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
-
-    uint32_t timeline_row_count = gi.h / gi.text_h;
-
     bool render_timeline_events = s_opts().getb( OPT_TimelineEvents );
     bool render_timeline_labels = s_opts().getb( OPT_TimelineLabels ) &&
             !s_keybd().is_alt_down();
+
+    event_renderer_t event_renderer( gi, gi.y, gi.w, gi.h );
+
+    event_renderer.m_maxwidth = 1.0f;
+    event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
+    event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -1288,121 +1291,127 @@ uint32_t TraceWin::graph_render_row_timeline( graph_info_t &gi )
     {
         const trace_event_t &fence_signaled = get_event( locs[ idx ] );
 
-        if ( fence_signaled.is_fence_signaled() &&
-             is_valid_id( fence_signaled.id_start ) )
+        if ( !fence_signaled.is_fence_signaled() || !is_valid_id( fence_signaled.id_start ) )
+            continue;
+
+        const trace_event_t &sched_run_job = get_event( fence_signaled.id_start );
+        const trace_event_t &cs_ioctl = is_valid_id( sched_run_job.id_start ) ?
+                    get_event( sched_run_job.id_start ) : sched_run_job;
+
+        //$ TODO mikesart: can we bail out of this loop at some point if
+        //  our start times for all the graphs are > gi.ts1?
+        if ( cs_ioctl.ts >= gi.ts1 )
+            continue;
+
+        bool hovered = false;
+        float y = gi.y + ( fence_signaled.graph_row_id % timeline_row_count ) * gi.text_h;
+
+        // amdgpu_cs_ioctl  amdgpu_sched_run_job   |   fence_signaled
+        //       |-----------------|---------------|--------|
+        //       |user-->          |hwqueue-->     |hw->    |
+        float x_user_start = gi.ts_to_screenx( cs_ioctl.ts );
+        float x_hwqueue_start = gi.ts_to_screenx( sched_run_job.ts );
+        float x_hwqueue_end = gi.ts_to_screenx( fence_signaled.ts - fence_signaled.duration );
+        float x_hw_end = gi.ts_to_screenx( fence_signaled.ts );
+        float xleft = gi.timeline_render_user ? x_user_start : x_hwqueue_start;
+
+        // Check if this fence_signaled is selected / hovered
+        if ( ( gi.hovered_fence_signaled == fence_signaled.id ) ||
+            gi.mouse_pos_in_rect( xleft, x_hw_end - xleft, y, gi.text_h ) )
         {
-            const trace_event_t &sched_run_job = get_event( fence_signaled.id_start );
-            const trace_event_t &cs_ioctl = is_valid_id( sched_run_job.id_start ) ?
-                        get_event( sched_run_job.id_start ) : sched_run_job;
+            // Mouse is hovering over this fence_signaled.
+            hovered = true;
+            hov_rect = { x_user_start, y, x_hw_end - x_user_start, gi.text_h };
 
-            //$ TODO mikesart: can we bail out of this loop at some point if
-            //  our start times for all the graphs are > gi.ts1?
-            if ( cs_ioctl.ts < gi.ts1 )
+            if ( !is_valid_id( gi.hovered_fence_signaled ) )
+                gi.hovered_fence_signaled = fence_signaled.id;
+        }
+
+        // Draw user bar
+        if ( hovered || gi.timeline_render_user )
+        {
+            imgui_drawrect_filled( x_user_start, y,
+                                   x_hwqueue_start - x_user_start, gi.text_h,
+                                   col_userspace );
+        }
+
+        // Draw hw queue bar
+        if ( x_hwqueue_end != x_hwqueue_start )
+        {
+            imgui_drawrect_filled( x_hwqueue_start, y,
+                                   x_hwqueue_end - x_hwqueue_start, gi.text_h,
+                                   col_hwqueue );
+        }
+
+        // Draw hw running bar
+        imgui_drawrect_filled( x_hwqueue_end, y,
+                               x_hw_end - x_hwqueue_end, gi.text_h,
+                               col_hwrunning );
+
+        if ( render_timeline_labels )
+        {
+            const ImVec2 size = ImGui::CalcTextSize( cs_ioctl.user_comm );
+            float x_text = std::max< float >( x_hwqueue_start, gi.x ) + imgui_scale( 2.0f );
+
+            if ( x_hw_end - x_text >= size.x )
             {
-                bool hovered = false;
-                float y = gi.y + ( fence_signaled.graph_row_id % timeline_row_count ) * gi.text_h;
+                ImU32 color = s_clrs().get( col_Graph_BarText );
+                const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( cs_ioctl.pid );
 
-                // amdgpu_cs_ioctl  amdgpu_sched_run_job   |   fence_signaled
-                //       |-----------------|---------------|--------|
-                //       |user-->          |hwqueue-->     |hw->    |
-                float x_user_start = gi.ts_to_screenx( cs_ioctl.ts );
-                float x_hwqueue_start = gi.ts_to_screenx( sched_run_job.ts );
-                float x_hwqueue_end = gi.ts_to_screenx( fence_signaled.ts - fence_signaled.duration );
-                float x_hw_end = gi.ts_to_screenx( fence_signaled.ts );
-                float xleft = gi.timeline_render_user ? x_user_start : x_hwqueue_start;
+                imgui_draw_text( x_text, y + imgui_scale( 1.0f ),
+                                 color, cs_ioctl.user_comm );
 
-                // Check if this fence_signaled is selected / hovered
-                if ( ( gi.hovered_fence_signaled == fence_signaled.id ) ||
-                    gi.mouse_pos_in_rect( xleft, x_hw_end - xleft, y, gi.text_h ) )
+                if ( tgid_info )
                 {
-                    // Mouse is hovering over this fence_signaled.
-                    hovered = true;
-                    hov_rect = { x_user_start, y, x_hw_end - x_user_start, gi.text_h };
+                    imgui_push_cliprect( x_text, y, x_hw_end - x_text, size.y );
 
-                    if ( !is_valid_id( gi.hovered_fence_signaled ) )
-                        gi.hovered_fence_signaled = fence_signaled.id;
+                    imgui_draw_textf( x_text + size.x, y + imgui_scale( 1.0f ),
+                                     color, "  (%s)", tgid_info->commstr );
+
+                    imgui_pop_cliprect();
                 }
-
-                // Draw user bar
-                if ( hovered || gi.timeline_render_user )
-                {
-                    imgui_drawrect_filled( x_user_start, y,
-                                           x_hwqueue_start - x_user_start, gi.text_h,
-                                           col_userspace );
-                }
-
-                // Draw hw queue bar
-                if ( x_hwqueue_end != x_hwqueue_start )
-                {
-                    imgui_drawrect_filled( x_hwqueue_start, y,
-                                           x_hwqueue_end - x_hwqueue_start, gi.text_h,
-                                           col_hwqueue );
-                }
-
-                // Draw hw running bar
-                imgui_drawrect_filled( x_hwqueue_end, y,
-                                       x_hw_end - x_hwqueue_end, gi.text_h,
-                                       col_hwrunning );
-
-                if ( render_timeline_labels )
-                {
-                    const ImVec2 size = ImGui::CalcTextSize( cs_ioctl.user_comm );
-                    float x_text = std::max< float >( x_hwqueue_start, gi.x ) + imgui_scale( 2.0f );
-
-                    if ( x_hw_end - x_text >= size.x )
-                    {
-                        ImU32 color = s_clrs().get( col_Graph_BarText );
-                        const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( cs_ioctl.pid );
-
-                        imgui_draw_text( x_text, y + imgui_scale( 1.0f ),
-                                         color, cs_ioctl.user_comm );
-
-                        if ( tgid_info )
-                        {
-                            imgui_push_cliprect( x_text, y, x_hw_end - x_text, size.y );
-
-                            imgui_draw_textf( x_text + size.x, y + imgui_scale( 1.0f ),
-                                             color, "  (%s)", tgid_info->commstr );
-
-                            imgui_pop_cliprect();
-                        }
-                    }
-                }
-
-                if ( render_timeline_events )
-                {
-                    if ( cs_ioctl.id != sched_run_job.id )
-                    {
-                        // Draw event line for start of user
-                        imgui_drawrect_filled( x_user_start, y, 1.0, gi.text_h, color_1event );
-
-                        // Check if we're mouse hovering starting event
-                        if ( gi.mouse_over && ( gi.mouse_pos.y >= y ) && ( gi.mouse_pos.y <= y + gi.text_h ) )
-                        {
-                            // If we are hovering, and no selection bar is set, do it.
-                            if ( gi.add_mouse_hovered_event( x_user_start, cs_ioctl ) &&
-                                 ( hov_rect.x == FLT_MAX ) )
-                            {
-                                hov_rect = { x_user_start, y, x_hw_end - x_user_start, gi.text_h };
-
-                                // Draw user bar for hovered events if they weren't already drawn
-                                if ( !hovered && !gi.timeline_render_user )
-                                    imgui_drawrect_filled( x_user_start, y,
-                                                           x_hwqueue_start - x_user_start, gi.text_h,
-                                                           col_userspace );
-                            }
-                        }
-                    }
-
-                    // Draw event line for hwqueue start and hw end
-                    imgui_drawrect_filled( x_hwqueue_start, y, 1.0, gi.text_h, color_1event );
-                    imgui_drawrect_filled( x_hw_end, y, 1.0, gi.text_h, color_1event );
-                }
-
-                num_events++;
             }
         }
+
+        if ( render_timeline_events )
+        {
+            event_renderer.set_y( y, gi.text_h );
+
+            if ( cs_ioctl.id != sched_run_job.id )
+            {
+                // Draw event line for start of user
+                event_renderer.add_event( cs_ioctl.id, x_user_start, cs_ioctl.color );
+
+                // Check if we're mouse hovering starting event
+                if ( gi.mouse_over && ( gi.mouse_pos.y >= y ) && ( gi.mouse_pos.y <= y + gi.text_h ) )
+                {
+                    // If we are hovering, and no selection bar is set, do it.
+                    if ( gi.add_mouse_hovered_event( x_user_start, cs_ioctl ) &&
+                         ( hov_rect.x == FLT_MAX ) )
+                    {
+                        hov_rect = { x_user_start, y, x_hw_end - x_user_start, gi.text_h };
+
+                        // Draw user bar for hovered events if they weren't already drawn
+                        if ( !hovered && !gi.timeline_render_user )
+                        {
+                            imgui_drawrect_filled( x_user_start, y,
+                                                   x_hwqueue_start - x_user_start, gi.text_h,
+                                                   col_userspace );
+                        }
+                    }
+                }
+            }
+
+            // Draw event line for hwqueue start and hw end
+            event_renderer.add_event( sched_run_job.id, x_hwqueue_start, sched_run_job.color );
+            event_renderer.add_event( fence_signaled.id, x_hw_end, fence_signaled.color );
+        }
+
+        num_events++;
     }
+
+    event_renderer.done();
+    event_renderer.draw_event_markers( this, gi );
 
     imgui_drawrect( hov_rect, s_clrs().get( col_Graph_BarSelRect ) );
 
@@ -1582,7 +1591,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     float row_h = gi.text_h;
     ImU32 textcolor = s_clrs().get( col_Graph_BarText );
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
-    event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
+    event_renderer_t event_renderer( gi, gi.y, gi.w, gi.h );
     uint32_t row_count = std::max< uint32_t >( 1, gi.h / row_h );
     const trace_event_t *pevent_sel = NULL;
 
@@ -3374,7 +3383,7 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
 
     // Check if mouse if over our graph and we've got focus
     m_graph.is_mouse_over = gi.mouse_pos_in_graph() &&
-                         ImGui::IsRootWindowOrAnyChildFocused();
+            ImGui::IsRootWindowOrAnyChildFocused();
 
     // If we don't own the mouse and we don't have focus, bail.
     if ( !m_graph.mouse_captured && !m_graph.is_mouse_over )
