@@ -930,8 +930,8 @@ void FontInfo::load_font( const char *section, const char *defname, float defsiz
     if ( m_reset )
     {
         m_name = defname;
-        m_filename = "";
         m_size = defsize;
+        m_filename.clear();
 
         m_reset = false;
     }
@@ -954,7 +954,7 @@ void FontInfo::load_font( const char *section, const char *defname, float defsiz
     if ( !m_filename.empty() )
         strcpy_safe( m_input_filename, m_filename.c_str() );
 
-    m_input_filename_err = "";
+    m_input_filename_err.clear();
 
     float fontsize = Clamp< float >( imgui_scale( m_size ), 6.0, 96.0f );
     if ( m_font_id == FontID_TTFFile )
@@ -1051,7 +1051,7 @@ void FontInfo::render_font_options( bool m_use_freetype )
             else
             {
                 m_filename = m_input_filename;
-                m_input_filename_err = "";
+                m_input_filename_err.clear();
                 changed = true;
             }
         }

@@ -2445,7 +2445,7 @@ void TraceWin::graph_render()
         // If we don't have a popup menu, clear the mouse over row name
         if ( !m_graph.popupmenu )
         {
-            m_graph.mouse_over_row_name = "";
+            m_graph.mouse_over_row_name.clear();
             m_graph.mouse_over_row_type = LOC_TYPE_Max;
         }
 
@@ -2650,7 +2650,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     if ( !ImGui::BeginPopup( "GraphPopup" ) )
         return false;
 
-    std::string row_name = m_graph.mouse_over_row_name;
+    const std::string &row_name = m_graph.mouse_over_row_name;
     std::string row_name_bright = s_textclrs().bright_str( row_name );
 
     if ( !row_name.empty() )
@@ -3081,22 +3081,22 @@ void TraceWin::graph_set_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
             s_opts().getb( OPT_ShowEventList );
     const char *clr_bright = s_textclrs().str( TClr_Bright );
     const char *clr_def = s_textclrs().str( TClr_Def );
+    const std::string &row_name = m_graph.mouse_over_row_name;
 
     if ( gi.mouse_pos_scaled_ts != INT64_MIN )
     {
         time_buf += string_format( "\"%s\" Time: %s\nGraph ",
-                                   m_graph.mouse_over_row_name.c_str(),
+                                   row_name.c_str(),
                                    ts_to_timestr( gi.mouse_pos_scaled_ts, 6, "" ).c_str() );
     }
     time_buf += "Time: " + ts_to_timestr( mouse_ts, 6, "" );
 
-    if ( m_graph.mouse_over_row_name != m_graph.mouse_over_row_filter )
+    if ( row_name != m_graph.mouse_over_row_filter )
         time_buf += "\nFilter: " + m_graph.mouse_over_row_filter + "\n";
 
-    if ( !m_graph.mouse_over_row_name.empty() &&
+    if ( !row_name.empty() &&
          ( m_graph.mouse_over_row_type == LOC_TYPE_Comm ) )
     {
-        const std::string &row_name = m_graph.mouse_over_row_name;
         const char *commstr = m_trace_events.tgidcomm_from_commstr( row_name.c_str() );
 
         time_buf += std::string( "\n" ) + commstr;

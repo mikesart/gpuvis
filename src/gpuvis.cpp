@@ -468,7 +468,7 @@ bool MainApp::is_loading()
 
 void MainApp::set_state( state_t state )
 {
-    m_loading_info.filename = "";
+    m_loading_info.filename.clear();
     m_loading_info.trace_events = NULL;
     m_loading_info.thread = NULL;
 

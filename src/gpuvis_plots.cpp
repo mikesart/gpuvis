@@ -73,7 +73,7 @@ const std::string CreatePlotDlg::get_plot_str( const trace_event_t &event )
 bool CreatePlotDlg::init( TraceEvents &trace_events, uint32_t eventid )
 {
     m_plot = NULL;
-    m_plot_name = "";
+    m_plot_name.clear();
 
     if ( !is_valid_id( eventid ) )
         return false;
