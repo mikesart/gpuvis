@@ -1849,8 +1849,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
                 colors_t col = ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0;
                 float x = gi.ts_to_screenx( event.ts );
 
-                imgui_drawrect_filled( x, gi.y,
-                                       imgui_scale( 1.0f ), gi.h,
+                imgui_drawrect_filled( x, gi.y, imgui_scale( 1.0f ), gi.h,
                                        s_clrs().get( col, alpha ) );
             }
         }
@@ -1945,7 +1944,7 @@ void TraceWin::graph_render_framemarker_frames( graph_info_t &gi )
 
 void TraceWin::graph_render_mouse_pos( graph_info_t &gi )
 {
-    // Draw location line for mouse if mouse is over graph
+    // Draw location line for mouse if is over graph
     if ( m_graph.is_mouse_over &&
          gi.mouse_pos.x >= gi.x &&
          gi.mouse_pos.x <= gi.x + gi.w )
@@ -1971,31 +1970,28 @@ void TraceWin::graph_render_mouse_pos( graph_info_t &gi )
 
 void TraceWin::graph_render_eventids( graph_info_t &gi )
 {
-    if ( is_valid_id( m_eventlist.hovered_eventid ) )
+    const struct
     {
-        trace_event_t &event = get_event( m_eventlist.hovered_eventid );
-
-        if ( event.ts >= gi.ts0 && event.ts <= gi.ts1 )
-        {
-            float x = gi.ts_to_screenx( event.ts );
-
-            imgui_drawrect_filled( x, gi.y,
-                                   imgui_scale( 1.0f ), gi.h,
-                                   s_clrs().get( col_Graph_HovEvent, 120 ) );
-        }
-    }
-
-    if ( is_valid_id( m_eventlist.selected_eventid ) )
+        uint32_t eventid;
+        ImU32 color;
+    } events[] =
     {
-        trace_event_t &event = get_event( m_eventlist.selected_eventid );
+        { m_eventlist.hovered_eventid, s_clrs().get( col_Graph_HovEvent, 120 ) },
+        { m_eventlist.selected_eventid, s_clrs().get( col_Graph_SelEvent, 120 ) },
+    };
 
-        if ( event.ts >= gi.ts0 && event.ts <= gi.ts1 )
+    for ( const auto &item : events )
+    {
+        if ( is_valid_id( item.eventid ) )
         {
-            float x = gi.ts_to_screenx( event.ts );
+            trace_event_t &event = get_event( item.eventid );
 
-            imgui_drawrect_filled( x, gi.y,
-                                   imgui_scale( 1.0f ), gi.h,
-                                   s_clrs().get( col_Graph_SelEvent, 120 ) );
+            if ( event.ts >= gi.ts0 && event.ts <= gi.ts1 )
+            {
+                float x = gi.ts_to_screenx( event.ts );
+
+                imgui_drawrect_filled( x, gi.y, imgui_scale( 1.0f ), gi.h, item.color );
+            }
         }
     }
 }
