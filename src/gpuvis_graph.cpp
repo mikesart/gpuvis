@@ -52,8 +52,6 @@
   > separate rows in the graph, and I also want to be able to define "begin" and
   > "end" events which gets translate into bars in gpuvis
 
-  Check if entire rows are clipped when drawing...
-
   Feedback:
     - the gfx waterfall view was confusing to everyone, zoomed in or not.
     They were all expecting something like the gpuview "stacked" view where
@@ -320,7 +318,7 @@ static bool imgui_is_rect_clipped( float x, float y, float w, float h )
 
     if ( ( x > cr.z ) || ( x + w < cr.x ) )
         return true;
-    if ( ( y > cr.w ) || ( y + w < cr.y ) )
+    if ( ( y > cr.w ) || ( y + h < cr.y ) )
         return true;
 
     return false;
@@ -2532,7 +2530,9 @@ void TraceWin::graph_render()
                     float y = windowpos.y + ri.row_y + start_y;
 
                     gi.set_pos_y( y, ri.row_h, &ri );
-                    graph_render_row( gi );
+
+                    if ( !imgui_is_rect_clipped( gi.x, gi.y, gi.w, gi.h ) )
+                        graph_render_row( gi );
                 }
             }
         }
