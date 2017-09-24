@@ -1092,8 +1092,25 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         {
             // Adding a new event at x,y. If we had a previous event and
             // there is room for the label, draw it.
-            if ( m_print_info && ( x - m_x > m_print_info->rect_size.x ) )
-                imgui_draw_text( m_x, m_y, m_event->color, m_print_info->buf );
+            if ( m_print_info )
+            {
+                const ImVec2 &size = m_print_info->size;
+
+                if ( x - m_x > size.x )
+                {
+                    imgui_draw_text( m_x, m_y, m_event->color, m_print_info->buf );
+                }
+#if 0
+                //$ TODO: Add ...s in here?
+                // Draw as much text as we can.
+                else if ( x - m_x > imgui_scale( 16.0f ) )
+                {
+                    imgui_push_cliprect( m_x, m_y, x - m_x, size.y );
+                    imgui_draw_text( m_x, m_y, m_event->color, m_print_info->buf );
+                    imgui_pop_cliprect();
+                }
+#endif
+            }
 
             m_x = x + imgui_scale( 3.0f );
             m_y = y + imgui_scale( 2.0f );
@@ -1107,7 +1124,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     // We need to start drawing to the left of 0 for timeline_labels
     bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
             !s_keybd().is_alt_down();
-    int64_t ts = timeline_labels ? gi.screenx_to_ts( gi.x - m_trace_events.m_rect_size_max_x ) : gi.ts0;
+    int64_t ts = timeline_labels ? gi.screenx_to_ts( gi.x - m_trace_events.m_print_size_max ) : gi.ts0;
     uint32_t eventstart = ts_to_eventid( ts );
 
     event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
@@ -2364,7 +2381,7 @@ void TraceWin::graph_render()
 {
     graph_info_t gi;
 
-    if ( m_trace_events.m_rect_size_max_x == -1.0f )
+    if ( m_trace_events.m_print_size_max == -1.0f )
     {
         imgui_push_smallfont();
         m_trace_events.update_ftraceprint_colors();

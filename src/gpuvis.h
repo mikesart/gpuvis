@@ -402,10 +402,10 @@ public:
     {
         const char *buf;
         const char *buf_end;
-        ImVec2 rect_size;
+        ImVec2 size;
     };
     util_umap< uint32_t, event_print_info_t > m_print_buf_info;
-    float m_rect_size_max_x = -1.0f;
+    float m_print_size_max = -1.0f;
 
     // plot name to GraphPlot
     util_umap< uint32_t, GraphPlot > m_graph_plots;

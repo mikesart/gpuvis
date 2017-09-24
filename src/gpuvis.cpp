@@ -1386,7 +1386,7 @@ void TraceEvents::calculate_event_print_info()
 
 void TraceEvents::invalidate_ftraceprint_colors()
 {
-    m_rect_size_max_x = -1.0f;
+    m_print_size_max = -1.0f;
 }
 
 void TraceEvents::update_ftraceprint_colors()
@@ -1394,16 +1394,16 @@ void TraceEvents::update_ftraceprint_colors()
     float label_sat = s_clrs().getalpha( col_Graph_PrintLabelSat );
     float label_alpha = s_clrs().getalpha( col_Graph_PrintLabelAlpha );
 
-    m_rect_size_max_x = 0.0f;
+    m_print_size_max = 0.0f;
 
     for ( auto &entry : m_print_buf_info.m_map )
     {
         trace_event_t &event = m_events[ entry.first ];
         event_print_info_t &print_info = entry.second;
 
-        print_info.rect_size = ImGui::CalcTextSize( print_info.buf );
+        print_info.size = ImGui::CalcTextSize( print_info.buf );
 
-        m_rect_size_max_x = std::max< float >( print_info.rect_size.x, m_rect_size_max_x );
+        m_print_size_max = std::max< float >( print_info.size.x, m_print_size_max );
 
         // Mark this event as autogen'd color so it doesn't get overwritten
         event.flags |= TRACE_FLAG_AUTOGEN_COLOR;
