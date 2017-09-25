@@ -507,7 +507,7 @@ void graph_info_t::init_rows( TraceWin *win, const std::vector< GraphRows::graph
         rinfo.row_h = text_h * 2;
         rinfo.row_name = row_name;
         rinfo.row_filter = grow.row_filter;
-        rinfo.scale_ts = win->m_graph.rows.get_row_scale( row_name );
+        rinfo.scale_ts = win->m_graph.rows.get_row_scale_ts( row_name );
 
         if ( plocs )
             rinfo.render_cb = get_render_cb( win, rinfo.row_type );
@@ -2665,7 +2665,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
                 label = string_format( "Hide rows for process '%s'", tgid_info->commstr_clr );
 
                 if ( ImGui::MenuItem( label.c_str() ) )
-                    m_graph.rows.show_tgid( tgid_info, GraphRows::HIDE_ROW );
+                    m_graph.rows.show_tgid_rows( tgid_info, GraphRows::HIDE_ROW );
             }
         }
     }
@@ -2696,7 +2696,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
                                                            tgid_info->pids.size() );
 
                         if ( ImGui::MenuItem( label.c_str() ) )
-                            m_graph.rows.show_tgid( tgid_info, GraphRows::SHOW_ROW );
+                            m_graph.rows.show_tgid_rows( tgid_info, GraphRows::SHOW_ROW );
 
                         tgids_hidden.push_back( tgid_info );
                     }
@@ -2775,7 +2775,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     if ( !row_name.empty() )
     {
-        float valf = m_graph.rows.get_row_scale( row_name );
+        float valf = m_graph.rows.get_row_scale_ts( row_name );
         std::string label = string_format( "Scale time: %sx", "%.02f" );
 
         ImGui::PushItemWidth( imgui_scale( 200.0f ) );
@@ -3020,8 +3020,15 @@ void TraceWin::graph_set_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
     }
     time_buf += "Time: " + ts_to_timestr( mouse_ts, 6, "" );
 
-    if ( row_name != m_graph.mouse_over_row_filter )
+    if ( m_graph.mouse_over_row_type == LOC_TYPE_Plot )
+    {
+        GraphPlot &plot = m_trace_events.get_plot( row_name.c_str() );
+        time_buf += "\nFilter: " + plot.m_filter_str + "\n";
+    }
+    else if ( row_name != m_graph.mouse_over_row_filter )
+    {
         time_buf += "\nFilter: " + m_graph.mouse_over_row_filter + "\n";
+    }
 
     if ( !row_name.empty() &&
          ( m_graph.mouse_over_row_type == LOC_TYPE_Comm ) )

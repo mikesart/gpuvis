@@ -188,7 +188,6 @@ public:
 
     bool init( TraceEvents &trace_events, uint32_t eventid );
     bool render_dlg( TraceEvents &trace_events );
-    void add_plot( class GraphRows &rows );
 
     static const std::string get_plot_str( const trace_event_t &event );
 
@@ -424,19 +423,30 @@ public:
     ~GraphRows() {}
 
 public:
+    struct graph_rows_info_t
+    {
+        loc_type_t type;
+        std::string row_name;
+        std::string row_filter;
+        size_t event_count;
+        bool hidden;
+    };
+
+public:
     // Initialize graph rows
     void init( TraceEvents &trace_events );
     void shutdown();
 
-    struct graph_rows_info_t
-    {
-        std::string row_name;
-        std::string row_filter;
-        loc_type_t type;
-        size_t event_count;
-        bool hidden;
-    };
+    void add_row( const std::string &name, const std::string &filter, float scale = 1.0f );
+    void move_row( const std::string &name_src, const std::string &name_dest );
+
+    // Search in m_graph_rows_list for name. Returns index or -1 if not found.
+    size_t find_row( const std::string &name, size_t not_found_val = ( size_t )-1 );
+    graph_rows_info_t *get_row( const std::string &name );
+
     const std::vector< graph_rows_info_t > get_hidden_rows_list();
+
+    float get_row_scale_ts( const std::string &name );
 
     enum graph_rows_show_t
     {
@@ -446,23 +456,11 @@ public:
         HIDE_ROW_AND_ALL_BELOW
     };
     void show_row( const std::string &name, graph_rows_show_t show );
-    void add_row( const std::string &name, const std::string &filter, float scale = 1.0f );
-    void move_row( const std::string &name_src, const std::string &name_dest );
+    void show_tgid_rows( const tgid_info_t *tgid_info, graph_rows_show_t show );
 
+protected:
     void push_row( const std::string &name, loc_type_t type, size_t event_count )
-        { m_graph_rows_list.push_back( { name, name, type, event_count, false } ); }
-
-    void show_tgid( const tgid_info_t *tgid_info, graph_rows_show_t show );
-
-    // Search in m_graph_rows_list for name. Returns index or -1 if not found.
-    size_t find_row( const std::string &name, size_t not_found_val = ( size_t )-1 );
-
-    float get_row_scale( const std::string &name )
-    {
-        const std::string *scale_ts_str = m_graph_row_scale_ts.get_val( name );
-
-        return scale_ts_str ? atof( scale_ts_str->c_str() ) : 1.0f;
-    }
+        { m_graph_rows_list.push_back( { type, name, name, event_count, false } ); }
 
 public:
     TraceEvents *m_trace_events = nullptr;

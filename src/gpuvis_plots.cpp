@@ -238,21 +238,6 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
     return !!m_plot;
 }
 
-void CreatePlotDlg::add_plot( GraphRows &rows )
-{
-    if ( rows.find_row( m_plot_name ) == ( size_t )-1 )
-    {
-        size_t print_row_index = rows.find_row( "print", rows.m_graph_rows_list.size() - 1 );
-        auto it = rows.m_graph_rows_list.begin() + print_row_index + 1;
-
-        rows.m_graph_rows_list.insert( it,
-                { m_plot_name, m_plot_name, LOC_TYPE_Plot, m_plot->m_plotdata.size(), false } );
-    }
-
-    std::string val = string_format( "%s\t%s", m_plot->m_filter_str.c_str(), m_plot->m_scanf_str.c_str() );
-    s_ini().PutStr( m_plot_name.c_str(), val.c_str(), "$graph_plots$" );
-}
-
 bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
                       const std::string &filter_str, const std::string scanf_str )
 {

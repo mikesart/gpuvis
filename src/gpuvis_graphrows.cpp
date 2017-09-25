@@ -56,7 +56,7 @@ const std::vector< GraphRows::graph_rows_info_t > GraphRows::get_hidden_rows_lis
     return hidden_rows;
 }
 
-void GraphRows::show_tgid( const tgid_info_t *tgid_info, graph_rows_show_t show )
+void GraphRows::show_tgid_rows( const tgid_info_t *tgid_info, graph_rows_show_t show )
 {
     for ( int pid : tgid_info->pids )
     {
@@ -114,7 +114,6 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
                     break;
 
                 found = true;
-
             }
         }
     }
@@ -362,9 +361,7 @@ void GraphRows::init( TraceEvents &trace_events )
                     GraphPlot &plot = trace_events.get_plot( plot_name.c_str() );
 
                     if ( plot.init( trace_events, plot_name, plot_filter, plot_scanf ) )
-                    {
                         push_row( plot_name, LOC_TYPE_Plot, plot.m_plotdata.size() );
-                    }
                 }
             }
         }
@@ -376,7 +373,7 @@ void GraphRows::init( TraceEvents &trace_events )
         uint32_t hashval = item.first;
         const char *comm = trace_events.m_strpool.findstr( hashval );
 
-        comms.push_back( { comm, comm, LOC_TYPE_Comm, item.second.size(), false } );
+        comms.push_back( { LOC_TYPE_Comm, comm, comm, item.second.size(), false } );
     }
 
     // Sort by tgids, count of events, and comm name...
@@ -463,14 +460,37 @@ void GraphRows::shutdown()
     save_umap_ini_entries( m_graph_row_scale_ts, "$graph_rows_scale_ts$" );
 }
 
-void GraphRows::add_row( const std::string &name, const std::string &filter, float scale )
+void GraphRows::add_row( const std::string &name_in, const std::string &filter, float scale )
 {
     loc_type_t type;
+    std::string name = name_in;
     const std::vector< uint32_t > *plocs = m_trace_events->get_locs( filter.c_str(), &type );
-    size_t size = plocs ? plocs->size() : 0;
+    size_t event_count = plocs ? plocs->size() : 0;
 
-    // Add expression to our added rows list
-    m_graph_rows_add.m_map[ name ] = filter;
+    if ( type == LOC_TYPE_Tdopexpr )
+    {
+        graph_rows_info_t *row = get_row( name );
+
+        // If this is a user created row, make sure they're not overwriting an existing row
+        if ( row && ( row->type != type ) )
+            name += "_2";
+    }
+
+    if ( type == LOC_TYPE_Plot )
+    {
+        GraphPlot &plot = m_trace_events->get_plot( name.c_str() );
+        std::string val = string_format( "%s\t%s",
+                plot.m_filter_str.c_str(), plot.m_scanf_str.c_str() );
+
+        s_ini().PutStr( name.c_str(), val.c_str(), "$graph_plots$" );
+    }
+    else
+    {
+        // Add expression to our added rows list
+        m_graph_rows_add.m_map[ name ] = filter;
+    }
+
+    // Set time scale
     m_graph_row_scale_ts.m_map[ name ] = string_format( "%.2f", scale );
 
     size_t idx = find_row( name );
@@ -480,8 +500,16 @@ void GraphRows::add_row( const std::string &name, const std::string &filter, flo
 
         row.row_filter = filter;
         row.type = type;
-        row.event_count = size;
+        row.event_count = event_count;
         row.hidden = false;
+    }
+    else if ( type == LOC_TYPE_Plot )
+    {
+        size_t print_row_index = find_row( "print", m_graph_rows_list.size() - 1 );
+        auto it = m_graph_rows_list.begin() + print_row_index + 1;
+
+        m_graph_rows_list.insert( it,
+            { LOC_TYPE_Plot, name, filter, event_count, false } );
     }
     else
     {
@@ -492,13 +520,13 @@ void GraphRows::add_row( const std::string &name, const std::string &filter, flo
                  m_graph_rows_list[ i ].type == LOC_TYPE_Comm )
             {
                 m_graph_rows_list.insert( m_graph_rows_list.begin() + i,
-                    { name, filter, type, size, false } );
+                    { type, name, filter, event_count, false } );
                 return;
             }
         }
 
         // Just add to the end.
-        m_graph_rows_list.push_back( { name, filter, type, size, false } );
+        m_graph_rows_list.push_back( { type, name, filter, event_count, false } );
     }
 }
 
@@ -528,4 +556,18 @@ size_t GraphRows::find_row( const std::string &name, size_t not_found_val )
     auto idx = std::find_if( m_graph_rows_list.begin(), m_graph_rows_list.end(), lambda_name_cmp );
 
     return ( idx != m_graph_rows_list.end() ) ? ( idx - m_graph_rows_list.begin() ) : not_found_val;
+}
+
+GraphRows::graph_rows_info_t *GraphRows::get_row( const std::string &name )
+{
+    auto idx = find_row( name );
+
+    return ( idx == ( size_t )-1 ) ? NULL : &m_graph_rows_list[ idx ];
+}
+
+float GraphRows::get_row_scale_ts( const std::string &name )
+{
+    const std::string *scale_ts_str = m_graph_row_scale_ts.get_val( name );
+
+    return scale_ts_str ? atof( scale_ts_str->c_str() ) : 1.0f;
 }

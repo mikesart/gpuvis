@@ -2617,7 +2617,7 @@ bool TraceWin::render()
         m_create_plot_eventid = INVALID_ID;
     }
     if ( m_create_plot_dlg.render_dlg( m_trace_events ) )
-        m_create_plot_dlg.add_plot( m_graph.rows );
+        m_graph.rows.add_row( m_create_plot_dlg.m_plot_name, m_create_plot_dlg.m_plot_name );
 
     // Graph rows
     if ( is_valid_id( m_create_graph_row_eventid ) )
