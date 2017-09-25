@@ -42,7 +42,7 @@
 #include "gpuvis.h"
 
 /*
-  **** TODO list... ****
+  **** TODO list ****
 
   Fix overwriting rows: Ie, adding a row named gfx
 
@@ -53,100 +53,11 @@
   > "end" events which gets translate into bars in gpuvis
 
   Feedback:
-    - the gfx waterfall view was confusing to everyone, zoomed in or not.
+    The gfx waterfall view was confusing to everyone, zoomed in or not.
     They were all expecting something like the gpuview "stacked" view where
     it only overlaps if it has to. Not sure if it's just a matter of habit
     or if we should have it as an alternate method.
 */
-
-/*
-  From conversations with Andres and Pierre-Loup...
-
-  These are the important events:
-
-  amdgpu_cs_ioctl:
-    this event links a userspace submission with a kernel job
-    it appears when a job is received from userspace
-    dictates the userspace PID for the whole unit of work
-      ie, the process that owns the work executing on the gpu represented by the bar
-    only event executed within the context of the userspace process
-
-  amdgpu_sched_run_job:
-    links a job to a dma_fence object, the queue into the HW event
-    start of the bar in the gpu timeline; either right now if no job is running, or when the currently running job finishes
-
-  *fence_signaled:
-    job completed
-    dictates the end of the bar
-
-  notes:
-    amdgpu_cs_ioctl and amdgpu_sched_run_job have a common job handle
-
-  We want to match: timeline, context, seqno.
-
-    There are separate timelines for each gpu engine
-    There are two dma timelines (one per engine)
-    And 8 compute timelines (one per hw queue)
-    They are all concurrently executed
-      Most apps will probably only have a gfx timeline
-      So if you populate those lazily it should avoid clogging the ui
-
-  Andres warning:
-    btw, expect to see traffic on some queues that was not directly initiated by an app
-    There is some work the kernel submits itself and that won't be linked to any cs_ioctl
-
-  Example:
-
-  ; userspace submission
-    SkinningApp-2837 475.1688: amdgpu_cs_ioctl:      sched_job=185904, timeline=gfx, context=249, seqno=91446, ring_name=ffff94d7a00d4694, num_ibs=3
-
-  ; gpu starting job
-            gfx-477  475.1689: amdgpu_sched_run_job: sched_job=185904, timeline=gfx, context=249, seqno=91446, ring_name=ffff94d7a00d4694, num_ibs=3
-
-  ; job completed
-         <idle>-0    475.1690: fence_signaled:       driver=amd_sched timeline=gfx context=249 seqno=91446
- */
-
-/*
-    Linux scheduler events:
-
-    sched_switch (scheduler context-switch)
-      prev_comm: thread_1
-      prev_pid: 1154
-      prev_state: [0|1|64] TASK_RUNNING:0, TASK_INTERRUPTABLE:1, TASK_UNINTERRUPTIBLE:2, TASK_DEAD:64, etc.
-      next_comm: swapper/2
-      next_pid: 0
-
-    sched_wakeup / sched_wakeup_new (tracepoint called when task is actually woken)
-      pid: 1144
-      success: 1
-      target_cpu: 4
-
-    sched_migrate_task (task migrated to new cpu)
-      com: rcu_sched
-      pid: 8
-      orig_cpu: 1
-      dest_cpu: 4
-
-    sched_process_exec (exec)
-      filename: /home/mikesart/dev/amdgpu/pthreads
-      pid: 1152
-      old_pid: 1152
-
-    sched_process_fork (do_fork)
-      parent_comm: thread_main
-      parent_pid: 1152
-      child_comm: thread_main
-      child_pid: 1154
-
-    sched_process_exit (task exiting)
-      Comm: thread_1-1154
-      comm: thread_1
-      pid: 1154
-
-    sched_wait_task (waiting on task to unschedule)
-    sched_process_wait (waiting task)
- */
 
 struct rect_t
 {
@@ -229,7 +140,7 @@ struct row_info_t
 class graph_info_t
 {
 public:
-    void init_row_info( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows );
+    void init_rows( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows );
 
     void init( TraceWin *win, float x, float w );
     void set_ts( TraceWin *win, int64_t start_ts, int64_t length_ts );
@@ -255,15 +166,15 @@ public:
     RenderGraphRowCallback get_render_cb( TraceWin *win, loc_type_t row_type );
 
 public:
-    float x, y, w, h;
+    float x, y, w, h;    // current drawing dimensions
 
-    int64_t ts0;
-    int64_t ts1;
-    int64_t tsdx;
-    double tsdxrcp;
+    int64_t ts0;         // visible start time of graph
+    int64_t ts1;         // visible end time of graph
+    int64_t tsdx;        // ts1 - ts0
+    double tsdxrcp;      // 1 / tsdx
 
-    uint32_t eventstart;
-    uint32_t eventend;
+    uint32_t eventstart; // visible start event of graph
+    uint32_t eventend;   // visible end event of graph
 
     bool mouse_over;
     ImVec2 mouse_pos;
@@ -303,11 +214,11 @@ public:
     row_info_t *prinfo_zoom = nullptr;
     row_info_t *prinfo_zoom_hw = nullptr;
 
-    float text_h;
+    float text_h; // ImGui::GetTextLineHeightWithSpacing() for small font
     float visible_graph_height;
     float total_graph_height;
 
-    // row_info id we need to make sure is visible
+    // row_info id we need to show in visible area
     size_t show_row_id = ( size_t )-1;
 };
 
@@ -567,7 +478,7 @@ RenderGraphRowCallback graph_info_t::get_render_cb( TraceWin *win, loc_type_t ro
     }
 }
 
-void graph_info_t::init_row_info( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows )
+void graph_info_t::init_rows( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows )
 {
     uint32_t id = 0;
 
@@ -1077,6 +988,9 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
 uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 {
     imgui_push_smallfont();
+
+    if ( m_trace_events.m_print_size_max == -1.0f )
+        m_trace_events.update_ftraceprint_colors();
 
     struct row_draw_info_t
     {
@@ -2384,15 +2298,8 @@ void TraceWin::graph_render()
 {
     graph_info_t gi;
 
-    if ( m_trace_events.m_print_size_max == -1.0f )
-    {
-        imgui_push_smallfont();
-        m_trace_events.update_ftraceprint_colors();
-        imgui_pop_font();
-    }
-
-    // Initialize our row size, location, etc information based on our graph rows
-    gi.init_row_info( this, m_graph.rows.m_graph_rows_list );
+    // Initialize our row size, location, etc information based on our graph row list
+    gi.init_rows( this, m_graph.rows.m_graph_rows_list );
 
     if ( !m_graph.zoom_row_name.empty() )
     {
@@ -2444,8 +2351,8 @@ void TraceWin::graph_render()
                                s_clrs().get( col_Graph_Bk ) );
 
         // Initialize our graphics info struct
-        gi.set_ts( this, m_graph.start_ts, m_graph.length_ts );
         gi.init( this, windowpos.x, windowsize.x );
+        gi.set_ts( this, m_graph.start_ts, m_graph.length_ts );
 
         // If we have a show row id, make sure it's visible
         if ( gi.show_row_id != ( size_t )-1 )
@@ -2537,7 +2444,7 @@ void TraceWin::graph_render()
             }
         }
 
-        // Render full graph ticks, vblanks, cursor pos, etc.
+        // Render full screen stuff: graph ticks, vblanks, cursor pos, etc.
         gi.set_pos_y( windowpos.y, windowsize.y, NULL );
         graph_render_time_ticks( gi );
         graph_render_vblanks( gi );

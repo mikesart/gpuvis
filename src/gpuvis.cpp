@@ -1843,7 +1843,53 @@ void TraceEvents::set_event_color( const std::string &eventname, ImU32 color )
     }
 }
 
-// Go through gfx, sdma0, sdma1, etc. timelines and calculate event durations
+/*
+  From conversations with Andres and Pierre-Loup...
+
+  These are the important events:
+
+  amdgpu_cs_ioctl:
+    this event links a userspace submission with a kernel job
+    it appears when a job is received from userspace
+    dictates the userspace PID for the whole unit of work
+      ie, the process that owns the work executing on the gpu represented by the bar
+    only event executed within the context of the userspace process
+
+  amdgpu_sched_run_job:
+    links a job to a dma_fence object, the queue into the HW event
+    start of the bar in the gpu timeline; either right now if no job is running, or when the currently running job finishes
+
+  *fence_signaled:
+    job completed
+    dictates the end of the bar
+
+  notes:
+    amdgpu_cs_ioctl and amdgpu_sched_run_job have a common job handle
+
+  We want to match: timeline, context, seqno.
+
+    There are separate timelines for each gpu engine
+    There are two dma timelines (one per engine)
+    And 8 compute timelines (one per hw queue)
+    They are all concurrently executed
+      Most apps will probably only have a gfx timeline
+      So if you populate those lazily it should avoid clogging the ui
+
+  Andres warning:
+    btw, expect to see traffic on some queues that was not directly initiated by an app
+    There is some work the kernel submits itself and that won't be linked to any cs_ioctl
+
+  Example:
+
+  ; userspace submission
+    SkinningApp-2837 475.1688: amdgpu_cs_ioctl:      sched_job=185904, timeline=gfx, context=249, seqno=91446, ring_name=ffff94d7a00d4694, num_ibs=3
+
+  ; gpu starting job
+            gfx-477  475.1689: amdgpu_sched_run_job: sched_job=185904, timeline=gfx, context=249, seqno=91446, ring_name=ffff94d7a00d4694, num_ibs=3
+
+  ; job completed
+         <idle>-0    475.1690: fence_signaled:       driver=amd_sched timeline=gfx context=249 seqno=91446
+ */
 void TraceEvents::calculate_amd_event_durations()
 {
     std::vector< uint32_t > erase_list;
@@ -1851,6 +1897,7 @@ void TraceEvents::calculate_amd_event_durations()
     float label_sat = s_clrs().getalpha( col_Graph_TimelineLabelSat );
     float label_alpha = s_clrs().getalpha( col_Graph_TimelineLabelAlpha );
 
+    // Go through gfx, sdma0, sdma1, etc. timelines and calculate event durations
     for ( auto &timeline_locs : m_amd_timeline_locs.m_locs.m_map )
     {
         uint32_t graph_row_id = 0;
