@@ -83,38 +83,27 @@ void GraphRows::show_row( const std::string &name, graph_rows_show_t show )
         if ( idx != m_graph_rows_hide.end() )
             m_graph_rows_hide.erase( idx );
 
-        // Search for it in m_graph_rows_list and mark as not hidden
-        for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
-        {
-            if ( m_graph_rows_list[ i ].row_name == name )
-            {
-                m_graph_rows_list[ i ].hidden = false;
-                break;
-            }
-        }
+        // Mark row as visible
+        graph_rows_info_t *prow = get_row( name );
+        if ( prow )
+            prow->hidden = false;
     }
     else if ( ( show == GraphRows::HIDE_ROW ) ||
               ( show == GraphRows::HIDE_ROW_AND_ALL_BELOW ) )
     {
-        bool found = false;
-
-        for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
+        for ( size_t i = find_row( name ); i < m_graph_rows_list.size(); i++ )
         {
-            if ( found || ( m_graph_rows_list[ i ].row_name == name ) )
-            {
-                // Add entry to the graph_rows_hide array
-                auto idx = std::find( m_graph_rows_hide.begin(), m_graph_rows_hide.end(), m_graph_rows_list[ i ].row_name );
-                if ( idx == m_graph_rows_hide.end() )
-                    m_graph_rows_hide.push_back( m_graph_rows_list[ i ].row_name );
+            // Add entry to the graph_rows_hide array
+            auto idx = std::find( m_graph_rows_hide.begin(),
+                                  m_graph_rows_hide.end(), m_graph_rows_list[ i ].row_name );
+            if ( idx == m_graph_rows_hide.end() )
+                m_graph_rows_hide.push_back( m_graph_rows_list[ i ].row_name );
 
-                // Mark this graph_row as hidden
-                m_graph_rows_list[ i ].hidden = true;
+            // Mark this graph_row as hidden
+            m_graph_rows_list[ i ].hidden = true;
 
-                if ( show != GraphRows::HIDE_ROW_AND_ALL_BELOW )
-                    break;
-
-                found = true;
-            }
+            if ( show != GraphRows::HIDE_ROW_AND_ALL_BELOW )
+                break;
         }
     }
 }
