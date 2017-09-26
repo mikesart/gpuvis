@@ -1342,6 +1342,10 @@ void TraceEvents::calculate_event_print_info()
         // If we can find a colon, use everything before it
         const char *buf_end = strrchr( buf, ':' );
 
+        // No colon, try to find '='
+        if ( !buf_end )
+            buf_end = strrchr( buf, '=' );
+
         if ( buf_end )
         {
             buf_end++;
