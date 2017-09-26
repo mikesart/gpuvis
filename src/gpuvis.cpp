@@ -1612,32 +1612,23 @@ void TraceEvents::init_sched_switch_event( trace_event_t &event )
 
 /*
  * Read a 'duration' value from ftrace print buffer.
- * Looks for numbers after : and ( and returns pointer to value.
- * Examples:
- *   [Compositor] Predicting( 33.047485 ms )
- *   [Compositor] Re-predicting( 25.221056 ms )
- *   [Compositor] Re-predicting( -28.942781 ms )
- *   [Compositor] TimeSinceLastVSync: 0.076272(79975)
+ * Looks for numbers after key. Example:
+ *   duration: 0.076272(79975)
  */
-static const char *get_ftrace_val( const char *buf )
+static const char *get_ftrace_val( const char *buf, const char *key, size_t keylen )
 {
-    if ( buf && buf[ 0 ] )
+    for (;;)
     {
-        const char ch[] = { ':', '(' };
+        buf = strncasestr( buf, key, keylen );
+        if ( !buf )
+            break;
 
-        for ( size_t i = 0; i < ARRAY_SIZE( ch ); i++ )
-        {
-            const char *val = strrchr( buf, ch[ i ] );
+        buf += keylen;
 
-            // check for ':###', ': ###'
-            if ( val )
-            {
-                val += isspace( val[ 1 ] ) ? 2 : 1;
-
-                if ( isdigit( *val ) || ( ( *val == '-' ) && isdigit( val[ 1 ] ) ) )
-                    return val;
-            }
-        }
+        if ( isspace( *buf ) )
+            buf++;
+        if ( isdigit( *buf ) || ( ( *buf == '-' ) && isdigit( buf[ 1 ] ) ) )
+            return buf;
     }
 
     return NULL;
@@ -1667,7 +1658,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
     if ( event.is_ftrace_print() )
     {
         const char *buf = get_event_field_val( event, "buf" );
-        const char *val = get_ftrace_val( buf );
+        const char *val = get_ftrace_val( buf, "duration:", 9 );
 
         if ( val )
         {
