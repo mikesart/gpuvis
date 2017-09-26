@@ -222,22 +222,22 @@ public:
     size_t show_row_id = ( size_t )-1;
 };
 
-static bool imgui_is_rect_clipped( float x, float y, float w, float h )
+static bool imgui_is_rect_clipped( const rect_t &rc )
 {
     ImDrawList *DrawList = ImGui::GetWindowDrawList();
     const ImVec4 &cr = DrawList->_ClipRectStack.back();
 
-    if ( ( x > cr.z ) || ( x + w < cr.x ) )
+    if ( ( rc.x > cr.z ) || ( rc.x + rc.w < cr.x ) )
         return true;
-    if ( ( y > cr.w ) || ( y + h < cr.y ) )
+    if ( ( rc.y > cr.w ) || ( rc.y + rc.h < cr.y ) )
         return true;
 
     return false;
 }
 
-static void imgui_push_cliprect( float x, float y, float w, float h )
+static void imgui_push_cliprect( const rect_t &rc )
 {
-    ImGui::PushClipRect( ImVec2( x, y ), ImVec2( x + w, y + h ), true );
+    ImGui::PushClipRect( ImVec2( rc.x, rc.y ), ImVec2( rc.x + rc.w, rc.y + rc.h ), true );
 }
 
 static void imgui_pop_cliprect()
@@ -255,7 +255,7 @@ static void imgui_drawrect_filled( float x, float y, float w, float h, ImU32 col
         w = -w;
     }
 
-    if ( !imgui_is_rect_clipped( x, y, w, h ) )
+    if ( !imgui_is_rect_clipped( { x, y, w, h } ) )
     {
         if ( w <= 1.0f )
             DrawList->AddLine( ImVec2( x, y - 0.5f ), ImVec2( x, y + h - 0.5f ), color );
@@ -271,7 +271,7 @@ static void imgui_drawrect_filled( const rect_t &rect, ImU32 color )
 
 static void imgui_drawrect( float x, float y, float w, float h, ImU32 color )
 {
-    if ( !imgui_is_rect_clipped( x, y, w, h ) )
+    if ( !imgui_is_rect_clipped( { x, y, w, h } ) )
     {
         ImVec2 a, b;
         ImDrawList *DrawList = ImGui::GetWindowDrawList();
@@ -1193,7 +1193,7 @@ uint32_t TraceWin::graph_render_amdhw_timeline( graph_info_t &gi )
 
                     if ( tgid_info )
                     {
-                        imgui_push_cliprect( x0, y, x1 - x0, row_h );
+                        imgui_push_cliprect( { x0, y, x1 - x0, row_h } );
 
                         imgui_draw_textf( x0 + imgui_scale( 2.0f ), y + size.y + imgui_scale( 2.0f ),
                                      color, "(%s)", tgid_info->commstr );
@@ -1329,7 +1329,7 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
 
                 if ( tgid_info )
                 {
-                    imgui_push_cliprect( x_text, y, x_hw_end - x_text, size.y );
+                    imgui_push_cliprect( { x_text, y, x_hw_end - x_text, size.y } );
 
                     imgui_draw_textf( x_text + size.x, y + imgui_scale( 1.0f ),
                                      color, "  (%s)", tgid_info->commstr );
@@ -1505,7 +1505,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
         {
             const char *ctxstr = get_event_field_val( event, "ctx", "0" );
 
-            imgui_push_cliprect( x0, y, x1 - x0, row_h );
+            imgui_push_cliprect( { x0, y, x1 - x0, row_h } );
 
             imgui_draw_textf( x0 + imgui_scale( 1.0f ), y + imgui_scale( 1.0f ),
                              textcolor, "%s-%u", ctxstr, event.seqno );
@@ -1598,7 +1598,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
             {
                 const char *ctxstr = get_event_field_val( *pevent, "ctx", "0" );
 
-                imgui_push_cliprect( x0, y, x1 - x0, row_h );
+                imgui_push_cliprect( { x0, y, x1 - x0, row_h } );
 
                 imgui_draw_textf( x0 + imgui_scale( 1.0f ), y + imgui_scale( 1.0f ),
                                   textcolor, "%s-%u", ctxstr, pevent->seqno );
@@ -2492,7 +2492,7 @@ void TraceWin::graph_render()
 
                     gi.set_pos_y( y, ri.row_h, &ri );
 
-                    if ( !imgui_is_rect_clipped( gi.x, gi.y, gi.w, gi.h ) )
+                    if ( !imgui_is_rect_clipped( { gi.x, gi.y, gi.w, gi.h } ) )
                         graph_render_row( gi );
                 }
             }
