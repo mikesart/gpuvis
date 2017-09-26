@@ -154,7 +154,7 @@ public:
 
     bool pt_in_graph( const ImVec2 &posin );
     bool mouse_pos_in_graph();
-    bool mouse_pos_in_rect( float x, float w, float y, float h );
+    bool mouse_pos_in_rect( const rect_t &rc );
 
     row_info_t *find_row( const char *name );
 
@@ -262,6 +262,11 @@ static void imgui_drawrect_filled( float x, float y, float w, float h, ImU32 col
         else
             DrawList->AddRectFilled( ImVec2( x, y ), ImVec2( x + w, y + h ), color );
     }
+}
+
+static void imgui_drawrect_filled( const rect_t &rect, ImU32 color )
+{
+    imgui_drawrect_filled( rect.x, rect.y, rect.w, rect.h, color );
 }
 
 static void imgui_drawrect( float x, float y, float w, float h, ImU32 color )
@@ -661,12 +666,12 @@ bool graph_info_t::mouse_pos_in_graph()
     return pt_in_graph( mouse_pos );
 }
 
-bool graph_info_t::mouse_pos_in_rect( float x0, float width, float y0, float height )
+bool graph_info_t::mouse_pos_in_rect( const rect_t &rc )
 {
-    return ( mouse_pos.x >= x0 &&
-             mouse_pos.x <= x0 + width &&
-             mouse_pos.y >= y0 &&
-             mouse_pos.y <= y0 + height );
+    return ( mouse_pos.x >= rc.x &&
+             mouse_pos.x <= rc.x + rc.w &&
+             mouse_pos.y >= rc.y &&
+             mouse_pos.y <= rc.y + rc.h );
 }
 
 row_info_t *graph_info_t::find_row( const char *name )
@@ -989,6 +994,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 {
     imgui_push_smallfont();
 
+    // Recalc colors and sizes if font/colors have changed
     if ( m_trace_events.m_print_size_max == -1.0f )
         m_trace_events.update_ftraceprint_colors();
 
@@ -1012,16 +1018,6 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
                 {
                     imgui_draw_text( m_x, m_y, m_event->color, m_print_info->buf );
                 }
-#if 0
-                //$ TODO: Add ...s in here?
-                // Draw as much text as we can.
-                else if ( x - m_x > imgui_scale( 16.0f ) )
-                {
-                    imgui_push_cliprect( m_x, m_y, x - m_x, size.y );
-                    imgui_draw_text( m_x, m_y, m_event->color, m_print_info->buf );
-                    imgui_pop_cliprect();
-                }
-#endif
             }
 
             m_x = x + imgui_scale( 3.0f );
@@ -1033,16 +1029,35 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     uint32_t row_count = std::max< uint32_t >( 1, gi.h / gi.text_h - 1 );
     std::vector< row_draw_info_t > row_draw_info( row_count + 1 );
 
-    // We need to start drawing to the left of 0 for timeline_labels
+    // Check if we're drawing timeline labels
     bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
             !s_keybd().is_alt_down();
-    int64_t ts = timeline_labels ? gi.screenx_to_ts( gi.x - m_trace_events.m_print_size_max ) : gi.ts0;
+
+    // Move ts start to the left to accommodate largest print label
+    int64_t tsa = timeline_labels ?
+                gi.screenx_to_ts( gi.x - m_trace_events.m_print_size_max ) : gi.ts0;
+    // Pick furthest left time: w/ labels or w/ max duration
+    int64_t ts = std::min< int64_t >( tsa, gi.ts0 - m_trace_events.m_print_duration_ts_max );
     uint32_t eventstart = ts_to_eventid( ts );
+
+    // Pick furthest right point where all duration bars will draw
+    int64_t ts1 = gi.ts1 - m_trace_events.m_print_duration_ts_min;
+    uint32_t eventend = ts_to_eventid( ts1 );
+
+    ImU32 baralpha = s_clrs().get( col_Graph_PrintBarAlpha ) & IM_COL32_A_MASK;
 
     event_renderer_t event_renderer( gi, gi.y, gi.w, gi.h );
 
     event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
     event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
+
+    struct
+    {
+        // Hovered duration timeline bar info
+        float dist = FLT_MAX;
+        uint32_t eventid = INVALID_ID;
+        rect_t rc;
+    } hovinfo;
 
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     for ( size_t idx = vec_find_eventid( locs, eventstart );
@@ -1054,7 +1069,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         float x = gi.ts_to_screenx( event.ts );
         float y = gi.y + row_id * gi.text_h;
 
-        if ( event.id > gi.eventend )
+        if ( event.id > eventend )
             break;
         else if ( gi.graph_only_filtered && event.is_filtered_out )
             continue;
@@ -1065,6 +1080,34 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
                 m_trace_events.m_print_buf_info.get_val( event.id ) );
         }
 
+        if ( event.duration != INT64_MAX )
+        {
+            float offy = imgui_scale( 2.0f );
+            float x1 = gi.ts_to_screenx( event.ts + event.duration );
+            rect_t rc = { x, y + offy, x1 - x, gi.text_h - offy * 2 };
+            ImU32 color = baralpha | ( event.color & ~IM_COL32_A_MASK );
+
+            if ( rc.w < 0 )
+            {
+                rc.x += rc.w;
+                rc.w = -rc.w;
+            }
+
+            imgui_drawrect_filled( rc, color );
+
+            if ( gi.mouse_pos_in_rect( rc ) )
+            {
+                float dist = fabs( x - gi.mouse_pos.x );
+
+                if ( dist < hovinfo.dist )
+                {
+                    hovinfo.eventid = event.id;
+                    hovinfo.dist = dist;
+                    hovinfo.rc = rc;
+                }
+            }
+        }
+
         // Draw a tick for this event
         event_renderer.set_y( y, gi.text_h );
         event_renderer.add_event( event.id, x, event.color );
@@ -1072,6 +1115,17 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         // Check if we're mouse hovering this event
         if ( gi.mouse_over && ( gi.mouse_pos.y >= y ) && ( gi.mouse_pos.y <= y + gi.text_h ) )
             gi.add_mouse_hovered_event( x, event );
+    }
+
+    if ( is_valid_id( hovinfo.eventid ) )
+    {
+        const trace_event_t &event = get_event( hovinfo.eventid );
+        float x = gi.ts_to_screenx( event.ts );
+
+        // Draw hovered selection rectangle
+        imgui_drawrect( hovinfo.rc, imgui_col_complement( event.color ) );
+        // Add this event to mouse hovered list
+        gi.add_mouse_hovered_event( x, event, true );
     }
 
     event_renderer.done();
@@ -1157,7 +1211,7 @@ uint32_t TraceWin::graph_render_amdhw_timeline( graph_info_t &gi )
 
             // Check if this fence_signaled is selected / hovered
             if ( ( gi.hovered_fence_signaled == fence_signaled.id ) ||
-                 gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
+                 gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
             {
                 hov_rect = { x0, y, x1 - x0, row_h };
 
@@ -1229,7 +1283,7 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
 
         // Check if this fence_signaled is selected / hovered
         if ( ( gi.hovered_fence_signaled == fence_signaled.id ) ||
-            gi.mouse_pos_in_rect( xleft, x_hw_end - xleft, y, gi.text_h ) )
+            gi.mouse_pos_in_rect( { xleft, y, x_hw_end - xleft, gi.text_h } ) )
         {
             // Mouse is hovering over this fence_signaled.
             hovered = true;
@@ -1401,7 +1455,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 
                     imgui_drawrect_filled( x0, y, x1 - x0, row_h, colors[ running ] );
 
-                    if ( gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
+                    if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
                     {
                         gi.sched_switch_bars.push_back( sched_switch.id );
 
@@ -1463,7 +1517,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
         {
             bool add_hovered;
 
-            if ( gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
+            if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
             {
                 do_selrect = true;
                 add_hovered = true;
@@ -1552,7 +1606,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
                 imgui_pop_cliprect();
             }
 
-            if ( gi.mouse_pos_in_rect( x0, x1 - x0, y, row_h ) )
+            if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
             {
                 const std::vector< uint32_t > *plocs;
 
@@ -1843,7 +1897,7 @@ void TraceWin::graph_render_framemarker_frames( graph_info_t &gi )
                                right_x - left_x, gi.h,
                                s_clrs().get( col ) );
 
-        if ( gi.mouse_pos_in_rect( left_x, right_x - left_x, gi.y, gi.h ) )
+        if ( gi.mouse_pos_in_rect( { left_x, gi.y, right_x - left_x, gi.h } ) )
             gi.hovered_framemarker_frame = idx;
     }
 
@@ -2392,7 +2446,7 @@ void TraceWin::graph_render()
                 zoomhw_h = ri->row_h + ImGui::GetStyle().FramePadding.y;
 
                 // If mouse is over our zoom hw row, render it now. Otherwise render after.
-                render_zoomhw_after = !gi.mouse_pos_in_rect( gi.x, gi.w, y, ri->row_h );
+                render_zoomhw_after = !gi.mouse_pos_in_rect( { gi.x, y, gi.w, ri->row_h } );
                 if ( !render_zoomhw_after )
                 {
                     gi.set_pos_y( y, ri->row_h, ri );
@@ -2419,7 +2473,7 @@ void TraceWin::graph_render()
                 float y = windowpos.y + ri.row_y + start_y;
 
                 // If the mouse is over this row, render it now
-                if ( gi.mouse_pos_in_rect( gi.x, gi.w, y, ri.row_h ) )
+                if ( gi.mouse_pos_in_rect( { gi.x, y, gi.w, ri.row_h } ) )
                 {
                     gi.set_pos_y( y, ri.row_h, &ri );
                     graph_render_row( gi );

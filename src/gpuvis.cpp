@@ -1670,7 +1670,12 @@ void TraceEvents::init_new_event( trace_event_t &event )
         const char *val = get_ftrace_val( buf );
 
         if ( val )
+        {
             event.duration = ( int64_t )( atof( val ) * NSECS_PER_MSEC );
+
+            m_print_duration_ts_min = std::min< int64_t >( m_print_duration_ts_min, event.duration );
+            m_print_duration_ts_max = std::max< int64_t >( m_print_duration_ts_max, event.duration );
+        }
     }
     else if ( event.is_vblank() )
     {

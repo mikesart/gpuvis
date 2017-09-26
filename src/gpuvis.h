@@ -406,6 +406,9 @@ public:
     util_umap< uint32_t, event_print_info_t > m_print_buf_info;
     float m_print_size_max = -1.0f;
 
+    int64_t m_print_duration_ts_min = 0;
+    int64_t m_print_duration_ts_max = 0;
+
     // plot name to GraphPlot
     util_umap< uint32_t, GraphPlot > m_graph_plots;
 
