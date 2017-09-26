@@ -536,10 +536,10 @@ void graph_info_t::init_rows( TraceWin *win, const std::vector< GraphRows::graph
             // If we're graphing only filtered events, check if this comm has any events
             if ( s_opts().getb( OPT_GraphOnlyFiltered ) &&
                  s_opts().getb( OPT_Graph_HideEmptyFilteredRows ) &&
-                 !win->m_eventlist.filtered_events.empty() )
+                 !win->m_filter.events.empty() )
             {
                 // Get count of !filtered events for this pid
-                uint32_t *count = win->m_eventlist.filtered_pid_eventcount.get_val( rinfo.pid );
+                uint32_t *count = win->m_filter.pid_eventcount.get_val( rinfo.pid );
 
                 // Bail if no events
                 if ( !count )
@@ -588,7 +588,7 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
 
     // Check if we're supposed to render filtered events only
     graph_only_filtered = s_opts().getb( OPT_GraphOnlyFiltered ) &&
-                          !win->m_eventlist.filtered_events.empty();
+                          !win->m_filter.events.empty();
 
     timeline_render_user = s_opts().getb( OPT_TimelineRenderUserSpace );
 
@@ -2712,7 +2712,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     }
 
     // Show Row...
-    if ( !m_graph.rows_hidden_rows.empty() )
+    if ( !m_graph.hidden_rows.empty() )
     {
         std::vector< const tgid_info_t * > tgids_hidden;
 
@@ -2723,7 +2723,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
             ImGui::Separator();
 
-            for ( const GraphRows::graph_rows_info_t &entry : m_graph.rows_hidden_rows )
+            for ( const GraphRows::graph_rows_info_t &entry : m_graph.hidden_rows )
             {
                 const tgid_info_t *tgid_info;
 
@@ -2747,7 +2747,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             if ( tgids_hidden.size() )
                 ImGui::Separator();
 
-            for ( const GraphRows::graph_rows_info_t &entry : m_graph.rows_hidden_rows )
+            for ( const GraphRows::graph_rows_info_t &entry : m_graph.hidden_rows )
             {
                 const char *commstr = ( entry.type == LOC_TYPE_Comm ) ?
                             m_trace_events.tgidcomm_from_commstr( entry.row_name.c_str() ) :
@@ -3394,7 +3394,7 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
             // right click: popup menu
             m_graph.popupmenu = true;
 
-            m_graph.rows_hidden_rows = m_graph.rows.get_hidden_rows_list();
+            m_graph.hidden_rows = m_graph.rows.get_hidden_rows_list();
 
             ImGui::OpenPopup( "GraphPopup" );
         }

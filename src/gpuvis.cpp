@@ -2362,8 +2362,8 @@ TraceWin::TraceWin( TraceEvents &trace_events, std::string &title ) :
 
     strcpy_safe( m_eventlist.timegoto_buf, "0.0" );
 
-    strcpy_safe( m_eventlist.filter_buf, s_ini().GetStr( "event_filter_buf", "" ) );
-    m_eventlist.do_filter = !!m_eventlist.filter_buf[ 0 ];
+    strcpy_safe( m_filter.buf, s_ini().GetStr( "event_filter_buf", "" ) );
+    m_filter.enabled = !!m_filter.buf[ 0 ];
 
     m_graph.saved_locs.resize( action_graph_save_location5 - action_graph_save_location1 + 1 );
 
@@ -2373,7 +2373,7 @@ TraceWin::TraceWin( TraceEvents &trace_events, std::string &title ) :
 
 TraceWin::~TraceWin()
 {
-    s_ini().PutStr( "event_filter_buf", m_eventlist.filter_buf );
+    s_ini().PutStr( "event_filter_buf", m_filter.buf );
 
     m_graph.rows.shutdown();
 
@@ -2545,29 +2545,29 @@ bool TraceWin::render()
                 bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
                 static const char filter_str[] = "$name != \"sched_switch\"";
 
-                remove_event_filter( m_eventlist.filter_buf, "$name == \"sched_switch\"" );
-                remove_event_filter( m_eventlist.filter_buf, filter_str );
+                remove_event_filter( m_filter.buf, "$name == \"sched_switch\"" );
+                remove_event_filter( m_filter.buf, filter_str );
 
                 if ( hide_sched_switch )
-                    add_event_filter( m_eventlist.filter_buf, filter_str );
+                    add_event_filter( m_filter.buf, filter_str );
 
-                m_eventlist.do_filter = true;
+                m_filter.enabled = true;
                 m_eventlist.hide_sched_switch_events_val = hide_sched_switch;
             }
 
-            if ( m_eventlist.do_filter ||
-                 imgui_input_text2( "Event Filter:", m_eventlist.filter_buf, 500.0f,
+            if ( m_filter.enabled ||
+                 imgui_input_text2( "Event Filter:", m_filter.buf, 500.0f,
                                     ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputText2FlagsLeft_LabelIsButton ) )
             {
-                m_eventlist.filtered_events.clear();
-                m_eventlist.filtered_pid_eventcount.m_map.clear();
-                m_eventlist.filtered_events_str.clear();
-                m_eventlist.do_filter = false;
+                m_filter.events.clear();
+                m_filter.pid_eventcount.m_map.clear();
+                m_filter.errstr.clear();
+                m_filter.enabled = false;
 
-                if ( m_eventlist.filter_buf[ 0 ] )
+                if ( m_filter.buf[ 0 ] )
                 {
                     tdop_get_key_func get_key_func = std::bind( filter_get_key_func, &m_trace_events.m_strpool, _1, _2 );
-                    class TdopExpr *tdop_expr = tdopexpr_compile( m_eventlist.filter_buf, get_key_func, m_eventlist.filtered_events_str );
+                    class TdopExpr *tdop_expr = tdopexpr_compile( m_filter.buf, get_key_func, m_filter.errstr );
 
                     util_time_t t0 = util_get_time();
 
@@ -2583,16 +2583,16 @@ bool TraceWin::render()
                             event.is_filtered_out = !ret[ 0 ];
                             if ( !event.is_filtered_out )
                             {
-                                m_eventlist.filtered_events.push_back( event.id );
+                                m_filter.events.push_back( event.id );
 
                                 // Bump up count of !filtered events for this pid
-                                uint32_t *count = m_eventlist.filtered_pid_eventcount.get_val( event.pid, 0 );
+                                uint32_t *count = m_filter.pid_eventcount.get_val( event.pid, 0 );
                                 (*count)++;
                             }
                         }
 
-                        if ( m_eventlist.filtered_events.empty() )
-                            m_eventlist.filtered_events_str = "WARNING: No events found.";
+                        if ( m_filter.events.empty() )
+                            m_filter.errstr = "WARNING: No events found.";
 
                         tdopexpr_delete( tdop_expr );
                         tdop_expr = NULL;
@@ -2600,7 +2600,7 @@ bool TraceWin::render()
 
                     float time = util_time_to_ms( t0, util_get_time() );
                     if ( time > 1000.0f )
-                        logf( "tdopexpr_compile(\"%s\"): %.2fms\n", m_eventlist.filter_buf, time );
+                        logf( "tdopexpr_compile(\"%s\"): %.2fms\n", m_filter.buf, time );
                 }
             }
 
@@ -2626,20 +2626,20 @@ bool TraceWin::render()
             ImGui::SameLine();
             if ( ImGui::Button( "Clear Filter" ) )
             {
-                m_eventlist.filtered_events.clear();
-                m_eventlist.filtered_pid_eventcount.m_map.clear();
-                m_eventlist.filtered_events_str.clear();
-                m_eventlist.filter_buf[ 0 ] = 0;
+                m_filter.events.clear();
+                m_filter.pid_eventcount.m_map.clear();
+                m_filter.errstr.clear();
+                m_filter.buf[ 0 ] = 0;
             }
 
-            if ( !m_eventlist.filtered_events_str.empty() )
+            if ( !m_filter.errstr.empty() )
             {
                 ImGui::SameLine();
-                ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_eventlist.filtered_events_str.c_str() );
+                ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_filter.errstr.c_str() );
             }
-            else if ( !m_eventlist.filtered_events.empty() )
+            else if ( !m_filter.events.empty() )
             {
-                std::string label = string_format( "Graph only filtered (%lu events)", m_eventlist.filtered_events.size() );
+                std::string label = string_format( "Graph only filtered (%lu events)", m_filter.events.size() );
 
                 ImGui::SameLine();
                 s_opts().render_imgui_opt( OPT_GraphOnlyFiltered );
@@ -2876,31 +2876,31 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
     label = string_format( "Add '$name == %s' filter", event.name );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
-        remove_event_filter( m_eventlist.filter_buf, "$name != \"%s\"", event.name );
-        add_event_filter( m_eventlist.filter_buf, "$name == \"%s\"", event.name );
-        m_eventlist.do_filter = true;
+        remove_event_filter( m_filter.buf, "$name != \"%s\"", event.name );
+        add_event_filter( m_filter.buf, "$name == \"%s\"", event.name );
+        m_filter.enabled = true;
     }
     label = string_format( "Add '$name != %s' filter", event.name );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
-        remove_event_filter( m_eventlist.filter_buf, "$name == \"%s\"", event.name );
-        add_event_filter( m_eventlist.filter_buf, "$name != \"%s\"", event.name );
-        m_eventlist.do_filter = true;
+        remove_event_filter( m_filter.buf, "$name == \"%s\"", event.name );
+        add_event_filter( m_filter.buf, "$name != \"%s\"", event.name );
+        m_filter.enabled = true;
     }
 
     label = string_format( "Add '$pid == %d' filter", event.pid );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
-        remove_event_filter( m_eventlist.filter_buf, "$pid != %d", event.pid );
-        add_event_filter( m_eventlist.filter_buf, "$pid == %d", event.pid );
-        m_eventlist.do_filter = true;
+        remove_event_filter( m_filter.buf, "$pid != %d", event.pid );
+        add_event_filter( m_filter.buf, "$pid == %d", event.pid );
+        m_filter.enabled = true;
     }
     label = string_format( "Add '$pid != %d' filter", event.pid );
     if ( ImGui::MenuItem( label.c_str() ) )
     {
-        remove_event_filter( m_eventlist.filter_buf, "$pid == %d", event.pid );
-        add_event_filter( m_eventlist.filter_buf, "$pid != %d", event.pid );
-        m_eventlist.do_filter = true;
+        remove_event_filter( m_filter.buf, "$pid == %d", event.pid );
+        add_event_filter( m_filter.buf, "$pid != %d", event.pid );
+        m_filter.enabled = true;
     }
 
     const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( event.pid );
@@ -2911,27 +2911,27 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
         label = string_format( "Filter process '%s' events", tgid_info->commstr_clr );
         if ( ImGui::MenuItem( label.c_str() ) )
         {
-            remove_event_filter( m_eventlist.filter_buf, "$tgid != %d", tgid_info->tgid );
-            add_event_filter( m_eventlist.filter_buf, "$tgid == %d", tgid_info->tgid );
-            m_eventlist.do_filter = true;
+            remove_event_filter( m_filter.buf, "$tgid != %d", tgid_info->tgid );
+            add_event_filter( m_filter.buf, "$tgid == %d", tgid_info->tgid );
+            m_filter.enabled = true;
         }
         label = string_format( "Hide process '%s' events", tgid_info->commstr_clr );
         if ( ImGui::MenuItem( label.c_str() ) )
         {
-            remove_event_filter( m_eventlist.filter_buf, "$tgid == %d", tgid_info->tgid );
-            add_event_filter( m_eventlist.filter_buf, "$tgid != %d", tgid_info->tgid );
-            m_eventlist.do_filter = true;
+            remove_event_filter( m_filter.buf, "$tgid == %d", tgid_info->tgid );
+            add_event_filter( m_filter.buf, "$tgid != %d", tgid_info->tgid );
+            m_filter.enabled = true;
         }
     }
 
-    if ( !m_eventlist.filtered_events.empty() )
+    if ( !m_filter.events.empty() )
     {
         ImGui::Separator();
 
         if ( ImGui::MenuItem( "Clear Filter" ) )
         {
-            m_eventlist.filter_buf[ 0 ] = 0;
-            m_eventlist.do_filter = true;
+            m_filter.buf[ 0 ] = 0;
+            m_filter.enabled = true;
         }
     }
 
@@ -3069,8 +3069,8 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
     {
         ImGui::PushStyleColor( ImGuiCol_Text, s_clrs().getv4( col_ImGui_Text ) );
 
-        uint32_t eventid = !m_eventlist.filtered_events.empty() ?
-                    m_eventlist.filtered_events[ m_eventlist.popup_eventid ] :
+        uint32_t eventid = !m_filter.events.empty() ?
+                    m_filter.events[ m_eventlist.popup_eventid ] :
                     m_eventlist.popup_eventid;
 
         if ( !TraceWin::events_list_render_popupmenu( eventid ) )
@@ -3102,8 +3102,8 @@ static void draw_ts_line( const ImVec2 &pos, ImU32 color )
 void TraceWin::events_list_render()
 {
     const std::vector< trace_event_t > &events = m_trace_events.m_events;
-    size_t event_count = m_eventlist.filtered_events.empty() ?
-                events.size() : m_eventlist.filtered_events.size();
+    size_t event_count = m_filter.events.empty() ?
+                events.size() : m_filter.events.size();
 
     // Set focus on event list first time we open.
     if ( s_actions().get( action_focus_eventlist ) ||
@@ -3139,7 +3139,7 @@ void TraceWin::events_list_render()
         if ( scroll_lines )
             ImGui::SetScrollY( ImGui::GetScrollY() + scroll_lines * lineh );
 
-        bool filtered_events = !m_eventlist.filtered_events.empty();
+        bool filtered_events = !m_filter.events.empty();
 
         if ( m_eventlist.do_gotoevent )
         {
@@ -3147,9 +3147,9 @@ void TraceWin::events_list_render()
 
             if ( filtered_events )
             {
-                auto i = std::lower_bound( m_eventlist.filtered_events.begin(), m_eventlist.filtered_events.end(), m_eventlist.goto_eventid );
+                auto i = std::lower_bound( m_filter.events.begin(), m_filter.events.end(), m_eventlist.goto_eventid );
 
-                pos = i - m_eventlist.filtered_events.begin();
+                pos = i - m_filter.events.begin();
             }
             else
             {
@@ -3197,8 +3197,8 @@ void TraceWin::events_list_render()
 
             if ( filtered_events )
             {
-                m_eventlist.start_eventid = m_eventlist.filtered_events[ start_idx ];
-                m_eventlist.end_eventid = m_eventlist.filtered_events[ end_idx - 1 ];
+                m_eventlist.start_eventid = m_filter.events[ start_idx ];
+                m_eventlist.end_eventid = m_filter.events[ end_idx - 1 ];
             }
             else
             {
@@ -3213,7 +3213,7 @@ void TraceWin::events_list_render()
             {
                 std::string markerbuf;
                 trace_event_t &event = filtered_events ?
-                        m_trace_events.m_events[ m_eventlist.filtered_events[ i ] ] :
+                        m_trace_events.m_events[ m_filter.events[ i ] ] :
                         m_trace_events.m_events[ i ];
                 bool selected = ( m_eventlist.selected_eventid == event.id );
                 ImVec2 cursorpos = ImGui::GetCursorScreenPos();
