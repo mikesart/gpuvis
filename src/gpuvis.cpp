@@ -1194,7 +1194,7 @@ const char *filter_get_keyval_func( trace_info_t *trace_info, const trace_event_
     }
     else if ( !strcasecmp( name, "duration" ) )
     {
-        if ( event->duration == INT64_MAX )
+        if ( !event->has_duration() )
             buf[ 0 ] = 0;
         else
             snprintf_safe( buf, "%.6f", event->duration * ( 1.0 / NSECS_PER_MSEC ) );
@@ -2043,7 +2043,7 @@ i915_type_t get_i915_reqtype( const trace_event_t &event )
 
 static bool intel_set_duration( trace_event_t *event0, trace_event_t *event1, uint32_t color_index )
 {
-    if ( event0 && event1 && ( event1->duration == INT64_MAX ) && ( event1->ts >= event0->ts ) )
+    if ( event0 && event1 && !event1->has_duration() && ( event1->ts >= event0->ts ) )
     {
         event1->duration = event1->ts - event0->ts;
         event1->color_index = color_index;
@@ -3054,7 +3054,7 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
             if ( !graph_markers.empty() )
                 graph_markers += "\n";
 
-            if ( event.duration != INT64_MAX )
+            if ( event.has_duration() )
                 durationstr = "Duration: " + ts_to_timestr( event.duration, 4, " ms\n" );
 
             ImGui::SetTooltip( "%s%sId: %u\nTime: %s\nComm: %s\n%s\n%s",
@@ -3311,7 +3311,7 @@ void TraceWin::events_list_render()
 
                 // column 5: duration
                 {
-                    if ( event.duration != INT64_MAX )
+                    if ( event.has_duration() )
                         ImGui::Text( "%s", ts_to_timestr( event.duration, 4 ).c_str() );
                     ImGui::NextColumn();
                 }

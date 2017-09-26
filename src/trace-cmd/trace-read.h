@@ -111,6 +111,8 @@ struct trace_event_t
     bool is_timeline() const        { return !!( flags & TRACE_FLAG_TIMELINE ); }
     bool is_sched_switch() const    { return !!( flags & TRACE_FLAG_SCHED_SWITCH ); }
 
+    bool has_duration() const       { return duration != INT64_MAX; }
+
     const char *get_timeline_name( const char *def = NULL ) const
     {
         if ( flags & TRACE_FLAG_SW_QUEUE )

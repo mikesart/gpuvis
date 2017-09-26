@@ -1080,7 +1080,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
                 m_trace_events.m_print_buf_info.get_val( event.id ) );
         }
 
-        if ( event.duration != INT64_MAX )
+        if ( event.has_duration() )
         {
             float offy = imgui_scale( 2.0f );
             float x1 = gi.ts_to_screenx( event.ts + event.duration );
@@ -1443,7 +1443,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
                 float y = gi.y + ( gi.h - row_h ) / 2;
                 const trace_event_t &sched_switch = get_event( plocs->at( idx ) );
 
-                if ( sched_switch.duration != INT64_MAX )
+                if ( sched_switch.has_duration() )
                 {
                     float x0 = gi.ts_to_screenx( sched_switch.ts - sched_switch.duration );
                     float x1 = gi.ts_to_screenx( sched_switch.ts );
@@ -1570,7 +1570,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     {
         float y;
         const trace_event_t &event = get_event( locs[ idx ] );
-        bool has_duration = ( event.duration != INT64_MAX );
+        bool has_duration = event.has_duration();
         float x1 = gi.ts_to_screenx( event.ts );
         float x0 = has_duration ? gi.ts_to_screenx( event.ts - event.duration ) : x1;
 
@@ -3264,7 +3264,7 @@ void TraceWin::graph_set_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
                 }
             }
 
-            if ( event.duration != INT64_MAX )
+            if ( event.has_duration() )
             {
                 std::string timestr = ts_to_timestr( event.duration, 4 );
 
