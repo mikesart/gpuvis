@@ -3,8 +3,13 @@
 // Original code by @Vuhdo (Aleksei Skriabin)
 
 // Changelog:
-// - v0.50: imported from https://github.com/Vuhdo/imgui_freetype, updated for latest changes in ImFontAtlas, minor tweaks.
-// - v0.51: cleanup, optimizations, support for ImFontConfig::RasterizerFlags, ImFontConfig::RasterizerMultiply.
+// - v0.50: (2017/08/16) imported from https://github.com/Vuhdo/imgui_freetype, updated for latest changes in ImFontAtlas, minor tweaks.
+// - v0.51: (2017/08/26) cleanup, optimizations, support for ImFontConfig::RasterizerFlags, ImFontConfig::RasterizerMultiply.
+// - v0.52: (2017/09/26) fixes for imgui internal changes
+
+// Todo/Bugs:
+// - Font size has lots of waste.
+// - FreeType's memory allocator is not overridden.
 
 #ifdef USE_FREETYPE
 
@@ -339,33 +344,25 @@ bool ImGuiFreeType::BuildFontAtlas(ImFontAtlas* atlas, unsigned int extra_flags)
                 FT_Done_Glyph(ft_glyph);
 
                 // Register glyph
-                dst_font->Glyphs.resize(dst_font->Glyphs.Size + 1);
-                ImFont::Glyph& glyph = dst_font->Glyphs.back();
-                glyph.Codepoint = (ImWchar)codepoint;
-                glyph.X0 = glyph_info.OffsetX + off_x;
-                glyph.Y0 = glyph_info.OffsetY + off_y;
-                glyph.X1 = glyph.X0 + glyph_info.Width;
-                glyph.Y1 = glyph.Y0 + glyph_info.Height;
-                glyph.U0 = rect.x / (float)atlas->TexWidth;
-                glyph.V0 = rect.y / (float)atlas->TexHeight;
-                glyph.U1 = (rect.x + glyph_info.Width) / (float)atlas->TexWidth;
-                glyph.V1 = (rect.y + glyph_info.Height) / (float)atlas->TexHeight;
-                glyph.XAdvance = (glyph_info.AdvanceX + cfg.GlyphExtraSpacing.x);  // Bake spacing into XAdvance
-
-                if (cfg.PixelSnapH)
-                    glyph.XAdvance = (float)(int)(glyph.XAdvance + 0.5f);
-                dst_font->MetricsTotalSurface += (int)((glyph.U1 - glyph.U0) * atlas->TexWidth + 1.99f) * (int)((glyph.V1 - glyph.V0) * atlas->TexHeight + 1.99f); // +1 to account for average padding, +0.99 to round
+                dst_font->AddGlyph((ImWchar)codepoint, 
+                    glyph_info.OffsetX + off_x, 
+                    glyph_info.OffsetY + off_y, 
+                    glyph_info.OffsetX + off_x + glyph_info.Width, 
+                    glyph_info.OffsetY + off_y + glyph_info.Height,
+                    rect.x / (float)atlas->TexWidth, 
+                    rect.y / (float)atlas->TexHeight, 
+                    (rect.x + glyph_info.Width) / (float)atlas->TexWidth, 
+                    (rect.y + glyph_info.Height) / (float)atlas->TexHeight,
+                    glyph_info.AdvanceX);
             }
         }
-        cfg.DstFont->BuildLookupTable();
     }
 
     // Cleanup
     for (int n = 0; n < fonts.Size; n++)
         fonts[n].Shutdown();
 
-    // Render into our custom data block
-    ImFontAtlasBuildRenderDefaultTexData(atlas);
+    ImFontAtlasBuildFinish(atlas);
 
     return true;
 }
