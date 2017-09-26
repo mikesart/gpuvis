@@ -604,10 +604,15 @@ public:
         int goto_eventid = 0;
 
         bool hide_sched_switch_events_val = true;
+
+        // Filter data
         bool do_filter = false;
         char filter_buf[ 512 ] = { 0 };
         std::string filtered_events_str;
+        // List of filtered event ids
         std::vector< uint32_t > filtered_events;
+        // pid -> count of !filtered events for that pid
+        util_umap< int, uint32_t > filtered_pid_eventcount;
 
         // Goto Time buffer
         char timegoto_buf[ 32 ] = { 0 };

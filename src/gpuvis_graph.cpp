@@ -538,20 +538,11 @@ void graph_info_t::init_rows( TraceWin *win, const std::vector< GraphRows::graph
                  s_opts().getb( OPT_Graph_HideEmptyFilteredRows ) &&
                  !win->m_eventlist.filtered_events.empty() )
             {
-                bool no_events = true;
+                // Get count of !filtered events for this pid
+                uint32_t *count = win->m_eventlist.filtered_pid_eventcount.get_val( rinfo.pid );
 
-                for ( size_t idx : *plocs )
-                {
-                    const trace_event_t &event = win->get_event( idx );
-
-                    if ( ( event.pid == rinfo.pid ) && !event.is_filtered_out )
-                    {
-                        no_events = false;
-                        break;
-                    }
-                }
-
-                if ( no_events )
+                // Bail if no events
+                if ( !count )
                     continue;
             }
         }

@@ -2560,6 +2560,7 @@ bool TraceWin::render()
                                     ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputText2FlagsLeft_LabelIsButton ) )
             {
                 m_eventlist.filtered_events.clear();
+                m_eventlist.filtered_pid_eventcount.m_map.clear();
                 m_eventlist.filtered_events_str.clear();
                 m_eventlist.do_filter = false;
 
@@ -2581,7 +2582,13 @@ bool TraceWin::render()
 
                             event.is_filtered_out = !ret[ 0 ];
                             if ( !event.is_filtered_out )
+                            {
                                 m_eventlist.filtered_events.push_back( event.id );
+
+                                // Bump up count of !filtered events for this pid
+                                uint32_t *count = m_eventlist.filtered_pid_eventcount.get_val( event.pid, 0 );
+                                (*count)++;
+                            }
                         }
 
                         if ( m_eventlist.filtered_events.empty() )
@@ -2620,6 +2627,7 @@ bool TraceWin::render()
             if ( ImGui::Button( "Clear Filter" ) )
             {
                 m_eventlist.filtered_events.clear();
+                m_eventlist.filtered_pid_eventcount.m_map.clear();
                 m_eventlist.filtered_events_str.clear();
                 m_eventlist.filter_buf[ 0 ] = 0;
             }
