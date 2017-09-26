@@ -166,7 +166,7 @@ public:
     RenderGraphRowCallback get_render_cb( TraceWin *win, loc_type_t row_type );
 
 public:
-    float x, y, w, h;    // current drawing dimensions
+    rect_t rc;           // current drawing rect
 
     int64_t ts0;         // visible start time of graph
     int64_t ts1;         // visible end time of graph
@@ -339,7 +339,7 @@ const char *get_event_field_val( const trace_event_t &event, const char *name, c
 event_renderer_t::event_renderer_t( graph_info_t &gi, float y_in, float w_in, float h_in )
 {
     // Calculate how many pixels .0001ms takes
-    const float dx = ( .0001f * NSECS_PER_MSEC ) * gi.w * gi.tsdxrcp;
+    const float dx = ( .0001f * NSECS_PER_MSEC ) * gi.rc.w * gi.tsdxrcp;
 
     // Scale width of drawn event from 0..4 when .0001ms takes .1 - 1.5 pixels
     const float minx = 0.1f;
@@ -589,8 +589,8 @@ void graph_info_t::set_ts( TraceWin *win, int64_t start_ts, int64_t length_ts )
 
 void graph_info_t::init( TraceWin *win, float x_in, float w_in )
 {
-    x = x_in;
-    w = w_in;
+    rc.x = x_in;
+    rc.w = w_in;
 
     mouse_pos = ImGui::IsRootWindowOrAnyChildFocused() ?
         ImGui::GetMousePos() : ImVec2( -FLT_MAX, -FLT_MAX );
@@ -623,42 +623,42 @@ void graph_info_t::init( TraceWin *win, float x_in, float w_in )
 
 void graph_info_t::set_pos_y( float y_in, float h_in, row_info_t *ri )
 {
-    y = y_in;
-    h = h_in;
+    rc.y = y_in;
+    rc.h = h_in;
 
     prinfo_cur = ri;
 
-    mouse_over = mouse_pos.x >= x &&
-            mouse_pos.x <= x + w &&
-            mouse_pos.y >= y &&
-            mouse_pos.y <= y + h;
+    mouse_over = mouse_pos.x >= rc.x &&
+            mouse_pos.x <= rc.x + rc.w &&
+            mouse_pos.y >= rc.y &&
+            mouse_pos.y <= rc.y + rc.h;
 }
 
 float graph_info_t::ts_to_x( int64_t ts )
 {
-    return w * ( ts - ts0 ) * tsdxrcp;
+    return rc.w * ( ts - ts0 ) * tsdxrcp;
 }
 
 float graph_info_t::ts_to_screenx( int64_t ts )
 {
-    return x + ts_to_x( ts );
+    return rc.x + ts_to_x( ts );
 }
 
 int64_t graph_info_t::screenx_to_ts( float x_in )
 {
-    double val = ( x_in - x ) / w;
+    double val = ( x_in - rc.x ) / rc.w;
 
     return ts0 + val * tsdx;
 }
 int64_t graph_info_t::dx_to_ts( float x_in )
 {
-    return ( x_in / w ) * tsdx;
+    return ( x_in / rc.w ) * tsdx;
 }
 
 bool graph_info_t::pt_in_graph( const ImVec2 &posin )
 {
-    return ( posin.x >= x && posin.x <= x + w &&
-             posin.y >= y && posin.y <= y + h );
+    return ( posin.x >= rc.x && posin.x <= rc.x + rc.w &&
+             posin.y >= rc.y && posin.y <= rc.y + rc.h );
 }
 
 bool graph_info_t::mouse_pos_in_graph()
@@ -666,12 +666,12 @@ bool graph_info_t::mouse_pos_in_graph()
     return pt_in_graph( mouse_pos );
 }
 
-bool graph_info_t::mouse_pos_in_rect( const rect_t &rc )
+bool graph_info_t::mouse_pos_in_rect( const rect_t &rcin )
 {
-    return ( mouse_pos.x >= rc.x &&
-             mouse_pos.x <= rc.x + rc.w &&
-             mouse_pos.y >= rc.y &&
-             mouse_pos.y <= rc.y + rc.h );
+    return ( mouse_pos.x >= rcin.x &&
+             mouse_pos.x <= rcin.x + rcin.w &&
+             mouse_pos.y >= rcin.y &&
+             mouse_pos.y <= rcin.y + rcin.h );
 }
 
 row_info_t *graph_info_t::find_row( const char *name )
@@ -953,7 +953,7 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
         if ( gi.mouse_over )
             gi.add_mouse_hovered_event( x, get_event( data.eventid ) );
 
-        if ( x >= gi.x + gi.w )
+        if ( x >= gi.rc.x + gi.rc.w )
             break;
     }
 
@@ -972,9 +972,9 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
         minval -= pad;
         maxval += pad;
 
-        float rcpdenom = gi.h / ( maxval - minval );
+        float rcpdenom = gi.rc.h / ( maxval - minval );
         for ( ImVec2 &pt : points )
-            pt.y = gi.y + ( maxval - pt.y ) * rcpdenom;
+            pt.y = gi.rc.y + ( maxval - pt.y ) * rcpdenom;
 
         ImGui::GetWindowDrawList()->AddPolyline( points.data(), points.size(),
                                                  color_line, closed, thickness, anti_aliased );
@@ -1026,7 +1026,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
             m_event = event;
         }
     };
-    uint32_t row_count = std::max< uint32_t >( 1, gi.h / gi.text_h - 1 );
+    uint32_t row_count = std::max< uint32_t >( 1, gi.rc.h / gi.text_h - 1 );
     std::vector< row_draw_info_t > row_draw_info( row_count + 1 );
 
     // Check if we're drawing timeline labels
@@ -1035,7 +1035,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
     // Move ts start to the left to accommodate largest print label
     int64_t tsa = timeline_labels ?
-                gi.screenx_to_ts( gi.x - m_trace_events.m_print_size_max ) : gi.ts0;
+                gi.screenx_to_ts( gi.rc.x - m_trace_events.m_print_size_max ) : gi.ts0;
     // Pick furthest left time: w/ labels or w/ max duration
     int64_t ts = std::min< int64_t >( tsa, gi.ts0 - m_trace_events.m_print_duration_ts_max );
     uint32_t eventstart = ts_to_eventid( ts );
@@ -1046,7 +1046,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
     ImU32 baralpha = s_clrs().get( col_Graph_PrintBarAlpha ) & IM_COL32_A_MASK;
 
-    event_renderer_t event_renderer( gi, gi.y, gi.w, gi.h );
+    event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
 
     event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
     event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
@@ -1067,7 +1067,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         const trace_event_t &event = get_event( locs[ idx ] );
         uint32_t row_id = event.graph_row_id ? ( event.graph_row_id % row_count + 1 ) : 0;
         float x = gi.ts_to_screenx( event.ts );
-        float y = gi.y + row_id * gi.text_h;
+        float y = gi.rc.y + row_id * gi.text_h;
 
         if ( event.id > eventend )
             break;
@@ -1144,13 +1144,13 @@ uint32_t TraceWin::graph_render_amdhw_timeline( graph_info_t &gi )
 {
     imgui_push_smallfont();
 
-    float row_h = gi.h;
+    float row_h = gi.rc.h;
     uint32_t num_events = 0;
     ImU32 col_event = s_clrs().get( col_Graph_1Event );
 
     rect_t hov_rect;
+    float y = gi.rc.y;
     ImU32 last_color = 0;
-    float y = gi.y;
     bool draw_label = !s_keybd().is_alt_down();
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
 
@@ -1236,7 +1236,7 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
 
     rect_t hov_rect;
     uint32_t num_events = 0;
-    uint32_t timeline_row_count = gi.h / gi.text_h;
+    uint32_t timeline_row_count = gi.rc.h / gi.text_h;
     ImU32 col_hwrunning = s_clrs().get( col_Graph_BarHwRunning );
     ImU32 col_userspace = s_clrs().get( col_Graph_BarUserspace );
     ImU32 col_hwqueue = s_clrs().get( col_Graph_BarHwQueue );
@@ -1245,7 +1245,7 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
     bool render_timeline_labels = s_opts().getb( OPT_TimelineLabels ) &&
             !s_keybd().is_alt_down();
 
-    event_renderer_t event_renderer( gi, gi.y, gi.w, gi.h );
+    event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
 
     event_renderer.m_maxwidth = 1.0f;
     event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
@@ -1270,7 +1270,7 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
             continue;
 
         bool hovered = false;
-        float y = gi.y + ( fence_signaled.graph_row_id % timeline_row_count ) * gi.text_h;
+        float y = gi.rc.y + ( fence_signaled.graph_row_id % timeline_row_count ) * gi.text_h;
 
         // amdgpu_cs_ioctl  amdgpu_sched_run_job   |   fence_signaled
         //       |-----------------|---------------|--------|
@@ -1317,7 +1317,7 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
         if ( render_timeline_labels )
         {
             const ImVec2 size = ImGui::CalcTextSize( cs_ioctl.user_comm );
-            float x_text = std::max< float >( x_hwqueue_start, gi.x ) + imgui_scale( 2.0f );
+            float x_text = std::max< float >( x_hwqueue_start, gi.rc.x ) + imgui_scale( 2.0f );
 
             if ( x_hw_end - x_text >= size.x )
             {
@@ -1389,7 +1389,7 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
 uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 {
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
-    event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
+    event_renderer_t event_renderer( gi, gi.rc.y + 4, gi.rc.w, gi.rc.h - 8 );
     bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
 
     event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
@@ -1440,7 +1440,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
                   idx++ )
             {
                 float row_h = gi.text_h;
-                float y = gi.y + ( gi.h - row_h ) / 2;
+                float y = gi.rc.y + ( gi.rc.h - row_h ) / 2;
                 const trace_event_t &sched_switch = get_event( plocs->at( idx ) );
 
                 if ( sched_switch.has_duration() )
@@ -1450,7 +1450,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
                     int running = !!( sched_switch.flags & TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING );
 
                     // Bail if we're off the right side of our graph
-                    if ( x0 > gi.x + gi.w )
+                    if ( x0 > gi.rc.x + gi.rc.w )
                         break;
 
                     imgui_drawrect_filled( x0, y, x1 - x0, row_h, colors[ running ] );
@@ -1472,9 +1472,9 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 {
     float row_h = gi.text_h;
-    float y = gi.y + ( gi.h - row_h ) / 2;
+    float y = gi.rc.y + ( gi.rc.h - row_h ) / 2;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
-    event_renderer_t event_renderer( gi, gi.y + 4, gi.w, gi.h - 8 );
+    event_renderer_t event_renderer( gi, gi.rc.y + 4, gi.rc.w, gi.rc.h - 8 );
     ImU32 barcolor = s_clrs().get( col_Graph_Bari915ReqWait );
     ImU32 textcolor = s_clrs().get( col_Graph_BarText );
     const trace_event_t *pevent_sel = NULL;
@@ -1492,7 +1492,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
         float x0 = gi.ts_to_screenx( event_begin.ts );
         float x1 = gi.ts_to_screenx( event.ts );
 
-        if ( ( x0 > gi.x + gi.w ) || ( x1 < gi.x ) )
+        if ( ( x0 > gi.rc.x + gi.rc.w ) || ( x1 < gi.rc.x ) )
             continue;
 
         event_renderer.add_event( event_begin.id, x0, event_begin.color );
@@ -1557,8 +1557,8 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     float row_h = gi.text_h;
     ImU32 textcolor = s_clrs().get( col_Graph_BarText );
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
-    event_renderer_t event_renderer( gi, gi.y, gi.w, gi.h );
-    uint32_t row_count = std::max< uint32_t >( 1, gi.h / row_h );
+    event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
+    uint32_t row_count = std::max< uint32_t >( 1, gi.rc.h / row_h );
     const trace_event_t *pevent_sel = NULL;
 
     event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
@@ -1574,10 +1574,10 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
         float x1 = gi.ts_to_screenx( event.ts );
         float x0 = has_duration ? gi.ts_to_screenx( event.ts - event.duration ) : x1;
 
-        if ( ( x0 > gi.x + gi.w ) || ( x1 < gi.x ) )
+        if ( ( x0 > gi.rc.x + gi.rc.w ) || ( x1 < gi.rc.x ) )
             continue;
 
-        y = gi.y + ( event.graph_row_id % row_count ) * row_h;
+        y = gi.rc.y + ( event.graph_row_id % row_count ) * row_h;
 
         event_renderer.set_y( y, row_h );
         event_renderer.add_event( event.id, x1, event.color );
@@ -1652,14 +1652,13 @@ void TraceWin::graph_render_row( graph_info_t &gi )
     }
 
     // Draw background
-    imgui_drawrect_filled( gi.x, gi.y, gi.w, gi.h,
-                           s_clrs().get( col_Graph_RowBk ) );
+    imgui_drawrect_filled( gi.rc, s_clrs().get( col_Graph_RowBk ) );
 
     if ( gi.prinfo_cur->tgid_info )
     {
         ImGui::GetWindowDrawList()->AddLine(
-                    ImVec2( gi.x, gi.y + gi.h + 1 ),
-                    ImVec2( gi.x + gi.w, gi.y + gi.h + 1 ),
+                    ImVec2( gi.rc.x, gi.rc.y + gi.rc.h + 1 ),
+                    ImVec2( gi.rc.x + gi.rc.w, gi.rc.y + gi.rc.h + 1 ),
                     gi.prinfo_cur->tgid_info->color );
     }
 
@@ -1693,7 +1692,7 @@ void TraceWin::graph_render_row( graph_info_t &gi )
             float x1 = gi.ts_to_screenx( m_graph.start_ts + m_graph.length_ts );
 
             ImGui::GetWindowDrawList()->AddRectFilled(
-                        ImVec2( x0, gi.y ), ImVec2( x1, gi.y + gi.h ),
+                        ImVec2( x0, gi.rc.y ), ImVec2( x1, gi.rc.y + gi.rc.h ),
                         0x5fffffff, 9.0f, 0x0f );
             gi.set_ts( this, m_graph.start_ts, m_graph.length_ts );
         }
@@ -1702,12 +1701,12 @@ void TraceWin::graph_render_row( graph_info_t &gi )
         // Experiment for vertical slider on right side of graph rows
         ImVec2 pos = ImGui::GetCursorScreenPos();
         static int int_value = 2;
-        ImGui::SetCursorScreenPos( ImVec2( gi.x + gi.w - 16.0f, gi.y ) );
+        ImGui::SetCursorScreenPos( ImVec2( gi.rc.x + gi.rc.w - 16.0f, gi.rc.y ) );
         ImGui::PushStyleColor(ImGuiCol_FrameBg, (ImVec4)ImColor::HSV(0.9f, 0.5f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, (ImVec4)ImColor::HSV(0.9f, 0.6f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_FrameBgActive, (ImVec4)ImColor::HSV(0.9f, 0.7f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_SliderGrab, (ImVec4)ImColor::HSV(0.9f, 0.9f, 0.9f));
-        ImGui::VSliderInt( "##int", ImVec2( 16.0f, gi.h ), &int_value, 0, 5 );
+        ImGui::VSliderInt( "##int", ImVec2( 16.0f, gi.rc.h ), &int_value, 0, 5 );
         ImGui::PopStyleColor(4);
         ImGui::SetCursorScreenPos( pos );
 #endif
@@ -1720,21 +1719,21 @@ void TraceWin::graph_render_time_ticks( graph_info_t &gi )
 {
     // Draw time ticks every millisecond
     int64_t tsstart = std::max< int64_t >( gi.ts0 / NSECS_PER_MSEC - 1, 0 ) * NSECS_PER_MSEC;
-    float dx = gi.w * NSECS_PER_MSEC * gi.tsdxrcp;
+    float dx = gi.rc.w * NSECS_PER_MSEC * gi.tsdxrcp;
 
     if ( dx <= imgui_scale( 4.0f ) )
     {
         tsstart = std::max< int64_t >( gi.ts0 / NSECS_PER_SEC - 1, 0 ) * NSECS_PER_SEC;
-        dx = gi.w * NSECS_PER_SEC * gi.tsdxrcp;
+        dx = gi.rc.w * NSECS_PER_SEC * gi.tsdxrcp;
     }
 
     if ( dx > imgui_scale( 4.0f ) )
     {
         float x0 = gi.ts_to_x( tsstart );
 
-        for ( ; x0 <= gi.w; x0 += dx )
+        for ( ; x0 <= gi.rc.w; x0 += dx )
         {
-            imgui_drawrect_filled( gi.x + x0, gi.y,
+            imgui_drawrect_filled( gi.rc.x + x0, gi.rc.y,
                                    imgui_scale( 1.0f ), imgui_scale( 16.0f ),
                                    s_clrs().get( col_Graph_TimeTick ) );
 
@@ -1742,7 +1741,7 @@ void TraceWin::graph_render_time_ticks( graph_info_t &gi )
             {
                 for ( int i = 1; i < 4; i++ )
                 {
-                    imgui_drawrect_filled( gi.x + x0 + i * dx / 4, gi.y,
+                    imgui_drawrect_filled( gi.rc.x + x0 + i * dx / 4, gi.rc.y,
                                            imgui_scale( 1.0f ), imgui_scale( 4.0f ),
                                            s_clrs().get( col_Graph_TimeTick ) );
                 }
@@ -1815,7 +1814,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
                 colors_t col = ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0;
                 float x = gi.ts_to_screenx( event.ts );
 
-                imgui_drawrect_filled( x, gi.y, imgui_scale( 1.0f ), gi.h,
+                imgui_drawrect_filled( x, gi.rc.y, imgui_scale( 1.0f ), gi.rc.h,
                                        s_clrs().get( col, alpha ) );
             }
         }
@@ -1836,7 +1835,7 @@ void TraceWin::graph_render_framemarker_frames( graph_info_t &gi )
     m_frame_markers.m_frame_marker_right = -2;
 
     bool markers_set = false;
-    float midx = gi.x + gi.w / 2.0f;
+    float midx = gi.rc.x + gi.rc.w / 2.0f;
 
     for ( size_t idx = vec_find_eventid( m_frame_markers.m_right_frames, gi.eventstart );
           idx < m_frame_markers.m_right_frames.size();
@@ -1866,14 +1865,14 @@ void TraceWin::graph_render_framemarker_frames( graph_info_t &gi )
         // the screen and this one doesn't, choose it.
         if ( markers_set &&
              ( m_frame_markers.m_frame_marker_selected == -1 ) &&
-             ( left_x > gi.x ) && ( left_x < midx ) )
+             ( left_x > gi.rc.x ) && ( left_x < midx ) )
         {
             markers_set = false;
         }
 
         if ( !markers_set )
         {
-            if ( left_x > gi.x )
+            if ( left_x > gi.rc.x )
             {
                 // Left of this frame is on screen and it's the first
                 // frame we're drawing. It's our "selected" frame.
@@ -1893,11 +1892,10 @@ void TraceWin::graph_render_framemarker_frames( graph_info_t &gi )
             markers_set = true;
         }
 
-        imgui_drawrect_filled( left_x, gi.y,
-                               right_x - left_x, gi.h,
+        imgui_drawrect_filled( left_x, gi.rc.y, right_x - left_x, gi.rc.h,
                                s_clrs().get( col ) );
 
-        if ( gi.mouse_pos_in_rect( { left_x, gi.y, right_x - left_x, gi.h } ) )
+        if ( gi.mouse_pos_in_rect( { left_x, gi.rc.y, right_x - left_x, gi.rc.h } ) )
             gi.hovered_framemarker_frame = idx;
     }
 
@@ -1912,11 +1910,10 @@ void TraceWin::graph_render_mouse_pos( graph_info_t &gi )
 {
     // Draw location line for mouse if is over graph
     if ( m_graph.is_mouse_over &&
-         gi.mouse_pos.x >= gi.x &&
-         gi.mouse_pos.x <= gi.x + gi.w )
+         gi.mouse_pos.x >= gi.rc.x &&
+         gi.mouse_pos.x <= gi.rc.x + gi.rc.w )
     {
-        imgui_drawrect_filled( gi.mouse_pos.x, gi.y,
-                               imgui_scale( 2.0f ), gi.h,
+        imgui_drawrect_filled( gi.mouse_pos.x, gi.rc.y, imgui_scale( 2.0f ), gi.rc.h,
                                s_clrs().get( col_Graph_MousePos ) );
     }
 
@@ -1927,8 +1924,7 @@ void TraceWin::graph_render_mouse_pos( graph_info_t &gi )
         {
             float x = gi.ts_to_screenx( m_graph.ts_markers[ i ] );
 
-            imgui_drawrect_filled( x, gi.y,
-                                   imgui_scale( 2.0f ), gi.h,
+            imgui_drawrect_filled( x, gi.rc.y, imgui_scale( 2.0f ), gi.rc.h,
                                    s_clrs().get( col_Graph_MarkerA + i ) );
         }
     }
@@ -1956,7 +1952,7 @@ void TraceWin::graph_render_eventids( graph_info_t &gi )
             {
                 float x = gi.ts_to_screenx( event.ts );
 
-                imgui_drawrect_filled( x, gi.y, imgui_scale( 1.0f ), gi.h, item.color );
+                imgui_drawrect_filled( x, gi.rc.y, imgui_scale( 1.0f ), gi.rc.h, item.color );
             }
         }
     }
@@ -1971,7 +1967,7 @@ void TraceWin::graph_render_mouse_selection( graph_info_t &gi )
         float mousex0 = m_graph.mouse_capture_pos.x;
         float mousex1 = gi.mouse_pos.x;
 
-        imgui_drawrect_filled( mousex0, gi.y, mousex1 - mousex0, gi.h,
+        imgui_drawrect_filled( mousex0, gi.rc.y, mousex1 - mousex0, gi.rc.h,
                                s_clrs().get( col_Graph_ZoomSel ) );
     }
 }
@@ -1990,8 +1986,8 @@ void TraceWin::graph_render_eventlist_selection( graph_info_t &gi )
             float xstart = gi.ts_to_screenx( event0.ts );
             float xend = gi.ts_to_screenx( event1.ts );
 
-            imgui_drawrect( xstart, gi.y + imgui_scale( 20 ),
-                            xend - xstart, gi.h - imgui_scale( 30 ),
+            imgui_drawrect( xstart, gi.rc.y + imgui_scale( 20 ),
+                            xend - xstart, gi.rc.h - imgui_scale( 30 ),
                             s_clrs().get( col_EventList_Sel ) );
         }
     }
@@ -2029,20 +2025,20 @@ void TraceWin::graph_render_row_labels( graph_info_t &gi )
     {
         if ( gi.prinfo_zoom_hw )
         {
-            float y = gi.y + gi.h - gi.prinfo_zoom_hw->row_h;
+            float y = gi.rc.y + gi.rc.h - gi.prinfo_zoom_hw->row_h;
 
-            render_row_label( gi.x, y, *gi.prinfo_zoom_hw );
+            render_row_label( gi.rc.x, y, *gi.prinfo_zoom_hw );
         }
 
-        render_row_label( gi.x, gi.y, *gi.prinfo_zoom );
+        render_row_label( gi.rc.x, gi.rc.y, *gi.prinfo_zoom );
     }
     else
     {
         for ( row_info_t &ri : gi.row_info )
         {
-            float y = gi.y + ri.row_y;
+            float y = gi.rc.y + ri.row_y;
 
-            render_row_label( gi.x, y, ri );
+            render_row_label( gi.rc.x, y, ri );
         }
     }
 }
@@ -2273,11 +2269,11 @@ void TraceWin::graph_handle_keyboard_scroll( graph_info_t &gi )
     }
     else if ( s_actions().get( action_scroll_pageup ) )
     {
-        m_graph.start_y += ( gi.h - ImGui::GetTextLineHeightWithSpacing() * 4 );
+        m_graph.start_y += ( gi.rc.h - ImGui::GetTextLineHeightWithSpacing() * 4 );
     }
     else if ( s_actions().get( action_scroll_pagedown ) )
     {
-        m_graph.start_y -= ( gi.h - ImGui::GetTextLineHeightWithSpacing() * 4 );
+        m_graph.start_y -= ( gi.rc.h - ImGui::GetTextLineHeightWithSpacing() * 4 );
     }
     else if ( s_actions().get( action_scroll_left ) )
     {
@@ -2446,7 +2442,7 @@ void TraceWin::graph_render()
                 zoomhw_h = ri->row_h + ImGui::GetStyle().FramePadding.y;
 
                 // If mouse is over our zoom hw row, render it now. Otherwise render after.
-                render_zoomhw_after = !gi.mouse_pos_in_rect( { gi.x, y, gi.w, ri->row_h } );
+                render_zoomhw_after = !gi.mouse_pos_in_rect( { gi.rc.x, y, gi.rc.w, ri->row_h } );
                 if ( !render_zoomhw_after )
                 {
                     gi.set_pos_y( y, ri->row_h, ri );
@@ -2473,7 +2469,7 @@ void TraceWin::graph_render()
                 float y = windowpos.y + ri.row_y + start_y;
 
                 // If the mouse is over this row, render it now
-                if ( gi.mouse_pos_in_rect( { gi.x, y, gi.w, ri.row_h } ) )
+                if ( gi.mouse_pos_in_rect( { gi.rc.x, y, gi.rc.w, ri.row_h } ) )
                 {
                     gi.set_pos_y( y, ri.row_h, &ri );
                     graph_render_row( gi );
@@ -2492,7 +2488,7 @@ void TraceWin::graph_render()
 
                     gi.set_pos_y( y, ri.row_h, &ri );
 
-                    if ( !imgui_is_rect_clipped( { gi.x, gi.y, gi.w, gi.h } ) )
+                    if ( !imgui_is_rect_clipped( gi.rc ) )
                         graph_render_row( gi );
                 }
             }
