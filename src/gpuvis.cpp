@@ -1658,7 +1658,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
     if ( event.is_ftrace_print() )
     {
         const char *buf = get_event_field_val( event, "buf" );
-        const char *val = get_ftrace_val( buf, "duration:", 9 );
+        const char *val = get_ftrace_val( buf, "duration=", 9 );
 
         if ( val )
         {
