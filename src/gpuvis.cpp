@@ -1314,7 +1314,6 @@ static const char *s_buf_prefixes[] =
     "[Compositor Client] Received Idx ",
     "[Compositor Client] WaitGetPoses ",
     "[Compositor] frameTimeout( ",
-    "[Compositor] NewFrame idx= ",
     "[Compositor] Predicting( ",
     "[Compositor] Re-predicting( ",
     "[Compositor Client] PostPresentHandoff ",
@@ -1338,6 +1337,28 @@ void TraceEvents::calculate_event_print_info()
     {
         trace_event_t &event = m_events[ idx ];
         const char *buf = get_event_field_val( event, "buf" );
+
+        // If we have a context number for this event
+        if ( event.seqno != UINT32_MAX )
+        {
+            uint32_t *begin_eventid = m_ftrace_begin_ctx.get_val( event.seqno );
+            uint32_t *end_eventid = m_ftrace_end_ctx.get_val( event.seqno );
+
+            // If we have a begin id, end id, and we are on the end id
+            if ( begin_eventid && end_eventid && ( *end_eventid == event.id ) )
+            {
+                const trace_event_t &begin_event = m_events[ *begin_eventid ];
+                const trace_event_t &end_event = m_events[ *end_eventid ];
+
+                event.duration = end_event.ts - begin_event.ts;
+            }
+        }
+
+        if ( event.has_duration() )
+        {
+            m_print_duration_ts_min = std::min< int64_t >( m_print_duration_ts_min, event.duration );
+            m_print_duration_ts_max = std::max< int64_t >( m_print_duration_ts_max, event.duration );
+        }
 
         // If we can find a colon, use everything before it
         const char *buf_end = strrchr( buf, ':' );
@@ -1664,12 +1685,32 @@ void TraceEvents::init_new_event( trace_event_t &event )
         const char *buf = get_event_field_val( event, "buf" );
         const char *val = get_ftrace_val( buf, "duration=", 9 );
 
+        //$ TODO mikesart: Add 'offset=###' key which moves the event?
+
+        // Initialize ftrace seqnos to invalid value
+        event.seqno = UINT32_MAX;
+
         if ( val )
         {
+            // We have a direct "duration=###"
             event.duration = ( int64_t )( atof( val ) * NSECS_PER_MSEC );
+        }
+        else
+        {
+            // Search for "begin_ctx" / "end_ctx"
+            const char *begin_ctx = get_ftrace_val( buf, "begin_ctx=", 10 );
+            const char *ctxstr = begin_ctx ? begin_ctx : get_ftrace_val( buf, "end_ctx=", 8 );
 
-            m_print_duration_ts_min = std::min< int64_t >( m_print_duration_ts_min, event.duration );
-            m_print_duration_ts_max = std::max< int64_t >( m_print_duration_ts_max, event.duration );
+            if ( ctxstr  )
+            {
+                // Store ctx in seqno field
+                event.seqno = strtoul( ctxstr, 0, 10 );
+
+                if ( begin_ctx )
+                    m_ftrace_begin_ctx.get_val( event.seqno, event.id );
+                else
+                    m_ftrace_end_ctx.get_val( event.seqno, event.id );
+            }
         }
     }
     else if ( event.is_vblank() )

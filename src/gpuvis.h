@@ -397,6 +397,9 @@ public:
     // Map vblank seq to m_drm_vblank_event_queued event id
     util_umap< uint32_t, uint32_t > m_drm_vblank_event_queued;
 
+    util_umap< uint32_t, uint32_t > m_ftrace_begin_ctx;
+    util_umap< uint32_t, uint32_t > m_ftrace_end_ctx;
+
     struct event_print_info_t
     {
         const char *buf;
