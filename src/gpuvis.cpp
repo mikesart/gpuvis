@@ -1338,28 +1338,6 @@ void TraceEvents::calculate_event_print_info()
         trace_event_t &event = m_events[ idx ];
         const char *buf = get_event_field_val( event, "buf" );
 
-        // If we have a context number for this event
-        if ( event.seqno != UINT32_MAX )
-        {
-            uint32_t *begin_eventid = m_ftrace_begin_ctx.get_val( event.seqno );
-            uint32_t *end_eventid = m_ftrace_end_ctx.get_val( event.seqno );
-
-            // If we have a begin id, end id, and we are on the end id
-            if ( begin_eventid && end_eventid && ( *end_eventid == event.id ) )
-            {
-                const trace_event_t &begin_event = m_events[ *begin_eventid ];
-                const trace_event_t &end_event = m_events[ *end_eventid ];
-
-                event.duration = end_event.ts - begin_event.ts;
-            }
-        }
-
-        if ( event.has_duration() )
-        {
-            m_print_duration_ts_min = std::min< int64_t >( m_print_duration_ts_min, event.duration );
-            m_print_duration_ts_max = std::max< int64_t >( m_print_duration_ts_max, event.duration );
-        }
-
         // If we can find a colon, use everything before it
         const char *buf_end = strrchr( buf, ':' );
 
@@ -1390,6 +1368,12 @@ void TraceEvents::calculate_event_print_info()
             // Throw all unrecognized events on line 0
             event.graph_row_id = 0;
         }
+        else if ( is_valid_id( event.id_start ) )
+        {
+            // This is the end of a begin_ctx / end_ctx pair. We want to use the
+            // same rowid / colors as the begin but it may not be initialized yet.
+            // So... set these values in the update_ftraceprint_colors() function.
+        }
         else
         {
             // hash our prefix and put em all on their own row with their own color
@@ -1399,11 +1383,21 @@ void TraceEvents::calculate_event_print_info()
             if ( *prow_id == 0 )
                 *prow_id = row_id++;
 
+            // Store hash string value in color_index
+            event.color_index = hashval;
+
+            // Set graph row id: 1..rows
             event.graph_row_id = *prow_id;
         }
 
         // Add cached print info for this event
-        m_print_buf_info.get_val( event.id, { buf, buf_end } );
+        m_print_buf_info.get_val( event.id, { buf, ImVec2( 0, 0 ) } );
+
+        if ( event.has_duration() )
+        {
+            m_print_duration_ts_min = std::min< int64_t >( m_print_duration_ts_min, event.duration );
+            m_print_duration_ts_max = std::max< int64_t >( m_print_duration_ts_max, event.duration );
+        }
     }
 
     invalidate_ftraceprint_colors();
@@ -1433,15 +1427,23 @@ void TraceEvents::update_ftraceprint_colors()
         // Mark this event as autogen'd color so it doesn't get overwritten
         event.flags |= TRACE_FLAG_AUTOGEN_COLOR;
 
-        if ( !print_info.buf_end )
+        if ( is_valid_id( event.id_start ) )
         {
-            event.color = s_clrs().get( col_FtracePrintText, label_alpha * 255 );
+            // This is a end_ctx event...
+            // Use the rowid and color from the begin_ctx event.
+            const trace_event_t &event_begin = m_events[ event.id_start ];
+
+            event.graph_row_id = event_begin.graph_row_id;
+            event.color = imgui_col_from_hashval( event_begin.color_index, label_sat, label_alpha );
+        }
+        else if ( event.graph_row_id )
+        {
+            // If we have a graph row id, use the hashval stored in color_index
+            event.color = imgui_col_from_hashval( event.color_index, label_sat, label_alpha );
         }
         else
         {
-            uint32_t hashval = fnv_hashstr32( print_info.buf, print_info.buf_end - print_info.buf );
-
-            event.color = imgui_col_from_hashval( hashval, label_sat, label_alpha );
+            event.color = s_clrs().get( col_FtracePrintText, label_alpha * 255 );
         }
     }
 }
@@ -1703,13 +1705,29 @@ void TraceEvents::init_new_event( trace_event_t &event )
 
             if ( ctxstr  )
             {
-                // Store ctx in seqno field
+                // Store ctx number in event seqno
                 event.seqno = strtoul( ctxstr, 0, 10 );
 
                 if ( begin_ctx )
                     m_ftrace_begin_ctx.get_val( event.seqno, event.id );
                 else
                     m_ftrace_end_ctx.get_val( event.seqno, event.id );
+
+                uint32_t *begin_eventid = m_ftrace_begin_ctx.get_val( event.seqno );
+                uint32_t *end_eventid = m_ftrace_end_ctx.get_val( event.seqno );
+                if ( begin_eventid && end_eventid )
+                {
+                    // We have a begin/end pair for this ctx
+                    const trace_event_t &event0 = m_events[ *begin_eventid ];
+                    trace_event_t &event1 = m_events[ *end_eventid ];
+
+                    event1.id_start = event0.id;
+                    event1.duration = event1.ts - event0.ts;
+
+                    // Erase all knowledge of this ctx so it can be reused
+                    m_ftrace_begin_ctx.erase_key( event.seqno );
+                    m_ftrace_end_ctx.erase_key( event.seqno );
+                }
             }
         }
     }

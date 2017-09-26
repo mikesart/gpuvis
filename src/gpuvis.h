@@ -397,18 +397,21 @@ public:
     // Map vblank seq to m_drm_vblank_event_queued event id
     util_umap< uint32_t, uint32_t > m_drm_vblank_event_queued;
 
+    // Map of ftrace print begin/end ctx to event ids
     util_umap< uint32_t, uint32_t > m_ftrace_begin_ctx;
     util_umap< uint32_t, uint32_t > m_ftrace_end_ctx;
 
     struct event_print_info_t
     {
         const char *buf;
-        const char *buf_end;
         ImVec2 size;
     };
+    // ftrace print eventid to text pointer and rendering size
     util_umap< uint32_t, event_print_info_t > m_print_buf_info;
+    // Max ftrace print rendering x size value
     float m_print_size_max = -1.0f;
 
+    // Max and min ftrace print ts duration value
     int64_t m_print_duration_ts_min = 0;
     int64_t m_print_duration_ts_max = 0;
 

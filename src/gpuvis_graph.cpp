@@ -1006,9 +1006,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
                 const ImVec2 &size = m_print_info->size;
 
                 if ( x - m_x > size.x )
-                {
                     imgui_draw_text( m_x, m_y, m_event->color, m_print_info->buf );
-                }
             }
 
             m_x = x + imgui_scale( 3.0f );
