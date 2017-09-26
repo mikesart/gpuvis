@@ -1194,7 +1194,7 @@ const char *filter_get_keyval_func( trace_info_t *trace_info, const trace_event_
     }
     else if ( !strcasecmp( name, "duration" ) )
     {
-        if ( event->duration == ( uint32_t )-1 )
+        if ( event->duration == INT64_MAX )
             buf[ 0 ] = 0;
         else
             snprintf_safe( buf, "%.6f", event->duration * ( 1.0 / NSECS_PER_MSEC ) );
@@ -1610,6 +1610,39 @@ void TraceEvents::init_sched_switch_event( trace_event_t &event )
     }
 }
 
+/*
+ * Read a 'duration' value from ftrace print buffer.
+ * Looks for numbers after : and ( and returns pointer to value.
+ * Examples:
+ *   [Compositor] Predicting( 33.047485 ms )
+ *   [Compositor] Re-predicting( 25.221056 ms )
+ *   [Compositor] Re-predicting( -28.942781 ms )
+ *   [Compositor] TimeSinceLastVSync: 0.076272(79975)
+ */
+static const char *get_ftrace_val( const char *buf )
+{
+    if ( buf && buf[ 0 ] )
+    {
+        const char ch[] = { ':', '(' };
+
+        for ( size_t i = 0; i < ARRAY_SIZE( ch ); i++ )
+        {
+            const char *val = strrchr( buf, ch[ i ] );
+
+            // check for ':###', ': ###'
+            if ( val )
+            {
+                val += isspace( val[ 1 ] ) ? 2 : 1;
+
+                if ( isdigit( *val ) || ( ( *val == '-' ) && isdigit( val[ 1 ] ) ) )
+                    return val;
+            }
+        }
+    }
+
+    return NULL;
+}
+
 // new_event_cb adds all events to array, this function initializes them.
 void TraceEvents::init_new_event( trace_event_t &event )
 {
@@ -1631,7 +1664,15 @@ void TraceEvents::init_new_event( trace_event_t &event )
         event.comm = m_strpool.getstr( buf );
     }
 
-    if ( event.is_vblank() )
+    if ( event.is_ftrace_print() )
+    {
+        const char *buf = get_event_field_val( event, "buf" );
+        const char *val = get_ftrace_val( buf );
+
+        if ( val )
+            event.duration = ( int64_t )( atof( val ) * NSECS_PER_MSEC );
+    }
+    else if ( event.is_vblank() )
     {
         // See if we have a drm_vblank_event_queued with the same seq number
         uint32_t seqno = strtoul( get_event_field_val( event, "seq" ), NULL, 10 );
@@ -1997,7 +2038,7 @@ i915_type_t get_i915_reqtype( const trace_event_t &event )
 
 static bool intel_set_duration( trace_event_t *event0, trace_event_t *event1, uint32_t color_index )
 {
-    if ( event0 && event1 && ( event1->duration == ( uint32_t )-1 ) && ( event1->ts >= event0->ts ) )
+    if ( event0 && event1 && ( event1->duration == INT64_MAX ) && ( event1->ts >= event0->ts ) )
     {
         event1->duration = event1->ts - event0->ts;
         event1->color_index = color_index;
@@ -3008,7 +3049,7 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
             if ( !graph_markers.empty() )
                 graph_markers += "\n";
 
-            if ( event.duration != ( uint32_t )-1 )
+            if ( event.duration != INT64_MAX )
                 durationstr = "Duration: " + ts_to_timestr( event.duration, 4, " ms\n" );
 
             ImGui::SetTooltip( "%s%sId: %u\nTime: %s\nComm: %s\n%s\n%s",
@@ -3265,7 +3306,7 @@ void TraceWin::events_list_render()
 
                 // column 5: duration
                 {
-                    if ( event.duration != ( uint32_t )-1 )
+                    if ( event.duration != INT64_MAX )
                         ImGui::Text( "%s", ts_to_timestr( event.duration, 4 ).c_str() );
                     ImGui::NextColumn();
                 }

@@ -133,12 +133,12 @@ struct trace_event_t
     uint32_t seqno;             // event seqno (from fields)
     uint32_t id_start;          // start event if this is a graph sequence event (ie amdgpu_sched_run_job, fence_signaled)
     uint32_t graph_row_id;
-    uint32_t duration;          // how long this timeline event took (or -1 for not set)
 
     uint32_t color;             // color of the event (or 0 for default)
     uint32_t color_index;       // -1 or colors_t enum value like col_Graph_Bari915SubmitDelay
 
     int64_t ts;                 // timestamp
+    int64_t duration;           // how long this timeline event took (or INT64_MAX for not set)
     const char *comm;           // command name
     const char *system;         // event system (ftrace-print, etc.)
     const char *name;           // event name

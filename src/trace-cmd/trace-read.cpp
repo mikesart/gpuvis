@@ -1622,6 +1622,7 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
         trace_event.comm = strpool.getstr( seq.buffer );
 
         trace_event.ts = record->ts;
+        trace_event.duration = INT64_MAX;
 
         trace_event.system = strpool.getstr( event->system );
         trace_event.name = strpool.getstr( event->name );
@@ -1631,7 +1632,6 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
         trace_event.user_comm = trace_event.comm;
         trace_event.id_start = INVALID_ID;
         trace_event.graph_row_id = 0;
-        trace_event.duration = ( uint32_t )-1;
         trace_event.color = 0;
         trace_event.color_index = ( uint32_t )-1;
         trace_event.is_filtered_out = false;

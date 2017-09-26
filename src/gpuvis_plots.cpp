@@ -62,7 +62,7 @@ const std::string CreatePlotDlg::get_plot_str( const trace_event_t &event )
         if ( str_get_digit_loc( buf ) )
             return s_textclrs().bright_str( buf ) + "...";
     }
-    else if ( event.duration != ( uint32_t )-1 )
+    else if ( event.duration != INT64_MAX )
     {
         return s_textclrs().bright_str( event.name ) + " duration...";
     }
@@ -128,7 +128,7 @@ bool CreatePlotDlg::init( TraceEvents &trace_events, uint32_t eventid )
             return true;
         }
     }
-    else if ( event.duration != ( uint32_t )-1 )
+    else if ( event.duration != INT64_MAX )
     {
         m_plot_buf = s_textclrs().bright_str( event.name ) + " duration";
         m_plot_err_str.clear();
@@ -260,7 +260,7 @@ bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
             {
                 const trace_event_t &event = trace_events.m_events[ idx ];
 
-                if ( event.duration != ( uint32_t )-1 )
+                if ( event.duration != INT64_MAX )
                 {
                     float valf = event.duration * ( 1.0 / NSECS_PER_MSEC );
 
