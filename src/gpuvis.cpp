@@ -824,7 +824,7 @@ void MainApp::render_save_filename()
     // Cancel button (or escape key)
     ImGui::SameLine();
     if ( ImGui::Button( "Cancel", ImVec2( w / 3.0f, 0 ) ) ||
-         s_keybd().is_escape_down() )
+         s_actions().get( action_escape ) )
     {
         close_popup = true;
     }
@@ -931,7 +931,7 @@ void MainApp::render()
             m_trace_windows_list[ 0 ]->trace_render_info();
             ImGui::End();
 
-            if ( s_keybd().is_escape_down() )
+            if ( s_actions().get( action_escape ) )
                 show_trace_info = false;
         }
 
@@ -1025,7 +1025,7 @@ void MainApp::render()
 
         ImGui::EndColumns();
 
-        if ( s_keybd().is_escape_down() )
+        if ( s_actions().get( action_escape ) )
         {
             m_show_help = false;
             ImGui::CloseCurrentPopup();
@@ -2513,7 +2513,7 @@ void TraceWin::render()
         ImGui::Text( "%s events %u...", loading ? "Loading" : "Initializing", eventsloaded & ~0x40000000 );
 
         if ( ImGui::Button( "Cancel" ) ||
-             ( ImGui::IsWindowFocused() && s_keybd().is_escape_down() ) )
+             ( ImGui::IsWindowFocused() && s_actions().get( action_escape ) ) )
         {
             s_app().cancel_load_file();
         }
@@ -2796,7 +2796,7 @@ bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
         m_frame_markers.m_right_frames.clear();
     }
 
-    if ( s_keybd().is_escape_down() )
+    if ( s_actions().get( action_escape ) )
         ImGui::CloseCurrentPopup();
 
     ImGui::EndPopup();
@@ -3374,7 +3374,7 @@ static const std::string trace_info_label( TraceEvents &trace_events )
 
 void MainApp::render_menu_options()
 {
-    if ( s_keybd().is_escape_down() )
+    if ( s_actions().get( action_escape ) )
         ImGui::CloseCurrentPopup();
 
     {
@@ -3936,7 +3936,7 @@ void MainApp::render_menu( const char *str_id )
 
     if ( ImGui::BeginMenu( "File" ) )
     {
-        if ( s_keybd().is_escape_down() )
+        if ( s_actions().get( action_escape ) )
             ImGui::CloseCurrentPopup();
 
 #if defined( NOC_FILE_DIALOG_IMPLEMENTATION )

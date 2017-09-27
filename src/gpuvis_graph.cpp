@@ -905,7 +905,7 @@ bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
     }
 
     ImGui::SameLine();
-    if ( ImGui::Button( "Cancel", button_size ) || s_keybd().is_escape_down() || ret )
+    if ( ImGui::Button( "Cancel", button_size ) || s_actions().get( action_escape ) || ret )
         ImGui::CloseCurrentPopup();
 
     ImGui::EndPopup();
@@ -3022,7 +3022,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     s_opts().render_imgui_options();
 
-    if ( s_keybd().is_escape_down() )
+    if ( s_actions().get( action_escape ) )
         ImGui::CloseCurrentPopup();
 
     ImGui::EndPopup();
@@ -3032,7 +3032,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
 {
     // Uncapture mouse if user hits escape
-    if ( m_graph.mouse_captured && s_keybd().is_escape_down() )
+    if ( m_graph.mouse_captured && s_actions().get( action_escape ) )
     {
         m_graph.mouse_captured = MOUSE_NOT_CAPTURED;
         ImGui::CaptureMouseFromApp( false );

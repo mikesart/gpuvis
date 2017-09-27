@@ -304,7 +304,7 @@ bool FrameMarkers::render_dlg( TraceEvents &trace_events )
 
     // Cancel button
     ImGui::SameLine();
-    if ( ImGui::Button( "Cancel", button_size ) || s_keybd().is_escape_down() )
+    if ( ImGui::Button( "Cancel", button_size ) || s_actions().get( action_escape ) )
         ImGui::CloseCurrentPopup();
 
     ImGui::EndPopup();
