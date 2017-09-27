@@ -2524,127 +2524,6 @@ bool TraceWin::render()
     if ( s_opts().getb( OPT_ShowEventList ) &&
          imgui_collapsingheader( "Event List", &m_eventlist.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
     {
-        m_eventlist.do_gotoevent |= imgui_input_int( &m_eventlist.goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
-
-        ImGui::SameLine();
-        if ( imgui_input_text2( "Goto Time:", m_eventlist.timegoto_buf, 120.0f, ImGuiInputText2FlagsLeft_LabelIsButton ) )
-        {
-            m_eventlist.do_gotoevent = true;
-            m_eventlist.goto_eventid = timestr_to_eventid( m_eventlist.timegoto_buf );
-        }
-
-        if ( !m_inited ||
-             m_eventlist.hide_sched_switch_events_val != s_opts().getb( OPT_HideSchedSwitchEvents ) )
-        {
-            bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
-            static const char filter_str[] = "$name != \"sched_switch\"";
-
-            remove_event_filter( m_filter.buf, "$name == \"sched_switch\"" );
-            remove_event_filter( m_filter.buf, filter_str );
-
-            if ( hide_sched_switch )
-                add_event_filter( m_filter.buf, filter_str );
-
-            m_filter.enabled = true;
-            m_eventlist.hide_sched_switch_events_val = hide_sched_switch;
-        }
-
-        if ( m_filter.enabled ||
-             imgui_input_text2( "Event Filter:", m_filter.buf, 500.0f,
-                                ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputText2FlagsLeft_LabelIsButton ) )
-        {
-            m_filter.events.clear();
-            m_filter.pid_eventcount.m_map.clear();
-            m_filter.errstr.clear();
-            m_filter.enabled = false;
-
-            if ( m_filter.buf[ 0 ] )
-            {
-                tdop_get_key_func get_key_func = std::bind( filter_get_key_func, &m_trace_events.m_strpool, _1, _2 );
-                class TdopExpr *tdop_expr = tdopexpr_compile( m_filter.buf, get_key_func, m_filter.errstr );
-
-                util_time_t t0 = util_get_time();
-
-                if ( tdop_expr )
-                {
-                    for ( trace_event_t &event : m_trace_events.m_events )
-                    {
-                        tdop_get_keyval_func get_keyval_func = std::bind( filter_get_keyval_func,
-                                                                          &m_trace_events.m_trace_info, &event, _1, _2 );
-
-                        const char *ret = tdopexpr_exec( tdop_expr, get_keyval_func );
-
-                        event.is_filtered_out = !ret[ 0 ];
-                        if ( !event.is_filtered_out )
-                        {
-                            m_filter.events.push_back( event.id );
-
-                            // Bump up count of !filtered events for this pid
-                            uint32_t *count = m_filter.pid_eventcount.get_val( event.pid, 0 );
-                            (*count)++;
-                        }
-                    }
-
-                    if ( m_filter.events.empty() )
-                        m_filter.errstr = "WARNING: No events found.";
-
-                    tdopexpr_delete( tdop_expr );
-                    tdop_expr = NULL;
-                }
-
-                float time = util_time_to_ms( t0, util_get_time() );
-                if ( time > 1000.0f )
-                    logf( "tdopexpr_compile(\"%s\"): %.2fms\n", m_filter.buf, time );
-            }
-        }
-
-        if ( ImGui::IsItemHovered() )
-        {
-            std::string tooltip;
-
-            tooltip += s_textclrs().bright_str( "Event Filter\n\n" );
-            tooltip += "Vars: Any field in Info column plus:\n";
-            tooltip += "    $name, $comm, $user_comm, $id, $pid, $tgid, $ts, $cpu, $duration\n";
-            tooltip += "Operators: &&, ||, !=, =, >, >=, <, <=, =~\n\n";
-
-            tooltip += "Examples:\n";
-            tooltip += "  $pid = 4615\n";
-            tooltip += "  $ts >= 11.1 && $ts < 12.5\n";
-            tooltip += "  $ring_name = 0xffff971e9aa6bdd0\n";
-            tooltip += "  $buf =~ \"[Compositor] Warp\"\n";
-            tooltip += "  ( $timeline = gfx ) && ( $id < 10 || $id > 100 )";
-
-            ImGui::SetTooltip( "%s", tooltip.c_str() );
-        }
-
-        ImGui::SameLine();
-        if ( ImGui::Button( "Clear Filter" ) )
-        {
-            m_filter.events.clear();
-            m_filter.pid_eventcount.m_map.clear();
-            m_filter.errstr.clear();
-            m_filter.buf[ 0 ] = 0;
-        }
-
-        if ( !m_filter.errstr.empty() )
-        {
-            ImGui::SameLine();
-            ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_filter.errstr.c_str() );
-        }
-        else if ( !m_filter.events.empty() )
-        {
-            std::string label = string_format( "Graph only filtered (%lu events)", m_filter.events.size() );
-
-            ImGui::SameLine();
-            s_opts().render_imgui_opt( OPT_GraphOnlyFiltered );
-
-            if ( s_opts().getb( OPT_GraphOnlyFiltered ) )
-            {
-                ImGui::SameLine();
-                s_opts().render_imgui_opt( OPT_Graph_HideEmptyFilteredRows );
-            }
-        }
-
         events_list_render();
     }
 
@@ -3093,8 +2972,134 @@ static void draw_ts_line( const ImVec2 &pos, ImU32 color )
     ImGui::PushColumnClipRect();
 }
 
+void TraceWin::events_list_render_options()
+{
+    m_eventlist.do_gotoevent |= imgui_input_int( &m_eventlist.goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
+
+    ImGui::SameLine();
+    if ( imgui_input_text2( "Goto Time:", m_eventlist.timegoto_buf, 120.0f, ImGuiInputText2FlagsLeft_LabelIsButton ) )
+    {
+        m_eventlist.do_gotoevent = true;
+        m_eventlist.goto_eventid = timestr_to_eventid( m_eventlist.timegoto_buf );
+    }
+
+    if ( !m_inited ||
+         m_eventlist.hide_sched_switch_events_val != s_opts().getb( OPT_HideSchedSwitchEvents ) )
+    {
+        bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
+        static const char filter_str[] = "$name != \"sched_switch\"";
+
+        remove_event_filter( m_filter.buf, "$name == \"sched_switch\"" );
+        remove_event_filter( m_filter.buf, filter_str );
+
+        if ( hide_sched_switch )
+            add_event_filter( m_filter.buf, filter_str );
+
+        m_filter.enabled = true;
+        m_eventlist.hide_sched_switch_events_val = hide_sched_switch;
+    }
+
+    if ( m_filter.enabled ||
+         imgui_input_text2( "Event Filter:", m_filter.buf, 500.0f,
+                            ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputText2FlagsLeft_LabelIsButton ) )
+    {
+        m_filter.events.clear();
+        m_filter.pid_eventcount.m_map.clear();
+        m_filter.errstr.clear();
+        m_filter.enabled = false;
+
+        if ( m_filter.buf[ 0 ] )
+        {
+            tdop_get_key_func get_key_func = std::bind( filter_get_key_func, &m_trace_events.m_strpool, _1, _2 );
+            class TdopExpr *tdop_expr = tdopexpr_compile( m_filter.buf, get_key_func, m_filter.errstr );
+
+            util_time_t t0 = util_get_time();
+
+            if ( tdop_expr )
+            {
+                for ( trace_event_t &event : m_trace_events.m_events )
+                {
+                    tdop_get_keyval_func get_keyval_func = std::bind( filter_get_keyval_func,
+                                                                      &m_trace_events.m_trace_info, &event, _1, _2 );
+
+                    const char *ret = tdopexpr_exec( tdop_expr, get_keyval_func );
+
+                    event.is_filtered_out = !ret[ 0 ];
+                    if ( !event.is_filtered_out )
+                    {
+                        m_filter.events.push_back( event.id );
+
+                        // Bump up count of !filtered events for this pid
+                        uint32_t *count = m_filter.pid_eventcount.get_val( event.pid, 0 );
+                        (*count)++;
+                    }
+                }
+
+                if ( m_filter.events.empty() )
+                    m_filter.errstr = "WARNING: No events found.";
+
+                tdopexpr_delete( tdop_expr );
+                tdop_expr = NULL;
+            }
+
+            float time = util_time_to_ms( t0, util_get_time() );
+            if ( time > 1000.0f )
+                logf( "tdopexpr_compile(\"%s\"): %.2fms\n", m_filter.buf, time );
+        }
+    }
+
+    if ( ImGui::IsItemHovered() )
+    {
+        std::string tooltip;
+
+        tooltip += s_textclrs().bright_str( "Event Filter\n\n" );
+        tooltip += "Vars: Any field in Info column plus:\n";
+        tooltip += "    $name, $comm, $user_comm, $id, $pid, $tgid, $ts, $cpu, $duration\n";
+        tooltip += "Operators: &&, ||, !=, =, >, >=, <, <=, =~\n\n";
+
+        tooltip += "Examples:\n";
+        tooltip += "  $pid = 4615\n";
+        tooltip += "  $ts >= 11.1 && $ts < 12.5\n";
+        tooltip += "  $ring_name = 0xffff971e9aa6bdd0\n";
+        tooltip += "  $buf =~ \"[Compositor] Warp\"\n";
+        tooltip += "  ( $timeline = gfx ) && ( $id < 10 || $id > 100 )";
+
+        ImGui::SetTooltip( "%s", tooltip.c_str() );
+    }
+
+    ImGui::SameLine();
+    if ( ImGui::Button( "Clear Filter" ) )
+    {
+        m_filter.events.clear();
+        m_filter.pid_eventcount.m_map.clear();
+        m_filter.errstr.clear();
+        m_filter.buf[ 0 ] = 0;
+    }
+
+    if ( !m_filter.errstr.empty() )
+    {
+        ImGui::SameLine();
+        ImGui::TextColored( ImVec4( 1, 0, 0, 1 ), "%s", m_filter.errstr.c_str() );
+    }
+    else if ( !m_filter.events.empty() )
+    {
+        std::string label = string_format( "Graph only filtered (%lu events)", m_filter.events.size() );
+
+        ImGui::SameLine();
+        s_opts().render_imgui_opt( OPT_GraphOnlyFiltered );
+
+        if ( s_opts().getb( OPT_GraphOnlyFiltered ) )
+        {
+            ImGui::SameLine();
+            s_opts().render_imgui_opt( OPT_Graph_HideEmptyFilteredRows );
+        }
+    }
+}
+
 void TraceWin::events_list_render()
 {
+    events_list_render_options();
+
     const std::vector< trace_event_t > &events = m_trace_events.m_events;
     size_t event_count = m_filter.events.empty() ?
                 events.size() : m_filter.events.size();

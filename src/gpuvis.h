@@ -507,6 +507,7 @@ public:
 
 protected:
     // Render events list
+    void events_list_render_options();
     void events_list_render();
     // Handle events list popup menu
     bool events_list_render_popupmenu( uint32_t eventid );
