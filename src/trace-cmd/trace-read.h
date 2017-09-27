@@ -137,7 +137,11 @@ struct trace_event_t
     uint32_t graph_row_id;
 
     uint32_t color;             // color of the event (or 0 for default)
-    uint32_t color_index;       // -1 or colors_t enum value like col_Graph_Bari915SubmitDelay
+
+    // i915 events: col_Graph_Bari915SubmitDelay, etc
+    // ftrace print events: buf hashval for colors
+    // otherwise: -1
+    uint32_t color_index;
 
     int64_t ts;                 // timestamp
     int64_t duration;           // how long this timeline event took (or INT64_MAX for not set)
