@@ -1134,6 +1134,8 @@ void    ImFontAtlas::ClearInputData()
         }
     ConfigData.clear();
     CustomRects.clear();
+
+    CustomRectIds[0] = -1;
 }
 
 void    ImFontAtlas::ClearTexData()
