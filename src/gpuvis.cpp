@@ -1412,6 +1412,7 @@ void TraceEvents::update_ftraceprint_colors()
 {
     float label_sat = s_clrs().getalpha( col_Graph_PrintLabelSat );
     float label_alpha = s_clrs().getalpha( col_Graph_PrintLabelAlpha );
+    ImU32 color = s_clrs().get( col_FtracePrintText, label_alpha * 255 );
 
     m_print_size_max = 0.0f;
 
@@ -1443,7 +1444,7 @@ void TraceEvents::update_ftraceprint_colors()
         }
         else
         {
-            event.color = s_clrs().get( col_FtracePrintText, label_alpha * 255 );
+            event.color = color;
         }
     }
 }
