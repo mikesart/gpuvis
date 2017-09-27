@@ -3110,6 +3110,7 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
     {
         // Store the hovered event id.
         m_eventlist.hovered_eventid = event.id;
+        m_graph.last_hovered_eventid = event.id;
 
         if ( ImGui::IsMouseClicked( 1 ) )
         {

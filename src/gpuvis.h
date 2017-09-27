@@ -693,7 +693,7 @@ public:
         float start_y = 0.0f;
 
         // Graph hovered event
-        uint32_t hovered_eventid = INVALID_ID;
+        uint32_t last_hovered_eventid = INVALID_ID;
 
         // Mouse currently over our events graph?
         bool is_mouse_over = false;

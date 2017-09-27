@@ -79,7 +79,7 @@ public:
     void add_event( uint32_t eventid, float x, ImU32 color );
     void done();
 
-    void draw_event_markers( TraceWin *win, class graph_info_t &gi );
+    void draw_event_markers();
 
     void set_y( float y_in, float h_in );
 
@@ -88,10 +88,9 @@ protected:
     void draw();
 
 public:
-    float m_x0, m_x1;
     uint32_t m_count;
     ImU32 m_event_color;
-
+    float m_x0, m_x1;
     float m_y, m_w, m_h;
 
     uint32_t m_num_events = 0;
@@ -99,15 +98,14 @@ public:
     float m_width = 1.0f;
     float m_maxwidth = imgui_scale( 4.0f );
 
-    uint32_t m_selected_eventid = INVALID_ID;
-    uint32_t m_hovered_eventid = INVALID_ID;
-
     struct markers_t
     {
         ImVec2 pos;
         ImU32 color;
     };
     std::vector< markers_t > m_markers;
+
+    class graph_info_t *m_gi = nullptr;
 };
 
 typedef std::function< uint32_t ( class graph_info_t &gi ) > RenderGraphRowCallback;
@@ -142,8 +140,8 @@ class graph_info_t
 public:
     void init_rows( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows );
 
-    void init( TraceWin *win, float x, float w );
-    void set_ts( TraceWin *win, int64_t start_ts, int64_t length_ts );
+    void init( float x, float w );
+    void set_ts( int64_t start_ts, int64_t length_ts );
     void set_pos_y( float y, float h, row_info_t *ri );
 
     float ts_to_x( int64_t ts );
@@ -163,7 +161,7 @@ public:
     void set_selected_i915_ringctxseq( const trace_event_t &event );
     bool is_i915_ringctxseq_selected( const trace_event_t &event );
 
-    RenderGraphRowCallback get_render_cb( TraceWin *win, loc_type_t row_type );
+    RenderGraphRowCallback get_render_cb( loc_type_t row_type );
 
 public:
     rect_t rc;           // current drawing rect
@@ -220,6 +218,11 @@ public:
 
     // row_info id we need to show in visible area
     size_t show_row_id = ( size_t )-1;
+
+    uint32_t m_selected_eventid = INVALID_ID;
+    uint32_t m_hovered_eventid = INVALID_ID;
+
+    TraceWin *m_win = nullptr;
 };
 
 static bool imgui_is_rect_clipped( const rect_t &rc )
@@ -347,6 +350,7 @@ event_renderer_t::event_renderer_t( graph_info_t &gi, float y_in, float w_in, fl
 
     m_width = std::max< float >( 1.0f, m_maxwidth * ( dx - minx ) / ( maxx - minx ) );
 
+    m_gi = &gi;
     m_y = y_in;
     m_w = w_in;
     m_h = h_in;
@@ -369,10 +373,10 @@ void event_renderer_t::add_event( uint32_t eventid, float x, ImU32 color )
 {
     m_num_events++;
 
-    if ( ( eventid == m_selected_eventid ) ||
-         ( eventid == m_hovered_eventid ) )
+    if ( ( eventid == m_gi->m_selected_eventid ) ||
+         ( eventid == m_gi->m_hovered_eventid ) )
     {
-        colors_t colidx = ( eventid == m_selected_eventid ) ?
+        colors_t colidx = ( eventid == m_gi->m_selected_eventid ) ?
                     col_Graph_SelEvent : col_Graph_HovEvent;
 
         float width = std::min< float >( m_width, m_maxwidth );
@@ -411,7 +415,7 @@ void event_renderer_t::done()
     }
 }
 
-void event_renderer_t::draw_event_markers( TraceWin *win, graph_info_t &gi )
+void event_renderer_t::draw_event_markers()
 {
     ImDrawList *DrawList = ImGui::GetWindowDrawList();
 
@@ -461,31 +465,33 @@ static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t r
 /*
  * graph_info_t
  */
-RenderGraphRowCallback graph_info_t::get_render_cb( TraceWin *win, loc_type_t row_type )
+RenderGraphRowCallback graph_info_t::get_render_cb( loc_type_t row_type )
 {
     switch ( row_type )
     {
     case LOC_TYPE_Print:
-        return std::bind( &TraceWin::graph_render_print_timeline, win, _1 );
+        return std::bind( &TraceWin::graph_render_print_timeline, m_win, _1 );
     case LOC_TYPE_Plot:
-        return std::bind( &TraceWin::graph_render_plot, win, _1 );
+        return std::bind( &TraceWin::graph_render_plot, m_win, _1 );
     case LOC_TYPE_AMDTimeline:
-        return std::bind( &TraceWin::graph_render_amd_timeline, win, _1 );
+        return std::bind( &TraceWin::graph_render_amd_timeline, m_win, _1 );
     case LOC_TYPE_AMDTimeline_hw:
-        return std::bind( &TraceWin::graph_render_amdhw_timeline, win, _1 );
+        return std::bind( &TraceWin::graph_render_amdhw_timeline, m_win, _1 );
     case LOC_TYPE_i915Request:
-        return std::bind( &TraceWin::graph_render_i915_req_events, win, _1 );
+        return std::bind( &TraceWin::graph_render_i915_req_events, m_win, _1 );
     case LOC_TYPE_i915RequestWait:
-        return std::bind( &TraceWin::graph_render_i915_reqwait_events, win, _1 );
+        return std::bind( &TraceWin::graph_render_i915_reqwait_events, m_win, _1 );
     default:
         // LOC_TYPE_Comm or LOC_TYPE_Tdopexpr hopefully...
-        return std::bind( &TraceWin::graph_render_row_events, win, _1 );
+        return std::bind( &TraceWin::graph_render_row_events, m_win, _1 );
     }
 }
 
 void graph_info_t::init_rows( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows )
 {
     uint32_t id = 0;
+
+    m_win = win;
 
     imgui_push_smallfont();
 
@@ -515,7 +521,7 @@ void graph_info_t::init_rows( TraceWin *win, const std::vector< GraphRows::graph
         rinfo.scale_ts = win->m_graph.rows.get_row_scale_ts( row_name );
 
         if ( plocs )
-            rinfo.render_cb = get_render_cb( win, rinfo.row_type );
+            rinfo.render_cb = get_render_cb( rinfo.row_type );
 
         if ( rinfo.row_type == LOC_TYPE_Comm )
         {
@@ -566,46 +572,51 @@ void graph_info_t::init_rows( TraceWin *win, const std::vector< GraphRows::graph
     total_graph_height = std::max< float >( total_graph_height, 8.0f * text_h );
 }
 
-void graph_info_t::set_ts( TraceWin *win, int64_t start_ts, int64_t length_ts )
+void graph_info_t::set_ts( int64_t start_ts, int64_t length_ts )
 {
     ts0 = start_ts;
     ts1 = ts0 + length_ts;
 
-    eventstart = win->ts_to_eventid( ts0 );
-    eventend = win->ts_to_eventid( ts1 );
+    eventstart = m_win->ts_to_eventid( ts0 );
+    eventend = m_win->ts_to_eventid( ts1 );
 
     tsdx = ts1 - ts0 + 1;
     tsdxrcp = 1.0 / tsdx;
 }
 
-void graph_info_t::init( TraceWin *win, float x_in, float w_in )
+void graph_info_t::init( float x_in, float w_in )
 {
+    bool eventlist_visible = s_opts().getb( OPT_ShowEventList ) &&
+            !s_opts().getb( OPT_GraphFullscreen );
+    const std::vector< trace_event_t > &events = m_win->m_trace_events.m_events;
+
     rc.x = x_in;
     rc.w = w_in;
 
+    // Get mouse position
     mouse_pos = ImGui::IsRootWindowOrAnyChildFocused() ?
         ImGui::GetMousePos() : ImVec2( -FLT_MAX, -FLT_MAX );
 
-    // Check if we're supposed to render filtered events only
-    graph_only_filtered = s_opts().getb( OPT_GraphOnlyFiltered ) &&
-                          !win->m_filter.events.empty();
-
+    // Render timeline user space bars?
     timeline_render_user = s_opts().getb( OPT_TimelineRenderUserSpace );
 
-    const std::vector< trace_event_t > &events = win->m_trace_events.m_events;
+    // Render filtered events only?
+    graph_only_filtered = s_opts().getb( OPT_GraphOnlyFiltered ) &&
+                          !m_win->m_filter.events.empty();
 
-    // First check if they're hovering a timeline event in the event list
-    uint32_t event_hov = win->m_eventlist.hovered_eventid;
+    // Grab last hovered graph event
+    m_hovered_eventid = m_win->m_graph.last_hovered_eventid;
 
-    // If not, check if they're hovering a timeline event in the graph
-    if ( !is_valid_id( event_hov ) || !events[ event_hov ].is_timeline() )
-        event_hov = win->m_graph.hovered_eventid;
+    // If the event list is visible, grab the selected event
+    if ( eventlist_visible )
+        m_selected_eventid = m_win->m_eventlist.selected_eventid;
 
-    if ( is_valid_id( event_hov ) && events[ event_hov ].is_timeline() )
+    // If our hovered event is an amd timeline event, get the id
+    if ( is_valid_id( m_hovered_eventid ) && events[ m_hovered_eventid ].is_timeline() )
     {
         // Find the fence signaled event for this timeline
-        const char *gfxcontext = win->m_trace_events.get_event_gfxcontext_str( events[ event_hov ] );
-        const std::vector< uint32_t > *plocs = win->m_trace_events.get_gfxcontext_locs( gfxcontext );
+        const char *gfxcontext = m_win->m_trace_events.get_event_gfxcontext_str( events[ m_hovered_eventid ] );
+        const std::vector< uint32_t > *plocs = m_win->m_trace_events.get_gfxcontext_locs( gfxcontext );
 
         // Mark it as hovered so it'll have a selection rectangle
         hovered_fence_signaled = plocs->back();
@@ -1037,9 +1048,6 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
     event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
 
-    event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
-    event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
-
     struct
     {
         // Hovered duration timeline bar info
@@ -1127,7 +1135,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     }
 
     event_renderer.done();
-    event_renderer.draw_event_markers( this, gi );
+    event_renderer.draw_event_markers();
 
     // Flush print labels
     for ( uint32_t row_id = 0; row_id < row_draw_info.size(); row_id++ )
@@ -1246,8 +1254,6 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
     event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
 
     event_renderer.m_maxwidth = 1.0f;
-    event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
-    event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -1375,7 +1381,7 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
     }
 
     event_renderer.done();
-    event_renderer.draw_event_markers( this, gi );
+    event_renderer.draw_event_markers();
 
     imgui_drawrect( hov_rect, s_clrs().get( col_Graph_BarSelRect ) );
 
@@ -1389,9 +1395,6 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.rc.y + 4, gi.rc.w, gi.rc.h - 8 );
     bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
-
-    event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
-    event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -1417,7 +1420,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
     }
 
     event_renderer.done();
-    event_renderer.draw_event_markers( this, gi );
+    event_renderer.draw_event_markers();
 
     if ( gi.prinfo_cur->pid >= 0 )
     {
@@ -1476,9 +1479,6 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
     ImU32 barcolor = s_clrs().get( col_Graph_Bari915ReqWait );
     ImU32 textcolor = s_clrs().get( col_Graph_BarText );
     const trace_event_t *pevent_sel = NULL;
-
-    event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
-    event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -1542,7 +1542,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
     }
 
     event_renderer.done();
-    event_renderer.draw_event_markers( this, gi );
+    event_renderer.draw_event_markers();
 
     if ( pevent_sel )
         gi.set_selected_i915_ringctxseq( *pevent_sel );
@@ -1558,9 +1558,6 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
     uint32_t row_count = std::max< uint32_t >( 1, gi.rc.h / row_h );
     const trace_event_t *pevent_sel = NULL;
-
-    event_renderer.m_hovered_eventid = m_eventlist.hovered_eventid;
-    event_renderer.m_selected_eventid = m_eventlist.selected_eventid;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -1632,7 +1629,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     }
 
     event_renderer.done();
-    event_renderer.draw_event_markers( this, gi );
+    event_renderer.draw_event_markers();
 
     if ( pevent_sel )
         gi.set_selected_i915_ringctxseq( *pevent_sel );
@@ -1675,7 +1672,7 @@ void TraceWin::graph_render_row( graph_info_t &gi )
 
             start_ts -= length_ts * scale_ts;
             length_ts += length_ts * 2 * scale_ts;
-            gi.set_ts( this, start_ts, length_ts );
+            gi.set_ts( start_ts, length_ts );
 
             if ( gi.mouse_pos_in_graph() )
                 gi.mouse_pos_scaled_ts = gi.screenx_to_ts( gi.mouse_pos.x );
@@ -1692,7 +1689,7 @@ void TraceWin::graph_render_row( graph_info_t &gi )
             ImGui::GetWindowDrawList()->AddRectFilled(
                         ImVec2( x0, gi.rc.y ), ImVec2( x1, gi.rc.y + gi.rc.h ),
                         0x5fffffff, 9.0f, 0x0f );
-            gi.set_ts( this, m_graph.start_ts, m_graph.length_ts );
+            gi.set_ts( m_graph.start_ts, m_graph.length_ts );
         }
 
 #if 0
@@ -1936,8 +1933,8 @@ void TraceWin::graph_render_eventids( graph_info_t &gi )
         ImU32 color;
     } events[] =
     {
-        { m_eventlist.hovered_eventid, s_clrs().get( col_Graph_HovEvent, 120 ) },
-        { m_eventlist.selected_eventid, s_clrs().get( col_Graph_SelEvent, 120 ) },
+        { gi.m_hovered_eventid, s_clrs().get( col_Graph_HovEvent, 120 ) },
+        { gi.m_selected_eventid, s_clrs().get( col_Graph_SelEvent, 120 ) },
     };
 
     for ( const auto &item : events )
@@ -2399,8 +2396,8 @@ void TraceWin::graph_render()
                                s_clrs().get( col_Graph_Bk ) );
 
         // Initialize our graphics info struct
-        gi.init( this, windowpos.x, windowsize.x );
-        gi.set_ts( this, m_graph.start_ts, m_graph.length_ts );
+        gi.init( windowpos.x, windowsize.x );
+        gi.set_ts( m_graph.start_ts, m_graph.length_ts );
 
         // If we have a show row id, make sure it's visible
         if ( gi.show_row_id != ( size_t )-1 )
@@ -2548,6 +2545,9 @@ void TraceWin::graph_render()
         // Render mouse tooltips, mouse selections, etc
         gi.set_pos_y( windowpos.y, windowsize.y, NULL );
         graph_handle_mouse( gi );
+
+        // Set last hovered eventid to whatever graph_handle_mouse set
+        m_graph.last_hovered_eventid = gi.m_hovered_eventid;
     }
     ImGui::EndChild();
     ImGui::PopStyleVar();
@@ -2800,10 +2800,10 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     }
 
     // Create Plot for hovered event
-    if ( is_valid_id( m_graph.hovered_eventid ) &&
+    if ( is_valid_id( gi.m_hovered_eventid ) &&
          strncmp( row_name.c_str(), "plot:", 5 ) )
     {
-        const trace_event_t &event = m_trace_events.m_events[ m_graph.hovered_eventid ];
+        const trace_event_t &event = m_trace_events.m_events[ gi.m_hovered_eventid ];
         const std::string plot_str = CreatePlotDlg::get_plot_str( event );
 
         if ( !plot_str.empty() )
@@ -2909,16 +2909,16 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     // New Graph Row
     if ( ImGui::MenuItem( "Add New Graph Row..." ) )
     {
-        m_create_graph_row_eventid = is_valid_id( m_graph.hovered_eventid ) ?
-                    m_graph.hovered_eventid : m_trace_events.m_events.size();
+        m_create_graph_row_eventid = is_valid_id( gi.m_hovered_eventid ) ?
+                    gi.m_hovered_eventid : m_trace_events.m_events.size();
     }
 
     // Frame Markers
     {
-        if ( is_valid_id( m_graph.hovered_eventid ) &&
+        if ( is_valid_id( gi.m_hovered_eventid ) &&
              ImGui::MenuItem( "Set Frame Markers..." ) )
         {
-            const trace_event_t &event = m_trace_events.m_events[ m_graph.hovered_eventid ];
+            const trace_event_t &event = m_trace_events.m_events[ gi.m_hovered_eventid ];
 
             m_create_filter_eventid = event.id;
         }
@@ -3162,7 +3162,9 @@ void TraceWin::graph_set_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
     }
 
     int64_t dist_ts = INT64_MAX;
-    m_graph.hovered_eventid = INVALID_ID;
+
+    gi.m_hovered_eventid = INVALID_ID;
+
     if ( !gi.hovered_items.empty() )
     {
         // Sort hovered items array by id
@@ -3267,7 +3269,7 @@ void TraceWin::graph_set_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
 
             if ( hov.dist_ts < dist_ts )
             {
-                m_graph.hovered_eventid = hov.eventid;
+                gi.m_hovered_eventid = hov.eventid;
                 dist_ts = hov.dist_ts;
             }
         }
@@ -3275,7 +3277,7 @@ void TraceWin::graph_set_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
         if ( sync_event_list_to_graph && !m_eventlist.do_gotoevent )
         {
             m_eventlist.do_gotoevent = true;
-            m_eventlist.goto_eventid = m_graph.hovered_eventid;
+            m_eventlist.goto_eventid = gi.m_hovered_eventid;
         }
     }
 
