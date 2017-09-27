@@ -1884,6 +1884,27 @@ void TraceEvents::init_new_event( trace_event_t &event )
     SDL_AtomicAdd( &m_eventsloaded, 1 );
 }
 
+TraceEvents::tracestatus_t TraceEvents::get_load_status( uint32_t *count )
+{
+    int eventsloaded = SDL_AtomicGet( &m_eventsloaded );
+
+    if ( eventsloaded > 0 )
+    {
+        *count = eventsloaded & ~0x40000000;
+
+        return ( eventsloaded & 0x40000000 ) ?
+                    Trace_Initializing : Trace_Loading;
+    }
+    else if ( !eventsloaded )
+    {
+        *count = m_events.size();
+        return Trace_Loaded;
+    }
+
+    *count = 0;
+    return Trace_Error;
+}
+
 void TraceEvents::init()
 {
     // Set m_eventsloaded initializing bit
@@ -2464,14 +2485,16 @@ TraceWin::~TraceWin()
 
 void TraceWin::render()
 {
+    uint32_t count = 0;
+    TraceEvents::tracestatus_t status = m_trace_events.get_load_status( &count );
+
     ImGui::Begin( m_title.c_str(), &m_open, ImGuiWindowFlags_MenuBar );
 
     s_app().render_menu( "menu_tracewin" );
 
-    int eventsloaded = SDL_AtomicGet( &m_trace_events.m_eventsloaded );
-    if ( !eventsloaded )
+    if ( status == TraceEvents::Trace_Loaded )
     {
-        if ( !m_trace_events.m_events.empty() )
+        if ( count )
         {
             if ( !m_inited )
             {
@@ -2506,11 +2529,12 @@ void TraceWin::render()
             m_inited = true;
         }
     }
-    else if ( eventsloaded > 0 )
+    else if ( status == TraceEvents::Trace_Loading ||
+              status == TraceEvents::Trace_Initializing )
     {
-        bool loading = !( eventsloaded & 0x40000000 );
+        bool loading = ( status == TraceEvents::Trace_Loading );
 
-        ImGui::Text( "%s events %u...", loading ? "Loading" : "Initializing", eventsloaded & ~0x40000000 );
+        ImGui::Text( "%s events %u...", loading ? "Loading" : "Initializing", count );
 
         if ( ImGui::Button( "Cancel" ) ||
              ( ImGui::IsWindowFocused() && s_actions().get( action_escape ) ) )
@@ -2520,7 +2544,7 @@ void TraceWin::render()
     }
     else
     {
-        ImGui::Text( "Error loading filed %s...\n", m_trace_events.m_filename.c_str() );
+        ImGui::Text( "Error loading file %s...\n", m_trace_events.m_filename.c_str() );
     }
 
     ImGui::End();

@@ -292,6 +292,15 @@ public:
     ~TraceEvents() {}
 
 public:
+    enum tracestatus_t
+    {
+        Trace_Loaded,
+        Trace_Loading,
+        Trace_Initializing,
+        Trace_Error
+    };
+    tracestatus_t get_load_status( uint32_t *count );
+
     // Return vec of locations for a tdop expression. Ie: "$name=drm_handle_vblank"
     const std::vector< uint32_t > *get_tdopexpr_locs( const char *name, std::string *err = nullptr );
     // Return vec of locations for a cmdline. Ie: "SkinningApp-1536"
