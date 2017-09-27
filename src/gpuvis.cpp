@@ -1321,6 +1321,48 @@ static const char *s_buf_prefixes[] =
     "[Compositor] Present() ",
 };
 
+static struct
+{
+    const char *var;
+    size_t len;
+} s_buf_vars[] =
+{
+    { "duration=", 9 },
+    { "begin_ctx=", 10 },
+    { "end_ctx=", 8 },
+};
+
+static const char *get_print_buf_end( const char *buf )
+{
+    const char *buf_end;
+
+    // If we find any of our print variables, use that as buf end
+    for ( size_t i = 0; i < ARRAY_SIZE( s_buf_vars ); i++ )
+    {
+        buf_end = strncasestr( buf, s_buf_vars[ i ].var, s_buf_vars[ i ].len );
+        if ( buf_end )
+            return buf_end + s_buf_vars[ i ].len;
+    }
+
+    // Search for :
+    buf_end = strrchr( buf, ':' );
+    // No colon, try to find '='
+    if ( !buf_end )
+        buf_end = strrchr( buf, '=' );
+    if ( buf_end )
+        return buf_end + 1;
+
+    // No colon - try to find one of our buf prefixes
+    for ( size_t i = 0; i < ARRAY_SIZE( s_buf_prefixes ); i++ )
+    {
+        size_t len = strlen( s_buf_prefixes[ i ] );
+        if ( !strncasecmp( buf, s_buf_prefixes[ i ], len ) )
+            return buf + len;
+    }
+
+    return NULL;
+}
+
 void TraceEvents::calculate_event_print_info()
 {
     if ( !m_print_buf_info.m_map.empty() )
@@ -1337,31 +1379,7 @@ void TraceEvents::calculate_event_print_info()
     {
         trace_event_t &event = m_events[ idx ];
         const char *buf = get_event_field_val( event, "buf" );
-
-        // If we can find a colon, use everything before it
-        const char *buf_end = strrchr( buf, ':' );
-
-        // No colon, try to find '='
-        if ( !buf_end )
-            buf_end = strrchr( buf, '=' );
-
-        if ( buf_end )
-        {
-            buf_end++;
-        }
-        else
-        {
-            // No colon - try to find one of our buf prefixes
-            for ( size_t i = 0; i < ARRAY_SIZE( s_buf_prefixes ); i++ )
-            {
-                size_t len = strlen( s_buf_prefixes[ i ] );
-                if ( !strncasecmp( buf, s_buf_prefixes[ i ], len ) )
-                {
-                    buf_end = buf + len;
-                    break;
-                }
-            }
-        }
+        const char *buf_end = get_print_buf_end( buf );
 
         if ( !buf_end )
         {
@@ -1370,8 +1388,8 @@ void TraceEvents::calculate_event_print_info()
         }
         else if ( is_valid_id( event.id_start ) )
         {
-            // This is the end of a begin_ctx / end_ctx pair. We want to use the
-            // same rowid / colors as the begin but it may not be initialized yet.
+            // This is the begin of a begin_ctx / end_ctx pair. We want to use the
+            // same rowid / colors as the end but it may not be initialized yet.
             // So... set these values in the update_ftraceprint_colors() function.
         }
         else
@@ -1430,12 +1448,12 @@ void TraceEvents::update_ftraceprint_colors()
 
         if ( is_valid_id( event.id_start ) )
         {
-            // This is a end_ctx event...
-            // Use the rowid and color from the begin_ctx event.
-            const trace_event_t &event_begin = m_events[ event.id_start ];
+            // This is a begin_ctx event...
+            // Use the rowid and color from the end_ctx event.
+            const trace_event_t &event_end = m_events[ event.id_start ];
 
-            event.graph_row_id = event_begin.graph_row_id;
-            event.color = imgui_col_from_hashval( event_begin.color_index, label_sat, label_alpha );
+            event.graph_row_id = event_end.graph_row_id;
+            event.color = imgui_col_from_hashval( event_end.color_index, label_sat, label_alpha );
         }
         else if ( event.graph_row_id )
         {
@@ -1719,11 +1737,11 @@ void TraceEvents::init_new_event( trace_event_t &event )
                 if ( begin_eventid && end_eventid )
                 {
                     // We have a begin/end pair for this ctx
-                    const trace_event_t &event0 = m_events[ *begin_eventid ];
-                    trace_event_t &event1 = m_events[ *end_eventid ];
+                    trace_event_t &event0 = m_events[ *begin_eventid ];
+                    const trace_event_t &event1 = m_events[ *end_eventid ];
 
-                    event1.id_start = event0.id;
-                    event1.duration = event0.ts - event1.ts;
+                    event0.id_start = event1.id;
+                    event0.duration = event1.ts - event0.ts;
 
                     // Erase all knowledge of this ctx so it can be reused
                     m_ftrace_begin_ctx.erase_key( event.seqno );
