@@ -1684,6 +1684,17 @@ const char *TraceEvents::get_event_gfxcontext_str( const trace_event_t &event )
     return "";
 }
 
+std::string TraceEvents::get_ftrace_ctx_str( const trace_event_t &event )
+{
+    if ( event.seqno != UINT32_MAX )
+    {
+        return string_format( " %s[ctx=%u]%s", s_textclrs().str( TClr_Bright ),
+                              event.seqno, s_textclrs().str( TClr_Def ) );
+    }
+
+    return "";
+}
+
 void TraceEvents::init_sched_switch_event( trace_event_t &event )
 {
     const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
@@ -2599,7 +2610,7 @@ void TraceWin::render()
             if ( s_opts().getb( OPT_ShowEventList ) &&
                  imgui_collapsingheader( "Event List", &m_eventlist.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
             {
-                events_list_render();
+                eventlist_render();
             }
 
             // Render plot, graph rows, filter dialogs, etc
@@ -2777,7 +2788,7 @@ void TraceWin::graph_center_event( uint32_t eventid )
     m_graph.show_row_name = event.comm;
 }
 
-bool TraceWin::events_list_render_popupmenu( uint32_t eventid )
+bool TraceWin::eventlist_render_popupmenu( uint32_t eventid )
 {
     if ( !ImGui::BeginPopup( "EventsListPopup" ) )
         return false;
@@ -2956,7 +2967,7 @@ static float get_keyboard_scroll_lines( float visible_rows )
     return scroll_lines;
 }
 
-bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i )
+bool TraceWin::eventlist_handle_mouse( const trace_event_t &event, uint32_t i )
 {
     bool popup_shown = false;
 
@@ -2974,7 +2985,7 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
             // If they right clicked, show the context menu.
             m_eventlist.popup_eventid = i;
 
-            // Open the popup for events_list_render_popupmenu().
+            // Open the popup for eventlist_render_popupmenu().
             ImGui::OpenPopup( "EventsListPopup" );
         }
         else
@@ -3013,7 +3024,7 @@ bool TraceWin::events_list_handle_mouse( const trace_event_t &event, uint32_t i 
                     m_filter.events[ m_eventlist.popup_eventid ] :
                     m_eventlist.popup_eventid;
 
-        if ( !TraceWin::events_list_render_popupmenu( eventid ) )
+        if ( !TraceWin::eventlist_render_popupmenu( eventid ) )
             m_eventlist.popup_eventid = INVALID_ID;
 
         popup_shown = true;
@@ -3039,7 +3050,7 @@ static void draw_ts_line( const ImVec2 &pos, ImU32 color )
     ImGui::PushColumnClipRect();
 }
 
-void TraceWin::events_list_render_options()
+void TraceWin::eventlist_render_options()
 {
     m_eventlist.do_gotoevent |= imgui_input_int( &m_eventlist.goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
 
@@ -3163,9 +3174,9 @@ void TraceWin::events_list_render_options()
     }
 }
 
-void TraceWin::events_list_render()
+void TraceWin::eventlist_render()
 {
-    events_list_render_options();
+    eventlist_render_options();
 
     const std::vector< trace_event_t > &events = m_trace_events.m_events;
     size_t event_count = m_filter.events.empty() ?
@@ -3334,7 +3345,7 @@ void TraceWin::events_list_render()
                     ImGui::SetItemAllowOverlap();
 
                     // Handle popup menu / tooltip
-                    popup_shown |= events_list_handle_mouse( event, i );
+                    popup_shown |= eventlist_handle_mouse( event, i );
 
                     ImGui::NextColumn();
                 }
@@ -3385,7 +3396,10 @@ void TraceWin::events_list_render()
                 {
                     if ( event.is_ftrace_print() )
                     {
-                        ImGui::TextColored( ImColor( event.color ), "%s", get_event_field_val( event, "buf" ) );
+                        const char *buf = get_event_field_val( event, "buf" );
+                        std::string seqno = m_trace_events.get_ftrace_ctx_str( event );
+
+                        ImGui::TextColored( ImColor( event.color ), "%s%s", buf, seqno.c_str() );
                     }
                     else
                     {
@@ -3424,7 +3438,7 @@ void TraceWin::events_list_render()
             if ( !popup_shown )
             {
                 // When we modify a filter via the context menu, it can hide the item
-                //  we right clicked on which means events_list_render_popupmenu() won't get
+                //  we right clicked on which means eventlist_render_popupmenu() won't get
                 //  called. Check for that case here.
                 m_eventlist.popup_eventid = INVALID_ID;
             }

@@ -353,6 +353,8 @@ public:
 
     const char *get_event_gfxcontext_str( const trace_event_t &event );
 
+    std::string get_ftrace_ctx_str( const trace_event_t &event );
+
 public:
     // Called once on background thread after all events loaded.
     void init();
@@ -516,12 +518,12 @@ public:
 
 protected:
     // Render events list
-    void events_list_render_options();
-    void events_list_render();
+    void eventlist_render_options();
+    void eventlist_render();
     // Handle events list popup menu
-    bool events_list_render_popupmenu( uint32_t eventid );
+    bool eventlist_render_popupmenu( uint32_t eventid );
     // Handle mouse clicking and tooltips for event list
-    bool events_list_handle_mouse( const trace_event_t &event, uint32_t i );
+    bool eventlist_handle_mouse( const trace_event_t &event, uint32_t i );
 
 protected:
     // Render graph

@@ -3329,7 +3329,10 @@ void TraceWin::graph_set_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
                 const char *buf = get_event_field_val( event, "buf" );
 
                 if ( buf[ 0 ] )
+                {
                     time_buf += " " + s_textclrs().mstr( buf, event.color );
+                    time_buf += m_trace_events.get_ftrace_ctx_str( event );
+                }
             }
             else if ( event.is_sched_switch() )
             {
