@@ -423,6 +423,7 @@ enum action_t
 
     action_save_screenshot,
 
+    action_escape,
     action_return,
 
     action_max

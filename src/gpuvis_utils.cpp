@@ -1439,6 +1439,7 @@ void Actions::init()
     m_actionmap.push_back( { action_scroll_home, KMOD_NONE, SDLK_HOME, "Scroll graph / event list to start" } );
     m_actionmap.push_back( { action_scroll_end, KMOD_NONE, SDLK_END, "Scroll graph / event list to end" } );
 
+    m_actionmap.push_back( { action_escape, KMOD_NONE, SDLK_ESCAPE, NULL } );
     m_actionmap.push_back( { action_return, KMOD_NONE, SDLK_RETURN, NULL } );
 }
 

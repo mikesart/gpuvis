@@ -2462,104 +2462,68 @@ TraceWin::~TraceWin()
     m_create_graph_row_dlg.shutdown();
 }
 
-bool TraceWin::render()
+void TraceWin::render()
 {
-    int eventsloaded = SDL_AtomicGet( &m_trace_events.m_eventsloaded );
-
-    if ( eventsloaded > 0 )
-    {
-        bool loading = !( eventsloaded & 0x40000000 );
-
-        ImGui::Begin( m_title.c_str(), &m_open );
-
-        ImGui::Text( "%s events %u...", loading ? "Loading" : "Initializing", eventsloaded & ~0x40000000 );
-
-        if ( ImGui::Button( "Cancel" ) || s_keybd().is_escape_down() )
-            s_app().cancel_load_file();
-
-        ImGui::End();
-        return true;
-    }
-    else if ( eventsloaded < 0 )
-    {
-        ImGui::Begin( m_title.c_str(), &m_open );
-
-        ImGui::Text( "Error loading filed %s...\n", m_trace_events.m_filename.c_str() );
-
-        ImGui::End();
-        return true;
-    }
-
     ImGui::Begin( m_title.c_str(), &m_open, ImGuiWindowFlags_MenuBar );
 
     s_app().render_menu( "menu_tracewin" );
 
-    if ( m_trace_events.m_events.empty() )
+    int eventsloaded = SDL_AtomicGet( &m_trace_events.m_eventsloaded );
+    if ( !eventsloaded )
     {
-        ImGui::End();
-        return true;
-    }
+        if ( !m_trace_events.m_events.empty() )
+        {
+            if ( !m_inited )
+            {
+                int64_t last_ts = m_trace_events.m_events.back().ts;
 
-    if ( !m_inited )
+                // Initialize our graph rows first time through.
+                m_graph.rows.init( m_trace_events );
+
+                m_graph.length_ts = std::min< int64_t >( last_ts, 40 * NSECS_PER_MSEC );
+                m_graph.start_ts = last_ts - m_graph.length_ts;
+                m_graph.recalc_timebufs = true;
+
+                m_eventlist.do_gotoevent = true;
+                m_eventlist.goto_eventid = ts_to_eventid( m_graph.start_ts + m_graph.length_ts / 2 );
+            }
+
+            if ( !s_opts().getb( OPT_ShowEventList ) ||
+                 imgui_collapsingheader( "Events Graph", &m_graph.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
+            {
+                graph_render();
+            }
+
+            if ( s_opts().getb( OPT_ShowEventList ) &&
+                 imgui_collapsingheader( "Event List", &m_eventlist.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
+            {
+                events_list_render();
+            }
+
+            // Render plot, graph rows, filter dialogs, etc
+            dialogs_render();
+
+            m_inited = true;
+        }
+    }
+    else if ( eventsloaded > 0 )
     {
-        int64_t last_ts = m_trace_events.m_events.back().ts;
+        bool loading = !( eventsloaded & 0x40000000 );
 
-        // Initialize our graph rows first time through.
-        m_graph.rows.init( m_trace_events );
+        ImGui::Text( "%s events %u...", loading ? "Loading" : "Initializing", eventsloaded & ~0x40000000 );
 
-        m_graph.length_ts = std::min< int64_t >( last_ts, 40 * NSECS_PER_MSEC );
-        m_graph.start_ts = last_ts - m_graph.length_ts;
-        m_graph.recalc_timebufs = true;
-
-        m_eventlist.do_gotoevent = true;
-        m_eventlist.goto_eventid = ts_to_eventid( m_graph.start_ts + m_graph.length_ts / 2 );
+        if ( ImGui::Button( "Cancel" ) ||
+             ( ImGui::IsWindowFocused() && s_keybd().is_escape_down() ) )
+        {
+            s_app().cancel_load_file();
+        }
     }
-
-    if ( !s_opts().getb( OPT_ShowEventList ) ||
-         imgui_collapsingheader( "Events Graph", &m_graph.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
+    else
     {
-        graph_render();
+        ImGui::Text( "Error loading filed %s...\n", m_trace_events.m_filename.c_str() );
     }
-
-    if ( s_opts().getb( OPT_ShowEventList ) &&
-         imgui_collapsingheader( "Event List", &m_eventlist.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        events_list_render();
-    }
-
-    // Plots
-    if ( is_valid_id( m_create_plot_eventid ) )
-    {
-        m_create_plot_dlg.init( m_trace_events, m_create_plot_eventid );
-        m_create_plot_eventid = INVALID_ID;
-    }
-    if ( m_create_plot_dlg.render_dlg( m_trace_events ) )
-        m_graph.rows.add_row( m_create_plot_dlg.m_plot_name, m_create_plot_dlg.m_plot_name );
-
-    // Graph rows
-    if ( is_valid_id( m_create_graph_row_eventid ) )
-    {
-        m_create_graph_row_dlg.show_dlg( m_trace_events, m_create_graph_row_eventid );
-        m_create_graph_row_eventid = INVALID_ID;
-    }
-    if ( m_create_graph_row_dlg.render_dlg( m_trace_events ) )
-    {
-        m_graph.rows.add_row( m_create_graph_row_dlg.m_name_buf,
-                              m_create_graph_row_dlg.m_filter_buf );
-    }
-
-    // Filter events
-    if ( is_valid_id( m_create_filter_eventid ) )
-    {
-        m_frame_markers.show_dlg( m_trace_events, m_create_filter_eventid );
-        m_create_filter_eventid = INVALID_ID;
-    }
-    m_frame_markers.render_dlg( m_trace_events );
 
     ImGui::End();
-
-    m_inited = true;
-    return m_open;
 }
 
 void TraceWin::trace_render_info()
@@ -3367,6 +3331,38 @@ void TraceWin::events_list_render()
 
         ImGui::EndChild();
     }
+}
+
+void TraceWin::dialogs_render()
+{
+    // Plots
+    if ( is_valid_id( m_create_plot_eventid ) )
+    {
+        m_create_plot_dlg.init( m_trace_events, m_create_plot_eventid );
+        m_create_plot_eventid = INVALID_ID;
+    }
+    if ( m_create_plot_dlg.render_dlg( m_trace_events ) )
+        m_graph.rows.add_row( m_create_plot_dlg.m_plot_name, m_create_plot_dlg.m_plot_name );
+
+    // Graph rows
+    if ( is_valid_id( m_create_graph_row_eventid ) )
+    {
+        m_create_graph_row_dlg.show_dlg( m_trace_events, m_create_graph_row_eventid );
+        m_create_graph_row_eventid = INVALID_ID;
+    }
+    if ( m_create_graph_row_dlg.render_dlg( m_trace_events ) )
+    {
+        m_graph.rows.add_row( m_create_graph_row_dlg.m_name_buf,
+                              m_create_graph_row_dlg.m_filter_buf );
+    }
+
+    // Filter events
+    if ( is_valid_id( m_create_filter_eventid ) )
+    {
+        m_frame_markers.show_dlg( m_trace_events, m_create_filter_eventid );
+        m_create_filter_eventid = INVALID_ID;
+    }
+    m_frame_markers.render_dlg( m_trace_events );
 }
 
 static const std::string trace_info_label( TraceEvents &trace_events )

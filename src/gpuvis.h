@@ -497,7 +497,7 @@ public:
     ~TraceWin();
 
 public:
-    bool render();
+    void render();
     void trace_render_info();
 
     trace_event_t &get_event( uint32_t id )
@@ -520,6 +520,9 @@ protected:
     void graph_render();
     // Render regular graph row
     void graph_render_row( class graph_info_t &gi );
+
+    // Render plot, graph rows, filter dialogs, etc
+    void dialogs_render();
 
     // Render amd timeline graph row
     uint32_t graph_render_amd_timeline( class graph_info_t &gi );
