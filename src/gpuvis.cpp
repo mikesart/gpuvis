@@ -4011,9 +4011,6 @@ void MainApp::render_console()
 
     render_menu( "menu_console" );
 
-    ImGui::Text( "%.2f ms/frame (%.1f FPS)",
-                 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
-
     render_log();
 
     ImGui::End();
