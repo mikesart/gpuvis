@@ -749,8 +749,64 @@ void MainApp::init( int argc, char **argv )
     imgui_set_scale( s_opts().getf( OPT_Scale ) );
 }
 
-void MainApp::shutdown()
+#if SDL_VERSIONNUM( SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL ) < SDL_VERSIONNUM( 2, 0, 5 )
+int SDL_GetWindowBordersSize( SDL_Window *window, int *top, int *left, int *bottom, int *right )
 {
+    *top = 0;
+    *left = 0;
+    *bottom = 0;
+    *right = 0;
+
+    return -1;
+}
+#endif
+
+static void sdl_setwindow_icon( SDL_Window *window )
+{
+#include "gpuvis_icon.c"
+
+    SDL_Surface *surface = SDL_CreateRGBSurfaceFrom(
+                s_icon.pixel_data,
+                s_icon.width,
+                s_icon.height,
+                s_icon.bytes_per_pixel * 8,
+                s_icon.width * s_icon.bytes_per_pixel,
+                IM_COL32( 0xff, 0, 0, 0 ),
+                IM_COL32( 0, 0xff, 0, 0 ),
+                IM_COL32( 0, 0, 0xff, 0 ),
+                IM_COL32( 0, 0, 0, 0xff ) );
+
+    SDL_SetWindowIcon( window, surface );
+}
+
+SDL_Window *MainApp::create_window( const char *title )
+{
+    int x, y, w, h;
+    SDL_Window *window;
+
+    get_window_pos( x, y, w, h );
+
+    window = SDL_CreateWindow( title, x, y, w, h, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE );
+    sdl_setwindow_icon( window );
+
+    return window;
+}
+
+void MainApp::shutdown( SDL_Window *window )
+{
+    if ( window )
+    {
+        // Write main window position / size to ini file.
+        int x, y, w, h;
+        int top, left, bottom, right;
+
+        SDL_GetWindowBordersSize( window, &top, &left, &bottom, &right );
+        SDL_GetWindowPosition( window, &x, &y );
+        SDL_GetWindowSize( window, &w, &h );
+
+        save_window_pos( x - left, y - top, w, h );
+    }
+
     if ( m_loading_info.thread )
     {
         // Cancel any file loading going on.
@@ -1032,6 +1088,27 @@ void MainApp::render()
         }
 
         ImGui::EndPopup();
+    }
+}
+
+void MainApp::update()
+{
+    if ( !m_loading_info.inputfiles.empty() && !is_loading() )
+    {
+        const char *filename = m_loading_info.inputfiles[ 0 ].c_str();
+
+        load_file( filename );
+
+        m_loading_info.inputfiles.erase( m_loading_info.inputfiles.begin() );
+    }
+
+    if ( ( m_font_main.m_changed || m_font_small.m_changed ) &&
+         !ImGui::IsMouseDown( 0 ) )
+    {
+        imgui_set_scale( s_opts().getf( OPT_Scale ) );
+
+        ImGui_ImplSdlGL3_InvalidateDeviceObjects();
+        load_fonts();
     }
 }
 
@@ -4138,34 +4215,18 @@ void MainApp::parse_cmdline( int argc, char **argv )
     }
 }
 
-#if SDL_VERSIONNUM( SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL ) < SDL_VERSIONNUM( 2, 0, 5 )
-int SDL_GetWindowBordersSize( SDL_Window *window, int *top, int *left, int *bottom, int *right )
+static void imgui_render( SDL_Window *window )
 {
-    *top = 0;
-    *left = 0;
-    *bottom = 0;
-    *right = 0;
+    const ImVec4 color = s_clrs().getv4( col_ClearColor );
+    const ImVec2 &size = ImGui::GetIO().DisplaySize;
 
-    return -1;
-}
-#endif
+    glViewport( 0, 0, ( int )size.x, ( int )size.y );
+    glClearColor( color.x, color.y, color.z, color.w );
+    glClear( GL_COLOR_BUFFER_BIT );
 
-static void sdl_setwindow_icon( SDL_Window *window )
-{
-#include "gpuvis_icon.c"
+    ImGui::Render();
 
-    SDL_Surface *surface = SDL_CreateRGBSurfaceFrom(
-                s_icon.pixel_data,
-                s_icon.width,
-                s_icon.height,
-                s_icon.bytes_per_pixel * 8,
-                s_icon.width * s_icon.bytes_per_pixel,
-                IM_COL32( 0xff, 0, 0, 0 ),
-                IM_COL32( 0, 0xff, 0, 0 ),
-                IM_COL32( 0, 0, 0xff, 0 ),
-                IM_COL32( 0, 0, 0, 0xff ) );
-
-    SDL_SetWindowIcon( window, surface );
+    SDL_GL_SwapWindow( window );
 }
 
 int main( int argc, char **argv )
@@ -4178,6 +4239,7 @@ int main( int argc, char **argv )
     }
 
     SDL_Window *window = NULL;
+    SDL_GLContext glcontext = NULL;
     SDL_Cursor *cursor_sizens = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENS );
     SDL_Cursor *cursor_default = SDL_GetDefaultCursor();
 
@@ -4200,6 +4262,7 @@ int main( int argc, char **argv )
     // Init app
     MainApp &app = s_app();
     app.init( argc, argv );
+
     // Setup imgui default text color
     s_textclrs().update_colors();
 
@@ -4212,12 +4275,8 @@ int main( int argc, char **argv )
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 3 );
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 2 );
 
-    int x, y, w, h;
-    app.get_window_pos( x, y, w, h );
-    window = SDL_CreateWindow( "GPUVis", x, y, w, h, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE );
-    sdl_setwindow_icon( window );
-
-    SDL_GLContext glcontext = SDL_GL_CreateContext( window );
+    window = app.create_window( "GPUVis");
+    glcontext = SDL_GL_CreateContext( window );
 
     gl3wInit();
 
@@ -4273,55 +4332,18 @@ int main( int argc, char **argv )
         // Render trace windows
         app.render();
 
-        {
-            // ImGui Rendering
-            const ImVec4 color = s_clrs().getv4( col_ClearColor );
-            const ImVec2 &size = ImGui::GetIO().DisplaySize;
+        // ImGui Rendering
+        imgui_render( window );
 
-            glViewport( 0, 0, ( int )size.x, ( int )size.y );
-            glClearColor( color.x, color.y, color.z, color.w );
-            glClear( GL_COLOR_BUFFER_BIT );
+        // Update app font settings, scale, etc
+        app.update();
 
-            ImGui::Render();
-
-            SDL_GL_SwapWindow( window );
-        }
-
-        if ( app.m_quit )
-            break;
-
-        if ( !app.m_loading_info.inputfiles.empty() && !app.is_loading() )
-        {
-            const char *filename = app.m_loading_info.inputfiles[ 0 ].c_str();
-
-            app.load_file( filename );
-
-            app.m_loading_info.inputfiles.erase( app.m_loading_info.inputfiles.begin() );
-        }
-
-        if ( ( app.m_font_main.m_changed || app.m_font_small.m_changed ) &&
-             !ImGui::IsMouseDown( 0 ) )
-        {
-            imgui_set_scale( s_opts().getf( OPT_Scale ) );
-
-            ImGui_ImplSdlGL3_InvalidateDeviceObjects();
-            app.load_fonts();
-        }
-    }
-
-    {
-        // Write main window position / size to ini file.
-        int top, left, bottom, right;
-
-        SDL_GetWindowBordersSize( window, &top, &left, &bottom, &right );
-        SDL_GetWindowPosition( window, &x, &y );
-        SDL_GetWindowSize( window, &w, &h );
-
-        app.save_window_pos( x - left, y - top, w, h );
+        done |= app.m_quit;
     }
 
     // Shut down app
-    app.shutdown();
+    app.shutdown( window );
+
     // Write option settings to ini file
     s_opts().shutdown();
     // Save color entries

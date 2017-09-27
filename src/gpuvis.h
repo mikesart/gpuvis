@@ -834,7 +834,9 @@ public:
     ~MainApp() {}
 
     void init( int argc, char **argv );
-    void shutdown();
+    void shutdown( SDL_Window *window );
+
+    SDL_Window *create_window( const char *title );
 
     bool load_file( const char *filename );
     void cancel_load_file();
@@ -846,6 +848,8 @@ public:
     void render();
     void render_save_filename();
     void render_menu( const char *str_id );
+
+    void update();
 
     void handle_hotkeys();
 
