@@ -246,6 +246,8 @@ void Opts::init()
     init_opt_bool( OPT_ShowEventList, "Toggle Showing Event List", "show_event_list", true );
     init_opt_bool( OPT_SyncEventListToGraph, "Sync Event List to graph mouse location", "sync_eventlist_to_graph", true );
     init_opt_bool( OPT_HideSchedSwitchEvents, "Hide sched_switch events", "hide_sched_switch_events", true );
+    init_opt_bool( OPT_ShowFps, "Show frame rate", "show_fps", false );
+    init_opt_bool( OPT_VerticalSync, "Vertical sync", "vertical_sync", true );
 
     m_options[ OPT_ShowEventList ].action = action_toggle_show_eventlist;
 
@@ -4098,6 +4100,14 @@ void MainApp::render_menu( const char *str_id )
         ImGui::EndMenu();
     }
 
+    if ( s_opts().getb( OPT_ShowFps ) )
+    {
+        ImGui::Text( "%s%.2f ms/frame (%.1f FPS)%s",
+                     s_textclrs().str( TClr_Bright ),
+                     1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate,
+                     s_textclrs().str( TClr_Def ) );
+    }
+
     ImGui::EndMenuBar();
 
     ImGui::PopID();
@@ -4284,7 +4294,8 @@ int main( int argc, char **argv )
     ImGui_ImplSdlGL3_Init( window );
 
     // 1 for updates synchronized with the vertical retrace
-    SDL_GL_SetSwapInterval( 1 );
+    int vsync = 1;
+    SDL_GL_SetSwapInterval( vsync );
 
     // Load our fonts
     app.load_fonts();
@@ -4322,6 +4333,12 @@ int main( int argc, char **argv )
         bool use_freetype = s_opts().getb( OPT_UseFreetype );
         ImGui_ImplSdlGL3_NewFrame( window, &use_freetype );
         s_opts().setb( OPT_UseFreetype, use_freetype );
+
+        if ( s_opts().getb( OPT_VerticalSync ) != vsync )
+        {
+            vsync = !vsync;
+            SDL_GL_SetSwapInterval( vsync );
+        }
 
         // Check for logf() calls from background threads.
         logf_update();

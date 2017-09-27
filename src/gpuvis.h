@@ -755,6 +755,8 @@ enum : uint32_t
     OPT_EventListRowCount,
     OPT_Scale,
     OPT_UseFreetype,
+    OPT_ShowFps,
+    OPT_VerticalSync,
     OPT_PresetMax
 };
 
