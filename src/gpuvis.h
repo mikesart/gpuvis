@@ -515,6 +515,7 @@ protected:
 
 protected:
     // Render graph
+    void graph_render_options();
     void graph_render();
     // Render regular graph row
     void graph_render_row( class graph_info_t &gi );
