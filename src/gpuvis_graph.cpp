@@ -586,8 +586,6 @@ void graph_info_t::set_ts( int64_t start_ts, int64_t length_ts )
 
 void graph_info_t::init( float x_in, float w_in )
 {
-    bool eventlist_visible = s_opts().getb( OPT_ShowEventList ) &&
-            !s_opts().getb( OPT_GraphFullscreen );
     const std::vector< trace_event_t > &events = m_win->m_trace_events.m_events;
 
     rc.x = x_in;
@@ -608,7 +606,7 @@ void graph_info_t::init( float x_in, float w_in )
     m_hovered_eventid = m_win->m_graph.last_hovered_eventid;
 
     // If the event list is visible, grab the selected event
-    if ( eventlist_visible )
+    if ( s_opts().getb( OPT_ShowEventList ) )
         m_selected_eventid = m_win->m_eventlist.selected_eventid;
 
     // If our hovered event is an amd timeline event, get the id
@@ -2304,7 +2302,7 @@ static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
     const float valf_min = 8.0f * gi.text_h;
 
     // Check if user hit F11 and only the graph is showing (no event list).
-    if ( s_opts().getb( OPT_GraphFullscreen ) )
+    if ( !s_opts().getb( OPT_ShowEventList ) )
     {
         // If we have a zoomed row, use up all the available window space,
         // otherwise just use the total graph height
@@ -2552,7 +2550,7 @@ void TraceWin::graph_render()
     ImGui::EndChild();
     ImGui::PopStyleVar();
 
-    if ( !s_opts().getb( OPT_GraphFullscreen ) )
+    if ( s_opts().getb( OPT_ShowEventList ) )
     {
         ImGui::Button( "##resize_graph", ImVec2( ImGui::GetContentRegionAvailWidth(), imgui_scale( 4.0f ) ) );
 
