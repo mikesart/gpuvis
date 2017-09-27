@@ -1723,7 +1723,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
                     trace_event_t &event1 = m_events[ *end_eventid ];
 
                     event1.id_start = event0.id;
-                    event1.duration = event1.ts - event0.ts;
+                    event1.duration = event0.ts - event1.ts;
 
                     // Erase all knowledge of this ctx so it can be reused
                     m_ftrace_begin_ctx.erase_key( event.seqno );

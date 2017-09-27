@@ -1115,6 +1115,15 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         imgui_drawrect( hovinfo.rc, imgui_col_complement( event.color ) );
         // Add this event to mouse hovered list
         gi.add_mouse_hovered_event( x, event, true );
+
+        // If this is an end_ctx event, add the begin_ctx event to the hovered list
+        if ( is_valid_id( event.id_start ) )
+        {
+            const trace_event_t &event_begin = get_event( event.id_start );
+            float x_begin = gi.ts_to_screenx( event_begin.ts );
+
+            gi.add_mouse_hovered_event( x_begin, event_begin, true );
+        }
     }
 
     event_renderer.done();
