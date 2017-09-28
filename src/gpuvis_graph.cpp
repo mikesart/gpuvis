@@ -41,24 +41,6 @@
 #include "gpuvis_utils.h"
 #include "gpuvis.h"
 
-/*
-  **** TODO list ****
-
-  Fix overwriting rows: Ie, adding a row named gfx
-
-  From https://people.freedesktop.org/~cbrill/dri-log/?channel=dri-devel&highlight_names=&date=2017-09-19&show_html=true
-  > 12:35 hanna: Speaking of gpuvis, it would also be cool to be able to extend the
-  > "print" line, using a standardized format. I want my events to show up as
-  > separate rows in the graph, and I also want to be able to define "begin" and
-  > "end" events which gets translate into bars in gpuvis
-
-  Feedback:
-    The gfx waterfall view was confusing to everyone, zoomed in or not.
-    They were all expecting something like the gpuview "stacked" view where
-    it only overlaps if it has to. Not sure if it's just a matter of habit
-    or if we should have it as an alternate method.
-*/
-
 struct rect_t
 {
     float x = FLT_MAX;
@@ -3035,72 +3017,6 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     return true;
 }
 
-void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
-{
-    // Uncapture mouse if user hits escape
-    if ( m_graph.mouse_captured && s_actions().get( action_escape ) )
-    {
-        m_graph.mouse_captured = MOUSE_NOT_CAPTURED;
-        ImGui::CaptureMouseFromApp( false );
-
-        return;
-    }
-
-    bool is_mouse_down = ImGui::IsMouseDown( 0 );
-
-    if ( ( m_graph.mouse_captured == MOUSE_CAPTURED_ZOOM ) ||
-         ( m_graph.mouse_captured == MOUSE_CAPTURED_SELECT_AREA ) )
-    {
-        // shift + click: zoom area
-        int64_t event_ts0 = gi.screenx_to_ts( m_graph.mouse_capture_pos.x );
-        int64_t event_ts1 = gi.screenx_to_ts( gi.mouse_pos.x );
-
-        if ( event_ts0 > event_ts1 )
-            std::swap( event_ts0, event_ts1 );
-
-        if ( is_mouse_down )
-        {
-            std::string time_buf0 = ts_to_timestr( event_ts0, 6, "" );
-            std::string time_buf1 = ts_to_timestr( event_ts1 - event_ts0, 6 );
-
-            // Show tooltip with starting time and length of selected area.
-            ImGui::SetTooltip( "%s (%s)", time_buf0.c_str(), time_buf1.c_str() );
-        }
-        else if ( m_graph.mouse_captured == MOUSE_CAPTURED_ZOOM )
-        {
-            m_graph.zoom_loc = std::make_pair( m_graph.start_ts, m_graph.length_ts );
-
-            m_graph.start_ts = event_ts0;
-            m_graph.length_ts = event_ts1 - event_ts0;
-            m_graph.recalc_timebufs = true;
-        }
-    }
-    else if ( m_graph.mouse_captured == MOUSE_CAPTURED_PAN )
-    {
-        // click: pan
-        if ( is_mouse_down && imgui_mousepos_valid( gi.mouse_pos ) )
-        {
-            float dx = gi.mouse_pos.x - m_graph.mouse_capture_pos.x;
-            int64_t tsdiff = gi.dx_to_ts( dx );
-
-            m_graph.start_ts -= tsdiff;
-            m_graph.recalc_timebufs = true;
-
-            m_graph.start_y += gi.mouse_pos.y - m_graph.mouse_capture_pos.y;
-
-            m_graph.mouse_capture_pos = gi.mouse_pos;
-        }
-    }
-
-    if ( !is_mouse_down )
-    {
-        // Mouse is no longer down, uncapture mouse...
-        m_graph.mouse_captured = MOUSE_NOT_CAPTURED;
-        ImGui::CaptureMouseFromApp( false );
-    }
-
-}
-
 static std::string task_state_to_str( int state )
 {
     std::string ret;
@@ -3450,6 +3366,132 @@ void TraceWin::graph_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
     ImGui::SetTooltip( "%s", ttip.c_str() );
 }
 
+void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
+{
+    // Uncapture mouse if user hits escape
+    if ( m_graph.mouse_captured && s_actions().get( action_escape ) )
+    {
+        m_graph.mouse_captured = MOUSE_NOT_CAPTURED;
+        ImGui::CaptureMouseFromApp( false );
+
+        return;
+    }
+
+    bool is_mouse_down = ImGui::IsMouseDown( 0 );
+
+    if ( ( m_graph.mouse_captured == MOUSE_CAPTURED_ZOOM ) ||
+         ( m_graph.mouse_captured == MOUSE_CAPTURED_SELECT_AREA ) )
+    {
+        // shift + click: zoom area
+        int64_t event_ts0 = gi.screenx_to_ts( m_graph.mouse_capture_pos.x );
+        int64_t event_ts1 = gi.screenx_to_ts( gi.mouse_pos.x );
+
+        if ( event_ts0 > event_ts1 )
+            std::swap( event_ts0, event_ts1 );
+
+        if ( is_mouse_down )
+        {
+            std::string time_buf0 = ts_to_timestr( event_ts0, 6, "" );
+            std::string time_buf1 = ts_to_timestr( event_ts1 - event_ts0, 6 );
+
+            // Show tooltip with starting time and length of selected area.
+            ImGui::SetTooltip( "%s (%s)", time_buf0.c_str(), time_buf1.c_str() );
+        }
+        else if ( m_graph.mouse_captured == MOUSE_CAPTURED_ZOOM )
+        {
+            m_graph.zoom_loc = std::make_pair( m_graph.start_ts, m_graph.length_ts );
+
+            m_graph.start_ts = event_ts0;
+            m_graph.length_ts = event_ts1 - event_ts0;
+            m_graph.recalc_timebufs = true;
+        }
+    }
+    else if ( m_graph.mouse_captured == MOUSE_CAPTURED_PAN )
+    {
+        // click: pan
+        if ( is_mouse_down && imgui_mousepos_valid( gi.mouse_pos ) )
+        {
+            float dx = gi.mouse_pos.x - m_graph.mouse_capture_pos.x;
+            int64_t tsdiff = gi.dx_to_ts( dx );
+
+            m_graph.start_ts -= tsdiff;
+            m_graph.recalc_timebufs = true;
+
+            m_graph.start_y += gi.mouse_pos.y - m_graph.mouse_capture_pos.y;
+
+            m_graph.mouse_capture_pos = gi.mouse_pos;
+        }
+    }
+
+    if ( !is_mouse_down )
+    {
+        // Mouse is no longer down, uncapture mouse...
+        m_graph.mouse_captured = MOUSE_NOT_CAPTURED;
+        ImGui::CaptureMouseFromApp( false );
+    }
+}
+
+// Mouse is over our active graph window
+void TraceWin::graph_handle_mouse_over( graph_info_t &gi )
+{
+    int64_t mouse_ts = gi.screenx_to_ts( gi.mouse_pos.x );
+
+    m_graph.ts_marker_mouse = mouse_ts;
+
+    // Set the tooltip
+    graph_mouse_tooltip( gi, mouse_ts );
+
+    // Check for clicking, wheeling, etc.
+    if ( ImGui::IsMouseDoubleClicked( 0 ) )
+    {
+        if ( gi.mouse_pos_scaled_ts != INT64_MIN )
+        {
+            // Double clicking on a scaled graph row - move to that location
+            m_graph.start_ts = gi.mouse_pos_scaled_ts - m_graph.length_ts / 2;
+            m_graph.recalc_timebufs = true;
+        }
+    }
+    else if ( ImGui::IsMouseClicked( 0 ) )
+    {
+        if ( s_keybd().is_ctrl_down() )
+        {
+            // ctrl + click: select area
+            m_graph.mouse_captured = MOUSE_CAPTURED_SELECT_AREA;
+            ImGui::CaptureMouseFromApp( true );
+            m_graph.mouse_capture_pos = gi.mouse_pos;
+        }
+        else if ( s_keybd().is_shift_down() )
+        {
+            // shift + click: zoom
+            m_graph.mouse_captured = MOUSE_CAPTURED_ZOOM;
+            ImGui::CaptureMouseFromApp( true );
+            m_graph.mouse_capture_pos = gi.mouse_pos;
+        }
+        else
+        {
+            // click: pan
+            m_graph.mouse_captured = MOUSE_CAPTURED_PAN;
+            ImGui::CaptureMouseFromApp( true );
+            m_graph.mouse_capture_pos = gi.mouse_pos;
+        }
+    }
+    else if ( ImGui::IsMouseClicked( 1 ) )
+    {
+        // right click: popup menu
+        m_graph.popupmenu = true;
+
+        m_graph.hidden_rows = m_graph.rows.get_hidden_rows_list();
+
+        ImGui::OpenPopup( "GraphPopup" );
+    }
+    else if ( ImGui::GetIO().MouseWheel )
+    {
+        bool zoomin = ( ImGui::GetIO().MouseWheel > 0.0f );
+
+        graph_zoom( mouse_ts, gi.ts0, zoomin );
+    }
+}
+
 void TraceWin::graph_handle_mouse( graph_info_t &gi )
 {
     // If we've got an active popup menu, render it.
@@ -3470,68 +3512,7 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
         return;
 
     if ( m_graph.mouse_captured )
-    {
         graph_handle_mouse_captured( gi );
-        return;
-    }
-
-    // Mouse is over our active graph window
-    {
-        int64_t mouse_ts = gi.screenx_to_ts( gi.mouse_pos.x );
-
-        m_graph.ts_marker_mouse = mouse_ts;
-
-        // Set the tooltip
-        graph_mouse_tooltip( gi, mouse_ts );
-
-        // Check for clicking, wheeling, etc.
-        if ( ImGui::IsMouseDoubleClicked( 0 ) )
-        {
-            if ( gi.mouse_pos_scaled_ts != INT64_MIN )
-            {
-                // Double clicking on a scaled graph row - move to that location
-                m_graph.start_ts = gi.mouse_pos_scaled_ts - m_graph.length_ts / 2;
-                m_graph.recalc_timebufs = true;
-            }
-        }
-        else if ( ImGui::IsMouseClicked( 0 ) )
-        {
-            if ( s_keybd().is_ctrl_down() )
-            {
-                // ctrl + click: select area
-                m_graph.mouse_captured = MOUSE_CAPTURED_SELECT_AREA;
-                ImGui::CaptureMouseFromApp( true );
-                m_graph.mouse_capture_pos = gi.mouse_pos;
-            }
-            else if ( s_keybd().is_shift_down() )
-            {
-                // shift + click: zoom
-                m_graph.mouse_captured = MOUSE_CAPTURED_ZOOM;
-                ImGui::CaptureMouseFromApp( true );
-                m_graph.mouse_capture_pos = gi.mouse_pos;
-            }
-            else
-            {
-                // click: pan
-                m_graph.mouse_captured = MOUSE_CAPTURED_PAN;
-                ImGui::CaptureMouseFromApp( true );
-                m_graph.mouse_capture_pos = gi.mouse_pos;
-            }
-        }
-        else if ( ImGui::IsMouseClicked( 1 ) )
-        {
-            // right click: popup menu
-            m_graph.popupmenu = true;
-
-            m_graph.hidden_rows = m_graph.rows.get_hidden_rows_list();
-
-            ImGui::OpenPopup( "GraphPopup" );
-        }
-        else if ( ImGui::GetIO().MouseWheel )
-        {
-            bool zoomin = ( ImGui::GetIO().MouseWheel > 0.0f );
-
-            graph_zoom( mouse_ts, gi.ts0, zoomin );
-        }
-    }
+    else
+        graph_handle_mouse_over( gi );
 }

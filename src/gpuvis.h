@@ -565,6 +565,7 @@ protected:
     void graph_handle_mouse( class graph_info_t &gi );
     // Graph mouse handler when captured
     void graph_handle_mouse_captured( class graph_info_t &gi );
+    void graph_handle_mouse_over( class graph_info_t &gi );
 
     // Graph ouse tooltip functions
     void graph_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts );
