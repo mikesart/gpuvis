@@ -565,8 +565,15 @@ protected:
     void graph_handle_mouse( class graph_info_t &gi );
     // Graph mouse handler when captured
     void graph_handle_mouse_captured( class graph_info_t &gi );
-    // Set mouse tooltip for graph
-    void graph_set_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts );
+
+    // Graph ouse tooltip functions
+    void graph_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts );
+    void graph_mouse_tooltip_rowinfo( std::string &ttip, class graph_info_t &gi, int64_t mouse_ts );
+    void graph_mouse_tooltip_vblanks( std::string &ttip, class graph_info_t &gi, int64_t mouse_ts );
+    void graph_mouse_tooltip_markers( std::string &ttip, class graph_info_t &gi, int64_t mouse_ts );
+    void graph_mouse_tooltip_sched_switch( std::string &ttip, class graph_info_t &gi, int64_t mouse_ts );
+    void graph_mouse_tooltip_hovered_items( std::string &ttip, class graph_info_t &gi, int64_t mouse_ts );
+    void graph_mouse_tooltip_hovered_amd_fence_signaled( std::string &ttip, class graph_info_t &gi, int64_t mouse_ts );
 
     // graph keyboard handling
     void graph_handle_hotkeys( class graph_info_t &gi );

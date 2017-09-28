@@ -219,6 +219,9 @@ public:
     // row_info id we need to show in visible area
     size_t show_row_id = ( size_t )-1;
 
+    const char *m_clr_bright = nullptr;
+    const char *m_clr_def = nullptr;
+
     uint32_t m_selected_eventid = INVALID_ID;
     uint32_t m_hovered_eventid = INVALID_ID;
 
@@ -590,6 +593,9 @@ void graph_info_t::init( float x_in, float w_in )
 
     rc.x = x_in;
     rc.w = w_in;
+
+    m_clr_bright = s_textclrs().str( TClr_Bright );
+    m_clr_def = s_textclrs().str( TClr_Def );
 
     // Get mouse position
     mouse_pos = ImGui::IsRootWindowOrAnyChildFocused() ?
@@ -3135,31 +3141,18 @@ static std::string task_state_to_str( int state )
     return ret;
 }
 
-void TraceWin::graph_set_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
+void TraceWin::graph_mouse_tooltip_rowinfo( std::string &ttip, graph_info_t &gi, int64_t mouse_ts )
 {
-    std::string time_buf;
-    bool sync_event_list_to_graph = s_opts().getb( OPT_SyncEventListToGraph ) &&
-            s_opts().getb( OPT_ShowEventList );
-    const char *clr_bright = s_textclrs().str( TClr_Bright );
-    const char *clr_def = s_textclrs().str( TClr_Def );
     const std::string &row_name = m_graph.mouse_over_row_name;
-
-    if ( gi.mouse_pos_scaled_ts != INT64_MIN )
-    {
-        time_buf += string_format( "\"%s\" Time: %s\nGraph ",
-                                   row_name.c_str(),
-                                   ts_to_timestr( gi.mouse_pos_scaled_ts, 6, "" ).c_str() );
-    }
-    time_buf += "Time: " + ts_to_timestr( mouse_ts, 6, "" );
 
     if ( m_graph.mouse_over_row_type == LOC_TYPE_Plot )
     {
         GraphPlot &plot = m_trace_events.get_plot( row_name.c_str() );
-        time_buf += "\nFilter: " + plot.m_filter_str + "\n";
+        ttip += "\nFilter: " + plot.m_filter_str + "\n";
     }
     else if ( row_name != m_graph.mouse_over_row_filter )
     {
-        time_buf += "\nFilter: " + m_graph.mouse_over_row_filter + "\n";
+        ttip += "\nFilter: " + m_graph.mouse_over_row_filter + "\n";
     }
 
     if ( !row_name.empty() &&
@@ -3167,12 +3160,14 @@ void TraceWin::graph_set_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
     {
         const char *commstr = m_trace_events.tgidcomm_from_commstr( row_name.c_str() );
 
-        time_buf += std::string( "\n" ) + commstr;
+        ttip += std::string( "\n" ) + commstr;
     }
+}
 
-    m_eventlist.highlight_ids.clear();
-
+void TraceWin::graph_mouse_tooltip_vblanks( std::string &ttip, graph_info_t &gi, int64_t mouse_ts )
+{
     const std::vector< uint32_t > *vblank_locs = m_trace_events.get_tdopexpr_locs( "$name=drm_vblank_event" );
+
     if ( vblank_locs )
     {
         int64_t prev_vblank_ts = INT64_MAX;
@@ -3201,220 +3196,258 @@ void TraceWin::graph_set_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
         }
 
         if ( prev_vblank_ts != INT64_MAX )
-            time_buf += "\nPrev vblank: -" + ts_to_timestr( prev_vblank_ts, 2 );
+            ttip += "\nPrev vblank: -" + ts_to_timestr( prev_vblank_ts, 2 );
         if ( next_vblank_ts != INT64_MAX )
-            time_buf += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 2 );
+            ttip += "\nNext vblank: " + ts_to_timestr( next_vblank_ts, 2 );
     }
+}
 
+void TraceWin::graph_mouse_tooltip_markers( std::string &ttip, graph_info_t &gi, int64_t mouse_ts )
+{
     if ( graph_marker_valid( 0 ) )
-        time_buf += "\nMarker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - mouse_ts, 2 );
+        ttip += "\nMarker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - mouse_ts, 2 );
     if ( graph_marker_valid( 1 ) )
-        time_buf += "\nMarker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - mouse_ts, 2 );
+        ttip += "\nMarker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - mouse_ts, 2 );
 
     if ( gi.hovered_framemarker_frame != -1 )
     {
         int64_t ts = m_frame_markers.get_frame_len( m_trace_events, gi.hovered_framemarker_frame );
 
-        time_buf += string_format( "\n\nFrame %d (", gi.hovered_framemarker_frame );
-        time_buf += ts_to_timestr( ts, 4 ) + ")";
+        ttip += string_format( "\n\nFrame %d (", gi.hovered_framemarker_frame );
+        ttip += ts_to_timestr( ts, 4 ) + ")";
     }
+}
 
-    if ( !gi.sched_switch_bars.empty() )
+void TraceWin::graph_mouse_tooltip_sched_switch( std::string &ttip, graph_info_t &gi, int64_t mouse_ts )
+{
+    if ( gi.sched_switch_bars.empty() )
+        return;
+
+    ttip += "\n";
+
+    for ( uint32_t id : gi.sched_switch_bars )
     {
-        time_buf += "\n";
+        trace_event_t &event = get_event( id );
 
-        for ( uint32_t id : gi.sched_switch_bars )
+        const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
+
+        if ( prev_pid_str )
         {
-            trace_event_t &event = get_event( id );
+            int prev_pid = atoi( prev_pid_str );
+            int task_state = atoi( get_event_field_val( event, "prev_state" ) ) & ( TASK_STATE_MAX - 1 );
+            const std::string task_state_str = task_state_to_str( task_state );
+            const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
+            std::string timestr = ts_to_timestr( event.duration, 4 );
 
-            const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
-
-            if ( prev_pid_str )
-            {
-                int prev_pid = atoi( prev_pid_str );
-                int task_state = atoi( get_event_field_val( event, "prev_state" ) ) & ( TASK_STATE_MAX - 1 );
-                const std::string task_state_str = task_state_to_str( task_state );
-                const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
-                std::string timestr = ts_to_timestr( event.duration, 4 );
-
-                time_buf += string_format( "\n%s%u%s sched_switch %s (%s) %s",
-                                           clr_bright, event.id, clr_def,
-                                           prev_comm, timestr.c_str(),
-                                           task_state_str.c_str() );
-            }
+            ttip += string_format( "\n%s%u%s sched_switch %s (%s) %s",
+                                   gi.m_clr_bright, event.id, gi.m_clr_def,
+                                   prev_comm, timestr.c_str(),
+                                   task_state_str.c_str() );
         }
     }
+}
 
-    int64_t dist_ts = INT64_MAX;
+void TraceWin::graph_mouse_tooltip_hovered_amd_fence_signaled( std::string &ttip, graph_info_t &gi, int64_t mouse_ts )
+{
+    if ( !is_valid_id( gi.hovered_fence_signaled ) )
+        return;
 
-    gi.m_hovered_eventid = INVALID_ID;
+    const trace_event_t &event_hov = get_event( gi.hovered_fence_signaled );
+    const char *gfxcontext = m_trace_events.get_event_gfxcontext_str( event_hov );
+    const std::vector< uint32_t > *plocs = m_trace_events.get_gfxcontext_locs( gfxcontext );
+    bool sync_eventlist_to_graph = s_opts().getb( OPT_SyncEventListToGraph ) &&
+            s_opts().getb( OPT_ShowEventList );
 
-    if ( !gi.hovered_items.empty() )
+    ttip += string_format( "\n\n%s",
+                               m_trace_events.tgidcomm_from_commstr( event_hov.user_comm ) );
+
+    for ( uint32_t id : *plocs )
     {
-        // Sort hovered items array by id
-        std::sort( gi.hovered_items.begin(), gi.hovered_items.end(),
-                   [=]( const graph_info_t::hovered_t& lx, const graph_info_t::hovered_t &rx )
-        {
-            return lx.eventid < rx.eventid;
-        } );
+        const trace_event_t &event = get_event( id );
+        const char *name = event.get_timeline_name( event.name );
+        std::string timestr = ts_to_timestr( event.duration, 4 );
 
-        time_buf += "\n";
+        if ( gi.hovered_items.empty() )
+            m_eventlist.highlight_ids.push_back( id );
 
-        // Show tooltip with the closest events we could drum up
-        for ( graph_info_t::hovered_t &hov : gi.hovered_items )
-        {
-            trace_event_t &event = get_event( hov.eventid );
-
-            m_eventlist.highlight_ids.push_back( event.id );
-
-            // Add event id and distance from cursor to this event
-            time_buf += string_format( "\n%s%u%s %c%s",
-                                       clr_bright, hov.eventid, clr_def,
-                                       hov.neg ? '-' : ' ',
-                                       ts_to_timestr( hov.dist_ts, 4 ).c_str() );
-
-            // If this isn't an ftrace print event, add the event name
-            if ( !event.is_ftrace_print() )
-                time_buf += std::string( " " ) + event.name;
-
-            // If this is a vblank event, add the crtc
-            if ( event.crtc >= 0 )
-                time_buf += std::to_string( event.crtc );
-
-            i915_type_t i915_type = get_i915_reqtype( event );
-            if ( i915_type < i915_req_Max )
-            {
-                const char *ctxstr = get_event_field_val( event, "ctx", NULL );
-
-                if ( ctxstr )
-                {
-                    time_buf += string_format( " key:[%s%s%s-%s%u%s]",
-                                               clr_bright, ctxstr, clr_def,
-                                               clr_bright, event.seqno, clr_def );
-                }
-                else
-                {
-                    time_buf += string_format( " gkey:[%s%u%s]", clr_bright, event.seqno, clr_def );
-                }
-
-                const char *global = get_event_field_val( event, "global_seqno", NULL );
-                if ( !global )
-                    global = get_event_field_val( event, "global", NULL );
-                if ( global && atoi( global ) )
-                    time_buf += string_format( " gkey:[%s%s%s]", clr_bright, global, clr_def );
-
-                if ( ( event.color_index >= col_Graph_Bari915SubmitDelay ) &&
-                     ( event.color_index <= col_Graph_Bari915CtxCompleteDelay ) )
-                {
-                    char buf[ 6 ];
-                    const char *str;
-                    ImU32 color = s_clrs().get( event.color_index );
-
-                    if ( event.color_index == col_Graph_Bari915SubmitDelay )
-                        str = " submit-delay: ";
-                    else if ( event.color_index == col_Graph_Bari915ExecuteDelay )
-                        str = " execute-delay: ";
-                    else if ( event.color_index == col_Graph_Bari915Execute )
-                        str = " execute: ";
-                    else // if ( event.color_index == col_Graph_Bari915CtxCompleteDelay )
-                        str = " context-complete-delay: ";
-
-                    time_buf += s_textclrs().set( buf, color );
-                    time_buf += str;
-                }
-            }
-            else if ( event.is_ftrace_print() )
-            {
-                // Add colored string for ftrace print events
-                const char *buf = get_event_field_val( event, "buf" );
-
-                if ( buf[ 0 ] )
-                {
-                    time_buf += " " + s_textclrs().mstr( buf, event.color );
-                    time_buf += m_trace_events.get_ftrace_ctx_str( event );
-                }
-            }
-            else if ( event.is_sched_switch() )
-            {
-                const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
-                int prev_pid = atoi( prev_pid_str );
-
-                if ( prev_pid )
-                {
-                    const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
-
-                    time_buf += string_format( " %s", prev_comm );
-                }
-            }
-
-            if ( event.has_duration() )
-            {
-                std::string timestr = ts_to_timestr( event.duration, 4 );
-
-                time_buf += " (" + timestr + ")" + clr_def;
-            }
-
-            if ( hov.dist_ts < dist_ts )
-            {
-                gi.m_hovered_eventid = hov.eventid;
-                dist_ts = hov.dist_ts;
-            }
-        }
-
-        if ( sync_event_list_to_graph && !m_eventlist.do_gotoevent )
-        {
-            m_eventlist.do_gotoevent = true;
-            m_eventlist.goto_eventid = gi.m_hovered_eventid;
-        }
+        ttip += string_format( "\n  %s%u%s %s duration: %s",
+                                   gi.m_clr_bright, event.id, gi.m_clr_def,
+                                   name,
+                                   s_textclrs().mstr( timestr, event_hov.color ).c_str() );
     }
 
-    if ( is_valid_id( gi.hovered_fence_signaled ) )
+    if ( sync_eventlist_to_graph && !m_eventlist.do_gotoevent )
     {
-        const trace_event_t &event_hov = get_event( gi.hovered_fence_signaled );
-        const char *gfxcontext = m_trace_events.get_event_gfxcontext_str( event_hov );
-        const std::vector< uint32_t > *plocs = m_trace_events.get_gfxcontext_locs( gfxcontext );
+        // Sync event list to first event id in this context
+        m_eventlist.do_gotoevent = true;
+        m_eventlist.goto_eventid = plocs->at( 0 );
+    }
 
-        time_buf += string_format( "\n\n%s",
-                                   m_trace_events.tgidcomm_from_commstr( event_hov.user_comm ) );
+    plocs = m_trace_events.m_gfxcontext_msg_locs.get_locations_str( gfxcontext );
+    if ( plocs )
+    {
+        ttip += "\n";
 
         for ( uint32_t id : *plocs )
         {
             const trace_event_t &event = get_event( id );
-            const char *name = event.get_timeline_name( event.name );
+            const char *msg = get_event_field_val( event, "msg" );
+
+            ttip += string_format( "\n  %s%s%s", gi.m_clr_bright, msg, gi.m_clr_def );
+        }
+    }
+}
+
+void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_t &gi, int64_t mouse_ts )
+{
+    int64_t dist_ts = INT64_MAX;
+
+    gi.m_hovered_eventid = INVALID_ID;
+
+    if ( gi.hovered_items.empty() )
+        return;
+
+    // Sort hovered items array by id
+    std::sort( gi.hovered_items.begin(), gi.hovered_items.end(),
+               [=]( const graph_info_t::hovered_t& lx, const graph_info_t::hovered_t &rx )
+    {
+        return lx.eventid < rx.eventid;
+    } );
+
+    ttip += "\n";
+
+    // Show tooltip with the closest events we could drum up
+    for ( graph_info_t::hovered_t &hov : gi.hovered_items )
+    {
+        trace_event_t &event = get_event( hov.eventid );
+
+        m_eventlist.highlight_ids.push_back( event.id );
+
+        // Add event id and distance from cursor to this event
+        ttip += string_format( "\n%s%u%s %c%s",
+                                   gi.m_clr_bright, hov.eventid, gi.m_clr_def,
+                                   hov.neg ? '-' : ' ',
+                                   ts_to_timestr( hov.dist_ts, 4 ).c_str() );
+
+        // If this isn't an ftrace print event, add the event name
+        if ( !event.is_ftrace_print() )
+            ttip += std::string( " " ) + event.name;
+
+        // If this is a vblank event, add the crtc
+        if ( event.crtc >= 0 )
+            ttip += std::to_string( event.crtc );
+
+        i915_type_t i915_type = get_i915_reqtype( event );
+        if ( i915_type < i915_req_Max )
+        {
+            const char *ctxstr = get_event_field_val( event, "ctx", NULL );
+
+            if ( ctxstr )
+            {
+                ttip += string_format( " key:[%s%s%s-%s%u%s]",
+                                           gi.m_clr_bright, ctxstr, gi.m_clr_def,
+                                           gi.m_clr_bright, event.seqno, gi.m_clr_def );
+            }
+            else
+            {
+                ttip += string_format( " gkey:[%s%u%s]", gi.m_clr_bright, event.seqno, gi.m_clr_def );
+            }
+
+            const char *global = get_event_field_val( event, "global_seqno", NULL );
+            if ( !global )
+                global = get_event_field_val( event, "global", NULL );
+            if ( global && atoi( global ) )
+                ttip += string_format( " gkey:[%s%s%s]", gi.m_clr_bright, global, gi.m_clr_def );
+
+            if ( ( event.color_index >= col_Graph_Bari915SubmitDelay ) &&
+                 ( event.color_index <= col_Graph_Bari915CtxCompleteDelay ) )
+            {
+                char buf[ 6 ];
+                const char *str;
+                ImU32 color = s_clrs().get( event.color_index );
+
+                if ( event.color_index == col_Graph_Bari915SubmitDelay )
+                    str = " submit-delay: ";
+                else if ( event.color_index == col_Graph_Bari915ExecuteDelay )
+                    str = " execute-delay: ";
+                else if ( event.color_index == col_Graph_Bari915Execute )
+                    str = " execute: ";
+                else // if ( event.color_index == col_Graph_Bari915CtxCompleteDelay )
+                    str = " context-complete-delay: ";
+
+                ttip += s_textclrs().set( buf, color );
+                ttip += str;
+            }
+        }
+        else if ( event.is_ftrace_print() )
+        {
+            // Add colored string for ftrace print events
+            const char *buf = get_event_field_val( event, "buf" );
+
+            if ( buf[ 0 ] )
+            {
+                ttip += " " + s_textclrs().mstr( buf, event.color );
+                ttip += m_trace_events.get_ftrace_ctx_str( event );
+            }
+        }
+        else if ( event.is_sched_switch() )
+        {
+            const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
+            int prev_pid = atoi( prev_pid_str );
+
+            if ( prev_pid )
+            {
+                const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
+
+                ttip += string_format( " %s", prev_comm );
+            }
+        }
+
+        if ( event.has_duration() )
+        {
             std::string timestr = ts_to_timestr( event.duration, 4 );
 
-            if ( gi.hovered_items.empty() )
-                m_eventlist.highlight_ids.push_back( id );
-
-            time_buf += string_format( "\n  %s%u%s %s duration: %s",
-                                       clr_bright, event.id, clr_def,
-                                       name,
-                                       s_textclrs().mstr( timestr, event_hov.color ).c_str() );
+            ttip += " (" + timestr + ")" + gi.m_clr_def;
         }
 
-        if ( sync_event_list_to_graph && !m_eventlist.do_gotoevent )
+        if ( hov.dist_ts < dist_ts )
         {
-            // Sync event list to first event id in this context
-            m_eventlist.do_gotoevent = true;
-            m_eventlist.goto_eventid = plocs->at( 0 );
-        }
-
-        plocs = m_trace_events.m_gfxcontext_msg_locs.get_locations_str( gfxcontext );
-        if ( plocs )
-        {
-            time_buf += "\n";
-
-            for ( uint32_t id : *plocs )
-            {
-                const trace_event_t &event = get_event( id );
-                const char *msg = get_event_field_val( event, "msg" );
-
-                time_buf += string_format( "\n  %s%s%s", clr_bright, msg, clr_def );
-            }
+            gi.m_hovered_eventid = hov.eventid;
+            dist_ts = hov.dist_ts;
         }
     }
 
-    ImGui::SetTooltip( "%s", time_buf.c_str() );
+    bool sync_eventlist_to_graph = s_opts().getb( OPT_SyncEventListToGraph ) &&
+            s_opts().getb( OPT_ShowEventList );
+    if ( sync_eventlist_to_graph && !m_eventlist.do_gotoevent )
+    {
+        m_eventlist.do_gotoevent = true;
+        m_eventlist.goto_eventid = gi.m_hovered_eventid;
+    }
+}
+
+void TraceWin::graph_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
+{
+    std::string ttip;
+
+    m_eventlist.highlight_ids.clear();
+
+    if ( gi.mouse_pos_scaled_ts != INT64_MIN )
+    {
+        ttip += string_format( "\"%s\" Time: %s\nGraph ",
+                                   m_graph.mouse_over_row_name.c_str(),
+                                   ts_to_timestr( gi.mouse_pos_scaled_ts, 6, "" ).c_str() );
+    }
+    ttip += "Time: " + ts_to_timestr( mouse_ts, 6, "" );
+
+    graph_mouse_tooltip_rowinfo( ttip, gi, mouse_ts );
+    graph_mouse_tooltip_vblanks( ttip, gi, mouse_ts );
+    graph_mouse_tooltip_markers( ttip, gi, mouse_ts );
+    graph_mouse_tooltip_sched_switch( ttip, gi, mouse_ts );
+    graph_mouse_tooltip_hovered_items( ttip, gi, mouse_ts );
+    graph_mouse_tooltip_hovered_amd_fence_signaled( ttip, gi, mouse_ts );
+
+    ImGui::SetTooltip( "%s", ttip.c_str() );
 }
 
 void TraceWin::graph_handle_mouse( graph_info_t &gi )
@@ -3449,7 +3482,7 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
         m_graph.ts_marker_mouse = mouse_ts;
 
         // Set the tooltip
-        graph_set_mouse_tooltip( gi, mouse_ts );
+        graph_mouse_tooltip( gi, mouse_ts );
 
         // Check for clicking, wheeling, etc.
         if ( ImGui::IsMouseDoubleClicked( 0 ) )
