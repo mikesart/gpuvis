@@ -2602,7 +2602,7 @@ void TraceWin::render()
             }
 
             if ( !s_opts().getb( OPT_ShowEventList ) ||
-                 imgui_collapsingheader( "Events Graph", &m_graph.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
+                 imgui_collapsingheader( "Event Graph", &m_graph.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
             {
                 graph_render();
             }
