@@ -787,6 +787,36 @@ void imgui_set_custom_style( float alpha )
     }
 }
 
+void imgui_tooltip( const char *name, const ImVec2 pos, const char *str )
+{
+    if ( str && str[ 0 ] )
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        const ImVec2 mousepos_orig = io.MousePos;
+        ImGuiWindowFlags flags = ImGuiWindowFlags_Tooltip |
+                ImGuiWindowFlags_NoTitleBar |
+                ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags_NoResize |
+                ImGuiWindowFlags_NoSavedSettings |
+                ImGuiWindowFlags_AlwaysAutoResize;
+
+        io.MousePos = pos;
+
+        ImGui::Begin( name, NULL, flags );
+
+        if ( name[ 0 ] != '#' )
+        {
+            imgui_text_bg( ImGui::GetStyleColorVec4( ImGuiCol_Header ), "%s%s%s",
+                           s_textclrs().str( TClr_Bright ), name, s_textclrs().str( TClr_Def ) );
+        }
+        ImGui::Text( "%s", str );
+
+        ImGui::End();
+
+        io.MousePos = mousepos_orig;
+    }
+}
+
 void ImageBuf::CreateEmpty( int w, int h )
 {
     Clear();
@@ -1426,6 +1456,8 @@ void Actions::init()
     m_actionmap.push_back( { action_graph_restore_location3, KMOD_CTRL, SDLK_3, "Restore graph location 3" } );
     m_actionmap.push_back( { action_graph_restore_location4, KMOD_CTRL, SDLK_4, "Restore graph location 4" } );
     m_actionmap.push_back( { action_graph_restore_location5, KMOD_CTRL, SDLK_5, "Restore graph location 5" } );
+
+    m_actionmap.push_back( { action_graph_pin_tooltip, KMOD_CTRL | KMOD_SHIFT, SDLK_p, "Pin current graph tooltip" } );
 
     m_actionmap.push_back( { action_scroll_up, KMOD_REPEAT, SDLK_UP, "Scroll graph / event list up" } );
     m_actionmap.push_back( { action_scroll_down, KMOD_REPEAT, SDLK_DOWN, "Scroll graph / event list down" } );

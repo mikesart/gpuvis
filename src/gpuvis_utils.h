@@ -97,6 +97,8 @@ void imgui_set_scale( float val );
 
 void imgui_set_custom_style( float alpha );
 
+void imgui_tooltip( const char *name, const ImVec2 pos, const char *str );
+
 ImU32 imgui_col_from_hashval( uint32_t hashval, float sat = 0.9f, float alpha = 1.0f );
 ImU32 imgui_hsv( float h, float s, float v, float a );
 ImU32 imgui_col_complement( ImU32 col );
@@ -412,6 +414,8 @@ enum action_t
     action_graph_restore_location3,
     action_graph_restore_location4,
     action_graph_restore_location5,
+
+    action_graph_pin_tooltip,
 
     action_focus_graph,
     action_focus_eventlist,

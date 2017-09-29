@@ -727,6 +727,12 @@ public:
         mouse_captured_t mouse_captured = MOUSE_NOT_CAPTURED;
         ImVec2 mouse_capture_pos;
 
+        // Graph tooltip
+        ImVec2 ttip_pos;
+        std::string ttip;
+        ImVec2 ttip_pinned_pos;
+        std::string ttip_pinned;
+
         const int64_t s_min_length = 100;
         const int64_t s_max_length = 7500 * NSECS_PER_MSEC;
     } m_graph;

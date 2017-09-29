@@ -2229,6 +2229,28 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             }
         }
     }
+
+    // We got this hotkey and graph_mouse_tooltip didn't, which means
+    //  there is no graph tooltip currently set.
+    if ( s_actions().get( action_graph_pin_tooltip ) )
+    {
+        if ( m_graph.ttip_pinned.empty() )
+        {
+            // No current pinned tooltip, so set to the last
+            // known tooltip.
+            m_graph.ttip_pinned = m_graph.ttip;
+            m_graph.ttip_pinned_pos = m_graph.ttip_pos;
+        }
+        else
+        {
+            // There is a currently pinned tooltip. Save this
+            // one so we can restore it if they hit the hotkey
+            // later, then clear the pinned tooltip.
+            m_graph.ttip = m_graph.ttip_pinned;
+            m_graph.ttip_pos = m_graph.ttip_pinned_pos;
+            m_graph.ttip_pinned.clear();
+        }
+    }
 }
 
 void TraceWin::graph_handle_keyboard_scroll( graph_info_t &gi )
@@ -2611,12 +2633,12 @@ void TraceWin::graph_render()
         // Handle right, left, pgup, pgdown, etc in graph
         graph_handle_keyboard_scroll( gi );
 
-        // Handle hotkeys. Ie: Ctrl+Shift+1, etc
-        graph_handle_hotkeys( gi );
-
         // Render mouse tooltips, mouse selections, etc
         gi.set_pos_y( windowpos.y, windowsize.y, NULL );
         graph_handle_mouse( gi );
+
+        // Handle hotkeys. Ie: Ctrl+Shift+1, etc
+        graph_handle_hotkeys( gi );
 
         // Set last hovered eventid to whatever graph_handle_mouse set
         m_graph.last_hovered_eventid = gi.m_hovered_eventid;
@@ -2643,6 +2665,8 @@ void TraceWin::graph_render()
     }
 
     m_graph.show_row_name = NULL;
+
+    imgui_tooltip( "Pinned Tooltip", m_graph.ttip_pinned_pos, m_graph.ttip_pinned.c_str() );
 }
 
 int TraceWin::graph_marker_menuitem( const char *label, bool check_valid, action_t action )
@@ -3363,7 +3387,26 @@ void TraceWin::graph_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
     graph_mouse_tooltip_hovered_items( ttip, gi, mouse_ts );
     graph_mouse_tooltip_hovered_amd_fence_signaled( ttip, gi, mouse_ts );
 
+    m_graph.ttip = ttip;
+    m_graph.ttip_pos = gi.mouse_pos;
     ImGui::SetTooltip( "%s", ttip.c_str() );
+
+    // We are actively showing a graph tooltip and the user hit the
+    //  graph pin tooltip action hotkey.
+    if ( s_actions().get( action_graph_pin_tooltip ) )
+    {
+        if ( m_graph.ttip_pinned.empty() )
+        {
+            // No currently pinned tooltip - set the new one.
+            m_graph.ttip_pinned = m_graph.ttip;
+            m_graph.ttip_pinned_pos = m_graph.ttip_pos;
+        }
+        else
+        {
+            // Clear the currently set pinned tooltip.
+            m_graph.ttip_pinned.clear();
+        }
+    }
 }
 
 void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
