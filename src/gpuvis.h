@@ -730,8 +730,7 @@ public:
         // Graph tooltip
         ImVec2 ttip_pos;
         std::string ttip;
-        ImVec2 ttip_pinned_pos;
-        std::string ttip_pinned;
+        bool ttip_visible = false;
 
         const int64_t s_min_length = 100;
         const int64_t s_max_length = 7500 * NSECS_PER_MSEC;

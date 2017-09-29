@@ -787,7 +787,7 @@ void imgui_set_custom_style( float alpha )
     }
 }
 
-void imgui_tooltip( const char *name, const ImVec2 pos, const char *str )
+void imgui_set_tooltip( const char *name, const ImVec2 &pos, rect_t *prc, const char *str )
 {
     if ( str && str[ 0 ] )
     {
@@ -797,6 +797,7 @@ void imgui_tooltip( const char *name, const ImVec2 pos, const char *str )
                 ImGuiWindowFlags_NoTitleBar |
                 ImGuiWindowFlags_NoMove |
                 ImGuiWindowFlags_NoResize |
+                // ImGuiWindowFlags_ShowBorders |
                 ImGuiWindowFlags_NoSavedSettings |
                 ImGuiWindowFlags_AlwaysAutoResize;
 
@@ -810,6 +811,14 @@ void imgui_tooltip( const char *name, const ImVec2 pos, const char *str )
                            s_textclrs().str( TClr_Bright ), name, s_textclrs().str( TClr_Def ) );
         }
         ImGui::Text( "%s", str );
+
+        if ( prc )
+        {
+            prc->x = ImGui::GetWindowPos().x;
+            prc->y = ImGui::GetWindowPos().y;
+            prc->w = ImGui::GetWindowSize().x;
+            prc->h = ImGui::GetWindowSize().y;
+        }
 
         ImGui::End();
 

@@ -78,6 +78,18 @@ void logf_update();
 void logf_clear();
 const std::vector< char * > &logf_get();
 
+struct rect_t
+{
+    float x = FLT_MAX;
+    float y = FLT_MAX;
+    float w = FLT_MAX;
+    float h = FLT_MAX;
+
+    rect_t() {}
+    rect_t( float _x, float _y, float _w, float _h ) :
+        x( _x ), y( _y ), w( _w ), h( _h ) {}
+};
+
 // Convert a time string to a time stamp
 int64_t timestr_to_ts( const char *buf );
 // Convert a time stamp to a time string
@@ -97,7 +109,7 @@ void imgui_set_scale( float val );
 
 void imgui_set_custom_style( float alpha );
 
-void imgui_tooltip( const char *name, const ImVec2 pos, const char *str );
+void imgui_set_tooltip( const char *name, const ImVec2 &pos, rect_t *prc, const char *str );
 
 ImU32 imgui_col_from_hashval( uint32_t hashval, float sat = 0.9f, float alpha = 1.0f );
 ImU32 imgui_hsv( float h, float s, float v, float a );
