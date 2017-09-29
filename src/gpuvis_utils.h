@@ -88,6 +88,12 @@ struct rect_t
     rect_t() {}
     rect_t( float _x, float _y, float _w, float _h ) :
         x( _x ), y( _y ), w( _w ), h( _h ) {}
+
+    bool point_in_rect( const ImVec2 &pt ) const
+    {
+        return ( pt.x >= x && pt.x < x + w &&
+                 pt.y >= y && pt.y < y + h );
+    }
 };
 
 // Convert a time string to a time stamp

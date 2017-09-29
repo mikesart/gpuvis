@@ -2406,6 +2406,50 @@ void TraceWin::graph_render()
 {
     graph_info_t gi;
 
+    if ( m_graph.ttip_mouse_captured )
+    {
+        // Pinned tooltip has mouse captured.
+        if ( ImGui::IsMouseDown( 0 ) )
+        {
+            // Mouse still down...
+            const ImVec2 delta = ImGui::GetMouseDragDelta( 0 );
+
+            // ...move pinned tooltip
+            m_graph.ttip_pos.x += delta.x;
+            m_graph.ttip_pos.y += delta.y;
+
+            ImGui::ResetMouseDragDelta( 0 );
+        }
+        else
+        {
+            // Mouse up - uncapture mouse
+            ImGui::CaptureMouseFromApp( false );
+            m_graph.ttip_mouse_captured = false;
+        }
+
+        // Invalidate mouse pos so nobody else does stuff under us
+        ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX };
+    }
+    else if ( m_graph.ttip_visible && !m_graph.ttip.empty() &&
+         ImGui::IsRootWindowOrAnyChildFocused() &&
+         ImGui::IsMouseClicked( 0 ) )
+    {
+        const rect_t &rc = m_graph.ttip_rc;
+        ImVec2 mouse_pos = ImGui::GetMousePos();
+
+        if ( rc.point_in_rect( mouse_pos ) )
+        {
+            // Clicked on our tooltip window - capture mouse
+            ImGui::CaptureMouseFromApp( true );
+            m_graph.ttip_mouse_captured = true;
+
+            ImGui::ResetMouseDragDelta( 0 );
+
+            // Invalidate mouse pos so nobody else does stuff under us
+            ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX };
+        }
+    }
+
     graph_render_options();
 
     // Initialize our row size, location, etc information based on our graph row list
@@ -2637,8 +2681,8 @@ void TraceWin::graph_render()
 
     m_graph.show_row_name = NULL;
 
-    if ( m_graph.ttip_visible )
-        imgui_set_tooltip( "Pinned Tooltip", m_graph.ttip_pos, NULL, m_graph.ttip.c_str() );
+    if ( m_graph.ttip_visible && !m_graph.ttip.empty()  )
+        imgui_set_tooltip( "Pinned Tooltip", m_graph.ttip_pos, &m_graph.ttip_rc, m_graph.ttip.c_str() );
 }
 
 int TraceWin::graph_marker_menuitem( const char *label, bool check_valid, action_t action )
