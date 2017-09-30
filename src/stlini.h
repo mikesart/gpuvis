@@ -6,6 +6,8 @@
 #include <map>
 #include <string>
 #include <vector>
+
+#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
 struct StlIniCompareStringNoCase
