@@ -734,11 +734,11 @@ public:
     // Pinned graph tooltip windows
     struct
     {
+        TipWindows tipwins;
+
         ImVec2 pos;
-        rect_t rc;
         std::string str;
         bool visible = false;
-        bool mouse_captured = false;
     } m_ttip;
 
     friend class graph_info_t;

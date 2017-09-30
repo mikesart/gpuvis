@@ -2406,49 +2406,7 @@ void TraceWin::graph_render()
 {
     graph_info_t gi;
 
-    if ( m_ttip.mouse_captured )
-    {
-        // Pinned tooltip has mouse captured.
-        if ( ImGui::IsMouseDown( 0 ) )
-        {
-            // Mouse still down...
-            const ImVec2 delta = ImGui::GetMouseDragDelta( 0 );
-
-            // ...move pinned tooltip
-            m_ttip.pos.x += delta.x;
-            m_ttip.pos.y += delta.y;
-
-            ImGui::ResetMouseDragDelta( 0 );
-        }
-        else
-        {
-            // Mouse up - uncapture mouse
-            ImGui::CaptureMouseFromApp( false );
-            m_ttip.mouse_captured = false;
-        }
-
-        // Invalidate mouse pos so nobody else does stuff under us
-        ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX };
-    }
-    else if ( m_ttip.visible && !m_ttip.str.empty() &&
-         ImGui::IsRootWindowOrAnyChildFocused() &&
-         ImGui::IsMouseClicked( 0 ) )
-    {
-        const rect_t &rc = m_ttip.rc;
-        ImVec2 mouse_pos = ImGui::GetMousePos();
-
-        if ( rc.point_in_rect( mouse_pos ) )
-        {
-            // Clicked on our tooltip window - capture mouse
-            ImGui::CaptureMouseFromApp( true );
-            m_ttip.mouse_captured = true;
-
-            ImGui::ResetMouseDragDelta( 0 );
-
-            // Invalidate mouse pos so nobody else does stuff under us
-            ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX };
-        }
-    }
+    m_ttip.tipwins.update();
 
     graph_render_options();
 
@@ -2682,7 +2640,7 @@ void TraceWin::graph_render()
     m_graph.show_row_name = NULL;
 
     if ( m_ttip.visible && !m_ttip.str.empty()  )
-        imgui_set_tooltip( "Pinned Tooltip", m_ttip.pos, &m_ttip.rc, m_ttip.str.c_str() );
+        m_ttip.tipwins.set_tooltip( "Pinned Tooltip", &m_ttip.pos, m_ttip.str.c_str() );
 }
 
 int TraceWin::graph_marker_menuitem( const char *label, bool check_valid, action_t action )

@@ -110,12 +110,31 @@ bool comp_str_parse( const char *comp, uint32_t &a, uint32_t &b, uint32_t &c );
 bool comp_val_to_abc( uint32_t val, uint32_t &a, uint32_t &b, uint32_t &c );
 uint32_t comp_abc_to_val( uint32_t a, uint32_t b, uint32_t c );
 
+class TipWindows
+{
+public:
+    TipWindows() {}
+    ~TipWindows() {}
+
+    void update();
+    void set_tooltip( const char *name, ImVec2 *pos, const char *str );
+
+public:
+    ImVec2 m_mouse_pos;
+    ImVec2 *m_captured_pos = nullptr;
+
+    struct wininfo_t
+    {
+        ImVec2 *pos;
+        rect_t rc;
+    };
+    std::vector< wininfo_t > m_windows;
+};
+
 float imgui_scale( float val );
 void imgui_set_scale( float val );
 
 void imgui_set_custom_style( float alpha );
-
-void imgui_set_tooltip( const char *name, const ImVec2 &pos, rect_t *prc, const char *str );
 
 ImU32 imgui_col_from_hashval( uint32_t hashval, float sat = 0.9f, float alpha = 1.0f );
 ImU32 imgui_hsv( float h, float s, float v, float a );
