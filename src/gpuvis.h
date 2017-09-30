@@ -727,16 +727,19 @@ public:
         mouse_captured_t mouse_captured = MOUSE_NOT_CAPTURED;
         ImVec2 mouse_capture_pos;
 
-        // Pinned graph tooltip windows
-        ImVec2 ttip_pos;
-        rect_t ttip_rc;
-        std::string ttip;
-        bool ttip_visible = false;
-        bool ttip_mouse_captured = false;
-
         const int64_t s_min_length = 100;
         const int64_t s_max_length = 7500 * NSECS_PER_MSEC;
     } m_graph;
+
+    // Pinned graph tooltip windows
+    struct
+    {
+        ImVec2 pos;
+        rect_t rc;
+        std::string str;
+        bool visible = false;
+        bool mouse_captured = false;
+    } m_ttip;
 
     friend class graph_info_t;
 };

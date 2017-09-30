@@ -2221,7 +2221,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
     // graph_mouse_tooltip didn't handle this action, so just toggle ttip visibility.
     // This should just show the old ttip if there was one.
     if ( s_actions().get( action_graph_pin_tooltip ) )
-        m_graph.ttip_visible = !m_graph.ttip_visible;
+        m_ttip.visible = !m_ttip.visible;
 }
 
 void TraceWin::graph_handle_keyboard_scroll( graph_info_t &gi )
@@ -2406,7 +2406,7 @@ void TraceWin::graph_render()
 {
     graph_info_t gi;
 
-    if ( m_graph.ttip_mouse_captured )
+    if ( m_ttip.mouse_captured )
     {
         // Pinned tooltip has mouse captured.
         if ( ImGui::IsMouseDown( 0 ) )
@@ -2415,8 +2415,8 @@ void TraceWin::graph_render()
             const ImVec2 delta = ImGui::GetMouseDragDelta( 0 );
 
             // ...move pinned tooltip
-            m_graph.ttip_pos.x += delta.x;
-            m_graph.ttip_pos.y += delta.y;
+            m_ttip.pos.x += delta.x;
+            m_ttip.pos.y += delta.y;
 
             ImGui::ResetMouseDragDelta( 0 );
         }
@@ -2424,24 +2424,24 @@ void TraceWin::graph_render()
         {
             // Mouse up - uncapture mouse
             ImGui::CaptureMouseFromApp( false );
-            m_graph.ttip_mouse_captured = false;
+            m_ttip.mouse_captured = false;
         }
 
         // Invalidate mouse pos so nobody else does stuff under us
         ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX };
     }
-    else if ( m_graph.ttip_visible && !m_graph.ttip.empty() &&
+    else if ( m_ttip.visible && !m_ttip.str.empty() &&
          ImGui::IsRootWindowOrAnyChildFocused() &&
          ImGui::IsMouseClicked( 0 ) )
     {
-        const rect_t &rc = m_graph.ttip_rc;
+        const rect_t &rc = m_ttip.rc;
         ImVec2 mouse_pos = ImGui::GetMousePos();
 
         if ( rc.point_in_rect( mouse_pos ) )
         {
             // Clicked on our tooltip window - capture mouse
             ImGui::CaptureMouseFromApp( true );
-            m_graph.ttip_mouse_captured = true;
+            m_ttip.mouse_captured = true;
 
             ImGui::ResetMouseDragDelta( 0 );
 
@@ -2681,8 +2681,8 @@ void TraceWin::graph_render()
 
     m_graph.show_row_name = NULL;
 
-    if ( m_graph.ttip_visible && !m_graph.ttip.empty()  )
-        imgui_set_tooltip( "Pinned Tooltip", m_graph.ttip_pos, &m_graph.ttip_rc, m_graph.ttip.c_str() );
+    if ( m_ttip.visible && !m_ttip.str.empty()  )
+        imgui_set_tooltip( "Pinned Tooltip", m_ttip.pos, &m_ttip.rc, m_ttip.str.c_str() );
 }
 
 int TraceWin::graph_marker_menuitem( const char *label, bool check_valid, action_t action )
@@ -3409,9 +3409,9 @@ void TraceWin::graph_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
     //  graph pin tooltip action hotkey.
     if ( s_actions().get( action_graph_pin_tooltip ) )
     {
-        m_graph.ttip = ttip;
-        m_graph.ttip_pos = gi.mouse_pos;
-        m_graph.ttip_visible = !m_graph.ttip_visible;
+        m_ttip.str = ttip;
+        m_ttip.pos = gi.mouse_pos;
+        m_ttip.visible = !m_ttip.visible;
     }
 }
 
