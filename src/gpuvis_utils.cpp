@@ -43,6 +43,8 @@
 #include <SDL.h>
 
 #include "GL/gl3w.h"
+
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"   // BeginColumns(), EndColumns() WIP
 #include "imgui/imgui_freetype.h"
@@ -789,54 +791,94 @@ void imgui_set_custom_style( float alpha )
 
 void TipWindows::update()
 {
-    if ( !m_windows.empty() )
+    // Update mouse position
+    m_mousepos = ImGui::GetMousePos();
+
+    // Go through all tip windows
+    for ( wininfo_t &win : m_windows )
     {
-        ImVec2 mouse_pos = ImGui::GetMousePos();
-
-        for ( wininfo_t &win : m_windows )
+        // If mouse is over tip window...
+        if ( win.rc.point_in_rect( m_mousepos ) )
         {
-            if ( win.rc.point_in_rect( mouse_pos ) )
-            {
-                // Invalidate mouse pos so nobody else does stuff under us
-                ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX };
-                break;
-            }
+            // ...invalidate mouse pos so nobody does stuff under us
+            ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX };
+            break;
         }
-
-        m_windows.clear();
     }
+
+    m_windows.clear();
 }
 
-void TipWindows::set_tooltip( const char *name, ImVec2 *pos, const char *str )
+bool TipWindows::imgui_draw_closebutton( const ImVec2 &center, float radius )
 {
-    if ( str && str[ 0 ] )
+    ImVec2 diff = m_mousepos - center;
+    ImDrawList *DrawList = ImGui::GetWindowDrawList();
+    bool hovered = ( diff.x * diff.x + diff.y * diff.y ) <= ( radius * radius );
+    ImGuiCol idx = hovered ? ImGuiCol_CloseButtonHovered : ImGuiCol_CloseButton;
+
+    DrawList->AddCircleFilled( center, radius, ImGui::GetColorU32( idx ), 12);
+
+    if ( hovered )
     {
-        ImGuiWindowFlags flags = ImGuiWindowFlags_Tooltip |
-                ImGuiWindowFlags_ChildWindow |
-                ImGuiWindowFlags_NoTitleBar |
-                ImGuiWindowFlags_NoResize |
-                ImGuiWindowFlags_NoScrollbar |
-                // ImGuiWindowFlags_ShowBorders |
-                ImGuiWindowFlags_NoSavedSettings |
-                ImGuiWindowFlags_AlwaysAutoResize;
+        ImU32 color = ImGui::GetColorU32( ImGuiCol_Text );
+        const ImVec2 center2 = center - ImVec2( 0.5f, 0.5f );
+        const float cross_extent = ( radius * 0.7071f ) - 1.0f;
+        ImVec2 a0 = center2 + ImVec2(  cross_extent,  cross_extent );
+        ImVec2 b0 = center2 + ImVec2( -cross_extent, -cross_extent );
+        ImVec2 a1 = center2 + ImVec2(  cross_extent, -cross_extent );
+        ImVec2 b1 = center2 + ImVec2( -cross_extent,  cross_extent );
 
-        ImGui::SetNextWindowPos(*pos, ImGuiCond_Appearing);
-        ImGui::Begin( name, NULL, flags );
-
-        // Sort these popups before the real popup
-        ImGui::GetCurrentWindow()->OrderWithinParent = -1;
-
-        imgui_text_bg( ImGui::GetStyleColorVec4( ImGuiCol_Header ), "%s%s%s",
-                       s_textclrs().str( TClr_Bright ), name, s_textclrs().str( TClr_Def ) );
-        ImGui::Text( "%s", str );
-
-        rect_t rc = { ImGui::GetWindowPos().x, ImGui::GetWindowPos().y,
-                      ImGui::GetWindowSize().x, ImGui::GetWindowSize().y };
-        m_windows.push_back( { pos, rc } );
-
-        ImGui::End();
-
+        DrawList->AddLine( a0, b0, color );
+        DrawList->AddLine( a1, b1, color );
     }
+
+    return hovered;
+}
+
+void TipWindows::set_tooltip( const char *name, bool *visible, ImVec2 *pos, const char *str )
+{
+    if ( !*visible || !str || !str[ 0 ] )
+        return;
+
+    const ImGuiWindowFlags flags =
+            ImGuiWindowFlags_Tooltip |
+            ImGuiWindowFlags_ChildWindow |
+            ImGuiWindowFlags_NoTitleBar |
+            ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoScrollbar |
+            ImGuiWindowFlags_ShowBorders |
+            ImGuiWindowFlags_NoSavedSettings |
+            ImGuiWindowFlags_AlwaysAutoResize;
+
+    ImGui::SetNextWindowPos(*pos, ImGuiCond_Appearing);
+    ImGui::Begin( name, NULL, flags );
+
+    // Get screen position before drawing title bar
+    ImVec2 screenpos = ImGui::GetCursorScreenPos();
+
+    // Draw title bar
+    imgui_text_bg( ImGui::GetStyleColorVec4( ImGuiCol_Header ), "%s%s%s",
+                   s_textclrs().str( TClr_Bright ), name, s_textclrs().str( TClr_Def ) );
+
+    // Calculate close button location and radius
+    float radius = ImGui::GetTextLineHeight() * 0.5f;
+    ImVec2 center = { screenpos.x + ImGui::GetWindowContentRegionWidth() - radius,
+                      screenpos.y + radius };
+
+    // Draw close button to right of title bar
+    bool hovered = imgui_draw_closebutton( center, radius );
+
+    // If close button was hovered and clicked, hide this window
+    if ( hovered && ImGui::IsMouseClicked( 0 ) )
+        *visible = false;
+
+    ImGui::Text( "%s", str );
+
+    rect_t rc = { ImGui::GetWindowPos().x, ImGui::GetWindowPos().y,
+                  ImGui::GetWindowSize().x, ImGui::GetWindowSize().y };
+    m_windows.push_back( { pos, rc } );
+
+    ImGui::End();
 }
 
 void ImageBuf::CreateEmpty( int w, int h )

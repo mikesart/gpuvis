@@ -117,7 +117,9 @@ public:
     ~TipWindows() {}
 
     void update();
-    void set_tooltip( const char *name, ImVec2 *pos, const char *str );
+    void set_tooltip( const char *name, bool *visible, ImVec2 *pos, const char *str );
+
+    bool imgui_draw_closebutton( const ImVec2 &center, float radius );
 
 public:
     struct wininfo_t
@@ -126,6 +128,8 @@ public:
         rect_t rc;
     };
     std::vector< wininfo_t > m_windows;
+    
+    ImVec2 m_mousepos;
 };
 
 float imgui_scale( float val );

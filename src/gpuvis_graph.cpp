@@ -2639,8 +2639,7 @@ void TraceWin::graph_render()
 
     m_graph.show_row_name = NULL;
 
-    if ( m_ttip.visible && !m_ttip.str.empty()  )
-        m_ttip.tipwins.set_tooltip( "Pinned Tooltip", &m_ttip.pos, m_ttip.str.c_str() );
+    m_ttip.tipwins.set_tooltip( "Pinned Tooltip", &m_ttip.visible, &m_ttip.pos, m_ttip.str.c_str() );
 }
 
 int TraceWin::graph_marker_menuitem( const char *label, bool check_valid, action_t action )
