@@ -850,8 +850,8 @@ void TipWindows::set_tooltip( const char *name, ImVec2 *pos, const char *str )
                 ImGuiWindowFlags_AlwaysAutoResize;
 
         io.MousePos = *pos;
-
         ImGui::Begin( name, NULL, flags );
+        io.MousePos = mousepos_orig;
 
         if ( name[ 0 ] != '#' )
         {
@@ -872,7 +872,6 @@ void TipWindows::set_tooltip( const char *name, ImVec2 *pos, const char *str )
 
         ImGui::End();
 
-        io.MousePos = mousepos_orig;
     }
 }
 
