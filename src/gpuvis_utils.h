@@ -120,9 +120,6 @@ public:
     void set_tooltip( const char *name, ImVec2 *pos, const char *str );
 
 public:
-    ImVec2 m_mouse_pos;
-    ImVec2 *m_captured_pos = nullptr;
-
     struct wininfo_t
     {
         ImVec2 *pos;

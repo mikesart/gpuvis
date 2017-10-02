@@ -789,44 +789,14 @@ void imgui_set_custom_style( float alpha )
 
 void TipWindows::update()
 {
-    if ( m_captured_pos )
+    if ( !m_windows.empty() )
     {
-        // Pinned tooltip has mouse captured.
-        if ( ImGui::IsMouseDown( 0 ) )
-        {
-            // And mouse still down...
-            ImVec2 mouse_pos = ImGui::GetMousePos();
-
-            // ...move pinned tooltip
-            m_captured_pos->x += ( mouse_pos.x - m_mouse_pos.x );
-            m_captured_pos->y += ( mouse_pos.y - m_mouse_pos.y );
-
-            m_mouse_pos = ImGui::GetMousePos();
-        }
-        else
-        {
-            // Mouse up - uncapture mouse
-            ImGui::CaptureMouseFromApp( false );
-            m_captured_pos = NULL;
-
-            s_actions().set( action_focus_graph );
-        }
-
-        // Invalidate mouse pos so nobody else does stuff under us
-        ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX };
-    }
-    else if ( !m_windows.empty() && ImGui::IsMouseClicked( 0 ) )
-    {
-        m_mouse_pos = ImGui::GetMousePos();
+        ImVec2 mouse_pos = ImGui::GetMousePos();
 
         for ( wininfo_t &win : m_windows )
         {
-            if ( win.rc.point_in_rect( m_mouse_pos ) )
+            if ( win.rc.point_in_rect( mouse_pos ) )
             {
-                // Clicked on our tooltip window - capture mouse
-                ImGui::CaptureMouseFromApp( true );
-                m_captured_pos = win.pos;
-
                 // Invalidate mouse pos so nobody else does stuff under us
                 ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX };
                 break;
@@ -841,19 +811,17 @@ void TipWindows::set_tooltip( const char *name, ImVec2 *pos, const char *str )
 {
     if ( str && str[ 0 ] )
     {
-        ImGuiIO& io = ImGui::GetIO();
-        const ImVec2 mousepos_orig = io.MousePos;
         ImGuiWindowFlags flags = ImGuiWindowFlags_Tooltip |
+                ImGuiWindowFlags_ChildWindow |
                 ImGuiWindowFlags_NoTitleBar |
-                ImGuiWindowFlags_NoMove |
                 ImGuiWindowFlags_NoResize |
+                ImGuiWindowFlags_NoScrollbar |
                 // ImGuiWindowFlags_ShowBorders |
                 ImGuiWindowFlags_NoSavedSettings |
                 ImGuiWindowFlags_AlwaysAutoResize;
 
-        io.MousePos = *pos;
+        ImGui::SetNextWindowPos(*pos, ImGuiCond_Appearing);
         ImGui::Begin( name, NULL, flags );
-        io.MousePos = mousepos_orig;
 
         // Sort these popups before the real popup
         ImGui::GetCurrentWindow()->OrderWithinParent = -1;
@@ -862,15 +830,9 @@ void TipWindows::set_tooltip( const char *name, ImVec2 *pos, const char *str )
                        s_textclrs().str( TClr_Bright ), name, s_textclrs().str( TClr_Def ) );
         ImGui::Text( "%s", str );
 
-        if ( !m_captured_pos )
-        {
-            // If we're not already moving a tooltip window, store this window information
-            // so we can mouse hit test it in update()
-            rect_t rc = { ImGui::GetWindowPos().x, ImGui::GetWindowPos().y,
-                          ImGui::GetWindowSize().x, ImGui::GetWindowSize().y };
-
-            m_windows.push_back( { pos, rc } );
-        }
+        rect_t rc = { ImGui::GetWindowPos().x, ImGui::GetWindowPos().y,
+                      ImGui::GetWindowSize().x, ImGui::GetWindowSize().y };
+        m_windows.push_back( { pos, rc } );
 
         ImGui::End();
 
