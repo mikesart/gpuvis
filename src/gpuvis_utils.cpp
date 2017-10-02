@@ -795,10 +795,10 @@ void TipWindows::update()
     m_mousepos = ImGui::GetMousePos();
 
     // Go through all tip windows
-    for ( wininfo_t &win : m_windows )
+    for ( const rect_t &rc : m_windows )
     {
         // If mouse is over tip window...
-        if ( win.rc.point_in_rect( m_mousepos ) )
+        if ( rc.point_in_rect( m_mousepos ) )
         {
             // ...invalidate mouse pos so nobody does stuff under us
             ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX };
@@ -835,7 +835,7 @@ bool TipWindows::imgui_draw_closebutton( const ImVec2 &center, float radius )
     return hovered;
 }
 
-void TipWindows::set_tooltip( const char *name, bool *visible, ImVec2 *pos, const char *str )
+void TipWindows::set_tooltip( const char *name, bool *visible, const char *str )
 {
     if ( !*visible || !str || !str[ 0 ] )
         return;
@@ -850,7 +850,7 @@ void TipWindows::set_tooltip( const char *name, bool *visible, ImVec2 *pos, cons
             ImGuiWindowFlags_NoSavedSettings |
             ImGuiWindowFlags_AlwaysAutoResize;
 
-    ImGui::SetNextWindowPos(*pos, ImGuiCond_Appearing);
+    ImGui::SetNextWindowPos( m_mousepos, ImGuiCond_FirstUseEver );
     ImGui::Begin( name, NULL, flags );
 
     // Get screen position before drawing title bar
@@ -876,7 +876,7 @@ void TipWindows::set_tooltip( const char *name, bool *visible, ImVec2 *pos, cons
 
     rect_t rc = { ImGui::GetWindowPos().x, ImGui::GetWindowPos().y,
                   ImGui::GetWindowSize().x, ImGui::GetWindowSize().y };
-    m_windows.push_back( { pos, rc } );
+    m_windows.push_back( { rc } );
 
     ImGui::End();
 }

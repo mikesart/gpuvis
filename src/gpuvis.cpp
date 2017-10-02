@@ -2601,6 +2601,9 @@ void TraceWin::render()
                 m_eventlist.goto_eventid = ts_to_eventid( m_graph.start_ts + m_graph.length_ts / 2 );
             }
 
+            // Update pinned tooltips
+            m_ttip.tipwins.update();
+
             if ( !s_opts().getb( OPT_ShowEventList ) ||
                  imgui_collapsingheader( "Event Graph", &m_graph.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
             {
@@ -2612,6 +2615,13 @@ void TraceWin::render()
             {
                 eventlist_render();
             }
+
+            // Render any pinned tooltips
+            m_ttip.tipwins.set_tooltip( "Pinned Tooltip", &m_ttip.visible, m_ttip.str.c_str() );
+
+            // graph/eventlist didn't handle this action, so just toggle ttip visibility.
+            if ( s_actions().get( action_graph_pin_tooltip ) )
+                m_ttip.visible = !m_ttip.visible;
 
             // Render plot, graph rows, filter dialogs, etc
             dialogs_render();
@@ -3007,11 +3017,18 @@ bool TraceWin::eventlist_handle_mouse( const trace_event_t &event, uint32_t i )
             if ( event.has_duration() )
                 durationstr = "Duration: " + ts_to_timestr( event.duration, 4, " ms\n" );
 
-            ImGui::SetTooltip( "%s%sId: %u\nTime: %s\nComm: %s\n%s\n%s",
+            std::string ttip = string_format( "%s%sId: %u\nTime: %s\nComm: %s\n%s\n%s",
                                s_textclrs().str( TClr_Def ),
                                graph_markers.c_str(), event.id,
                                ts_str.c_str(), commstr, durationstr.c_str(),
                                fieldstr.c_str() );
+            ImGui::SetTooltip( "%s", ttip.c_str() );
+
+            if ( s_actions().get( action_graph_pin_tooltip ) )
+            {
+                m_ttip.str = ttip;
+                m_ttip.visible = true;
+            }
         }
     }
 
@@ -3128,21 +3145,27 @@ void TraceWin::eventlist_render_options()
 
     if ( ImGui::IsItemHovered() )
     {
-        std::string tooltip;
+        std::string ttip;
 
-        tooltip += s_textclrs().bright_str( "Event Filter\n\n" );
-        tooltip += "Vars: Any field in Info column plus:\n";
-        tooltip += "    $name, $comm, $user_comm, $id, $pid, $tgid, $ts, $cpu, $duration\n";
-        tooltip += "Operators: &&, ||, !=, =, >, >=, <, <=, =~\n\n";
+        ttip += s_textclrs().bright_str( "Event Filter\n\n" );
+        ttip += "Vars: Any field in Info column plus:\n";
+        ttip += "    $name, $comm, $user_comm, $id, $pid, $tgid, $ts, $cpu, $duration\n";
+        ttip += "Operators: &&, ||, !=, =, >, >=, <, <=, =~\n\n";
 
-        tooltip += "Examples:\n";
-        tooltip += "  $pid = 4615\n";
-        tooltip += "  $ts >= 11.1 && $ts < 12.5\n";
-        tooltip += "  $ring_name = 0xffff971e9aa6bdd0\n";
-        tooltip += "  $buf =~ \"[Compositor] Warp\"\n";
-        tooltip += "  ( $timeline = gfx ) && ( $id < 10 || $id > 100 )";
+        ttip += "Examples:\n";
+        ttip += "  $pid = 4615\n";
+        ttip += "  $ts >= 11.1 && $ts < 12.5\n";
+        ttip += "  $ring_name = 0xffff971e9aa6bdd0\n";
+        ttip += "  $buf =~ \"[Compositor] Warp\"\n";
+        ttip += "  ( $timeline = gfx ) && ( $id < 10 || $id > 100 )";
 
-        ImGui::SetTooltip( "%s", tooltip.c_str() );
+        ImGui::SetTooltip( "%s", ttip.c_str() );
+
+        if ( s_actions().get( action_graph_pin_tooltip ) )
+        {
+            m_ttip.str = ttip;
+            m_ttip.visible = true;
+        }
     }
 
     ImGui::SameLine();

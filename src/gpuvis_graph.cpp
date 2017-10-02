@@ -2217,11 +2217,6 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             }
         }
     }
-
-    // graph_mouse_tooltip didn't handle this action, so just toggle ttip visibility.
-    // This should just show the old ttip if there was one.
-    if ( s_actions().get( action_graph_pin_tooltip ) )
-        m_ttip.visible = !m_ttip.visible;
 }
 
 void TraceWin::graph_handle_keyboard_scroll( graph_info_t &gi )
@@ -2405,8 +2400,6 @@ void TraceWin::graph_render_options()
 void TraceWin::graph_render()
 {
     graph_info_t gi;
-
-    m_ttip.tipwins.update();
 
     graph_render_options();
 
@@ -2638,8 +2631,6 @@ void TraceWin::graph_render()
     }
 
     m_graph.show_row_name = NULL;
-
-    m_ttip.tipwins.set_tooltip( "Pinned Tooltip", &m_ttip.visible, &m_ttip.pos, m_ttip.str.c_str() );
 }
 
 int TraceWin::graph_marker_menuitem( const char *label, bool check_valid, action_t action )
@@ -3362,13 +3353,10 @@ void TraceWin::graph_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
 
     ImGui::SetTooltip( "%s", ttip.c_str() );
 
-    // We are actively showing a graph tooltip and the user hit the
-    //  graph pin tooltip action hotkey.
     if ( s_actions().get( action_graph_pin_tooltip ) )
     {
         m_ttip.str = ttip;
-        m_ttip.pos = gi.mouse_pos;
-        m_ttip.visible = !m_ttip.visible;
+        m_ttip.visible = true;
     }
 }
 

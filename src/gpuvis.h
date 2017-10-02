@@ -736,7 +736,6 @@ public:
     {
         TipWindows tipwins;
 
-        ImVec2 pos;
         std::string str;
         bool visible = false;
     } m_ttip;
