@@ -483,6 +483,8 @@ public:
     bool peek( action_t action );
     size_t count() { return m_action_count; }
 
+    void set( action_t action );
+
     const std::string hotkey_str( action_t action );
 
     void keydown( SDL_Keycode keycode, uint32_t modstate, bool repeat );

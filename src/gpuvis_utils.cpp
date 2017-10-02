@@ -1556,12 +1556,10 @@ void Actions::keydown( SDL_Keycode keycode, uint32_t modstate, bool repeat )
         if ( repeat && !( map.modstate & KMOD_REPEAT ) )
             continue;
 
-        if ( !m_actions[ map.action ] &&
-             ( map.key == keycode ) &&
+        if ( ( map.key == keycode ) &&
              ( ( map.modstate & ~KMOD_REPEAT ) == modstate ) )
         {
-            m_action_count++;
-            m_actions[ map.action ] = true;
+            set( map.action );
         }
     }
 }
@@ -1581,6 +1579,15 @@ bool Actions::get( action_t action )
 bool Actions::peek( action_t action )
 {
     return m_actions[ action ];
+}
+
+void Actions::set( action_t action )
+{
+    if ( !m_actions[ action ] )
+    {
+        m_action_count++;
+        m_actions[ action ] = true;
+    }
 }
 
 const std::string Actions::hotkey_str( action_t action )
