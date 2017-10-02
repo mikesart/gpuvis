@@ -2264,9 +2264,11 @@ void ImGui::NewFrame()
         IM_ASSERT(g.MovedWindow->MoveId == g.MovedWindowMoveId);
         if (g.IO.MouseDown[0])
         {
-            g.MovedWindow->RootWindow->PosFloat += g.IO.MouseDelta;
+            // FIXME: Won't work if the tooltip itself has child.
+            ImGuiWindow* actual_moved_window = ((g.MovedWindow->Flags & ImGuiWindowFlags_ChildWindow) && (g.MovedWindow->Flags & ImGuiWindowFlags_Tooltip)) ? g.MovedWindow : g.MovedWindow->RootWindow;
+            actual_moved_window->PosFloat += g.IO.MouseDelta;
             if (g.IO.MouseDelta.x != 0.0f || g.IO.MouseDelta.y != 0.0f)
-                MarkIniSettingsDirty(g.MovedWindow->RootWindow);
+                MarkIniSettingsDirty(actual_moved_window);
             FocusWindow(g.MovedWindow);
         }
         else
@@ -4115,7 +4117,7 @@ bool ImGui::Begin(const char* name, bool* p_open, const ImVec2& size_on_first_us
         window->DrawList->Clear();
         window->DrawList->PushTextureID(g.Font->ContainerAtlas->TexID);
         ImRect fullscreen_rect(GetVisibleRect());
-        if ((flags & ImGuiWindowFlags_ChildWindow) && !(flags & (ImGuiWindowFlags_ComboBox|ImGuiWindowFlags_Popup)))
+        if ((flags & ImGuiWindowFlags_ChildWindow) && !(flags & (ImGuiWindowFlags_ComboBox|ImGuiWindowFlags_Popup|ImGuiWindowFlags_Tooltip)))
             PushClipRect(parent_window->ClipRect.Min, parent_window->ClipRect.Max, true);
         else
             PushClipRect(fullscreen_rect.Min, fullscreen_rect.Max, true);
@@ -4208,7 +4210,7 @@ bool ImGui::Begin(const char* name, bool* p_open, const ImVec2& size_on_first_us
             window->OrderWithinParent = parent_window->DC.ChildWindows.Size;
             parent_window->DC.ChildWindows.push_back(window);
         }
-        if ((flags & ImGuiWindowFlags_ChildWindow) && !(flags & ImGuiWindowFlags_Popup))
+        if ((flags & ImGuiWindowFlags_ChildWindow) && !(flags & (ImGuiWindowFlags_Popup|ImGuiWindowFlags_Tooltip)))
         {
             window->Pos = window->PosFloat = parent_window->DC.CursorPos;
             window->Size = window->SizeFull = size_on_first_use; // NB: argument name 'size_on_first_use' misleading here, it's really just 'size' as provided by user passed via BeginChild()->Begin().
@@ -4240,7 +4242,7 @@ bool ImGui::Begin(const char* name, bool* p_open, const ImVec2& size_on_first_us
         }
 
         // Position tooltip (always follows mouse)
-        if ((flags & ImGuiWindowFlags_Tooltip) != 0 && !window_pos_set_by_api)
+        if ((flags & ImGuiWindowFlags_Tooltip) != 0 && !window_pos_set_by_api && !(flags & ImGuiWindowFlags_ChildWindow))
         {
             ImVec2 ref_pos = g.IO.MousePos;
             ImRect rect_to_avoid(ref_pos.x - 16, ref_pos.y - 8, ref_pos.x + 24, ref_pos.y + 24); // FIXME: Completely hard-coded. Perhaps center on cursor hit-point instead?
