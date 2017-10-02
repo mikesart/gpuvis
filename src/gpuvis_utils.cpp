@@ -808,6 +808,8 @@ void TipWindows::update()
             // Mouse up - uncapture mouse
             ImGui::CaptureMouseFromApp( false );
             m_captured_pos = NULL;
+
+            s_actions().set( action_focus_graph );
         }
 
         // Invalidate mouse pos so nobody else does stuff under us
@@ -853,11 +855,11 @@ void TipWindows::set_tooltip( const char *name, ImVec2 *pos, const char *str )
         ImGui::Begin( name, NULL, flags );
         io.MousePos = mousepos_orig;
 
-        if ( name[ 0 ] != '#' )
-        {
-            imgui_text_bg( ImGui::GetStyleColorVec4( ImGuiCol_Header ), "%s%s%s",
-                           s_textclrs().str( TClr_Bright ), name, s_textclrs().str( TClr_Def ) );
-        }
+        // Sort these popups before the real popup
+        ImGui::GetCurrentWindow()->OrderWithinParent = -1;
+
+        imgui_text_bg( ImGui::GetStyleColorVec4( ImGuiCol_Header ), "%s%s%s",
+                       s_textclrs().str( TClr_Bright ), name, s_textclrs().str( TClr_Def ) );
         ImGui::Text( "%s", str );
 
         if ( !m_captured_pos )
