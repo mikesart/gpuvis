@@ -550,7 +550,7 @@ protected:
     // Render intel i915 request_add, request_submit, request_in, request_out, intel_engine_notify
     uint32_t graph_render_i915_req_events( class graph_info_t &gi );
 
-    void graph_render_time_ticks( class graph_info_t &gi );
+    void graph_render_time_ticks( graph_info_t &gi, float h0, float h1 );
     void graph_render_vblanks( class graph_info_t &gi );
     void graph_render_mouse_pos( class graph_info_t &gi );
     void graph_render_eventids( class graph_info_t &gi );

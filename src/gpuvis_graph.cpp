@@ -1650,6 +1650,8 @@ void TraceWin::graph_render_row( graph_info_t &gi )
 
             if ( gi.mouse_pos_in_graph() )
                 gi.mouse_pos_scaled_ts = gi.screenx_to_ts( gi.mouse_pos.x );
+
+            graph_render_time_ticks( gi, imgui_scale( 6.0f ), imgui_scale( 2.0f ) );
         }
 
         // Call the render callback function
@@ -1684,34 +1686,35 @@ void TraceWin::graph_render_row( graph_info_t &gi )
     gi.prinfo_cur->num_events = num_events;
 }
 
-void TraceWin::graph_render_time_ticks( graph_info_t &gi )
+void TraceWin::graph_render_time_ticks( graph_info_t &gi, float h0, float h1 )
 {
     // Draw time ticks every millisecond
     int64_t tsstart = std::max< int64_t >( gi.ts0 / NSECS_PER_MSEC - 1, 0 ) * NSECS_PER_MSEC;
     float dx = gi.rc.w * NSECS_PER_MSEC * gi.tsdxrcp;
+    const float w = imgui_scale( 1.0f );
+    const float wmin = imgui_scale( 4.0f );
 
-    if ( dx <= imgui_scale( 4.0f ) )
+    if ( dx <= wmin )
     {
         tsstart = std::max< int64_t >( gi.ts0 / NSECS_PER_SEC - 1, 0 ) * NSECS_PER_SEC;
         dx = gi.rc.w * NSECS_PER_SEC * gi.tsdxrcp;
     }
 
-    if ( dx > imgui_scale( 4.0f ) )
+    if ( dx > wmin )
     {
         float x0 = gi.ts_to_x( tsstart );
+        const float wmin2 = imgui_scale( 35.0f );
 
         for ( ; x0 <= gi.rc.w; x0 += dx )
         {
-            imgui_drawrect_filled( gi.rc.x + x0, gi.rc.y,
-                                   imgui_scale( 1.0f ), imgui_scale( 16.0f ),
+            imgui_drawrect_filled( gi.rc.x + x0, gi.rc.y, w, h0,
                                    s_clrs().get( col_Graph_TimeTick ) );
 
-            if ( dx >= imgui_scale( 35.0f ) )
+            if ( dx >= wmin2 )
             {
                 for ( int i = 1; i < 4; i++ )
                 {
-                    imgui_drawrect_filled( gi.rc.x + x0 + i * dx / 4, gi.rc.y,
-                                           imgui_scale( 1.0f ), imgui_scale( 4.0f ),
+                    imgui_drawrect_filled( gi.rc.x + x0 + i * dx / 4, gi.rc.y, w, h1,
                                            s_clrs().get( col_Graph_TimeTick ) );
                 }
             }
@@ -2551,7 +2554,7 @@ void TraceWin::graph_render()
 
         // Render full screen stuff: graph ticks, vblanks, cursor pos, etc.
         gi.set_pos_y( windowpos.y, windowsize.y, NULL );
-        graph_render_time_ticks( gi );
+        graph_render_time_ticks( gi, imgui_scale( 16.0f ), imgui_scale( 4.0f ) );
         graph_render_vblanks( gi );
         graph_render_framemarker_frames( gi );
         graph_render_mouse_pos( gi );
