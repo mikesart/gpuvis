@@ -3049,22 +3049,23 @@ void TraceWin::graph_mouse_tooltip_rowinfo( std::string &ttip, graph_info_t &gi,
 {
     const std::string &row_name = m_graph.mouse_over_row_name;
 
+    if ( !row_name.empty() )
+    {
+        ttip += "\nRow: ";
+        if ( m_graph.mouse_over_row_type == LOC_TYPE_Comm )
+            ttip += m_trace_events.tgidcomm_from_commstr( row_name.c_str() );
+        else
+            ttip += s_textclrs().bright_str( m_graph.mouse_over_row_name );
+    }
+
     if ( m_graph.mouse_over_row_type == LOC_TYPE_Plot )
     {
         GraphPlot &plot = m_trace_events.get_plot( row_name.c_str() );
-        ttip += "\nFilter: " + plot.m_filter_str + "\n";
+        ttip += "\nFilter: " + plot.m_filter_str;
     }
     else if ( row_name != m_graph.mouse_over_row_filter )
     {
-        ttip += "\nFilter: " + m_graph.mouse_over_row_filter + "\n";
-    }
-
-    if ( !row_name.empty() &&
-         ( m_graph.mouse_over_row_type == LOC_TYPE_Comm ) )
-    {
-        const char *commstr = m_trace_events.tgidcomm_from_commstr( row_name.c_str() );
-
-        ttip += std::string( "\n" ) + commstr;
+        ttip += "\nFilter: " + m_graph.mouse_over_row_filter;
     }
 }
 
