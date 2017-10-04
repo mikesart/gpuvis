@@ -2616,6 +2616,7 @@ void TraceWin::render()
             {
                 eventlist_render_options();
                 eventlist_render();
+                eventlist_handle_hotkeys();
             }
 
             // Render any pinned tooltips
@@ -2814,23 +2815,22 @@ bool TraceWin::eventlist_render_popupmenu( uint32_t eventid )
     if ( ImGui::MenuItem( label.c_str() ) )
         graph_center_event( eventid );
 
-    if ( ImGui::BeginMenu( "Set Marker" ) )
+    // Set / Goto / Clear Markers
     {
-        for ( size_t i = 0; i < ARRAY_SIZE( m_graph.ts_markers ); i++ )
+        int idx = graph_marker_menuitem( "Set Marker", false, action_graph_set_markerA );
+        if ( idx >= 0 )
+            graph_marker_set( idx, event.ts );
+
+        idx = graph_marker_menuitem( "Goto Marker", true, action_graph_goto_markerA );
+        if ( idx >= 0 )
         {
-            ImGui::PushID( i );
-
-            char marker_label[ 2 ];
-
-            marker_label[ 0 ] = char( 'A' + i );
-            marker_label[ 1 ] = 0;
-            if ( ImGui::MenuItem( marker_label ) )
-                graph_marker_set( i, event.ts );
-
-            ImGui::PopID();
+            m_graph.start_ts = m_graph.ts_markers[ idx ] - m_graph.length_ts / 2;
+            m_graph.recalc_timebufs = true;
         }
 
-        ImGui::EndMenu();
+        idx = graph_marker_menuitem( "Clear Marker", true, action_nil );
+        if ( idx >= 0 )
+            graph_marker_set( idx, INT64_MAX );
     }
 
     ImGui::Separator();
@@ -3475,6 +3475,28 @@ void TraceWin::eventlist_render()
             m_eventlist.columns_resized = true;
 
         ImGui::EndChild();
+    }
+}
+
+void TraceWin::eventlist_handle_hotkeys()
+{
+    if ( m_eventlist.has_focus )
+    {
+        if ( is_valid_id( m_eventlist.hovered_eventid ) )
+        {
+            int marker = -1;
+
+            if ( s_actions().get( action_graph_set_markerA ) )
+                marker = 0;
+            else if ( s_actions().get( action_graph_set_markerB ) )
+                marker = 1;
+
+            if ( marker != -1 )
+            {
+                const trace_event_t &event = get_event( m_eventlist.hovered_eventid );
+                graph_marker_set( marker, event.ts );
+            }
+        }
     }
 }
 

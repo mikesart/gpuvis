@@ -524,6 +524,7 @@ protected:
     bool eventlist_render_popupmenu( uint32_t eventid );
     // Handle mouse clicking and tooltips for event list
     bool eventlist_handle_mouse( const trace_event_t &event, uint32_t i );
+    void eventlist_handle_hotkeys();
 
 protected:
     // Render graph
