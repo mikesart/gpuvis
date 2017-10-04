@@ -675,6 +675,7 @@ public:
         MOUSE_CAPTURED_SELECT_AREA,
         MOUSE_CAPTURED_ZOOM,
         MOUSE_CAPTURED_PAN,
+        MOUSE_CAPTURED_RESIZE_GRAPH
     };
     struct
     {
@@ -688,8 +689,6 @@ public:
         int64_t ts_markers[ 2 ] = { INT64_MAX, INT64_MAX };
         char marker_bufs[ 2 ][ 32 ] = { { 0 } };
         char marker_delta_buf[ 32 ] = { 0 };
-
-        float resize_graph_click_pos = 0.0f;
 
         bool popupmenu = false;
         bool has_focus = false;

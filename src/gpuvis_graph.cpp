@@ -1847,6 +1847,10 @@ void TraceWin::graph_render_framemarker_frames( graph_info_t &gi )
 
 void TraceWin::graph_render_mouse_pos( graph_info_t &gi )
 {
+    // Don't render mouse position if we're resizing the graph (it flashes).
+    if ( m_graph.mouse_captured == MOUSE_CAPTURED_RESIZE_GRAPH )
+        return;
+
     // Draw location line for mouse if is over graph
     if ( gi.mouse_over )
     {
@@ -2579,21 +2583,28 @@ void TraceWin::graph_render()
     ImGui::EndChild();
     ImGui::PopStyleVar();
 
-    if ( s_opts().getb( OPT_ShowEventList ) )
+    // Draggable resize graph row bar
+    bool mouse_captured = ( m_graph.mouse_captured == MOUSE_CAPTURED_RESIZE_GRAPH );
+    if ( s_opts().getb( OPT_ShowEventList ) || mouse_captured )
     {
+        option_id_t opt = gi.prinfo_zoom ? OPT_GraphHeightZoomed : OPT_GraphHeight;
+
         ImGui::Button( "##resize_graph", ImVec2( ImGui::GetContentRegionAvailWidth(), imgui_scale( 4.0f ) ) );
 
-        if ( ImGui::IsItemHovered() )
+        if ( mouse_captured || ImGui::IsItemHovered() )
             ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeNS );
 
-        if ( ImGui::IsItemActive() && ImGui::IsMousePosValid( &gi.mouse_pos ) )
+        if ( mouse_captured )
         {
-            option_id_t opt = gi.prinfo_zoom ? OPT_GraphHeightZoomed : OPT_GraphHeight;
-
-            if ( ImGui::IsMouseClicked( 0 ) )
-                m_graph.resize_graph_click_pos = s_opts().getf( opt );
-
-            s_opts().setf( opt, m_graph.resize_graph_click_pos + ImGui::GetMouseDragDelta( 0 ).y );
+            if ( !ImGui::IsMouseDown( 0 ) )
+                m_graph.mouse_captured = MOUSE_NOT_CAPTURED;
+            else
+                s_opts().setf( opt, m_graph.mouse_capture_pos.y + ImGui::GetMouseDragDelta( 0 ).y );
+        }
+        else if ( ImGui::IsItemClicked() )
+        {
+            m_graph.mouse_captured = MOUSE_CAPTURED_RESIZE_GRAPH;
+            m_graph.mouse_capture_pos.y = s_opts().getf( opt );
         }
     }
 
