@@ -110,7 +110,7 @@ class graph_info_t
 public:
     void init_rows( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows );
 
-    void init( float x, float w );
+    void init();
     void set_ts( int64_t start_ts, int64_t length_ts );
     void set_pos_y( float y, float h, row_info_t *ri );
 
@@ -131,8 +131,14 @@ public:
 
     RenderGraphRowCallback get_render_cb( loc_type_t row_type );
 
+    void calc_process_graph_height();
+
 public:
     rect_t rc;           // current drawing rect
+
+    float start_y;
+    ImVec2 windowpos;
+    ImVec2 windowsize;
 
     int64_t ts0;         // visible start time of graph
     int64_t ts1;         // visible end time of graph
@@ -539,8 +545,76 @@ void graph_info_t::init_rows( TraceWin *win, const std::vector< GraphRows::graph
         total_graph_height += rinfo.row_h + graph_row_padding;
     }
 
+    if ( !win->m_graph.zoom_row_name.empty() )
+    {
+        const std::string &row_name = win->m_graph.zoom_row_name;
+
+        prinfo_zoom = find_row( row_name.c_str() );
+        if ( prinfo_zoom )
+        {
+            prinfo_zoom_hw = find_row( ( row_name + " hw" ).c_str() );
+
+            if ( !prinfo_zoom_hw && !strncmp( row_name.c_str(), "i915_req ring", 13 ) )
+            {
+                char buf[ 128 ];
+
+                // We are zooming i915_req row, show the i915_reqwait row as well
+                snprintf_safe( buf, "i915_reqwait ring%s", row_name.c_str() + 13 );
+                prinfo_zoom_hw = find_row( buf );
+            }
+        }
+    }
+
     total_graph_height += imgui_scale( 2.0f );
     total_graph_height = std::max< float >( total_graph_height, 8.0f * text_h );
+
+    // Figure out visible_graph_height
+    calc_process_graph_height();
+
+    win->m_graph.show_row_name = NULL;
+}
+
+void graph_info_t::calc_process_graph_height()
+{
+    // Zoom mode if we have a gfx row and zoom option is set
+    option_id_t optid;
+    float max_graph_size;
+    const float valf_min = 8.0f * text_h;
+
+    // Check if user hit F11 and only the graph is showing (no event list).
+    if ( !s_opts().getb( OPT_ShowEventList ) )
+    {
+        // If we have a zoomed row, use up all the available window space,
+        // otherwise just use the total graph height
+        float valf = prinfo_zoom ?
+                    ImGui::GetContentRegionAvail().y : total_graph_height;;
+
+        visible_graph_height = Clamp< float >( valf, valf_min, ImGui::GetContentRegionAvail().y );
+        return;
+    }
+
+    if ( prinfo_zoom )
+    {
+        optid = OPT_GraphHeightZoomed;
+        max_graph_size = ImGui::GetWindowHeight() * 10.0f;
+    }
+    else
+    {
+        optid = OPT_GraphHeight;
+        max_graph_size = total_graph_height;
+    }
+
+    // Set up min / max sizes and clamp value in that range
+    float valf = s_opts().getf( optid );
+
+    // First time initialization - start with 1/2 the screen
+    if ( !valf )
+        valf = ImGui::GetContentRegionAvail().y / 2.0f;
+
+    valf = Clamp< float >( valf, valf_min, max_graph_size );
+    s_opts().setf( optid, valf, valf_min, max_graph_size );
+
+    visible_graph_height = valf;
 }
 
 void graph_info_t::set_ts( int64_t start_ts, int64_t length_ts )
@@ -555,26 +629,39 @@ void graph_info_t::set_ts( int64_t start_ts, int64_t length_ts )
     tsdxrcp = 1.0 / tsdx;
 }
 
-void graph_info_t::init( float x_in, float w_in )
+void graph_info_t::init()
 {
     const std::vector< trace_event_t > &events = m_win->m_trace_events.m_events;
 
-    rc.x = x_in;
-    rc.w = w_in;
+    windowpos = ImGui::GetCursorScreenPos();
+    windowsize = ImGui::GetContentRegionAvail();
+
+    rc.x = windowpos.x;
+    rc.w = windowsize.x;
+
+    // Set whether graph has focus
+    m_win->m_graph.has_focus = ImGui::IsWindowFocused();
+
+    // If we don't have a popup menu, clear the mouse over row name
+    if ( !m_win->m_graph.popupmenu )
+    {
+        m_win->m_graph.mouse_over_row_name.clear();
+        m_win->m_graph.mouse_over_row_type = LOC_TYPE_Max;
+    }
 
     m_clr_bright = s_textclrs().str( TClr_Bright );
     m_clr_def = s_textclrs().str( TClr_Def );
 
     // Get mouse position
     mouse_pos = ImGui::IsRootWindowOrAnyChildFocused() ?
-        ImGui::GetMousePos() : ImVec2( -FLT_MAX, -FLT_MAX );
+                ImGui::GetMousePos() : ImVec2( -FLT_MAX, -FLT_MAX );
 
     // Render timeline user space bars?
     timeline_render_user = s_opts().getb( OPT_TimelineRenderUserSpace );
 
     // Render filtered events only?
     graph_only_filtered = s_opts().getb( OPT_GraphOnlyFiltered ) &&
-                          !m_win->m_filter.events.empty();
+            !m_win->m_filter.events.empty();
 
     // Grab last hovered graph event
     m_hovered_eventid = m_win->m_graph.last_hovered_eventid;
@@ -593,6 +680,25 @@ void graph_info_t::init( float x_in, float w_in )
         // Mark it as hovered so it'll have a selection rectangle
         hovered_fence_signaled = plocs->back();
     }
+
+    // Set start_y
+    start_y = m_win->m_graph.start_y;
+
+    // If we have a show row id, make sure it's visible
+    if ( show_row_id != ( size_t )-1 )
+    {
+        const row_info_t &rinfo = row_info[ show_row_id ];
+
+        if ( ( rinfo.row_y < -start_y ) ||
+             ( rinfo.row_y + rinfo.row_h > visible_graph_height - start_y ) )
+        {
+            start_y = -rinfo.row_y + visible_graph_height / 3;
+        }
+    }
+
+    // Range check mouse pan values
+    start_y = Clamp< float >( start_y, visible_graph_height - total_graph_height, 0.0f );
+    m_win->m_graph.start_y = start_y;
 }
 
 void graph_info_t::set_pos_y( float y_in, float h_in, row_info_t *ri )
@@ -633,10 +739,13 @@ bool graph_info_t::mouse_pos_in_rect( const rect_t &rcin )
 
 row_info_t *graph_info_t::find_row( const char *name )
 {
-    for ( row_info_t &ri : row_info )
+    if ( name && name[ 0 ] )
     {
-        if ( ri.row_name == name )
-            return &ri;
+        for ( row_info_t &ri : row_info )
+        {
+            if ( ri.row_name == name )
+                return &ri;
+        }
     }
     return NULL;
 }
@@ -1592,7 +1701,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     return event_renderer.m_num_events;
 }
 
-void TraceWin::graph_render_row( graph_info_t &gi )
+void TraceWin::graph_render_single_row( graph_info_t &gi )
 {
     if ( gi.mouse_over )
     {
@@ -1757,6 +1866,43 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
                                        s_clrs().get( col, alpha ) );
             }
         }
+    }
+}
+
+void TraceWin::graph_render_frame_marker_text( class graph_info_t &gi )
+{
+    ImU32 color = s_clrs().get( col_Graph_LocationText );
+
+    if ( color & IM_COL32_A_MASK )
+    {
+        ImVec2 pos;
+
+        imgui_push_bigfont();
+
+        pos.y = gi.windowpos.y + ( gi.windowsize.y - ImGui::GetTextLineHeight() ) / 2;
+
+        if ( 1 )
+        {
+            int64_t ts = gi.ts0 + ( gi.ts1 - gi.ts0 );
+            const std::string str = ts_to_timestr( ts / 1000, 4, "" );
+            const ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
+
+            pos.x = gi.windowpos.x + ( gi.windowsize.x - textsize.x ) / 2;
+            imgui_draw_text( pos.x, pos.y, color, str.c_str() );
+
+            pos.y += ImGui::GetTextLineHeight();
+        }
+
+        if ( m_frame_markers.m_frame_marker_selected != -1 )
+        {
+            const std::string str = string_format( "Frame #%d", m_frame_markers.m_frame_marker_selected );
+            const ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
+
+            pos.x = gi.windowpos.x + ( gi.windowsize.x - textsize.x ) / 2;
+            imgui_draw_text( pos.x, pos.y, color, str.c_str() );
+        }
+
+        imgui_pop_font();
     }
 }
 
@@ -2241,49 +2387,6 @@ void TraceWin::graph_handle_keyboard_scroll( graph_info_t &gi )
     }
 }
 
-static void calc_process_graph_height( TraceWin *win, graph_info_t &gi )
-{
-    // Zoom mode if we have a gfx row and zoom option is set
-    option_id_t optid;
-    float max_graph_size;
-    const float valf_min = 8.0f * gi.text_h;
-
-    // Check if user hit F11 and only the graph is showing (no event list).
-    if ( !s_opts().getb( OPT_ShowEventList ) )
-    {
-        // If we have a zoomed row, use up all the available window space,
-        // otherwise just use the total graph height
-        float valf = gi.prinfo_zoom ?
-                    ImGui::GetContentRegionAvail().y : gi.total_graph_height;;
-
-        gi.visible_graph_height = Clamp< float >( valf, valf_min, ImGui::GetContentRegionAvail().y );
-        return;
-    }
-
-    if ( gi.prinfo_zoom )
-    {
-        optid = OPT_GraphHeightZoomed;
-        max_graph_size = ImGui::GetWindowHeight() * 10.0f;
-    }
-    else
-    {
-        optid = OPT_GraphHeight;
-        max_graph_size = gi.total_graph_height;
-    }
-
-    // Set up min / max sizes and clamp value in that range
-    float valf = s_opts().getf( optid );
-
-    // First time initialization - start with 1/2 the screen
-    if ( !valf )
-        valf = ImGui::GetContentRegionAvail().y / 2.0f;
-
-    valf = Clamp< float >( valf, valf_min, max_graph_size );
-    s_opts().setf( optid, valf, valf_min, max_graph_size );
-
-    gi.visible_graph_height = valf;
-}
-
 void TraceWin::graph_render_options()
 {
     ImGui::PushItemWidth( imgui_scale( 120.0f ) );
@@ -2368,32 +2471,82 @@ void TraceWin::graph_render_options()
     }
 }
 
+void TraceWin::graph_render_rows( graph_info_t &gi )
+{
+    uint32_t mouse_over_id = ( uint32_t )-1;
+
+    for ( row_info_t &ri : gi.row_info )
+    {
+        float y = gi.windowpos.y + ri.row_y + gi.start_y;
+
+        // If the mouse is over this row, render it now
+        if ( gi.mouse_pos_in_rect( { gi.rc.x, y, gi.rc.w, ri.row_h } ) )
+        {
+            gi.set_pos_y( y, ri.row_h, &ri );
+            graph_render_single_row( gi );
+
+            mouse_over_id = ri.id;
+            break;
+        }
+    }
+
+    // Go through all rows and render them
+    for ( row_info_t &ri : gi.row_info )
+    {
+        if ( ri.id != mouse_over_id )
+        {
+            float y = gi.windowpos.y + ri.row_y + gi.start_y;
+
+            gi.set_pos_y( y, ri.row_h, &ri );
+
+            if ( !imgui_is_rect_clipped( gi.rc ) )
+                graph_render_single_row( gi );
+        }
+    }
+}
+
+void TraceWin::graph_render_zoomed_rows( graph_info_t &gi )
+{
+    float zoomhw_h = 0;
+    bool render_zoomhw_after = false;
+    row_info_t *ri = gi.prinfo_zoom_hw;
+
+    if ( gi.prinfo_zoom_hw )
+    {
+        float y = gi.windowpos.y + gi.windowsize.y - ri->row_h;
+
+        // Zoom hw height
+        zoomhw_h = ri->row_h + ImGui::GetStyle().FramePadding.y;
+
+        // If mouse is over our zoom hw row, render it now. Otherwise render after.
+        render_zoomhw_after = !gi.mouse_pos_in_rect( { gi.rc.x, y, gi.rc.w, ri->row_h } );
+        if ( !render_zoomhw_after )
+        {
+            gi.set_pos_y( y, ri->row_h, ri );
+            graph_render_single_row( gi );
+        }
+    }
+
+    gi.timeline_render_user = true;
+    gi.set_pos_y( gi.windowpos.y, gi.windowsize.y - zoomhw_h, gi.prinfo_zoom );
+    graph_render_single_row( gi );
+
+    if ( render_zoomhw_after )
+    {
+        gi.set_pos_y( gi.windowpos.y + gi.windowsize.y - ri->row_h, ri->row_h, ri );
+        graph_render_single_row( gi );
+    }
+}
+
 void TraceWin::graph_render()
 {
     graph_info_t gi;
 
-    graph_render_options();
-
     // Initialize our row size, location, etc information based on our graph row list
     gi.init_rows( this, m_graph.rows.m_graph_rows_list );
 
-    if ( !m_graph.zoom_row_name.empty() )
-    {
-        gi.prinfo_zoom = gi.find_row( m_graph.zoom_row_name.c_str() );
-        if ( gi.prinfo_zoom )
-        {
-            gi.prinfo_zoom_hw = gi.find_row( ( m_graph.zoom_row_name + " hw" ).c_str() );
-
-            if ( !gi.prinfo_zoom_hw && !strncmp( m_graph.zoom_row_name.c_str(), "i915_req ring", 13 ) )
-            {
-                char buf[ 128 ];
-
-                // We are zooming i915_req row, show the i915_reqwait row as well
-                snprintf_safe( buf, "i915_reqwait ring%s", m_graph.zoom_row_name.c_str() + 13 );
-                gi.prinfo_zoom_hw = gi.find_row( buf );
-            }
-        }
-    }
+    // Make sure ts start and length values are sane
+    graph_range_check_times();
 
     if ( gi.prinfo_zoom )
     {
@@ -2404,124 +2557,29 @@ void TraceWin::graph_render()
             m_graph.zoom_row_name.clear();
     }
 
-    // Figure out gi.visible_graph_height
-    calc_process_graph_height( this, gi );
-
-    // Make sure ts start and length values are mostly sane
-    graph_range_check_times();
-
     if ( s_actions().get( action_focus_graph ) )
         ImGui::SetNextWindowFocus();
 
-    ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 1, 1 ) );
-    ImGui::BeginChild( "EventGraph", ImVec2( 0, gi.visible_graph_height ), false,
+    ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 1.0f, 1.0f ) );
+    ImGui::BeginChild( "eventgraph", ImVec2( 0.0f, gi.visible_graph_height ), false,
                        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoCollapse );
     {
-        const ImVec2 windowpos = ImGui::GetCursorScreenPos();
-        const ImVec2 windowsize = ImGui::GetContentRegionAvail();
-
-        m_graph.has_focus = ImGui::IsWindowFocused();
-
-        // Clear graph background
-        imgui_drawrect_filled( windowpos.x, windowpos.y, windowsize.x, windowsize.y,
-                               s_clrs().get( col_Graph_Bk ) );
-
-        // Initialize our graphics info struct
-        gi.init( windowpos.x, windowsize.x );
+        // Initialize graphics info struct
+        gi.init();
         gi.set_ts( m_graph.start_ts, m_graph.length_ts );
 
-        // If we have a show row id, make sure it's visible
-        if ( gi.show_row_id != ( size_t )-1 )
-        {
-            const row_info_t &rinfo = gi.row_info[ gi.show_row_id ];
+        // Clear graph background
+        imgui_drawrect_filled( gi.windowpos.x, gi.windowpos.y, gi.windowsize.x, gi.windowsize.y,
+                               s_clrs().get( col_Graph_Bk ) );
 
-            if ( ( rinfo.row_y < -m_graph.start_y ) ||
-                 ( rinfo.row_y + rinfo.row_h > gi.visible_graph_height - m_graph.start_y ) )
-            {
-                m_graph.start_y = -rinfo.row_y + gi.visible_graph_height / 3;
-            }
-        }
-        // Range check mouse pan values
-        m_graph.start_y = Clamp< float >( m_graph.start_y,
-                                          gi.visible_graph_height - gi.total_graph_height, 0.0f );
-
-        // If we don't have a popup menu, clear the mouse over row name
-        if ( !m_graph.popupmenu )
-        {
-            m_graph.mouse_over_row_name.clear();
-            m_graph.mouse_over_row_type = LOC_TYPE_Max;
-        }
-
-        // If we have a gfx graph and we're zoomed, render only that
-        float start_y = gi.prinfo_zoom ? 0 : m_graph.start_y;
         if ( gi.prinfo_zoom )
-        {
-            float zoomhw_h = 0;
-            bool render_zoomhw_after = false;
-            row_info_t *ri = gi.prinfo_zoom_hw;
-
-            if ( gi.prinfo_zoom_hw )
-            {
-                float y = windowpos.y + windowsize.y - ri->row_h;
-
-                // Zoom hw height
-                zoomhw_h = ri->row_h + ImGui::GetStyle().FramePadding.y;
-
-                // If mouse is over our zoom hw row, render it now. Otherwise render after.
-                render_zoomhw_after = !gi.mouse_pos_in_rect( { gi.rc.x, y, gi.rc.w, ri->row_h } );
-                if ( !render_zoomhw_after )
-                {
-                    gi.set_pos_y( y, ri->row_h, ri );
-                    graph_render_row( gi );
-                }
-            }
-
-            gi.timeline_render_user = true;
-            gi.set_pos_y( windowpos.y, windowsize.y - zoomhw_h, gi.prinfo_zoom );
-            graph_render_row( gi );
-
-            if ( render_zoomhw_after )
-            {
-                gi.set_pos_y( windowpos.y + windowsize.y - ri->row_h, ri->row_h, ri );
-                graph_render_row( gi );
-            }
-        }
+            graph_render_zoomed_rows( gi );
         else
-        {
-            uint32_t mouse_over_id = ( uint32_t )-1;
-
-            for ( row_info_t &ri : gi.row_info )
-            {
-                float y = windowpos.y + ri.row_y + start_y;
-
-                // If the mouse is over this row, render it now
-                if ( gi.mouse_pos_in_rect( { gi.rc.x, y, gi.rc.w, ri.row_h } ) )
-                {
-                    gi.set_pos_y( y, ri.row_h, &ri );
-                    graph_render_row( gi );
-
-                    mouse_over_id = ri.id;
-                    break;
-                }
-            }
-
-            // Go through all rows and render them
-            for ( row_info_t &ri : gi.row_info )
-            {
-                if ( ri.id != mouse_over_id )
-                {
-                    float y = windowpos.y + ri.row_y + start_y;
-
-                    gi.set_pos_y( y, ri.row_h, &ri );
-
-                    if ( !imgui_is_rect_clipped( gi.rc ) )
-                        graph_render_row( gi );
-                }
-            }
-        }
+            graph_render_rows( gi );
 
         // Render full screen stuff: graph ticks, vblanks, cursor pos, etc.
-        gi.set_pos_y( windowpos.y, windowsize.y, NULL );
+        gi.set_pos_y( gi.windowpos.y, gi.windowsize.y, NULL );
+
         graph_render_time_ticks( gi, imgui_scale( 16.0f ), imgui_scale( 4.0f ) );
         graph_render_vblanks( gi );
         graph_render_framemarker_frames( gi );
@@ -2530,61 +2588,34 @@ void TraceWin::graph_render()
         graph_render_mouse_selection( gi );
         graph_render_eventlist_selection( gi );
 
-        // Render row labels last (taking panning into consideration)
-        gi.set_pos_y( windowpos.y + start_y, windowsize.y, NULL );
+        // Render row labels (taking panning into consideration)
+        gi.set_pos_y( gi.windowpos.y + ( gi.prinfo_zoom ? 0.0f : gi.start_y ), gi.windowsize.y, NULL );
         graph_render_row_labels( gi );
 
-        ImU32 color = s_clrs().get( col_Graph_LocationText );
-        if ( color & IM_COL32_A_MASK )
-        {
-            ImVec2 pos;
-
-            imgui_push_bigfont();
-
-            pos.y = windowpos.y + ( windowsize.y - ImGui::GetTextLineHeight() ) / 2;
-
-            if ( 1 )
-            {
-                int64_t ts = gi.ts0 + ( gi.ts1 - gi.ts0 );
-                const std::string str = ts_to_timestr( ts / 1000, 4, "" );
-                const ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
-
-                pos.x = windowpos.x + ( windowsize.x - textsize.x ) / 2;
-                imgui_draw_text( pos.x, pos.y, color, str.c_str() );
-
-                pos.y += ImGui::GetTextLineHeight();
-            }
-
-            if ( m_frame_markers.m_frame_marker_selected != -1 )
-            {
-                const std::string str = string_format( "Frame #%d", m_frame_markers.m_frame_marker_selected );
-                const ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
-
-                pos.x = windowpos.x + ( windowsize.x - textsize.x ) / 2;
-                imgui_draw_text( pos.x, pos.y, color, str.c_str() );
-            }
-
-            imgui_pop_font();
-        }
+        // Render location and frame marker text
+        graph_render_frame_marker_text( gi );
 
         // Handle right, left, pgup, pgdown, etc in graph
         graph_handle_keyboard_scroll( gi );
 
         // Render mouse tooltips, mouse selections, etc
-        gi.set_pos_y( windowpos.y, windowsize.y, NULL );
+        gi.set_pos_y( gi.windowpos.y, gi.windowsize.y, NULL );
         graph_handle_mouse( gi );
 
-        // Handle hotkeys. Ie: Ctrl+Shift+1, etc
+        // Handle graph hotkeys
         graph_handle_hotkeys( gi );
-
-        // Set last hovered eventid to whatever graph_handle_mouse set
-        m_graph.last_hovered_eventid = gi.m_hovered_eventid;
     }
     ImGui::EndChild();
     ImGui::PopStyleVar();
 
     // Draggable resize graph row bar
+    graph_render_resizer( gi );
+}
+
+void TraceWin::graph_render_resizer( class graph_info_t &gi )
+{
     bool mouse_captured = ( m_graph.mouse_captured == MOUSE_CAPTURED_RESIZE_GRAPH );
+
     if ( s_opts().getb( OPT_ShowEventList ) || mouse_captured )
     {
         option_id_t opt = gi.prinfo_zoom ? OPT_GraphHeightZoomed : OPT_GraphHeight;
@@ -2607,8 +2638,6 @@ void TraceWin::graph_render()
             m_graph.mouse_capture_pos.y = s_opts().getf( opt );
         }
     }
-
-    m_graph.show_row_name = NULL;
 }
 
 int TraceWin::graph_marker_menuitem( const char *label, bool check_valid, action_t action )
@@ -3466,4 +3495,7 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
         graph_handle_mouse_captured( gi );
     else if ( gi.mouse_over )
         graph_handle_mouse_over( gi );
+
+    // Update graph last_hovered_eventid
+    m_graph.last_hovered_eventid = gi.m_hovered_eventid;
 }

@@ -2607,12 +2607,14 @@ void TraceWin::render()
             if ( !s_opts().getb( OPT_ShowEventList ) ||
                  imgui_collapsingheader( "Event Graph", &m_graph.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
             {
+                graph_render_options();
                 graph_render();
             }
 
             if ( s_opts().getb( OPT_ShowEventList ) &&
                  imgui_collapsingheader( "Event List", &m_eventlist.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
             {
+                eventlist_render_options();
                 eventlist_render();
             }
 
@@ -2624,7 +2626,7 @@ void TraceWin::render()
                 m_ttip.visible = !m_ttip.visible;
 
             // Render plot, graph rows, filter dialogs, etc
-            dialogs_render();
+            graph_dialogs_render();
 
             m_inited = true;
         }
@@ -3199,8 +3201,6 @@ void TraceWin::eventlist_render_options()
 
 void TraceWin::eventlist_render()
 {
-    eventlist_render_options();
-
     const std::vector< trace_event_t > &events = m_trace_events.m_events;
     size_t event_count = m_filter.events.empty() ?
                 events.size() : m_filter.events.size();
@@ -3473,7 +3473,7 @@ void TraceWin::eventlist_render()
     }
 }
 
-void TraceWin::dialogs_render()
+void TraceWin::graph_dialogs_render()
 {
     // Plots
     if ( is_valid_id( m_create_plot_eventid ) )

@@ -529,12 +529,10 @@ protected:
     // Render graph
     void graph_render_options();
     void graph_render();
+    void graph_render_resizer( class graph_info_t &gi );
+
     // Render regular graph row
-    void graph_render_row( class graph_info_t &gi );
-
-    // Render plot, graph rows, filter dialogs, etc
-    void dialogs_render();
-
+    void graph_render_single_row( class graph_info_t &gi );
     // Render amd timeline graph row
     uint32_t graph_render_amd_timeline( class graph_info_t &gi );
     // Render amd hw graph row
@@ -550,15 +548,20 @@ protected:
     // Render intel i915 request_add, request_submit, request_in, request_out, intel_engine_notify
     uint32_t graph_render_i915_req_events( class graph_info_t &gi );
 
-    void graph_render_time_ticks( graph_info_t &gi, float h0, float h1 );
+    void graph_render_rows( class graph_info_t &gi );
+    void graph_render_zoomed_rows( class graph_info_t &gi );
+    void graph_render_time_ticks( class graph_info_t &gi, float h0, float h1 );
     void graph_render_vblanks( class graph_info_t &gi );
     void graph_render_mouse_pos( class graph_info_t &gi );
     void graph_render_eventids( class graph_info_t &gi );
     void graph_render_mouse_selection( class graph_info_t &gi );
     void graph_render_eventlist_selection( class graph_info_t &gi );
     void graph_render_row_labels( class graph_info_t &gi );
+    void graph_render_frame_marker_text( class graph_info_t &gi );
     void graph_render_framemarker_frames( class graph_info_t &gi );
 
+    // Render plot, graph rows, filter dialogs, etc
+    void graph_dialogs_render();
     // Handle graph popup menu
     bool graph_render_popupmenu( class graph_info_t &gi );
     // Mouse wheel, clicking for graph
@@ -567,7 +570,7 @@ protected:
     void graph_handle_mouse_captured( class graph_info_t &gi );
     void graph_handle_mouse_over( class graph_info_t &gi );
 
-    // Graph ouse tooltip functions
+    // Graph mouse tooltip functions
     void graph_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts );
     void graph_mouse_tooltip_rowinfo( std::string &ttip, class graph_info_t &gi, int64_t mouse_ts );
     void graph_mouse_tooltip_vblanks( std::string &ttip, class graph_info_t &gi, int64_t mouse_ts );
