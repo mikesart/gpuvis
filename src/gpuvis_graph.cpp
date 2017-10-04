@@ -135,10 +135,9 @@ public:
 
 public:
     rect_t rc;           // current drawing rect
+    rect_t rcwin;        // window dimensions
 
     float start_y;
-    ImVec2 windowpos;
-    ImVec2 windowsize;
 
     int64_t ts0;         // visible start time of graph
     int64_t ts1;         // visible end time of graph
@@ -631,10 +630,11 @@ void graph_info_t::set_ts( int64_t start_ts, int64_t length_ts )
 
 void graph_info_t::init()
 {
+    const ImVec2 windowpos = ImGui::GetCursorScreenPos();
+    const ImVec2 windowsize = ImGui::GetContentRegionAvail();
     const std::vector< trace_event_t > &events = m_win->m_trace_events.m_events;
 
-    windowpos = ImGui::GetCursorScreenPos();
-    windowsize = ImGui::GetContentRegionAvail();
+    rcwin = { windowpos.x, windowpos.y, windowsize.x, windowsize.y };
 
     rc.x = windowpos.x;
     rc.w = windowsize.x;
@@ -646,6 +646,7 @@ void graph_info_t::init()
     if ( !m_win->m_graph.popupmenu )
     {
         m_win->m_graph.mouse_over_row_name.clear();
+        m_win->m_graph.mouse_over_row_filter.clear();
         m_win->m_graph.mouse_over_row_type = LOC_TYPE_Max;
     }
 
@@ -1879,7 +1880,7 @@ void TraceWin::graph_render_frame_marker_text( class graph_info_t &gi )
 
         imgui_push_bigfont();
 
-        pos.y = gi.windowpos.y + ( gi.windowsize.y - ImGui::GetTextLineHeight() ) / 2;
+        pos.y = gi.rcwin.y + ( gi.rcwin.h - ImGui::GetTextLineHeight() ) / 2;
 
         if ( 1 )
         {
@@ -1887,7 +1888,7 @@ void TraceWin::graph_render_frame_marker_text( class graph_info_t &gi )
             const std::string str = ts_to_timestr( ts / 1000, 4, "" );
             const ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
 
-            pos.x = gi.windowpos.x + ( gi.windowsize.x - textsize.x ) / 2;
+            pos.x = gi.rcwin.x + ( gi.rcwin.w - textsize.x ) / 2;
             imgui_draw_text( pos.x, pos.y, color, str.c_str() );
 
             pos.y += ImGui::GetTextLineHeight();
@@ -1898,7 +1899,7 @@ void TraceWin::graph_render_frame_marker_text( class graph_info_t &gi )
             const std::string str = string_format( "Frame #%d", m_frame_markers.m_frame_marker_selected );
             const ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
 
-            pos.x = gi.windowpos.x + ( gi.windowsize.x - textsize.x ) / 2;
+            pos.x = gi.rcwin.x + ( gi.rcwin.w - textsize.x ) / 2;
             imgui_draw_text( pos.x, pos.y, color, str.c_str() );
         }
 
@@ -2477,7 +2478,7 @@ void TraceWin::graph_render_rows( graph_info_t &gi )
 
     for ( row_info_t &ri : gi.row_info )
     {
-        float y = gi.windowpos.y + ri.row_y + gi.start_y;
+        float y = gi.rcwin.y + ri.row_y + gi.start_y;
 
         // If the mouse is over this row, render it now
         if ( gi.mouse_pos_in_rect( { gi.rc.x, y, gi.rc.w, ri.row_h } ) )
@@ -2495,7 +2496,7 @@ void TraceWin::graph_render_rows( graph_info_t &gi )
     {
         if ( ri.id != mouse_over_id )
         {
-            float y = gi.windowpos.y + ri.row_y + gi.start_y;
+            float y = gi.rcwin.y + ri.row_y + gi.start_y;
 
             gi.set_pos_y( y, ri.row_h, &ri );
 
@@ -2513,7 +2514,7 @@ void TraceWin::graph_render_zoomed_rows( graph_info_t &gi )
 
     if ( gi.prinfo_zoom_hw )
     {
-        float y = gi.windowpos.y + gi.windowsize.y - ri->row_h;
+        float y = gi.rcwin.y + gi.rcwin.h - ri->row_h;
 
         // Zoom hw height
         zoomhw_h = ri->row_h + ImGui::GetStyle().FramePadding.y;
@@ -2528,12 +2529,12 @@ void TraceWin::graph_render_zoomed_rows( graph_info_t &gi )
     }
 
     gi.timeline_render_user = true;
-    gi.set_pos_y( gi.windowpos.y, gi.windowsize.y - zoomhw_h, gi.prinfo_zoom );
+    gi.set_pos_y( gi.rcwin.y, gi.rcwin.h - zoomhw_h, gi.prinfo_zoom );
     graph_render_single_row( gi );
 
     if ( render_zoomhw_after )
     {
-        gi.set_pos_y( gi.windowpos.y + gi.windowsize.y - ri->row_h, ri->row_h, ri );
+        gi.set_pos_y( gi.rcwin.y + gi.rcwin.h - ri->row_h, ri->row_h, ri );
         graph_render_single_row( gi );
     }
 }
@@ -2569,8 +2570,7 @@ void TraceWin::graph_render()
         gi.set_ts( m_graph.start_ts, m_graph.length_ts );
 
         // Clear graph background
-        imgui_drawrect_filled( gi.windowpos.x, gi.windowpos.y, gi.windowsize.x, gi.windowsize.y,
-                               s_clrs().get( col_Graph_Bk ) );
+        imgui_drawrect_filled( gi.rcwin, s_clrs().get( col_Graph_Bk ) );
 
         if ( gi.prinfo_zoom )
             graph_render_zoomed_rows( gi );
@@ -2578,7 +2578,7 @@ void TraceWin::graph_render()
             graph_render_rows( gi );
 
         // Render full screen stuff: graph ticks, vblanks, cursor pos, etc.
-        gi.set_pos_y( gi.windowpos.y, gi.windowsize.y, NULL );
+        gi.set_pos_y( gi.rcwin.y, gi.rcwin.h, NULL );
 
         graph_render_time_ticks( gi, imgui_scale( 16.0f ), imgui_scale( 4.0f ) );
         graph_render_vblanks( gi );
@@ -2589,7 +2589,7 @@ void TraceWin::graph_render()
         graph_render_eventlist_selection( gi );
 
         // Render row labels (taking panning into consideration)
-        gi.set_pos_y( gi.windowpos.y + ( gi.prinfo_zoom ? 0.0f : gi.start_y ), gi.windowsize.y, NULL );
+        gi.set_pos_y( gi.rcwin.y + ( gi.prinfo_zoom ? 0.0f : gi.start_y ), gi.rcwin.h, NULL );
         graph_render_row_labels( gi );
 
         // Render location and frame marker text
@@ -2599,7 +2599,7 @@ void TraceWin::graph_render()
         graph_handle_keyboard_scroll( gi );
 
         // Render mouse tooltips, mouse selections, etc
-        gi.set_pos_y( gi.windowpos.y, gi.windowsize.y, NULL );
+        gi.set_pos_y( gi.rcwin.y, gi.rcwin.h, NULL );
         graph_handle_mouse( gi );
 
         // Handle graph hotkeys
@@ -3064,7 +3064,7 @@ void TraceWin::graph_mouse_tooltip_rowinfo( std::string &ttip, graph_info_t &gi,
         GraphPlot &plot = m_trace_events.get_plot( row_name.c_str() );
         ttip += "\nFilter: " + plot.m_filter_str;
     }
-    else if ( row_name != m_graph.mouse_over_row_filter )
+    else if ( !row_name.empty() && ( row_name != m_graph.mouse_over_row_filter ) )
     {
         ttip += "\nFilter: " + m_graph.mouse_over_row_filter;
     }
