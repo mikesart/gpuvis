@@ -585,6 +585,7 @@ protected:
 
     // Make sure m_graph.start_ts and m_graph.length_ts are legit
     void graph_range_check_times();
+
     // Zoom in / out graph
     void graph_zoom( int64_t center_ts, int64_t ts0, bool zoomin, int64_t newlen = INT64_MAX );
 

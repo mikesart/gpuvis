@@ -3003,27 +3003,32 @@ bool TraceWin::eventlist_handle_mouse( const trace_event_t &event, uint32_t i )
         else
         {
             // Otherwise show a tooltip.
-            std::string graph_markers;
-            std::string durationstr;
+            std::string ttip = s_textclrs().str( TClr_Def );
             std::string ts_str = ts_to_timestr( event.ts, 6 );
-            std::string fieldstr = get_event_fields_str( event, ": ", '\n' );
             const char *commstr = m_trace_events.tgidcomm_from_pid( event.pid );
 
-            if ( graph_marker_valid( 0 ) )
-                graph_markers += "Marker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - event.ts, 2, " ms\n" );
-            if ( graph_marker_valid( 1 ) )
-                graph_markers += "Marker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - event.ts, 2, " ms\n" );
-            if ( !graph_markers.empty() )
-                graph_markers += "\n";
+            if ( graph_marker_valid( 0 ) || graph_marker_valid( 1 ) )
+            {
+                if ( graph_marker_valid( 0 ) )
+                    ttip += "Marker A: " + ts_to_timestr( m_graph.ts_markers[ 0 ] - event.ts, 2, " ms\n" );
+                if ( graph_marker_valid( 1 ) )
+                    ttip += "Marker B: " + ts_to_timestr( m_graph.ts_markers[ 1 ] - event.ts, 2, " ms\n" );
+                ttip += "\n";
+            }
+
+            ttip += string_format( "Id: %u\nTime: %s\nComm: %s\nCpu: %u\nEvent: %s\n",
+                                   event.id,
+                                   ts_str.c_str(),
+                                   commstr,
+                                   event.cpu,
+                                   event.name );
 
             if ( event.has_duration() )
-                durationstr = "Duration: " + ts_to_timestr( event.duration, 4, " ms\n" );
+                ttip += "Duration: " + ts_to_timestr( event.duration, 4, " ms\n" );
 
-            std::string ttip = string_format( "%s%sId: %u\nTime: %s\nComm: %s\n%s\n%s",
-                               s_textclrs().str( TClr_Def ),
-                               graph_markers.c_str(), event.id,
-                               ts_str.c_str(), commstr, durationstr.c_str(),
-                               fieldstr.c_str() );
+            ttip += "\n";
+            ttip += get_event_fields_str( event, ": ", '\n' );
+
             ImGui::SetTooltip( "%s", ttip.c_str() );
 
             if ( s_actions().get( action_graph_pin_tooltip ) )
@@ -3283,7 +3288,7 @@ void TraceWin::eventlist_render()
         uint32_t end_idx = std::min< uint32_t >( start_idx + 2 + visible_rows, event_count );
 
         // Draw columns
-        imgui_begin_columns( "event_list", { "Id", "Time Stamp", "Task", "Cpu", "Event", "Duration", "Info" },
+        imgui_begin_columns( "event_list", { "Id", "Time Stamp", "Comm", "Cpu", "Event", "Duration", "Info" },
                              &m_eventlist.columns_resized );
         {
             bool popup_shown = false;
