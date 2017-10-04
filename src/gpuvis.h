@@ -694,7 +694,6 @@ public:
         bool popupmenu = false;
         bool has_focus = false;
 
-        std::pair< int64_t, int64_t > zoom_loc = { INT64_MAX, INT64_MAX };
         std::string zoom_row_name;
         std::string mouse_over_row_name;
         std::string mouse_over_row_filter;
@@ -702,7 +701,7 @@ public:
 
         std::vector< GraphRows::graph_rows_info_t > hidden_rows;
 
-        // Graph start & length
+        // Graph start and length
         int64_t start_ts = 0;
         int64_t length_ts = INT64_MAX;
         bool recalc_timebufs = false;
@@ -719,13 +718,11 @@ public:
         // Graph hovered event
         uint32_t last_hovered_eventid = INVALID_ID;
 
-        // Mouse currently over our events graph?
-        bool is_mouse_over = false;
-
         std::vector< std::pair< int64_t, int64_t > > saved_locs;
+        std::pair< int64_t, int64_t > zoom_loc = { INT64_MAX, INT64_MAX };
 
-        mouse_captured_t mouse_captured = MOUSE_NOT_CAPTURED;
         ImVec2 mouse_capture_pos;
+        mouse_captured_t mouse_captured = MOUSE_NOT_CAPTURED;
 
         const int64_t s_min_length = 100;
         const int64_t s_max_length = 7500 * NSECS_PER_MSEC;

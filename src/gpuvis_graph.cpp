@@ -120,8 +120,6 @@ public:
     int64_t screenx_to_ts( float x_in );
     int64_t dx_to_ts( float x_in );
 
-    bool pt_in_graph( const ImVec2 &posin );
-    bool mouse_pos_in_graph();
     bool mouse_pos_in_rect( const rect_t &rc );
 
     row_info_t *find_row( const char *name );
@@ -604,10 +602,7 @@ void graph_info_t::set_pos_y( float y_in, float h_in, row_info_t *ri )
 
     prinfo_cur = ri;
 
-    mouse_over = mouse_pos.x >= rc.x &&
-            mouse_pos.x <= rc.x + rc.w &&
-            mouse_pos.y >= rc.y &&
-            mouse_pos.y <= rc.y + rc.h;
+    mouse_over = rc.point_in_rect( mouse_pos );
 }
 
 float graph_info_t::ts_to_x( int64_t ts )
@@ -631,23 +626,9 @@ int64_t graph_info_t::dx_to_ts( float x_in )
     return ( x_in / rc.w ) * tsdx;
 }
 
-bool graph_info_t::pt_in_graph( const ImVec2 &posin )
-{
-    return ( posin.x >= rc.x && posin.x <= rc.x + rc.w &&
-             posin.y >= rc.y && posin.y <= rc.y + rc.h );
-}
-
-bool graph_info_t::mouse_pos_in_graph()
-{
-    return pt_in_graph( mouse_pos );
-}
-
 bool graph_info_t::mouse_pos_in_rect( const rect_t &rcin )
 {
-    return ( mouse_pos.x >= rcin.x &&
-             mouse_pos.x <= rcin.x + rcin.w &&
-             mouse_pos.y >= rcin.y &&
-             mouse_pos.y <= rcin.y + rcin.h );
+    return rcin.point_in_rect( mouse_pos );
 }
 
 row_info_t *graph_info_t::find_row( const char *name )
@@ -1648,7 +1629,7 @@ void TraceWin::graph_render_row( graph_info_t &gi )
             length_ts += length_ts * 2 * scale_ts;
             gi.set_ts( start_ts, length_ts );
 
-            if ( gi.mouse_pos_in_graph() )
+            if ( gi.mouse_over )
                 gi.mouse_pos_scaled_ts = gi.screenx_to_ts( gi.mouse_pos.x );
 
             graph_render_time_ticks( gi, imgui_scale( 6.0f ), imgui_scale( 2.0f ) );
@@ -1881,7 +1862,7 @@ void TraceWin::graph_render_framemarker_frames( graph_info_t &gi )
 void TraceWin::graph_render_mouse_pos( graph_info_t &gi )
 {
     // Draw location line for mouse if is over graph
-    if ( m_graph.is_mouse_over &&
+    if ( gi.mouse_over &&
          gi.mouse_pos.x >= gi.rc.x &&
          gi.mouse_pos.x <= gi.rc.x + gi.rc.w )
     {
@@ -2149,7 +2130,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             zoom_graph_row();
     }
 
-    if ( m_graph.is_mouse_over &&
+    if ( gi.mouse_over &&
          s_actions().get( action_graph_zoom_mouse ) )
     {
         if ( m_graph.zoom_loc.first != INT64_MAX )
@@ -2187,7 +2168,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             }
         }
 
-        if ( m_graph.is_mouse_over )
+        if ( gi.mouse_over )
         {
             if ( s_actions().get( action_graph_set_markerA ) )
                 graph_marker_set( 0, m_graph.ts_marker_mouse );
@@ -2249,8 +2230,7 @@ void TraceWin::graph_handle_keyboard_scroll( graph_info_t &gi )
     }
     else if ( s_actions().get( action_scroll_left ) )
     {
-        start_ts = std::max< int64_t >( start_ts - 9 * m_graph.length_ts / 10,
-                                        -NSECS_PER_MSEC );
+        start_ts = std::max< int64_t >( start_ts - 9 * m_graph.length_ts / 10, -NSECS_PER_MSEC );
     }
     else if ( s_actions().get( action_scroll_right ) )
     {
@@ -2449,8 +2429,8 @@ void TraceWin::graph_render()
     ImGui::BeginChild( "EventGraph", ImVec2( 0, gi.visible_graph_height ), false,
                        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoCollapse );
     {
-        ImVec2 windowpos = ImGui::GetCursorScreenPos();
-        ImVec2 windowsize = ImGui::GetContentRegionAvail();
+        const ImVec2 windowpos = ImGui::GetCursorScreenPos();
+        const ImVec2 windowsize = ImGui::GetContentRegionAvail();
 
         m_graph.has_focus = ImGui::IsWindowFocused();
 
@@ -2719,18 +2699,12 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             m_graph.zoom_loc = std::make_pair( INT64_MAX, INT64_MAX );
         }
     }
-    else if ( m_graph.is_mouse_over )
+    else if ( ImGui::MenuItem( "Zoom in to 3.00ms", s_actions().hotkey_str( action_graph_zoom_mouse ).c_str() ) )
     {
-        if ( ImGui::MenuItem( "Zoom in to 3.00ms", s_actions().hotkey_str( action_graph_zoom_mouse ).c_str() ) )
-        {
-            int64_t newlen = 3 * NSECS_PER_MSEC;
-            const ImVec2 pos = ImGui::GetWindowPos();
-            int64_t mouse_ts = gi.screenx_to_ts( pos.x );
+        int64_t newlen = 3 * NSECS_PER_MSEC;
 
-            m_graph.zoom_loc = std::make_pair( m_graph.start_ts, m_graph.length_ts );
-
-            graph_zoom( mouse_ts, gi.ts0, false, newlen );
-        }
+        m_graph.zoom_loc = std::make_pair( m_graph.start_ts, m_graph.length_ts );
+        graph_zoom( m_graph.ts_marker_mouse, gi.ts0, false, newlen );
     }
 
     // Unzoom row
@@ -3501,16 +3475,8 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
 
     m_graph.ts_marker_mouse = -1;
 
-    // Check if mouse if over our graph and we've got focus
-    m_graph.is_mouse_over = gi.mouse_pos_in_graph() &&
-            ImGui::IsRootWindowOrAnyChildFocused();
-
-    // If we don't own the mouse and we don't have focus, bail.
-    if ( !m_graph.mouse_captured && !m_graph.is_mouse_over )
-        return;
-
     if ( m_graph.mouse_captured )
         graph_handle_mouse_captured( gi );
-    else
+    else if ( gi.mouse_over )
         graph_handle_mouse_over( gi );
 }
