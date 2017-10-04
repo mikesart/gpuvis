@@ -1648,20 +1648,6 @@ void TraceWin::graph_render_row( graph_info_t &gi )
                         0x5fffffff, 9.0f, 0x0f );
             gi.set_ts( m_graph.start_ts, m_graph.length_ts );
         }
-
-#if 0
-        // Experiment for vertical slider on right side of graph rows
-        ImVec2 pos = ImGui::GetCursorScreenPos();
-        static int int_value = 2;
-        ImGui::SetCursorScreenPos( ImVec2( gi.rc.x + gi.rc.w - 16.0f, gi.rc.y ) );
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, (ImVec4)ImColor::HSV(0.9f, 0.5f, 0.5f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, (ImVec4)ImColor::HSV(0.9f, 0.6f, 0.5f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, (ImVec4)ImColor::HSV(0.9f, 0.7f, 0.5f));
-        ImGui::PushStyleColor(ImGuiCol_SliderGrab, (ImVec4)ImColor::HSV(0.9f, 0.9f, 0.9f));
-        ImGui::VSliderInt( "##int", ImVec2( 16.0f, gi.rc.h ), &int_value, 0, 5 );
-        ImGui::PopStyleColor(4);
-        ImGui::SetCursorScreenPos( pos );
-#endif
     }
 
     gi.prinfo_cur->num_events = num_events;
@@ -2859,7 +2845,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     if ( !row_name.empty() )
     {
         float valf = m_graph.rows.get_row_scale_ts( row_name );
-        std::string label = string_format( "Scale time: %sx", "%.02f" );
+        std::string label = string_format( "Scale row time: %sx", "%.02f" );
 
         ImGui::PushItemWidth( imgui_scale( 200.0f ) );
         if ( ImGui::SliderFloat( "##opt_valf", &valf, 1.0f, 100.0f, label.c_str() ) )
@@ -3342,8 +3328,6 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
     if ( m_graph.mouse_captured && s_actions().get( action_escape ) )
     {
         m_graph.mouse_captured = MOUSE_NOT_CAPTURED;
-        ImGui::CaptureMouseFromApp( false );
-
         return;
     }
 
@@ -3398,7 +3382,6 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
     {
         // Mouse is no longer down, uncapture mouse...
         m_graph.mouse_captured = MOUSE_NOT_CAPTURED;
-        ImGui::CaptureMouseFromApp( false );
     }
 }
 
@@ -3428,21 +3411,18 @@ void TraceWin::graph_handle_mouse_over( graph_info_t &gi )
         {
             // ctrl + click: select area
             m_graph.mouse_captured = MOUSE_CAPTURED_SELECT_AREA;
-            ImGui::CaptureMouseFromApp( true );
             m_graph.mouse_capture_pos = gi.mouse_pos;
         }
         else if ( s_keybd().is_shift_down() )
         {
             // shift + click: zoom
             m_graph.mouse_captured = MOUSE_CAPTURED_ZOOM;
-            ImGui::CaptureMouseFromApp( true );
             m_graph.mouse_capture_pos = gi.mouse_pos;
         }
         else
         {
             // click: pan
             m_graph.mouse_captured = MOUSE_CAPTURED_PAN;
-            ImGui::CaptureMouseFromApp( true );
             m_graph.mouse_capture_pos = gi.mouse_pos;
         }
     }
