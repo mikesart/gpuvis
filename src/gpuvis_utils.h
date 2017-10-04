@@ -116,13 +116,14 @@ public:
     TipWindows() {}
     ~TipWindows() {}
 
-    void update();
+    void update( bool mouse_captured );
     void set_tooltip( const char *name, bool *visible, const char *str );
 
     bool imgui_draw_closebutton( const ImVec2 &center, float radius );
 
 public:
     ImVec2 m_mousepos;
+    bool m_mouse_captured = false;
     std::vector< rect_t > m_windows;
 };
 

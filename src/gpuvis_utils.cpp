@@ -789,20 +789,24 @@ void imgui_set_custom_style( float alpha )
     }
 }
 
-void TipWindows::update()
+void TipWindows::update( bool mouse_captured )
 {
     // Update mouse position
     m_mousepos = ImGui::GetMousePos();
+    m_mouse_captured = mouse_captured;
 
-    // Go through all tip windows
-    for ( const rect_t &rc : m_windows )
+    if ( !mouse_captured )
     {
-        // If mouse is over tip window...
-        if ( rc.point_in_rect( m_mousepos ) )
+        // Go through all tip windows
+        for ( const rect_t &rc : m_windows )
         {
-            // ...invalidate mouse pos so nobody does stuff under us
-            ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX };
-            break;
+            // If mouse is over tip window...
+            if ( rc.point_in_rect( m_mousepos ) )
+            {
+                // ...invalidate mouse pos so nobody does stuff under us
+                ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX };
+                break;
+            }
         }
     }
 
@@ -812,9 +816,10 @@ void TipWindows::update()
 bool TipWindows::imgui_draw_closebutton( const ImVec2 &center, float radius )
 {
     ImVec2 diff = m_mousepos - center;
-    ImDrawList *DrawList = ImGui::GetWindowDrawList();
-    bool hovered = ( diff.x * diff.x + diff.y * diff.y ) <= ( radius * radius );
+    bool hovered = !m_mouse_captured &&
+            ( diff.x * diff.x + diff.y * diff.y ) <= ( radius * radius );
     ImGuiCol idx = hovered ? ImGuiCol_CloseButtonHovered : ImGuiCol_CloseButton;
+    ImDrawList *DrawList = ImGui::GetWindowDrawList();
 
     DrawList->AddCircleFilled( center, radius, ImGui::GetColorU32( idx ), 12);
 

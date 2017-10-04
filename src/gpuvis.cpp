@@ -2602,7 +2602,7 @@ void TraceWin::render()
             }
 
             // Update pinned tooltips
-            m_ttip.tipwins.update();
+            m_ttip.tipwins.update( m_graph.mouse_captured != MOUSE_NOT_CAPTURED );
 
             if ( !s_opts().getb( OPT_ShowEventList ) ||
                  imgui_collapsingheader( "Event Graph", &m_graph.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
