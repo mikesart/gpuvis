@@ -138,8 +138,6 @@ ImU32 imgui_col_complement( ImU32 col );
 
 void imgui_text_bg( const ImVec4& bgcolor, const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
 
-bool imgui_mousepos_valid( const ImVec2 &pos );
-
 void imgui_push_smallfont();
 void imgui_push_bigfont();
 void imgui_pop_font();

@@ -1862,9 +1862,7 @@ void TraceWin::graph_render_framemarker_frames( graph_info_t &gi )
 void TraceWin::graph_render_mouse_pos( graph_info_t &gi )
 {
     // Draw location line for mouse if is over graph
-    if ( gi.mouse_over &&
-         gi.mouse_pos.x >= gi.rc.x &&
-         gi.mouse_pos.x <= gi.rc.x + gi.rc.w )
+    if ( gi.mouse_over )
     {
         imgui_drawrect_filled( gi.mouse_pos.x, gi.rc.y, imgui_scale( 2.0f ), gi.rc.h,
                                s_clrs().get( col_Graph_MousePos ) );
@@ -2602,7 +2600,7 @@ void TraceWin::graph_render()
         if ( ImGui::IsItemHovered() )
             ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeNS );
 
-        if ( ImGui::IsItemActive() && imgui_mousepos_valid( gi.mouse_pos ) )
+        if ( ImGui::IsItemActive() && ImGui::IsMousePosValid( &gi.mouse_pos ) )
         {
             option_id_t opt = gi.prinfo_zoom ? OPT_GraphHeightZoomed : OPT_GraphHeight;
 
@@ -3350,6 +3348,7 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
     }
 
     bool is_mouse_down = ImGui::IsMouseDown( 0 );
+    bool mouse_pos_valid = ImGui::IsMousePosValid( &gi.mouse_pos );
 
     if ( ( m_graph.mouse_captured == MOUSE_CAPTURED_ZOOM ) ||
          ( m_graph.mouse_captured == MOUSE_CAPTURED_SELECT_AREA ) )
@@ -3361,7 +3360,7 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
         if ( event_ts0 > event_ts1 )
             std::swap( event_ts0, event_ts1 );
 
-        if ( is_mouse_down )
+        if ( is_mouse_down && mouse_pos_valid )
         {
             std::string time_buf0 = ts_to_timestr( event_ts0, 6, "" );
             std::string time_buf1 = ts_to_timestr( event_ts1 - event_ts0, 6 );
@@ -3381,7 +3380,7 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
     else if ( m_graph.mouse_captured == MOUSE_CAPTURED_PAN )
     {
         // click: pan
-        if ( is_mouse_down && imgui_mousepos_valid( gi.mouse_pos ) )
+        if ( is_mouse_down && mouse_pos_valid )
         {
             float dx = gi.mouse_pos.x - m_graph.mouse_capture_pos.x;
             int64_t tsdiff = gi.dx_to_ts( dx );
