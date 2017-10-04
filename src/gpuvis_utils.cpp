@@ -1467,11 +1467,6 @@ void Keybd::clear()
     memset( m_keystate, 0, sizeof( m_keystate ) );
 }
 
-bool Keybd::is_key_down( SDL_Keycode key )
-{
-    return !!m_keystate[ SDL_GetScancodeFromKey( key ) ];
-}
-
 void Actions::init()
 {
     clear();

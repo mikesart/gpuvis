@@ -986,7 +986,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
     // Check if we're drawing timeline labels
     bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
-            !s_keybd().is_alt_down();
+            !ImGui::GetIO().KeyAlt;
 
     // Move ts start to the left to accommodate largest print label
     int64_t tsa = timeline_labels ?
@@ -1112,7 +1112,7 @@ uint32_t TraceWin::graph_render_amdhw_timeline( graph_info_t &gi )
     rect_t hov_rect;
     float y = gi.rc.y;
     ImU32 last_color = 0;
-    bool draw_label = !s_keybd().is_alt_down();
+    bool draw_label = !ImGui::GetIO().KeyAlt;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
@@ -1204,7 +1204,7 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     bool render_timeline_events = s_opts().getb( OPT_TimelineEvents );
     bool render_timeline_labels = s_opts().getb( OPT_TimelineLabels ) &&
-            !s_keybd().is_alt_down();
+            !ImGui::GetIO().KeyAlt;
 
     event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
 
@@ -3388,6 +3388,7 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
 // Mouse is over our active graph window
 void TraceWin::graph_handle_mouse_over( graph_info_t &gi )
 {
+    ImGuiIO& io = ImGui::GetIO();
     int64_t mouse_ts = gi.screenx_to_ts( gi.mouse_pos.x );
 
     m_graph.ts_marker_mouse = mouse_ts;
@@ -3407,24 +3408,20 @@ void TraceWin::graph_handle_mouse_over( graph_info_t &gi )
     }
     else if ( ImGui::IsMouseClicked( 0 ) )
     {
-        if ( s_keybd().is_ctrl_down() )
-        {
-            // ctrl + click: select area
-            m_graph.mouse_captured = MOUSE_CAPTURED_SELECT_AREA;
-            m_graph.mouse_capture_pos = gi.mouse_pos;
-        }
-        else if ( s_keybd().is_shift_down() )
-        {
-            // shift + click: zoom
-            m_graph.mouse_captured = MOUSE_CAPTURED_ZOOM;
-            m_graph.mouse_capture_pos = gi.mouse_pos;
-        }
-        else
-        {
-            // click: pan
+        // click: pan
+        // shift + click: zoom
+        // ctrl + click: select area
+        uint32_t mask = ( io.KeyCtrl << 0 ) | ( io.KeyAlt << 1 ) | ( io.KeyShift << 2 );
+
+        if ( !mask )
             m_graph.mouse_captured = MOUSE_CAPTURED_PAN;
+        else if ( mask == ( 1 << 2 ) )
+            m_graph.mouse_captured = MOUSE_CAPTURED_ZOOM;
+        else if ( mask == ( 1 << 0 ) )
+            m_graph.mouse_captured = MOUSE_CAPTURED_SELECT_AREA;
+
+        if ( m_graph.mouse_captured != MOUSE_NOT_CAPTURED )
             m_graph.mouse_capture_pos = gi.mouse_pos;
-        }
     }
     else if ( ImGui::IsMouseClicked( 1 ) )
     {
@@ -3435,9 +3432,9 @@ void TraceWin::graph_handle_mouse_over( graph_info_t &gi )
 
         ImGui::OpenPopup( "GraphPopup" );
     }
-    else if ( ImGui::GetIO().MouseWheel )
+    else if ( io.MouseWheel )
     {
-        bool zoomin = ( ImGui::GetIO().MouseWheel > 0.0f );
+        bool zoomin = ( io.MouseWheel > 0.0f );
 
         graph_zoom( mouse_ts, gi.ts0, zoomin );
     }

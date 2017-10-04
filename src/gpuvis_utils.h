@@ -389,12 +389,6 @@ public:
     void clear();
     void update( const SDL_KeyboardEvent &key );
 
-    bool is_ctrl_down() { return !!( SDL_GetModState() & KMOD_CTRL ); }
-    bool is_alt_down() { return !!( SDL_GetModState() & KMOD_ALT ); }
-    bool is_shift_down() { return !!( SDL_GetModState() & KMOD_SHIFT ); }
-    bool is_escape_down() { return is_key_down( SDLK_ESCAPE ); }
-    bool is_key_down( SDL_Keycode key );
-
 public:
     uint32_t m_keystate[ SDL_NUM_SCANCODES ];
 };
