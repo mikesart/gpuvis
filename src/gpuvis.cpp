@@ -243,8 +243,8 @@ void Opts::init()
     init_opt_bool( OPT_PrintTimelineLabels, "Show print timeline labels", "print_timeline_gfx_labels", true );
     init_opt_bool( OPT_GraphOnlyFiltered, "Graph only filtered events", "graph_only_filtered", true );
     init_opt_bool( OPT_Graph_HideEmptyFilteredRows, "Hide empty filtered comm rows", "hide_empty_filtered_rows", true );
-    init_opt_bool( OPT_ShowEventList, "Toggle Showing Event List", "show_event_list", true );
-    init_opt_bool( OPT_SyncEventListToGraph, "Sync Event List to graph mouse location", "sync_eventlist_to_graph", true );
+    init_opt_bool( OPT_ShowEventList, "Toggle showing event list", "show_event_list", true );
+    init_opt_bool( OPT_SyncEventListToGraph, "Sync event list to graph mouse location", "sync_eventlist_to_graph", true );
     init_opt_bool( OPT_HideSchedSwitchEvents, "Hide sched_switch events", "hide_sched_switch_events", true );
     init_opt_bool( OPT_ShowFps, "Show frame rate", "show_fps", false );
     init_opt_bool( OPT_VerticalSync, "Vertical sync", "vertical_sync", true );
@@ -264,7 +264,7 @@ void Opts::init()
 
         init_opt_bool( i, desc.c_str(), inikey.c_str(), true );
     }
-    init_opt_bool( OPT_RenderFrameMarkers, "Show Render Frame Markers", "render_framemarkers", true );
+    init_opt_bool( OPT_RenderFrameMarkers, "Show render frame markers", "render_framemarkers", true );
 
     // Set up action mappings so we can display hotkeys in render_imgui_opt().
     m_options[ OPT_RenderCrtc0 ].action = action_toggle_vblank0;
