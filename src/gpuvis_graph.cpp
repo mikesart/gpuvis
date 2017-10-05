@@ -44,7 +44,7 @@
 class event_renderer_t
 {
 public:
-    event_renderer_t( class graph_info_t &gi, float y_in, float w_in, float h_in );
+    event_renderer_t( graph_info_t &gi, float y_in, float w_in, float h_in );
 
     void add_event( uint32_t eventid, float x, ImU32 color );
     void done();
@@ -75,10 +75,10 @@ public:
     };
     std::vector< markers_t > m_markers;
 
-    class graph_info_t *m_gi = nullptr;
+    graph_info_t &m_gi;
 };
 
-typedef std::function< uint32_t ( class graph_info_t &gi ) > RenderGraphRowCallback;
+typedef std::function< uint32_t ( graph_info_t &gi ) > RenderGraphRowCallback;
 
 struct row_info_t
 {
@@ -108,7 +108,10 @@ struct row_info_t
 class graph_info_t
 {
 public:
-    void init_rows( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows );
+    graph_info_t( TraceWin &winin ) : win( winin ) {}
+    ~graph_info_t() {}
+
+    void init_rows( const std::vector< GraphRows::graph_rows_info_t > &graph_rows );
 
     void init();
     void set_ts( int64_t start_ts, int64_t length_ts );
@@ -192,13 +195,13 @@ public:
     // row_info id we need to show in visible area
     size_t show_row_id = ( size_t )-1;
 
-    const char *m_clr_bright = nullptr;
-    const char *m_clr_def = nullptr;
+    const char *clr_bright = nullptr;
+    const char *clr_def = nullptr;
 
-    uint32_t m_selected_eventid = INVALID_ID;
-    uint32_t m_hovered_eventid = INVALID_ID;
+    uint32_t selected_eventid = INVALID_ID;
+    uint32_t hovered_eventid = INVALID_ID;
 
-    TraceWin *m_win = nullptr;
+    TraceWin &win;
 };
 
 static bool imgui_is_rect_clipped( const rect_t &rc )
@@ -315,7 +318,7 @@ const char *get_event_field_val( const trace_event_t &event, const char *name, c
 /*
  * event_renderer_t
  */
-event_renderer_t::event_renderer_t( graph_info_t &gi, float y_in, float w_in, float h_in )
+event_renderer_t::event_renderer_t( graph_info_t &gi, float y_in, float w_in, float h_in ) : m_gi( gi )
 {
     // Calculate how many pixels .0001ms takes
     const float dx = ( .0001f * NSECS_PER_MSEC ) * gi.rc.w * gi.tsdxrcp;
@@ -326,7 +329,6 @@ event_renderer_t::event_renderer_t( graph_info_t &gi, float y_in, float w_in, fl
 
     m_width = std::max< float >( 1.0f, m_maxwidth * ( dx - minx ) / ( maxx - minx ) );
 
-    m_gi = &gi;
     m_y = y_in;
     m_w = w_in;
     m_h = h_in;
@@ -349,10 +351,10 @@ void event_renderer_t::add_event( uint32_t eventid, float x, ImU32 color )
 {
     m_num_events++;
 
-    if ( ( eventid == m_gi->m_selected_eventid ) ||
-         ( eventid == m_gi->m_hovered_eventid ) )
+    if ( ( eventid == m_gi.selected_eventid ) ||
+         ( eventid == m_gi.hovered_eventid ) )
     {
-        colors_t colidx = ( eventid == m_gi->m_selected_eventid ) ?
+        colors_t colidx = ( eventid == m_gi.selected_eventid ) ?
                     col_Graph_SelEvent : col_Graph_HovEvent;
 
         float width = std::min< float >( m_width, m_maxwidth );
@@ -446,28 +448,26 @@ RenderGraphRowCallback graph_info_t::get_render_cb( loc_type_t row_type )
     switch ( row_type )
     {
     case LOC_TYPE_Print:
-        return std::bind( &TraceWin::graph_render_print_timeline, m_win, _1 );
+        return std::bind( &TraceWin::graph_render_print_timeline, &win, _1 );
     case LOC_TYPE_Plot:
-        return std::bind( &TraceWin::graph_render_plot, m_win, _1 );
+        return std::bind( &TraceWin::graph_render_plot, &win, _1 );
     case LOC_TYPE_AMDTimeline:
-        return std::bind( &TraceWin::graph_render_amd_timeline, m_win, _1 );
+        return std::bind( &TraceWin::graph_render_amd_timeline, &win, _1 );
     case LOC_TYPE_AMDTimeline_hw:
-        return std::bind( &TraceWin::graph_render_amdhw_timeline, m_win, _1 );
+        return std::bind( &TraceWin::graph_render_amdhw_timeline, &win, _1 );
     case LOC_TYPE_i915Request:
-        return std::bind( &TraceWin::graph_render_i915_req_events, m_win, _1 );
+        return std::bind( &TraceWin::graph_render_i915_req_events, &win, _1 );
     case LOC_TYPE_i915RequestWait:
-        return std::bind( &TraceWin::graph_render_i915_reqwait_events, m_win, _1 );
+        return std::bind( &TraceWin::graph_render_i915_reqwait_events, &win, _1 );
     default:
         // LOC_TYPE_Comm or LOC_TYPE_Tdopexpr hopefully...
-        return std::bind( &TraceWin::graph_render_row_events, m_win, _1 );
+        return std::bind( &TraceWin::graph_render_row_events, &win, _1 );
     }
 }
 
-void graph_info_t::init_rows( TraceWin *win, const std::vector< GraphRows::graph_rows_info_t > &graph_rows )
+void graph_info_t::init_rows( const std::vector< GraphRows::graph_rows_info_t > &graph_rows )
 {
     uint32_t id = 0;
-
-    m_win = win;
 
     imgui_push_smallfont();
 
@@ -488,13 +488,13 @@ void graph_info_t::init_rows( TraceWin *win, const std::vector< GraphRows::graph
         if ( grow.hidden )
             continue;
 
-        plocs = win->m_trace_events.get_locs( grow.row_filter.c_str(), &rinfo.row_type );
+        plocs = win.m_trace_events.get_locs( grow.row_filter.c_str(), &rinfo.row_type );
 
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
         rinfo.row_name = row_name;
         rinfo.row_filter = grow.row_filter;
-        rinfo.scale_ts = win->m_graph.rows.get_row_scale_ts( row_name );
+        rinfo.scale_ts = win.m_graph.rows.get_row_scale_ts( row_name );
 
         if ( plocs )
             rinfo.render_cb = get_render_cb( rinfo.row_type );
@@ -506,22 +506,22 @@ void graph_info_t::init_rows( TraceWin *win, const std::vector< GraphRows::graph
             if ( pidstr )
             {
                 rinfo.pid = atoi( pidstr + 1 );
-                rinfo.tgid_info = win->m_trace_events.tgid_from_pid( rinfo.pid );
+                rinfo.tgid_info = win.m_trace_events.tgid_from_pid( rinfo.pid );
             }
 
-            if ( win->m_graph.show_row_name && ( row_name == win->m_graph.show_row_name ) )
+            if ( win.m_graph.show_row_name && ( row_name == win.m_graph.show_row_name ) )
             {
                 show_row_id = id;
-                win->m_graph.show_row_name = NULL;
+                win.m_graph.show_row_name = NULL;
             }
 
             // If we're graphing only filtered events, check if this comm has any events
             if ( s_opts().getb( OPT_GraphOnlyFiltered ) &&
                  s_opts().getb( OPT_Graph_HideEmptyFilteredRows ) &&
-                 !win->m_filter.events.empty() )
+                 !win.m_filter.events.empty() )
             {
                 // Get count of !filtered events for this pid
-                uint32_t *count = win->m_filter.pid_eventcount.get_val( rinfo.pid );
+                uint32_t *count = win.m_filter.pid_eventcount.get_val( rinfo.pid );
 
                 // Bail if no events
                 if ( !count )
@@ -544,9 +544,9 @@ void graph_info_t::init_rows( TraceWin *win, const std::vector< GraphRows::graph
         total_graph_height += rinfo.row_h + graph_row_padding;
     }
 
-    if ( !win->m_graph.zoom_row_name.empty() )
+    if ( !win.m_graph.zoom_row_name.empty() )
     {
-        const std::string &row_name = win->m_graph.zoom_row_name;
+        const std::string &row_name = win.m_graph.zoom_row_name;
 
         prinfo_zoom = find_row( row_name.c_str() );
         if ( prinfo_zoom )
@@ -570,7 +570,7 @@ void graph_info_t::init_rows( TraceWin *win, const std::vector< GraphRows::graph
     // Figure out visible_graph_height
     calc_process_graph_height();
 
-    win->m_graph.show_row_name = NULL;
+    win.m_graph.show_row_name = NULL;
 }
 
 void graph_info_t::calc_process_graph_height()
@@ -621,8 +621,8 @@ void graph_info_t::set_ts( int64_t start_ts, int64_t length_ts )
     ts0 = start_ts;
     ts1 = ts0 + length_ts;
 
-    eventstart = m_win->ts_to_eventid( ts0 );
-    eventend = m_win->ts_to_eventid( ts1 );
+    eventstart = win.ts_to_eventid( ts0 );
+    eventend = win.ts_to_eventid( ts1 );
 
     tsdx = ts1 - ts0 + 1;
     tsdxrcp = 1.0 / tsdx;
@@ -632,7 +632,7 @@ void graph_info_t::init()
 {
     const ImVec2 windowpos = ImGui::GetCursorScreenPos();
     const ImVec2 windowsize = ImGui::GetContentRegionAvail();
-    const std::vector< trace_event_t > &events = m_win->m_trace_events.m_events;
+    const std::vector< trace_event_t > &events = win.m_trace_events.m_events;
 
     rcwin = { windowpos.x, windowpos.y, windowsize.x, windowsize.y };
 
@@ -640,18 +640,18 @@ void graph_info_t::init()
     rc.w = windowsize.x;
 
     // Set whether graph has focus
-    m_win->m_graph.has_focus = ImGui::IsWindowFocused();
+    win.m_graph.has_focus = ImGui::IsWindowFocused();
 
     // If we don't have a popup menu, clear the mouse over row name
-    if ( !m_win->m_graph.popupmenu )
+    if ( !win.m_graph.popupmenu )
     {
-        m_win->m_graph.mouse_over_row_name.clear();
-        m_win->m_graph.mouse_over_row_filter.clear();
-        m_win->m_graph.mouse_over_row_type = LOC_TYPE_Max;
+        win.m_graph.mouse_over_row_name.clear();
+        win.m_graph.mouse_over_row_filter.clear();
+        win.m_graph.mouse_over_row_type = LOC_TYPE_Max;
     }
 
-    m_clr_bright = s_textclrs().str( TClr_Bright );
-    m_clr_def = s_textclrs().str( TClr_Def );
+    clr_bright = s_textclrs().str( TClr_Bright );
+    clr_def = s_textclrs().str( TClr_Def );
 
     // Get mouse position
     mouse_pos = ImGui::IsRootWindowOrAnyChildFocused() ?
@@ -662,28 +662,28 @@ void graph_info_t::init()
 
     // Render filtered events only?
     graph_only_filtered = s_opts().getb( OPT_GraphOnlyFiltered ) &&
-            !m_win->m_filter.events.empty();
+            !win.m_filter.events.empty();
 
     // Grab last hovered graph event
-    m_hovered_eventid = m_win->m_graph.last_hovered_eventid;
+    hovered_eventid = win.m_graph.last_hovered_eventid;
 
     // If the event list is visible, grab the selected event
     if ( s_opts().getb( OPT_ShowEventList ) )
-        m_selected_eventid = m_win->m_eventlist.selected_eventid;
+        selected_eventid = win.m_eventlist.selected_eventid;
 
     // If our hovered event is an amd timeline event, get the id
-    if ( is_valid_id( m_hovered_eventid ) && events[ m_hovered_eventid ].is_timeline() )
+    if ( is_valid_id( hovered_eventid ) && events[ hovered_eventid ].is_timeline() )
     {
         // Find the fence signaled event for this timeline
-        const char *gfxcontext = m_win->m_trace_events.get_event_gfxcontext_str( events[ m_hovered_eventid ] );
-        const std::vector< uint32_t > *plocs = m_win->m_trace_events.get_gfxcontext_locs( gfxcontext );
+        const char *gfxcontext = win.m_trace_events.get_event_gfxcontext_str( events[ hovered_eventid ] );
+        const std::vector< uint32_t > *plocs = win.m_trace_events.get_gfxcontext_locs( gfxcontext );
 
         // Mark it as hovered so it'll have a selection rectangle
         hovered_fence_signaled = plocs->back();
     }
 
     // Set start_y
-    start_y = m_win->m_graph.start_y;
+    start_y = win.m_graph.start_y;
 
     // If we have a show row id, make sure it's visible
     if ( show_row_id != ( size_t )-1 )
@@ -699,7 +699,7 @@ void graph_info_t::init()
 
     // Range check mouse pan values
     start_y = Clamp< float >( start_y, visible_graph_height - total_graph_height, 0.0f );
-    m_win->m_graph.start_y = start_y;
+    win.m_graph.start_y = start_y;
 }
 
 void graph_info_t::set_pos_y( float y_in, float h_in, row_info_t *ri )
@@ -1799,7 +1799,7 @@ void TraceWin::graph_render_time_ticks( graph_info_t &gi, float h0, float h1 )
     }
 }
 
-static float get_vblank_xdiffs( TraceWin *win, graph_info_t &gi, const std::vector< uint32_t > *vblank_locs )
+static float get_vblank_xdiffs( TraceWin &win, graph_info_t &gi, const std::vector< uint32_t > *vblank_locs )
 {
     float xdiff = 0.0f;
     float xlast = 0.0f;
@@ -1810,7 +1810,7 @@ static float get_vblank_xdiffs( TraceWin *win, graph_info_t &gi, const std::vect
           idx++ )
     {
         uint32_t id = vblank_locs->at( idx );
-        trace_event_t &event = win->get_event( id );
+        trace_event_t &event = win.get_event( id );
 
         if ( s_opts().getcrtc( event.crtc ) )
         {
@@ -1843,7 +1843,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
          * when pretty close, but in the background if there's more than ~50 on screen
          * probably?
          */
-        float xdiff = get_vblank_xdiffs( this, gi, vblank_locs ) / imgui_scale( 1.0f );
+        float xdiff = get_vblank_xdiffs( *this, gi, vblank_locs ) / imgui_scale( 1.0f );
         uint32_t alpha = std::min< uint32_t >( 255, 50 + 2 * xdiff );
 
         for ( size_t idx = vec_find_eventid( *vblank_locs, gi.eventstart );
@@ -1870,7 +1870,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
     }
 }
 
-void TraceWin::graph_render_frame_marker_text( class graph_info_t &gi )
+void TraceWin::graph_render_frame_marker_text( graph_info_t &gi )
 {
     ImU32 color = s_clrs().get( col_Graph_LocationText );
 
@@ -2026,8 +2026,8 @@ void TraceWin::graph_render_eventids( graph_info_t &gi )
         ImU32 color;
     } events[] =
     {
-        { gi.m_hovered_eventid, s_clrs().get( col_Graph_HovEvent, 120 ) },
-        { gi.m_selected_eventid, s_clrs().get( col_Graph_SelEvent, 120 ) },
+        { gi.hovered_eventid, s_clrs().get( col_Graph_HovEvent, 120 ) },
+        { gi.selected_eventid, s_clrs().get( col_Graph_SelEvent, 120 ) },
     };
 
     for ( const auto &item : events )
@@ -2541,10 +2541,10 @@ void TraceWin::graph_render_zoomed_rows( graph_info_t &gi )
 
 void TraceWin::graph_render()
 {
-    graph_info_t gi;
+    graph_info_t gi( *this );
 
     // Initialize our row size, location, etc information based on our graph row list
-    gi.init_rows( this, m_graph.rows.m_graph_rows_list );
+    gi.init_rows( m_graph.rows.m_graph_rows_list );
 
     // Make sure ts start and length values are sane
     graph_range_check_times();
@@ -2612,7 +2612,7 @@ void TraceWin::graph_render()
     graph_render_resizer( gi );
 }
 
-void TraceWin::graph_render_resizer( class graph_info_t &gi )
+void TraceWin::graph_render_resizer( graph_info_t &gi )
 {
     bool mouse_captured = ( m_graph.mouse_captured == MOUSE_CAPTURED_RESIZE_GRAPH );
 
@@ -2861,10 +2861,10 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     }
 
     // Create Plot for hovered event
-    if ( is_valid_id( gi.m_hovered_eventid ) &&
+    if ( is_valid_id( gi.hovered_eventid ) &&
          strncmp( row_name.c_str(), "plot:", 5 ) )
     {
-        const trace_event_t &event = m_trace_events.m_events[ gi.m_hovered_eventid ];
+        const trace_event_t &event = m_trace_events.m_events[ gi.hovered_eventid ];
         const std::string plot_str = CreatePlotDlg::get_plot_str( event );
 
         if ( !plot_str.empty() )
@@ -2970,16 +2970,16 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     // New Graph Row
     if ( ImGui::MenuItem( "Add New Graph Row..." ) )
     {
-        m_create_graph_row_eventid = is_valid_id( gi.m_hovered_eventid ) ?
-                    gi.m_hovered_eventid : m_trace_events.m_events.size();
+        m_create_graph_row_eventid = is_valid_id( gi.hovered_eventid ) ?
+                    gi.hovered_eventid : m_trace_events.m_events.size();
     }
 
     // Frame Markers
     {
-        if ( is_valid_id( gi.m_hovered_eventid ) &&
+        if ( is_valid_id( gi.hovered_eventid ) &&
              ImGui::MenuItem( "Set Frame Markers..." ) )
         {
-            const trace_event_t &event = m_trace_events.m_events[ gi.m_hovered_eventid ];
+            const trace_event_t &event = m_trace_events.m_events[ gi.hovered_eventid ];
 
             m_create_filter_eventid = event.id;
         }
@@ -3146,7 +3146,7 @@ void TraceWin::graph_mouse_tooltip_sched_switch( std::string &ttip, graph_info_t
             std::string timestr = ts_to_timestr( event.duration, 4 );
 
             ttip += string_format( "\n%s%u%s sched_switch %s (%s) %s",
-                                   gi.m_clr_bright, event.id, gi.m_clr_def,
+                                   gi.clr_bright, event.id, gi.clr_def,
                                    prev_comm, timestr.c_str(),
                                    task_state_str.c_str() );
         }
@@ -3177,7 +3177,7 @@ void TraceWin::graph_mouse_tooltip_hovered_amd_fence_signaled( std::string &ttip
             m_eventlist.highlight_ids.push_back( id );
 
         ttip += string_format( "\n  %s%u%s %s duration: %s",
-                                   gi.m_clr_bright, event.id, gi.m_clr_def,
+                                   gi.clr_bright, event.id, gi.clr_def,
                                    name,
                                    s_textclrs().mstr( timestr, event_hov.color ).c_str() );
     }
@@ -3199,7 +3199,7 @@ void TraceWin::graph_mouse_tooltip_hovered_amd_fence_signaled( std::string &ttip
             const trace_event_t &event = get_event( id );
             const char *msg = get_event_field_val( event, "msg" );
 
-            ttip += string_format( "\n  %s%s%s", gi.m_clr_bright, msg, gi.m_clr_def );
+            ttip += string_format( "\n  %s%s%s", gi.clr_bright, msg, gi.clr_def );
         }
     }
 }
@@ -3208,7 +3208,7 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
 {
     int64_t dist_ts = INT64_MAX;
 
-    gi.m_hovered_eventid = INVALID_ID;
+    gi.hovered_eventid = INVALID_ID;
 
     if ( gi.hovered_items.empty() )
         return;
@@ -3231,7 +3231,7 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
 
         // Add event id and distance from cursor to this event
         ttip += string_format( "\n%s%u%s %c%s",
-                                   gi.m_clr_bright, hov.eventid, gi.m_clr_def,
+                                   gi.clr_bright, hov.eventid, gi.clr_def,
                                    hov.neg ? '-' : ' ',
                                    ts_to_timestr( hov.dist_ts, 4 ).c_str() );
 
@@ -3251,19 +3251,19 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
             if ( ctxstr )
             {
                 ttip += string_format( " key:[%s%s%s-%s%u%s]",
-                                           gi.m_clr_bright, ctxstr, gi.m_clr_def,
-                                           gi.m_clr_bright, event.seqno, gi.m_clr_def );
+                                           gi.clr_bright, ctxstr, gi.clr_def,
+                                           gi.clr_bright, event.seqno, gi.clr_def );
             }
             else
             {
-                ttip += string_format( " gkey:[%s%u%s]", gi.m_clr_bright, event.seqno, gi.m_clr_def );
+                ttip += string_format( " gkey:[%s%u%s]", gi.clr_bright, event.seqno, gi.clr_def );
             }
 
             const char *global = get_event_field_val( event, "global_seqno", NULL );
             if ( !global )
                 global = get_event_field_val( event, "global", NULL );
             if ( global && atoi( global ) )
-                ttip += string_format( " gkey:[%s%s%s]", gi.m_clr_bright, global, gi.m_clr_def );
+                ttip += string_format( " gkey:[%s%s%s]", gi.clr_bright, global, gi.clr_def );
 
             if ( ( event.color_index >= col_Graph_Bari915SubmitDelay ) &&
                  ( event.color_index <= col_Graph_Bari915CtxCompleteDelay ) )
@@ -3313,12 +3313,12 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
         {
             std::string timestr = ts_to_timestr( event.duration, 4 );
 
-            ttip += " (" + timestr + ")" + gi.m_clr_def;
+            ttip += " (" + timestr + ")" + gi.clr_def;
         }
 
         if ( hov.dist_ts < dist_ts )
         {
-            gi.m_hovered_eventid = hov.eventid;
+            gi.hovered_eventid = hov.eventid;
             dist_ts = hov.dist_ts;
         }
     }
@@ -3328,7 +3328,7 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
     if ( sync_eventlist_to_graph && !m_eventlist.do_gotoevent )
     {
         m_eventlist.do_gotoevent = true;
-        m_eventlist.goto_eventid = gi.m_hovered_eventid;
+        m_eventlist.goto_eventid = gi.hovered_eventid;
     }
 }
 
@@ -3497,5 +3497,5 @@ void TraceWin::graph_handle_mouse( graph_info_t &gi )
         graph_handle_mouse_over( gi );
 
     // Update graph last_hovered_eventid
-    m_graph.last_hovered_eventid = gi.m_hovered_eventid;
+    m_graph.last_hovered_eventid = gi.hovered_eventid;
 }

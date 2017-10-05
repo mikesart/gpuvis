@@ -501,6 +501,8 @@ public:
     util_umap< std::string, std::string > m_graph_row_scale_ts;
 };
 
+class graph_info_t;
+
 class TraceWin
 {
 public:
@@ -520,8 +522,10 @@ protected:
     // Render events list
     void eventlist_render_options();
     void eventlist_render();
+
     // Handle events list popup menu
     bool eventlist_render_popupmenu( uint32_t eventid );
+
     // Handle mouse clicking and tooltips for event list
     bool eventlist_handle_mouse( const trace_event_t &event, uint32_t i );
     void eventlist_handle_hotkeys();
@@ -530,60 +534,67 @@ protected:
     // Render graph
     void graph_render_options();
     void graph_render();
-    void graph_render_resizer( class graph_info_t &gi );
 
-    // Render regular graph row
-    void graph_render_single_row( class graph_info_t &gi );
+protected:
+    // Internal render graph functions
+    void graph_render_resizer( graph_info_t &gi );
+
+    // Render graph rows
+    void graph_render_rows( graph_info_t &gi );
+    void graph_render_zoomed_rows( graph_info_t &gi );
+    // Render a graph row
+    void graph_render_single_row( graph_info_t &gi );
+
     // Render amd timeline graph row
-    uint32_t graph_render_amd_timeline( class graph_info_t &gi );
+    uint32_t graph_render_amd_timeline( graph_info_t &gi );
     // Render amd hw graph row
-    uint32_t graph_render_amdhw_timeline( class graph_info_t &gi );
+    uint32_t graph_render_amdhw_timeline( graph_info_t &gi );
     // Render ftrace print row
-    uint32_t graph_render_print_timeline( class graph_info_t &gi );
+    uint32_t graph_render_print_timeline( graph_info_t &gi );
     // Render plot row
-    uint32_t graph_render_plot( class graph_info_t &gi );
+    uint32_t graph_render_plot( graph_info_t &gi );
     // Render regular trace events
-    uint32_t graph_render_row_events( class graph_info_t &gi );
+    uint32_t graph_render_row_events( graph_info_t &gi );
     // Render intel i915 request_wait events
-    uint32_t graph_render_i915_reqwait_events( class graph_info_t &gi );
+    uint32_t graph_render_i915_reqwait_events( graph_info_t &gi );
     // Render intel i915 request_add, request_submit, request_in, request_out, intel_engine_notify
-    uint32_t graph_render_i915_req_events( class graph_info_t &gi );
+    uint32_t graph_render_i915_req_events( graph_info_t &gi );
 
-    void graph_render_rows( class graph_info_t &gi );
-    void graph_render_zoomed_rows( class graph_info_t &gi );
-    void graph_render_time_ticks( class graph_info_t &gi, float h0, float h1 );
-    void graph_render_vblanks( class graph_info_t &gi );
-    void graph_render_mouse_pos( class graph_info_t &gi );
-    void graph_render_eventids( class graph_info_t &gi );
-    void graph_render_mouse_selection( class graph_info_t &gi );
-    void graph_render_eventlist_selection( class graph_info_t &gi );
-    void graph_render_row_labels( class graph_info_t &gi );
-    void graph_render_frame_marker_text( class graph_info_t &gi );
-    void graph_render_framemarker_frames( class graph_info_t &gi );
+    // Render graph decorations
+    void graph_render_time_ticks( graph_info_t &gi, float h0, float h1 );
+    void graph_render_vblanks( graph_info_t &gi );
+    void graph_render_mouse_pos( graph_info_t &gi );
+    void graph_render_eventids( graph_info_t &gi );
+    void graph_render_mouse_selection( graph_info_t &gi );
+    void graph_render_eventlist_selection( graph_info_t &gi );
+    void graph_render_row_labels( graph_info_t &gi );
+    void graph_render_frame_marker_text( graph_info_t &gi );
+    void graph_render_framemarker_frames( graph_info_t &gi );
 
     // Render plot, graph rows, filter dialogs, etc
     void graph_dialogs_render();
     // Handle graph popup menu
-    bool graph_render_popupmenu( class graph_info_t &gi );
+    bool graph_render_popupmenu( graph_info_t &gi );
     // Mouse wheel, clicking for graph
-    void graph_handle_mouse( class graph_info_t &gi );
+    void graph_handle_mouse( graph_info_t &gi );
     // Graph mouse handler when captured
-    void graph_handle_mouse_captured( class graph_info_t &gi );
-    void graph_handle_mouse_over( class graph_info_t &gi );
+    void graph_handle_mouse_captured( graph_info_t &gi );
+    void graph_handle_mouse_over( graph_info_t &gi );
 
     // Graph mouse tooltip functions
-    void graph_mouse_tooltip( class graph_info_t &gi, int64_t mouse_ts );
-    void graph_mouse_tooltip_rowinfo( std::string &ttip, class graph_info_t &gi, int64_t mouse_ts );
-    void graph_mouse_tooltip_vblanks( std::string &ttip, class graph_info_t &gi, int64_t mouse_ts );
-    void graph_mouse_tooltip_markers( std::string &ttip, class graph_info_t &gi, int64_t mouse_ts );
-    void graph_mouse_tooltip_sched_switch( std::string &ttip, class graph_info_t &gi, int64_t mouse_ts );
-    void graph_mouse_tooltip_hovered_items( std::string &ttip, class graph_info_t &gi, int64_t mouse_ts );
-    void graph_mouse_tooltip_hovered_amd_fence_signaled( std::string &ttip, class graph_info_t &gi, int64_t mouse_ts );
+    void graph_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts );
+    void graph_mouse_tooltip_rowinfo( std::string &ttip, graph_info_t &gi, int64_t mouse_ts );
+    void graph_mouse_tooltip_vblanks( std::string &ttip, graph_info_t &gi, int64_t mouse_ts );
+    void graph_mouse_tooltip_markers( std::string &ttip, graph_info_t &gi, int64_t mouse_ts );
+    void graph_mouse_tooltip_sched_switch( std::string &ttip, graph_info_t &gi, int64_t mouse_ts );
+    void graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_t &gi, int64_t mouse_ts );
+    void graph_mouse_tooltip_hovered_amd_fence_signaled( std::string &ttip, graph_info_t &gi, int64_t mouse_ts );
 
-    // graph keyboard handling
-    void graph_handle_hotkeys( class graph_info_t &gi );
-    void graph_handle_keyboard_scroll( class graph_info_t &gi );
+    // Graph keyboard handling
+    void graph_handle_hotkeys( graph_info_t &gi );
+    void graph_handle_keyboard_scroll( graph_info_t &gi );
 
+protected:
     // Make sure m_graph.start_ts and m_graph.length_ts are legit
     void graph_range_check_times();
 
