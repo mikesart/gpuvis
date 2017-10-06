@@ -447,21 +447,14 @@ RenderGraphRowCallback graph_info_t::get_render_cb( loc_type_t row_type )
 {
     switch ( row_type )
     {
-    case LOC_TYPE_Print:
-        return std::bind( &TraceWin::graph_render_print_timeline, &win, _1 );
-    case LOC_TYPE_Plot:
-        return std::bind( &TraceWin::graph_render_plot, &win, _1 );
-    case LOC_TYPE_AMDTimeline:
-        return std::bind( &TraceWin::graph_render_amd_timeline, &win, _1 );
-    case LOC_TYPE_AMDTimeline_hw:
-        return std::bind( &TraceWin::graph_render_amdhw_timeline, &win, _1 );
-    case LOC_TYPE_i915Request:
-        return std::bind( &TraceWin::graph_render_i915_req_events, &win, _1 );
-    case LOC_TYPE_i915RequestWait:
-        return std::bind( &TraceWin::graph_render_i915_reqwait_events, &win, _1 );
-    default:
-        // LOC_TYPE_Comm or LOC_TYPE_Tdopexpr hopefully...
-        return std::bind( &TraceWin::graph_render_row_events, &win, _1 );
+    case LOC_TYPE_Print:           return std::bind( &TraceWin::graph_render_print_timeline, &win, _1 );
+    case LOC_TYPE_Plot:            return std::bind( &TraceWin::graph_render_plot, &win, _1 );
+    case LOC_TYPE_AMDTimeline:     return std::bind( &TraceWin::graph_render_amd_timeline, &win, _1 );
+    case LOC_TYPE_AMDTimeline_hw:  return std::bind( &TraceWin::graph_render_amdhw_timeline, &win, _1 );
+    case LOC_TYPE_i915Request:     return std::bind( &TraceWin::graph_render_i915_req_events, &win, _1 );
+    case LOC_TYPE_i915RequestWait: return std::bind( &TraceWin::graph_render_i915_reqwait_events, &win, _1 );
+    // LOC_TYPE_Comm or LOC_TYPE_Tdopexpr hopefully...
+    default:                       return std::bind( &TraceWin::graph_render_row_events, &win, _1 );
     }
 }
 
