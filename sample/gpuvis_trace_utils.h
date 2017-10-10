@@ -47,6 +47,10 @@
 #define GPUVIS_ATTR_PRINTF( _x, _y )
 #endif
 
+GPUVIS_EXTERN int gpuvis_trace_init();
+GPUVIS_EXTERN void gpuvis_trace_shutdown();
+GPUVIS_EXTERN const char *gpuvis_trace_errstr();
+
 GPUVIS_EXTERN int gpuvis_trace_printf( const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 1, 2 );
 GPUVIS_EXTERN int gpuvis_trace_vprintf( const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 1, 0 );
 
@@ -75,54 +79,110 @@ GPUVIS_EXTERN const char *gpuvis_get_trace_marker_path();
 
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
+#include <errno.h>
 #include <limits.h>
-#include <sys/vfs.h>
 #include <fcntl.h>
+#include <sys/vfs.h>
 #include <linux/magic.h>
 
 #ifndef TRACEFS_MAGIC
 #define TRACEFS_MAGIC      0x74726163
 #endif
 
+// From kernel/trace/trace.h
+#ifndef TRACE_BUF_SIZE
+#define TRACE_BUF_SIZE     1024
+#endif
+
 #define GPUVIS_STR( x ) #x
 #define GPUVIS_STR_VALUE( x ) GPUVIS_STR( x )
+
+static int trace_fd = -1;
+static const char *trace_err = NULL;
+
+GPUVIS_EXTERN int gpuvis_trace_init()
+{
+    if ( ( trace_fd < 0 ) && !trace_err )
+    {
+        const char *trace_marker_path = gpuvis_get_trace_marker_path();
+
+        if ( !trace_marker_path[ 0 ] )
+        {
+            trace_err = strerror( EACCES );
+#if defined( DEBUG ) || defined( _DEBUG )
+            printf( "[ERROR] gpuvis_get_trace_marker_path() failed: %s\n", trace_err );
+#endif
+        }
+        else
+        {
+            trace_fd = open( trace_marker_path, O_WRONLY );
+            if ( trace_fd < 0 )
+            {
+                trace_err = strerror( errno );
+#if defined( DEBUG ) || defined( _DEBUG )
+                printf( "[ERROR] %s open( %s ) failed: %s\n", __func__, trace_marker_path, trace_err );
+#endif
+            }
+        }
+    }
+
+    return trace_fd;
+}
+
+GPUVIS_EXTERN const char *gpuvis_trace_errstr()
+{
+    return trace_err;
+}
+
+GPUVIS_EXTERN void gpuvis_trace_shutdown()
+{
+    if ( trace_fd >= 0 )
+    {
+        close( trace_fd );
+        trace_fd = -1;
+    }
+
+    trace_err = NULL;
+}
 
 static int trace_printf_impl( const char *key, unsigned int val, const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 3, 0 );
 static int trace_printf_impl( const char *key, unsigned int val, const char *fmt, va_list ap )
 {
     int ret = -1;
-    const char *trace_marker_path = gpuvis_get_trace_marker_path();
 
-    if ( trace_marker_path[ 0 ] )
+    if ( gpuvis_trace_init() >= 0 )
     {
         int n;
-        va_list tmp_ap;
-        char buf[ 4096 ];
-        char *str = NULL;
+        char buf[ TRACE_BUF_SIZE ];
 
-        va_copy( tmp_ap, ap );
-        n = vsnprintf( buf, sizeof( buf ), fmt, tmp_ap );
-        va_end( tmp_ap );
+        n = vsnprintf( buf, sizeof( buf ), fmt, ap );
 
-        if ( ( n > -1 ) && ( ( size_t )n < sizeof( buf ) ) )
+        if ( ( n > 0 ) || ( !n && key ) )
         {
-            str = ( char * )malloc( n + 1 );
-            if ( str )
-                n = vsprintf( str, fmt, ap );
-        }
+            if ( ( size_t )n >= sizeof( buf ) )
+                n = sizeof( buf ) - 1;
 
-        if ( n > -1 )
-        {
-            int fd = open( trace_marker_path, O_WRONLY );
-
-            if ( fd >= 0 )
+            if ( key )
             {
-                ret = write( fd, buf, strlen( buf ) );
-                close( fd );
-            }
-        }
+                int keystrlen;
+                char keystr[ 128 ];
 
-        free( str );
+                keystrlen = snprintf( keystr, sizeof( keystr ), " (%s=%u)", key, val );
+
+                if ( keystrlen > 0 )
+                {
+                    if ( ( size_t )n + keystrlen >= sizeof( buf ) )
+                        n = sizeof( buf ) - keystrlen - 1;
+
+                    strcpy( buf + n, keystr );
+
+                    n += keystrlen;
+                }
+            }
+
+            ret = write( trace_fd, buf, n );
+        }
     }
 
     return ret;
@@ -289,6 +349,7 @@ GPUVIS_EXTERN const char *gpuvis_get_trace_marker_path()
 
         if ( tracefs_dir[ 0 ] )
         {
+            // The "trace_marker" file allows userspace to write into the ftrace buffer.
             snprintf( tracefs_marker_path, PATH_MAX, "%s/trace_marker", tracefs_dir );
             tracefs_marker_path[ PATH_MAX - 1 ] = 0;
         }
