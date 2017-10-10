@@ -1880,6 +1880,36 @@ void TraceEvents::init_new_event( trace_event_t &event )
         m_eventnames_locs.add_location_str( event.name, event.id );
     }
 
+    if ( !strcmp( event.name, "sched_process_fork" ) )
+    {
+        // parent_comm=glxgears parent_pid=23543 child_comm=glxgears child_pid=23544
+        int tgid = atoi( get_event_field_val( event, "parent_pid", "0" ) );
+        int pid = atoi( get_event_field_val( event, "child_pid", "0" ) );
+        const char *tgid_comm = get_event_field_val( event, "parent_comm", NULL );
+        const char *child_comm = get_event_field_val( event, "child_comm", NULL );
+
+        if ( tgid && pid && tgid_comm && child_comm )
+        {
+            tgid_info_t *tgid_info = m_trace_info.tgid_pids.get_val( tgid, tgid_info_t() );
+
+            if ( !tgid_info->tgid )
+            {
+                tgid_info->tgid = tgid;
+                tgid_info->hashval += fnv_hashstr32( tgid_comm );
+            }
+            tgid_info->add_pid( tgid );
+            tgid_info->add_pid( pid );
+
+            // Add to our pid --> comm map
+            m_trace_info.pid_comm_map.get_val( tgid, m_strpool.getstr( tgid_comm ) );
+            m_trace_info.pid_comm_map.get_val( pid, m_strpool.getstr( child_comm ) );
+
+            // tgid --> tgid, pid --> tgid
+            m_trace_info.pid_tgid_map.get_val( tgid, tgid );
+            m_trace_info.pid_tgid_map.get_val( pid, tgid );
+        }
+    }
+
     if ( event.is_sched_switch() )
         init_sched_switch_event( event );
 

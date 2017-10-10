@@ -29,6 +29,7 @@
 #include <forward_list>
 #include <csetjmp>
 #include <unordered_map>
+#include <algorithm>
 #include <future>
 #include <set>
 
@@ -1782,6 +1783,20 @@ static void add_file( std::vector< file_info_t * > &file_list, tracecmd_input_t 
     file_list.push_back( item );
 }
 
+void tgid_info_t::add_pid( int pid )
+{
+    auto idx = std::find( pids.begin(), pids.end(), pid );
+
+    if ( idx == pids.end() )
+    {
+        // Add pid to the tgid array of pids: main thread at start, others at back
+        if ( pid == tgid )
+            pids.insert( pids.begin(), pid );
+        else
+            pids.push_back( pid );
+    }
+}
+
 int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
 {
     trace_info_t trace_info;
@@ -1849,14 +1864,12 @@ int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
         {
             tgid_info_t *tgid_info = trace_info.tgid_pids.get_val( tgid, tgid_info_t() );
 
-            // Add pid to the tgid array of pids: main thread at start, others at back
-            if ( pid == tgid )
-                tgid_info->pids.insert( tgid_info->pids.begin(), pid );
-            else
-                tgid_info->pids.push_back( pid );
-
-            tgid_info->tgid = tgid;
-            tgid_info->hashval += fnv_hashstr32( comm );
+            if ( !tgid_info->tgid )
+            {
+                tgid_info->tgid = tgid;
+                tgid_info->hashval += fnv_hashstr32( comm );
+            }
+            tgid_info->add_pid( pid );
 
             // Pid --> tgid
             trace_info.pid_tgid_map.get_val( pid, tgid );

@@ -50,7 +50,7 @@ inline bool is_valid_id( uint32_t id )
 
 struct tgid_info_t
 {
-    int tgid;
+    int tgid = 0;
     std::vector< int > pids;
 
     // Colored 'foobarapp-1234' string for tgid
@@ -59,6 +59,8 @@ struct tgid_info_t
 
     uint32_t hashval = 0;
     uint32_t color = 0;
+
+    void add_pid( int pid );
 };
 
 struct trace_info_t
