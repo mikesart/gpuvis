@@ -26,65 +26,40 @@
  * See usage() below for command line options.
  */
 
-
+#define _GNU_SOURCE
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
+#include <sys/time.h>
+#include <sys/syscall.h>
+
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
+
 #include <GL/gl.h>
 #include <GL/glx.h>
 #include <GL/glxext.h>
+
+#define GPUVIS_IMPLEMENTATION
+#include "gpuvis_trace_utils.h"
 
 #ifndef GLX_MESA_swap_control
 #define GLX_MESA_swap_control 1
 typedef int (*PFNGLXGETSWAPINTERVALMESAPROC)(void);
 #endif
 
-
-#define BENCHMARK
-
-#ifdef BENCHMARK
-
-/* XXX this probably isn't very portable */
-
-#include <sys/time.h>
-#include <unistd.h>
-
 /* return current time (in seconds) */
 static double
 current_time(void)
 {
    struct timeval tv;
-#ifdef __VMS
-   (void) gettimeofday(&tv, NULL );
-#else
    struct timezone tz;
-   (void) gettimeofday(&tv, &tz);
-#endif
+
+   gettimeofday(&tv, &tz);
    return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
 }
-
-#else /*BENCHMARK*/
-
-/* dummy */
-static double
-current_time(void)
-{
-   /* update this function for other platforms! */
-   static double t = 0.0;
-   static int warn = 1;
-   if (warn) {
-      fprintf(stderr, "Warning: current_time() not implemented!!\n");
-      warn = 0;
-   }
-   return t += 1.0;
-}
-
-#endif /*BENCHMARK*/
-
-
 
 #ifndef M_PI
 #define M_PI 3.14159265
@@ -96,6 +71,7 @@ current_time(void)
 #define EXIT 1
 #define DRAW 2
 
+static volatile int running = 1;
 static GLfloat view_rotx = 20.0, view_roty = 30.0, view_rotz = 0.0;
 static GLint gear1, gear2, gear3;
 static GLfloat gangle = 0.0;
@@ -108,6 +84,50 @@ static GLfloat eyesep = 5.0;		/* Eye separation. */
 static GLfloat fix_point = 40.0;	/* Fixation point distance.  */
 static GLfloat left, right, asp;	/* Stereo frustum params.  */
 
+#ifndef TASK_COMM_LEN
+#define TASK_COMM_LEN 16
+#endif
+
+static int gpuvis_set_thread_name( const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 1, 2 );
+static int gpuvis_set_thread_name( const char *fmt, ... )
+{
+    va_list ap;
+    char threadname[ TASK_COMM_LEN ];
+
+    va_start( ap, fmt );
+    vsnprintf( threadname, sizeof( threadname ), fmt, ap );
+    va_end( ap );
+
+    threadname[ TASK_COMM_LEN - 1 ] = 0;
+    return pthread_setname_np( pthread_self(), threadname );
+}
+
+static pid_t gettid()
+{
+    return ( pid_t )syscall( SYS_gettid );
+}
+
+static void *thread_proc( void *arg )
+{
+    pid_t tid = gettid();
+    unsigned int seed = tid;
+
+    gpuvis_set_thread_name( "thread_%d", tid );
+    gpuvis_trace_begin_ctx_printf( tid, "thread_%d running", tid );
+
+    while ( running )
+    {
+        int time = rand_r( &seed ) % 30;
+
+        gpuvis_trace_duration_printf( time, "thread_%d sleeping", tid );
+        usleep( time * 1000 );
+
+        usleep( 1000 );
+    }
+
+    gpuvis_trace_end_ctx_printf( tid, "thread_%d end running", tid );
+    return 0;
+}
 
 /*
  *
@@ -339,6 +359,8 @@ draw_frame(Display *dpy, Window win)
    }
 
    draw_gears();
+
+   gpuvis_trace_printf("glXSwapBuffers frame=%d angle=%.2f", frames, gangle);
    glXSwapBuffers(dpy, win);
 
    frames++;
@@ -348,9 +370,14 @@ draw_frame(Display *dpy, Window win)
    if (t - tRate0 >= 5.0) {
       GLfloat seconds = t - tRate0;
       GLfloat fps = frames / seconds;
+
       printf("%d frames in %3.1f seconds = %6.3f FPS\n", frames, seconds,
              fps);
+      gpuvis_trace_printf("%d frames in %3.1f seconds = %6.3f FPS", frames, seconds,
+             fps);
+
       fflush(stdout);
+
       tRate0 = t;
       frames = 0;
    }
@@ -688,6 +715,8 @@ handle_event(Display *dpy, Window win, XEvent *event)
 static void
 event_loop(Display *dpy, Window win)
 {
+    int frame_no = 0;
+
    while (1) {
       int op;
       while (!animate || XPending(dpy) > 0) {
@@ -700,7 +729,9 @@ event_loop(Display *dpy, Window win)
             break;
       }
 
+      gpuvis_trace_begin_ctx_printf( frame_no, "%s draw_frame", __func__ );
       draw_frame(dpy, win);
+      gpuvis_trace_end_ctx_printf( frame_no++, "%s end draw_frame", __func__ );
    }
 }
 
@@ -730,6 +761,13 @@ main(int argc, char *argv[])
    GLboolean printInfo = GL_FALSE;
    VisualID visId;
    int i;
+   pthread_t threadids[ 2 ];
+   static const int num_threads = ( int )( sizeof( threadids ) / sizeof( threadids[ 0 ] ) );
+
+   gpuvis_set_thread_name("%s", "glxgears");
+
+   if ( gpuvis_trace_init() < 0 )
+       printf( "[ERROR] gpuvis_trace_init failed: %s\n", gpuvis_trace_errstr() );
 
    for (i = 1; i < argc; i++) {
       if (strcmp(argv[i], "-display") == 0) {
@@ -795,7 +833,22 @@ main(int argc, char *argv[])
     */
    reshape(winWidth, winHeight);
 
+   running = 1;
+   for ( i = 0; i < num_threads; i++ )
+       pthread_create( &( threadids[ i ] ), NULL, &thread_proc, NULL );
+
    event_loop(dpy, win);
+
+   running = 0;
+   for ( i = 0; i < num_threads; i++ )
+   {
+       int rc;
+       void *status = NULL;
+
+       gpuvis_trace_begin_ctx_printf( i, "Waiting for thread #%d", i );
+       rc = pthread_join( threadids[ i ], &status );
+       gpuvis_trace_end_ctx_printf( i, "Thread #%d rc=%d status=%d", i, rc, ( int )( intptr_t )status );
+   }
 
    glDeleteLists(gear1, 1);
    glDeleteLists(gear2, 1);
@@ -805,5 +858,6 @@ main(int argc, char *argv[])
    XDestroyWindow(dpy, win);
    XCloseDisplay(dpy);
 
+   gpuvis_trace_shutdown();
    return 0;
 }
