@@ -32,7 +32,6 @@
 #ifndef _GPUVIS_TRACE_UTILS_H_
 #define _GPUVIS_TRACE_UTILS_H_
 
-#include <stdio.h>
 #include <stdarg.h>
 
 #ifdef __cplusplus
@@ -41,17 +40,24 @@
   #define GPUVIS_EXTERN   extern
 #endif
 
-GPUVIS_EXTERN int gpuvis_trace_printf( const char *fmt, ... );
-GPUVIS_EXTERN int gpuvis_trace_vprintf( const char *fmt, va_list ap );
+// printf-style warnings for user functions.
+#if defined( __clang__ ) || defined( __GNUC__ )
+#define GPUVIS_ATTR_PRINTF( _x, _y ) __attribute__( ( __format__( __printf__, _x, _y ) ) )
+#else
+#define GPUVIS_ATTR_PRINTF( _x, _y )
+#endif
 
-GPUVIS_EXTERN int gpuvis_trace_duration_printf( unsigned int duration, const char *fmt, ... );
-GPUVIS_EXTERN int gpuvis_trace_duration_vprintf( unsigned int duration, const char *fmt, va_list ap );
+GPUVIS_EXTERN int gpuvis_trace_printf( const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 1, 2 );
+GPUVIS_EXTERN int gpuvis_trace_vprintf( const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 1, 0 );
 
-GPUVIS_EXTERN int gpuvis_trace_begin_ctx_printf( unsigned int ctx, const char *fmt, ... );
-GPUVIS_EXTERN int gpuvis_trace_begin_ctx_vprintf( unsigned int ctx, const char *fmt, va_list ap );
+GPUVIS_EXTERN int gpuvis_trace_duration_printf( unsigned int duration, const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 2, 3 );
+GPUVIS_EXTERN int gpuvis_trace_duration_vprintf( unsigned int duration, const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 2, 0 );
 
-GPUVIS_EXTERN int gpuvis_trace_end_ctx_printf( unsigned int ctx, const char *fmt, ... );
-GPUVIS_EXTERN int gpuvis_trace_end_ctx_vprintf( unsigned int ctx, const char *fmt, va_list ap );
+GPUVIS_EXTERN int gpuvis_trace_begin_ctx_printf( unsigned int ctx, const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 2, 3 );
+GPUVIS_EXTERN int gpuvis_trace_begin_ctx_vprintf( unsigned int ctx, const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 2, 0 );
+
+GPUVIS_EXTERN int gpuvis_trace_end_ctx_printf( unsigned int ctx, const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 2, 3 );
+GPUVIS_EXTERN int gpuvis_trace_end_ctx_vprintf( unsigned int ctx, const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 2, 0 );
 
 GPUVIS_EXTERN int gpuvis_start_tracing();
 GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing();
@@ -67,6 +73,8 @@ GPUVIS_EXTERN const char *gpuvis_get_trace_marker_path();
 
 #ifdef GPUVIS_IMPLEMENTATION
 
+#include <stdio.h>
+#include <unistd.h>
 #include <limits.h>
 #include <sys/vfs.h>
 #include <fcntl.h>
@@ -79,26 +87,45 @@ GPUVIS_EXTERN const char *gpuvis_get_trace_marker_path();
 #define GPUVIS_STR( x ) #x
 #define GPUVIS_STR_VALUE( x ) GPUVIS_STR( x )
 
+static int trace_printf_impl( const char *key, unsigned int val, const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 3, 0 );
 static int trace_printf_impl( const char *key, unsigned int val, const char *fmt, va_list ap )
 {
+    int ret = -1;
     const char *trace_marker_path = gpuvis_get_trace_marker_path();
 
     if ( trace_marker_path[ 0 ] )
     {
-        //$ TODO: impl
-        char buf[ 128 ];
-        int fd = open( trace_marker_path, O_WRONLY );
+        int n;
+        va_list tmp_ap;
+        char buf[ 4096 ];
+        char *str = NULL;
 
-        if ( fd >= 0 )
+        va_copy( tmp_ap, ap );
+        n = vsnprintf( buf, sizeof( buf ), fmt, tmp_ap );
+        va_end( tmp_ap );
+
+        if ( ( n > -1 ) && ( ( size_t )n < sizeof( buf ) ) )
         {
-            write( fd, buf, strlen( buf ) );
-            close( fd );
+            str = ( char * )malloc( n + 1 );
+            if ( str )
+                n = vsprintf( str, fmt, ap );
         }
 
-        return 0;
+        if ( n > -1 )
+        {
+            int fd = open( trace_marker_path, O_WRONLY );
+
+            if ( fd >= 0 )
+            {
+                ret = write( fd, buf, strlen( buf ) );
+                close( fd );
+            }
+        }
+
+        free( str );
     }
 
-    return -1;
+    return ret;
 }
 
 GPUVIS_EXTERN int gpuvis_trace_printf( const char *fmt, ... )
@@ -132,7 +159,7 @@ GPUVIS_EXTERN int gpuvis_trace_duration_printf( unsigned int duration, const cha
 
 GPUVIS_EXTERN int gpuvis_trace_duration_vprintf( unsigned int duration, const char *fmt, va_list ap )
 {
-    return gpuvis_trace_printf( "duration", duration, fmt, ap );
+    return trace_printf_impl( "duration", duration, fmt, ap );
 }
 
 GPUVIS_EXTERN int gpuvis_trace_begin_ctx_printf( unsigned int ctx, const char *fmt, ... )
@@ -149,7 +176,7 @@ GPUVIS_EXTERN int gpuvis_trace_begin_ctx_printf( unsigned int ctx, const char *f
 
 GPUVIS_EXTERN int gpuvis_trace_begin_ctx_vprintf( unsigned int ctx, const char *fmt, va_list ap )
 {
-    return gpuvis_trace_printf( "begin_ctx", ctx, fmt, ap );
+    return trace_printf_impl( "begin_ctx", ctx, fmt, ap );
 }
 
 GPUVIS_EXTERN int gpuvis_trace_end_ctx_printf( unsigned int ctx, const char *fmt, ... )
@@ -166,7 +193,7 @@ GPUVIS_EXTERN int gpuvis_trace_end_ctx_printf( unsigned int ctx, const char *fmt
 
 GPUVIS_EXTERN int gpuvis_trace_end_ctx_vprintf( unsigned int ctx, const char *fmt, va_list ap )
 {
-    return gpuvis_trace_printf( "end_ctx", ctx, fmt, ap );
+    return trace_printf_impl( "end_ctx", ctx, fmt, ap );
 }
 
 GPUVIS_EXTERN int gpuvis_start_tracing()
