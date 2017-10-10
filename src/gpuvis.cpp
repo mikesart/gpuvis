@@ -1423,10 +1423,10 @@ static const char *get_print_buf_end( const char *buf )
     }
 
     // Search for :
-    buf_end = strrchr( buf, ':' );
+    buf_end = strchr( buf, ':' );
     // No colon, try to find '='
     if ( !buf_end )
-        buf_end = strrchr( buf, '=' );
+        buf_end = strchr( buf, '=' );
     if ( buf_end )
         return buf_end + 1;
 
