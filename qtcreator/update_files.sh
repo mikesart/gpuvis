@@ -15,6 +15,7 @@ DEFINES=$(cat <<'END_HEREDOC'
 #define __LINUX__ 1
 #define _GNU_SOURCE 1
 #define USE_FREETYPE 1
+#define GPUVIS_IMPLEMENTATION
 END_HEREDOC
 )
 echo "${DEFINES}" > ${PROJNAME}.config
