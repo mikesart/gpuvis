@@ -112,8 +112,8 @@ gettid()
 static void *
 thread_proc( void *arg )
 {
-    pid_t tid = gettid();
-    unsigned int seed = tid;
+    int tid = ( int )( intptr_t )arg;
+    unsigned int seed = gettid();
 
     gpuvis_set_thread_name( "thread_%d", tid );
     gpuvis_trace_begin_ctx_printf( tid, "thread_%d running", tid );
@@ -873,7 +873,7 @@ int main( int argc, char *argv[] )
 
     running = 1;
     for ( i = 0; i < num_threads; i++ )
-        pthread_create( &( threadids[ i ] ), NULL, &thread_proc, NULL );
+        pthread_create( &( threadids[ i ] ), NULL, &thread_proc, ( void * )( intptr_t )i );
 
     event_loop( dpy, win );
 
