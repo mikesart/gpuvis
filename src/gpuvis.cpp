@@ -1893,6 +1893,13 @@ void TraceEvents::init_new_event( trace_event_t &event )
             m_trace_info.pid_comm_map.get_val( event.pid, filename );
         }
     }
+    else if ( !strcmp( event.name, "sched_process_exit" ) )
+    {
+        const char *pid_comm = get_event_field_val( event, "comm", NULL );
+
+        if ( pid_comm )
+            m_trace_info.pid_comm_map.set_val( event.pid, m_strpool.getstr( pid_comm ) );
+    }
     else if ( !strcmp( event.name, "sched_process_fork" ) )
     {
         // parent_comm=glxgears parent_pid=23543 child_comm=glxgears child_pid=23544
