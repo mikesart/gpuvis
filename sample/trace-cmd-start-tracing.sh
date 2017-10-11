@@ -34,12 +34,12 @@ else
     ROOT_CMDS="${ROOT_CMDS}chmod 0222 \"${TRACEFS}/trace_marker\"\n"
 fi
 
-if ! ${TRACECMD} stat > /dev/null 2>&1; then
-    echo "${TRACECMD} stat: (failed)"
+if [ -u "${TRACECMD}" ]; then
+    echo "${TRACECMD}: (setuid set)"
+else
+    echo "${TRACECMD}: (setuid not set)"
 
     ROOT_CMDS="${ROOT_CMDS}chmod u+s ${TRACECMD}\n"
-else
-    echo "${TRACECMD} stat: (success)"
 fi
 
 if [ -z "${ROOT_CMDS}" ]; then
