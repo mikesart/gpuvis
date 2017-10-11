@@ -2,7 +2,7 @@
 // gpuvis_trace_utils.h - v0.10 - public domain
 //   no warranty is offered or implied; use this code at your own risk
 //
-// This is a single header file with a useful utilities for gpuvis tracing
+// This is a single header file with useful utilities for gpuvis linux tracing
 //
 // ============================================================================
 // You MUST define GPUVIS_IMPLEMENTATION in EXACTLY _one_ C or C++ file that
