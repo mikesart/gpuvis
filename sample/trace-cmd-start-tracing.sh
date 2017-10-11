@@ -1,5 +1,60 @@
 #/bin/bash
 
+DEBUGFS=$(grep -w ^debugfs /proc/mounts | awk '{ print $2; }')
+TRACEFS=${DEBUGFS}/tracing
+
+TRACECMD=$(which trace-cmd)
+# TRACECMD=/usr/bin/trace-cmd
+
+ROOT_CMDS=
+
+# User name of owner: stat -c %U /sys/kernel/debug
+
+if [ -z "${DEBUGFS}" ]; then
+    echo "ERROR: Could not locate debugfs directory"
+    exit -1
+fi
+
+if [ -z "${TRACECMD}" ]; then
+    echo "ERROR: Could not locate trace-cmd binary"
+    exit -1
+fi
+
+echo "debugfs: ${DEBUGFS} (permissions:$(stat -c %a ${DEBUGFS}))"
+echo "tracefs: ${TRACEFS}"
+
+if [ -w "${TRACEFS}/trace_marker" ]; then
+    echo "trace_marker: ${TRACEFS}/trace_marker (writable)"
+else
+    echo "trace_marker: ${TRACEFS}/trace_marker (not writable)"
+
+    ROOT_CMDS="${ROOT_CMDS}chmod 0755 \"${DEBUGFS}\"\n"
+    ROOT_CMDS="${ROOT_CMDS}ls \"${TRACEFS}\" > /dev/null 2>&1\n"
+    ROOT_CMDS="${ROOT_CMDS}chmod 0755 \"${TRACEFS}\"\n"
+    ROOT_CMDS="${ROOT_CMDS}chmod 0222 \"${TRACEFS}/trace_marker\"\n"
+fi
+
+if ! ${TRACECMD} stat > /dev/null 2>&1; then
+    echo "${TRACECMD} stat: (failed)"
+
+    ROOT_CMDS="${ROOT_CMDS}chmod u+s ${TRACECMD}\n"
+else
+    echo "${TRACECMD} stat: (success)"
+fi
+
+if [ -z "${ROOT_CMDS}" ]; then
+    :
+else
+    ROOT_CMDS_FILE="$(mktemp)"
+    echo -e ${ROOT_CMDS} > ${ROOT_CMDS_FILE}
+    echo ROOT_CMDS_FILE is ${ROOT_CMDS_FILE}
+
+    cat "${ROOT_CMDS_FILE}"
+    xterm -e "echo Enter your password to setup SteamVR GPU profiling:; sudo bash ${ROOT_CMDS_FILE}"
+fi
+
+exit
+
 EVENTS=
 
 # https://github.com/mikesart/gpuvis/wiki/TechDocs-Linux-Scheduler
