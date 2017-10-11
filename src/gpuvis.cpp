@@ -1900,6 +1900,11 @@ void TraceEvents::init_new_event( trace_event_t &event )
         if ( pid_comm )
             m_trace_info.pid_comm_map.set_val( event.pid, m_strpool.getstr( pid_comm ) );
     }
+#if 0
+    // Disabled for now. Need to figure out how to prevent sudo, bash, etc from becoming the parent. Ie:
+    //    <...>-7860  [021]  3726.235512: sched_process_fork:   comm=sudo pid=7860 child_comm=sudo child_pid=7861
+    //    <...>-7861  [010]  3726.825033: sched_process_fork:   comm=glxgears pid=7861 child_comm=glxgears child_pid=7862
+    //    <...>-7861  [010]  3726.825304: sched_process_fork:   comm=glxgears pid=7861 child_comm=glxgears child_pid=7863
     else if ( !strcmp( event.name, "sched_process_fork" ) )
     {
         // parent_comm=glxgears parent_pid=23543 child_comm=glxgears child_pid=23544
@@ -1929,6 +1934,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
             m_trace_info.pid_tgid_map.get_val( pid, tgid );
         }
     }
+#endif
 
     if ( event.is_sched_switch() )
         init_sched_switch_event( event );
