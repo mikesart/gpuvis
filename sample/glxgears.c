@@ -116,7 +116,6 @@ thread_proc( void *arg )
     unsigned int seed = gettid();
 
     gpuvis_set_thread_name( "thread_%d", tid );
-    gpuvis_trace_begin_ctx_printf( tid, "thread_%d running", tid );
 
     while ( running )
     {
@@ -128,7 +127,6 @@ thread_proc( void *arg )
         usleep( 1000 );
     }
 
-    gpuvis_trace_end_ctx_printf( tid, "thread_%d end running", tid );
     return 0;
 }
 
