@@ -666,10 +666,10 @@ void MainApp::add_sched_switch_pid_comm( const trace_event_t &event,
              trace_info.sched_switch_pid_comm_map.get_val( pid ) )
         {
             // Add to pid_comm map
-            trace_info.pid_comm_map.get_val( pid, comm );
+            trace_info.pid_comm_map.set_val( pid, comm );
 
             // And add to sched_switch pid_comm map
-            trace_info.sched_switch_pid_comm_map.get_val( pid, comm );
+            trace_info.sched_switch_pid_comm_map.set_val( pid, comm );
         }
     }
 }
