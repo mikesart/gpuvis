@@ -790,8 +790,6 @@ int main( int argc, char *argv[] )
     pthread_t threadids[ 2 ];
     static const int num_threads = ( int )( sizeof( threadids ) / sizeof( threadids[ 0 ] ) );
 
-    gpuvis_set_thread_name( "%s", "glxgears" );
-
     if ( gpuvis_trace_init() < 0 )
         printf( "[ERROR] gpuvis_trace_init failed: %s\n", gpuvis_trace_errstr() );
 
