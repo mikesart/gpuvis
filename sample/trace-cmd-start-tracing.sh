@@ -53,8 +53,6 @@ else
     xterm -e "echo Enter your password to setup SteamVR GPU profiling:; sudo bash ${ROOT_CMDS_FILE}"
 fi
 
-exit
-
 EVENTS=
 
 # https://github.com/mikesart/gpuvis/wiki/TechDocs-Linux-Scheduler
