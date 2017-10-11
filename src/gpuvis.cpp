@@ -1880,7 +1880,20 @@ void TraceEvents::init_new_event( trace_event_t &event )
         m_eventnames_locs.add_location_str( event.name, event.id );
     }
 
-    if ( !strcmp( event.name, "sched_process_fork" ) )
+    if ( !strcmp( event.name, "sched_process_exec" ) )
+    {
+        // pid, old_pid, filename
+        const char *filename = get_event_field_val( event, "filename" );
+
+        filename = strrchr( filename, '/' );
+        if ( filename )
+        {
+            // Add pid --> comm map if it doesn't already exist
+            filename = m_strpool.getstr( filename + 1 );
+            m_trace_info.pid_comm_map.get_val( event.pid, filename );
+        }
+    }
+    else if ( !strcmp( event.name, "sched_process_fork" ) )
     {
         // parent_comm=glxgears parent_pid=23543 child_comm=glxgears child_pid=23544
         int tgid = atoi( get_event_field_val( event, "parent_pid", "0" ) );
