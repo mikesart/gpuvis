@@ -64,9 +64,11 @@ static inline int gpuvis_trace_begin_ctx_vprintf( int ctx, const char *fmt, va_l
 static inline int gpuvis_trace_end_ctx_printf( int ctx, const char *fmt, ... ) { return 0; }
 static inline int gpuvis_trace_end_ctx_vprintf( int ctx, const char *fmt, va_list ap ) { return 0; }
 
-static inline int gpuvis_start_tracing() { return 0; }
-static inline int gpuvis_trigger_capture_and_keep_tracing() { return 0; }
-static inline int gpuvis_stop_tracing() { return 0; }
+//static inline int gpuvis_start_tracing() { return 0; }
+//static inline int gpuvis_trigger_capture_and_keep_tracing() { return 0; }
+//static inline int gpuvis_stop_tracing() { return 0; }
+
+static inline int gpuvis_tracing_on() { return -1; }
 
 static inline int gpuvis_get_tracefs_dir() { return 0; }
 static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file ) { return NULL; }
@@ -95,9 +97,12 @@ GPUVIS_EXTERN int gpuvis_trace_begin_ctx_vprintf( unsigned int ctx, const char *
 GPUVIS_EXTERN int gpuvis_trace_end_ctx_printf( unsigned int ctx, const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 2, 3 );
 GPUVIS_EXTERN int gpuvis_trace_end_ctx_vprintf( unsigned int ctx, const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 2, 0 );
 
-GPUVIS_EXTERN int gpuvis_start_tracing();
-GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing();
-GPUVIS_EXTERN int gpuvis_stop_tracing();
+//GPUVIS_EXTERN int gpuvis_start_tracing();
+//GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing();
+//GPUVIS_EXTERN int gpuvis_stop_tracing();
+
+// -1: tracing not setup, 0: tracing disabled, 1: tracing enabled
+GPUVIS_EXTERN int gpuvis_tracing_on();
 
 GPUVIS_EXTERN const char *gpuvis_get_tracefs_dir();
 GPUVIS_EXTERN const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file );
@@ -283,24 +288,49 @@ GPUVIS_EXTERN int gpuvis_trace_end_ctx_vprintf( unsigned int ctx, const char *fm
     return trace_printf_impl( "end_ctx", ctx, fmt, ap );
 }
 
-GPUVIS_EXTERN int gpuvis_start_tracing()
-{
-    //$ TODO
-    // system( ESCAPE_STEAM_RUNTIME "kill -10 `" ESCAPE_STEAM_RUNTIME "pgrep -f gpu-trace`" );
-    // sprintf( buf, ESCAPE_STEAM_RUNTIME "./gpu-trace -g -r -s 10 -p %d &", getpid() );
-    return 0;
-}
+//GPUVIS_EXTERN int gpuvis_start_tracing()
+//{
+//    //$ TODO
+//    // system( ESCAPE_STEAM_RUNTIME "kill -10 `" ESCAPE_STEAM_RUNTIME "pgrep -f gpu-trace`" );
+//    // sprintf( buf, ESCAPE_STEAM_RUNTIME "./gpu-trace -g -r -s 10 -p %d &", getpid() );
+//    return 0;
+//}
 
-GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing()
-{
-    //$ TODO
-    return 0;
-}
+//GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing()
+//{
+//    //$ TODO
+//    return 0;
+//}
 
-GPUVIS_EXTERN int gpuvis_stop_tracing()
+//GPUVIS_EXTERN int gpuvis_stop_tracing()
+//{
+//    //$ TODO
+//    return 0;
+//}
+
+GPUVIS_EXTERN int gpuvis_tracing_on()
 {
-    //$ TODO
-    return 0;
+    int ret = -1;
+    char buf[ 32 ];
+    char filename[ PATH_MAX ];
+
+    if ( gpuvis_get_tracefs_filename( filename, PATH_MAX, "tracing_on" ) )
+    {
+        int fd = open( filename, O_RDONLY );
+
+        if ( fd >= 0 )
+        {
+            if ( read( fd, buf, sizeof( buf ) ) > 0 )
+            {
+                buf[ 1 ] = 0;
+                ret = atoi( buf );
+            }
+
+            close( fd );
+        }
+    }
+
+    return ret;
 }
 
 static int is_tracefs_dir( const char *dir )

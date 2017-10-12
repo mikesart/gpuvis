@@ -792,6 +792,8 @@ int main( int argc, char *argv[] )
     if ( gpuvis_trace_init() < 0 )
         printf( "[ERROR] gpuvis_trace_init failed: %s\n", gpuvis_trace_errstr() );
 
+    printf( "gpuvis_tracing_on: %d\n", gpuvis_tracing_on() );
+
     for ( i = 1; i < argc; i++ )
     {
         if ( strcmp( argv[ i ], "-display" ) == 0 )
