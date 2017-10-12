@@ -69,7 +69,7 @@ static inline int gpuvis_trigger_capture_and_keep_tracing() { return 0; }
 static inline int gpuvis_stop_tracing() { return 0; }
 
 static inline int gpuvis_get_tracefs_dir() { return 0; }
-static inline int gpuvis_get_trace_marker_path() { return 0; }
+static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file ) { return NULL; }
 
 #else
 
@@ -100,7 +100,7 @@ GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing();
 GPUVIS_EXTERN int gpuvis_stop_tracing();
 
 GPUVIS_EXTERN const char *gpuvis_get_tracefs_dir();
-GPUVIS_EXTERN const char *gpuvis_get_trace_marker_path();
+GPUVIS_EXTERN const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file );
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -139,25 +139,18 @@ GPUVIS_EXTERN int gpuvis_trace_init()
 {
     if ( ( trace_fd < 0 ) && !trace_err )
     {
-        const char *trace_marker_path = gpuvis_get_trace_marker_path();
+        char filename[ PATH_MAX ];
 
-        if ( !trace_marker_path[ 0 ] )
+        // The "trace_marker" file allows userspace to write into the ftrace buffer.
+        if ( !gpuvis_get_tracefs_filename( filename, sizeof( filename ), "trace_marker" ) )
         {
             trace_err = strerror( EACCES );
-#if defined( DEBUG ) || defined( _DEBUG )
-            printf( "[ERROR] gpuvis_get_trace_marker_path() failed: %s\n", trace_err );
-#endif
         }
         else
         {
-            trace_fd = open( trace_marker_path, O_WRONLY );
+            trace_fd = open( filename, O_WRONLY );
             if ( trace_fd < 0 )
-            {
                 trace_err = strerror( errno );
-#if defined( DEBUG ) || defined( _DEBUG )
-                printf( "[ERROR] %s open( %s ) failed: %s\n", __func__, trace_marker_path, trace_err );
-#endif
-            }
         }
     }
 
@@ -166,7 +159,7 @@ GPUVIS_EXTERN int gpuvis_trace_init()
 
 GPUVIS_EXTERN const char *gpuvis_trace_errstr()
 {
-    return trace_err;
+    return trace_err ? trace_err : "";
 }
 
 GPUVIS_EXTERN void gpuvis_trace_shutdown()
@@ -372,26 +365,19 @@ GPUVIS_EXTERN const char *gpuvis_get_tracefs_dir()
     return tracefs_dir;
 }
 
-GPUVIS_EXTERN const char *gpuvis_get_trace_marker_path()
+GPUVIS_EXTERN const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file )
 {
-    static int inited = 0;
-    static char tracefs_marker_path[ PATH_MAX ];
+    const char *tracefs_dir = gpuvis_get_tracefs_dir();
 
-    if ( !inited )
+    if ( tracefs_dir[ 0 ] )
     {
-        const char *tracefs_dir = gpuvis_get_tracefs_dir();
+        snprintf( buf, buflen, "%s/%s", tracefs_dir, file );
+        buf[ buflen - 1 ] = 0;
 
-        if ( tracefs_dir[ 0 ] )
-        {
-            // The "trace_marker" file allows userspace to write into the ftrace buffer.
-            snprintf( tracefs_marker_path, PATH_MAX, "%s/trace_marker", tracefs_dir );
-            tracefs_marker_path[ PATH_MAX - 1 ] = 0;
-        }
-
-        inited = 1;
+        return buf;
     }
 
-    return tracefs_marker_path;
+    return NULL;
 }
 
 #endif // GPUVIS_IMPLEMENTATION
