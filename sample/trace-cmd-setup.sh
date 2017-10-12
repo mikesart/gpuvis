@@ -10,8 +10,10 @@ GREEN="${ESC}[32;1m"
 function spewTraceStatus() {
     echo "Tracing status:"
 
+    OWNER="$(stat -c %U ${TRACECMD})"
+
     if [ -u "${TRACECMD}" ]; then
-        echo "  ${TRACECMD} ${GREEN}(setuid set)${NORMAL}"
+        echo "  ${TRACECMD} ${GREEN}(setuid set for '${OWNER}')${NORMAL}"
     else
         echo "  ${TRACECMD} ${YELLOW}(setuid not set)${NORMAL}"
     fi
@@ -37,14 +39,15 @@ ROOT_CMDS=
 TRACEFS="/sys/kernel/tracing"
 
 TRACECMD=$(which trace-cmd)
+TRACECMD=$(readlink -f ${TRACECMD})
 
 if [ -z "${TRACECMD}" ]; then
     echo "ERROR: Could not locate trace-cmd binary"
     exit -1
 fi
 
-if [ -u "${TRACECMD}" ]; then
-    # trace-cmd setuid set
+if [ -u "${TRACECMD}" ] && [ "$(stat -c %U ${TRACECMD})" == "root" ] ; then
+    # trace-cmd owner and setuid set
 
     # Check if tracefs dir is mounted
     if ! egrep -q " ${TRACEFS} .*tracefs" /proc/mounts; then
@@ -53,7 +56,9 @@ if [ -u "${TRACECMD}" ]; then
         ${TRACECMD} stat > /dev/null 2>&1
     fi
 else
-    # trace-cmd setuid not set
+    # trace-cmd owner or setuid not set
+    ROOT_CMDS+="# Make sure root owns trace-cmd\n"
+    ROOT_CMDS+="chown root:root ${TRACECMD}\n\n"
 
     ROOT_CMDS+="# Add setuid bit to trace-cmd binary\n"
     ROOT_CMDS+="chmod u+s ${TRACECMD}\n\n"
