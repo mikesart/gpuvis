@@ -34,17 +34,49 @@
 
 #include <stdarg.h>
 
-#ifdef __cplusplus
-  #define GPUVIS_EXTERN   extern "C"
-#else
-  #define GPUVIS_EXTERN   extern
-#endif
-
 // printf-style warnings for user functions.
 #if defined( __clang__ ) || defined( __GNUC__ )
 #define GPUVIS_ATTR_PRINTF( _x, _y ) __attribute__( ( __format__( __printf__, _x, _y ) ) )
 #else
 #define GPUVIS_ATTR_PRINTF( _x, _y )
+#endif
+
+#if !defined( __linux__ )
+#define GPUVIS_TRACE_UTILS_NOP
+#endif
+
+#ifdef GPUVIS_TRACE_UTILS_NOP
+#undef GPUVIS_IMPLEMENTATION
+
+static inline int gpuvis_trace_init() { return 0; }
+static inline void gpuvis_trace_shutdown() {}
+static inline const char *gpuvis_trace_errstr() { return ""; }
+
+static inline int gpuvis_trace_printf( const char *fmt, ... ) { return 0; }
+static inline int gpuvis_trace_vprintf( const char *fmt, va_list ap ) { return 0; }
+
+static inline int gpuvis_trace_duration_printf( int duration, const char *fmt, ... ) { return 0; }
+static inline int gpuvis_trace_duration_vprintf( int duration, const char *fmt, va_list ap ) { return 0; }
+
+static inline int gpuvis_trace_begin_ctx_printf( int ctx, const char *fmt, ... ) { return 0; }
+static inline int gpuvis_trace_begin_ctx_vprintf( int ctx, const char *fmt, va_list ap ) { return 0; }
+
+static inline int gpuvis_trace_end_ctx_printf( int ctx, const char *fmt, ... ) { return 0; }
+static inline int gpuvis_trace_end_ctx_vprintf( int ctx, const char *fmt, va_list ap ) { return 0; }
+
+static inline int gpuvis_start_tracing() { return 0; }
+static inline int gpuvis_trigger_capture_and_keep_tracing() { return 0; }
+static inline int gpuvis_stop_tracing() { return 0; }
+
+static inline int gpuvis_get_tracefs_dir() { return 0; }
+static inline int gpuvis_get_trace_marker_path() { return 0; }
+
+#else
+
+#ifdef __cplusplus
+  #define GPUVIS_EXTERN   extern "C"
+#else
+  #define GPUVIS_EXTERN   extern
 #endif
 
 GPUVIS_EXTERN int gpuvis_trace_init();
@@ -74,6 +106,8 @@ GPUVIS_EXTERN const char *gpuvis_get_trace_marker_path();
 //
 //     IMPLEMENTATION SECTION
 //
+
+#endif // !GPUVIS_TRACE_UTILS_NOP
 
 #ifdef GPUVIS_IMPLEMENTATION
 
