@@ -8,7 +8,7 @@ if [ -z "${TRACECMD}" ]; then
 fi
 
 if [ ! -u "${TRACECMD}" ]; then
-    echo "ERROR: ${TRACECMD} setuid not set"
+    echo "ERROR: ${TRACECMD} setuid bit not set. Run trace-cmd-setup.sh?"
     exit -1
 fi
 
