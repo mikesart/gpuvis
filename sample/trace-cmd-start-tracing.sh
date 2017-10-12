@@ -46,7 +46,7 @@ EVENTS+=" -e i915:i915_gem_request_wait_begin"
 EVENTS+=" -e i915:i915_gem_request_wait_end"
 
 echo
-CMD="trace-cmd start -b 2000 -i ${EVENTS}"
+CMD="trace-cmd start -b 2000 -D -i ${EVENTS}"
 echo $CMD
 $CMD
 
