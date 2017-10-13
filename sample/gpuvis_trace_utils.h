@@ -45,35 +45,7 @@
 #define GPUVIS_TRACE_UTILS_NOP
 #endif
 
-#ifdef GPUVIS_TRACE_UTILS_NOP
-#undef GPUVIS_IMPLEMENTATION
-
-static inline int gpuvis_trace_init() { return 0; }
-static inline void gpuvis_trace_shutdown() {}
-static inline const char *gpuvis_trace_errstr() { return ""; }
-
-static inline int gpuvis_trace_printf( const char *fmt, ... ) { return 0; }
-static inline int gpuvis_trace_vprintf( const char *fmt, va_list ap ) { return 0; }
-
-static inline int gpuvis_trace_duration_printf( int duration, const char *fmt, ... ) { return 0; }
-static inline int gpuvis_trace_duration_vprintf( int duration, const char *fmt, va_list ap ) { return 0; }
-
-static inline int gpuvis_trace_begin_ctx_printf( int ctx, const char *fmt, ... ) { return 0; }
-static inline int gpuvis_trace_begin_ctx_vprintf( int ctx, const char *fmt, va_list ap ) { return 0; }
-
-static inline int gpuvis_trace_end_ctx_printf( int ctx, const char *fmt, ... ) { return 0; }
-static inline int gpuvis_trace_end_ctx_vprintf( int ctx, const char *fmt, va_list ap ) { return 0; }
-
-static inline int gpuvis_start_tracing() { return 0; }
-static inline int gpuvis_trigger_capture_and_keep_tracing() { return 0; }
-static inline int gpuvis_stop_tracing() { return 0; }
-
-static inline int gpuvis_tracing_on() { return -1; }
-
-static inline int gpuvis_get_tracefs_dir() { return 0; }
-static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file ) { return NULL; }
-
-#else
+#ifndef GPUVIS_TRACE_UTILS_NOP
 
 #ifdef __cplusplus
   #define GPUVIS_EXTERN   extern "C"
@@ -107,14 +79,43 @@ GPUVIS_EXTERN int gpuvis_tracing_on();
 GPUVIS_EXTERN const char *gpuvis_get_tracefs_dir();
 GPUVIS_EXTERN const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file );
 
-//////////////////////////////////////////////////////////////////////////////
-//
-//     IMPLEMENTATION SECTION
-//
+#else
+
+#undef GPUVIS_IMPLEMENTATION
+
+static inline int gpuvis_trace_init() { return 0; }
+static inline void gpuvis_trace_shutdown() {}
+static inline const char *gpuvis_trace_errstr() { return ""; }
+
+static inline int gpuvis_trace_printf( const char *fmt, ... ) { return 0; }
+static inline int gpuvis_trace_vprintf( const char *fmt, va_list ap ) { return 0; }
+
+static inline int gpuvis_trace_duration_printf( int duration, const char *fmt, ... ) { return 0; }
+static inline int gpuvis_trace_duration_vprintf( int duration, const char *fmt, va_list ap ) { return 0; }
+
+static inline int gpuvis_trace_begin_ctx_printf( int ctx, const char *fmt, ... ) { return 0; }
+static inline int gpuvis_trace_begin_ctx_vprintf( int ctx, const char *fmt, va_list ap ) { return 0; }
+
+static inline int gpuvis_trace_end_ctx_printf( int ctx, const char *fmt, ... ) { return 0; }
+static inline int gpuvis_trace_end_ctx_vprintf( int ctx, const char *fmt, va_list ap ) { return 0; }
+
+static inline int gpuvis_start_tracing() { return 0; }
+static inline int gpuvis_trigger_capture_and_keep_tracing() { return 0; }
+static inline int gpuvis_stop_tracing() { return 0; }
+
+static inline int gpuvis_tracing_on() { return -1; }
+
+static inline int gpuvis_get_tracefs_dir() { return 0; }
+static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file ) { return NULL; }
 
 #endif // !GPUVIS_TRACE_UTILS_NOP
 
 #ifdef GPUVIS_IMPLEMENTATION
+
+//////////////////////////////////////////////////////////////////////////////
+//
+//     IMPLEMENTATION SECTION
+//
 
 #include <stdio.h>
 #include <unistd.h>
