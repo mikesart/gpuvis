@@ -8533,7 +8533,6 @@ bool ImGui::InputFloatN(const char* label, float* v, int components, int decimal
     }
     PopID();
 
-    window->DC.CurrentLineTextBaseOffset = ImMax(window->DC.CurrentLineTextBaseOffset, g.Style.FramePadding.y);
     TextUnformatted(label, FindRenderedTextEnd(label));
     EndGroup();
 
@@ -8576,7 +8575,6 @@ bool ImGui::InputIntN(const char* label, int* v, int components, ImGuiInputTextF
     }
     PopID();
 
-    window->DC.CurrentLineTextBaseOffset = ImMax(window->DC.CurrentLineTextBaseOffset, g.Style.FramePadding.y);
     TextUnformatted(label, FindRenderedTextEnd(label));
     EndGroup();
 
