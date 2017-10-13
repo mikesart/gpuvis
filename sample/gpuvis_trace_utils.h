@@ -53,9 +53,10 @@
   #define GPUVIS_EXTERN   extern
 #endif
 
+// Try to open tracefs trace_marker file for writing. Returns -1 on error.
 GPUVIS_EXTERN int gpuvis_trace_init();
+// Close tracefs trace_marker file.
 GPUVIS_EXTERN void gpuvis_trace_shutdown();
-GPUVIS_EXTERN const char *gpuvis_trace_errstr();
 
 GPUVIS_EXTERN int gpuvis_trace_printf( const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 1, 2 );
 GPUVIS_EXTERN int gpuvis_trace_vprintf( const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 1, 0 );
@@ -69,14 +70,20 @@ GPUVIS_EXTERN int gpuvis_trace_begin_ctx_vprintf( unsigned int ctx, const char *
 GPUVIS_EXTERN int gpuvis_trace_end_ctx_printf( unsigned int ctx, const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 2, 3 );
 GPUVIS_EXTERN int gpuvis_trace_end_ctx_vprintf( unsigned int ctx, const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 2, 0 );
 
+// Execute "trace-cmd start -b 2000 -D -i -e sched:sched_switch -e ..."
 GPUVIS_EXTERN int gpuvis_start_tracing();
+// Execute "trace-cmd extract"
 GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing();
+// Execute "trace-cmd reset"
 GPUVIS_EXTERN int gpuvis_stop_tracing();
 
-// -1: tracing not setup, 0: tracing disabled, 1: tracing enabled
+// -1: tracing not setup, 0: tracing disabled, 1: tracing enabled.
 GPUVIS_EXTERN int gpuvis_tracing_on();
 
+// Get tracefs directory. Ie: /sys/kernel/tracing. Returns "" on error.
 GPUVIS_EXTERN const char *gpuvis_get_tracefs_dir();
+
+// Get tracefs file path in buf. Ie: /sys/kernel/tracing/trace_marker. Returns NULL on error.
 GPUVIS_EXTERN const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file );
 
 #else
@@ -85,7 +92,6 @@ GPUVIS_EXTERN const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen,
 
 static inline int gpuvis_trace_init() { return 0; }
 static inline void gpuvis_trace_shutdown() {}
-static inline const char *gpuvis_trace_errstr() { return ""; }
 
 static inline int gpuvis_trace_printf( const char *fmt, ... ) { return 0; }
 static inline int gpuvis_trace_vprintf( const char *fmt, va_list ap ) { return 0; }
@@ -198,11 +204,6 @@ GPUVIS_EXTERN int gpuvis_trace_init()
     }
 
     return trace_fd;
-}
-
-GPUVIS_EXTERN const char *gpuvis_trace_errstr()
-{
-    return trace_err ? trace_err : "";
 }
 
 GPUVIS_EXTERN void gpuvis_trace_shutdown()

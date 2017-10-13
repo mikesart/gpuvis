@@ -794,9 +794,7 @@ int main( int argc, char *argv[] )
     pthread_t threadids[ 2 ];
     static const int num_threads = ( int )( sizeof( threadids ) / sizeof( threadids[ 0 ] ) );
 
-    if ( gpuvis_trace_init() < 0 )
-        printf( "[ERROR] gpuvis_trace_init failed: %s\n", gpuvis_trace_errstr() );
-
+    printf( "gpuvis_trace_init: %d\n", gpuvis_trace_init() );
     printf( "gpuvis_tracing_on: %d\n", gpuvis_tracing_on() );
     printf( "gpuvis_start_tracing: %d\n", gpuvis_start_tracing() );
     printf( "gpuvis_tracing_on: %d\n", gpuvis_tracing_on() );
