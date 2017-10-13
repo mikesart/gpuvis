@@ -58,15 +58,19 @@ GPUVIS_EXTERN int gpuvis_trace_init();
 // Close tracefs trace_marker file.
 GPUVIS_EXTERN void gpuvis_trace_shutdown();
 
+// Write user event to tracefs trace_marker.
 GPUVIS_EXTERN int gpuvis_trace_printf( const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 1, 2 );
 GPUVIS_EXTERN int gpuvis_trace_vprintf( const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 1, 0 );
 
+// Write user event (with duration=XXms) to tracefs trace_marker.
 GPUVIS_EXTERN int gpuvis_trace_duration_printf( unsigned int duration, const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 2, 3 );
 GPUVIS_EXTERN int gpuvis_trace_duration_vprintf( unsigned int duration, const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 2, 0 );
 
+// Write user event (with begin_ctx=XX) to tracefs trace_marker.
 GPUVIS_EXTERN int gpuvis_trace_begin_ctx_printf( unsigned int ctx, const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 2, 3 );
 GPUVIS_EXTERN int gpuvis_trace_begin_ctx_vprintf( unsigned int ctx, const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 2, 0 );
 
+// Write user event (with end_ctx=XX) to tracefs trace_marker.
 GPUVIS_EXTERN int gpuvis_trace_end_ctx_printf( unsigned int ctx, const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 2, 3 );
 GPUVIS_EXTERN int gpuvis_trace_end_ctx_vprintf( unsigned int ctx, const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 2, 0 );
 
