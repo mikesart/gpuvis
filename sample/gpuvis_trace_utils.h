@@ -148,7 +148,9 @@ static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen,
 #define GPUVIS_STR( x ) #x
 #define GPUVIS_STR_VALUE( x ) GPUVIS_STR( x )
 
-static int trace_fd = -2;
+static int g_trace_fd = -2;
+static int g_tracefs_dir_inited = 0;
+static char g_tracefs_dir[ PATH_MAX ];
 
 static int exec_tracecmd( const char *cmd )
 {
@@ -189,25 +191,28 @@ static int exec_tracecmd( const char *cmd )
 
 GPUVIS_EXTERN int gpuvis_trace_init()
 {
-    if ( trace_fd == -2 )
+    if ( g_trace_fd == -2 )
     {
         char filename[ PATH_MAX ];
 
         // The "trace_marker" file allows userspace to write into the ftrace buffer.
         if ( !gpuvis_get_tracefs_filename( filename, sizeof( filename ), "trace_marker" ) )
-            trace_fd = -1;
+            g_trace_fd = -1;
         else
-            trace_fd = open( filename, O_WRONLY );
+            g_trace_fd = open( filename, O_WRONLY );
     }
 
-    return trace_fd;
+    return g_trace_fd;
 }
 
 GPUVIS_EXTERN void gpuvis_trace_shutdown()
 {
-    if ( trace_fd >= 0 )
-        close( trace_fd );
-    trace_fd = -2;
+    if ( g_trace_fd >= 0 )
+        close( g_trace_fd );
+    g_trace_fd = -2;
+
+    g_tracefs_dir_inited = 0;
+    g_tracefs_dir[ 0 ] = 0;
 }
 
 static int trace_printf_impl( const char *key, unsigned int val, const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 3, 0 );
@@ -245,7 +250,7 @@ static int trace_printf_impl( const char *key, unsigned int val, const char *fmt
                 }
             }
 
-            ret = write( trace_fd, buf, n );
+            ret = write( g_trace_fd, buf, n );
         }
     }
 
@@ -369,7 +374,10 @@ GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing()
             exename = strrchr( exebuf, '/' );
         exename = exename ? ( exename + 1 ) : "trace";
 
-        snprintf( cmd, sizeof( cmd ), "trace-cmd extract -o \"%s_%s.dat\" > /tmp/blah.log 2>&1 &", exename, datetime );
+        // Save to something like "glxgears_2017-10-13_17-52-56.dat"
+        snprintf( cmd, sizeof( cmd ),
+                  "trace-cmd extract -o \"%s_%s.dat\" > /tmp/blah.log 2>&1 &",
+                  exename, datetime );
         cmd[ sizeof( cmd ) - 1 ] = 0;
 
         return system( cmd );
@@ -416,10 +424,7 @@ static int is_tracefs_dir( const char *dir )
 
 GPUVIS_EXTERN const char *gpuvis_get_tracefs_dir()
 {
-    static int inited = 0;
-    static char tracefs_dir[ PATH_MAX ];
-
-    if ( !inited )
+    if ( !g_tracefs_dir_inited )
     {
         size_t i;
         static const char *tracefs_dirs[] =
@@ -434,13 +439,13 @@ GPUVIS_EXTERN const char *gpuvis_get_tracefs_dir()
         {
             if ( is_tracefs_dir( tracefs_dirs[ i ] ) )
             {
-                strncpy( tracefs_dir, tracefs_dirs[ i ], PATH_MAX );
-                tracefs_dir[ PATH_MAX - 1 ] = 0;
+                strncpy( g_tracefs_dir, tracefs_dirs[ i ], PATH_MAX );
+                g_tracefs_dir[ PATH_MAX - 1 ] = 0;
                 break;
             }
         }
 
-        if ( !tracefs_dir[ 0 ] )
+        if ( !g_tracefs_dir[ 0 ] )
         {
             FILE *fp;
             char type[ 128 ];
@@ -453,8 +458,8 @@ GPUVIS_EXTERN const char *gpuvis_get_tracefs_dir()
                 {
                     if ( !strcmp( type, "tracefs" ) && is_tracefs_dir( dir ) )
                     {
-                        strncpy( tracefs_dir, dir, PATH_MAX );
-                        tracefs_dir[ PATH_MAX - 1 ] = 0;
+                        strncpy( g_tracefs_dir, dir, PATH_MAX );
+                        g_tracefs_dir[ PATH_MAX - 1 ] = 0;
                         break;
                     }
                 }
@@ -463,10 +468,10 @@ GPUVIS_EXTERN const char *gpuvis_get_tracefs_dir()
             }
         }
 
-        inited = 1;
+        g_tracefs_dir_inited = 1;
     }
 
-    return tracefs_dir;
+    return g_tracefs_dir;
 }
 
 GPUVIS_EXTERN const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file )
