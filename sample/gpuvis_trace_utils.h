@@ -357,17 +357,22 @@ GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing()
     {
         char datetime[ 128 ];
         char cmd[ PATH_MAX ];
+        char *exename = NULL;
+        char exebuf[ PATH_MAX ];
         time_t t = time( NULL );
         struct tm *tmp = localtime( &t );
 
         strftime( datetime, sizeof( datetime ), "%Y-%m-%d_%H-%M-%S", tmp );
         datetime[ sizeof( datetime ) - 1 ] = 0;
 
-        snprintf( cmd, sizeof( cmd ), "trace-cmd extract -o \"trace_%s.dat\" 2>&1", datetime );
+        if ( readlink( "/proc/self/exe", exebuf, sizeof( exebuf ) ) > 0 )
+            exename = strrchr( exebuf, '/' );
+        exename = exename ? ( exename + 1 ) : "trace";
+
+        snprintf( cmd, sizeof( cmd ), "trace-cmd extract -o \"%s_%s.dat\" > /tmp/blah.log 2>&1 &", exename, datetime );
         cmd[ sizeof( cmd ) - 1 ] = 0;
 
-        printf( "cmd: %s\n", cmd );
-        return exec_tracecmd( cmd );
+        return system( cmd );
     }
 
     return -1;
