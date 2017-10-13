@@ -1,16 +1,16 @@
 /*
  * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
  * to deal in the Software without restriction, including without limitation
  * the rights to use, copy, modify, merge, publish, distribute, sublicense,
  * and/or sell copies of the Software, and to permit persons to whom the
  * Software is furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included
  * in all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
@@ -135,7 +135,7 @@ thread_proc( void *arg )
  *
  *  Draw a gear wheel.  You'll probably want to call this function when
  *  building a display list since we do a lot of trig here.
- * 
+ *
  *  Input:  inner_radius - radius of hole at center
  *          outer_radius - radius at center of teeth
  *          width - width of gear
@@ -731,6 +731,11 @@ handle_event( Display *dpy, Window win, XEvent *event )
             {
                 animate = !animate;
             }
+            else if ( buffer[ 0 ] == 'c' || buffer[ 0 ] == 'C' )
+            {
+                printf( "gpuvis_trigger_capture_and_keep_tracing: %d\n",
+                        gpuvis_trigger_capture_and_keep_tracing() );
+            }
         }
         return DRAW;
     }
@@ -792,6 +797,8 @@ int main( int argc, char *argv[] )
     if ( gpuvis_trace_init() < 0 )
         printf( "[ERROR] gpuvis_trace_init failed: %s\n", gpuvis_trace_errstr() );
 
+    printf( "gpuvis_tracing_on: %d\n", gpuvis_tracing_on() );
+    printf( "gpuvis_start_tracing: %d\n", gpuvis_start_tracing() );
     printf( "gpuvis_tracing_on: %d\n", gpuvis_tracing_on() );
 
     for ( i = 1; i < argc; i++ )
@@ -894,6 +901,8 @@ int main( int argc, char *argv[] )
     glXDestroyContext( dpy, ctx );
     XDestroyWindow( dpy, win );
     XCloseDisplay( dpy );
+
+    printf( "gpuvis_stop_tracing: %d\n", gpuvis_stop_tracing() );
 
     gpuvis_trace_shutdown();
     return 0;

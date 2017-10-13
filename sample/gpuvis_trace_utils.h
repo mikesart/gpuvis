@@ -64,9 +64,9 @@ static inline int gpuvis_trace_begin_ctx_vprintf( int ctx, const char *fmt, va_l
 static inline int gpuvis_trace_end_ctx_printf( int ctx, const char *fmt, ... ) { return 0; }
 static inline int gpuvis_trace_end_ctx_vprintf( int ctx, const char *fmt, va_list ap ) { return 0; }
 
-//static inline int gpuvis_start_tracing() { return 0; }
-//static inline int gpuvis_trigger_capture_and_keep_tracing() { return 0; }
-//static inline int gpuvis_stop_tracing() { return 0; }
+static inline int gpuvis_start_tracing() { return 0; }
+static inline int gpuvis_trigger_capture_and_keep_tracing() { return 0; }
+static inline int gpuvis_stop_tracing() { return 0; }
 
 static inline int gpuvis_tracing_on() { return -1; }
 
@@ -97,9 +97,9 @@ GPUVIS_EXTERN int gpuvis_trace_begin_ctx_vprintf( unsigned int ctx, const char *
 GPUVIS_EXTERN int gpuvis_trace_end_ctx_printf( unsigned int ctx, const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 2, 3 );
 GPUVIS_EXTERN int gpuvis_trace_end_ctx_vprintf( unsigned int ctx, const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 2, 0 );
 
-//GPUVIS_EXTERN int gpuvis_start_tracing();
-//GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing();
-//GPUVIS_EXTERN int gpuvis_stop_tracing();
+GPUVIS_EXTERN int gpuvis_start_tracing();
+GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing();
+GPUVIS_EXTERN int gpuvis_stop_tracing();
 
 // -1: tracing not setup, 0: tracing disabled, 1: tracing enabled
 GPUVIS_EXTERN int gpuvis_tracing_on();
@@ -139,6 +139,43 @@ GPUVIS_EXTERN const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen,
 
 static int trace_fd = -1;
 static const char *trace_err = NULL;
+
+static int exec_tracecmd( const char *cmd )
+{
+    int ret;
+
+    FILE *fh = popen( cmd, "r" );
+    if ( !fh )
+    {
+        //$ TODO: popen() failed: errno
+        ret = -1;
+    }
+    else
+    {
+        char buf[ 8192 ];
+
+        while ( fgets( buf, sizeof( buf ), fh ) )
+        {
+            //$ TODO
+            printf( "%s: %s", __func__, buf );
+        }
+
+        if ( feof( fh ) )
+        {
+            int pclose_ret = pclose( fh );
+
+            ret = WEXITSTATUS( pclose_ret );
+        }
+        else
+        {
+            //$ TODO: Failed to read pipe to end: errno
+            pclose( fh );
+            ret = -1;
+        }
+    }
+
+    return ret;
+}
 
 GPUVIS_EXTERN int gpuvis_trace_init()
 {
@@ -288,25 +325,65 @@ GPUVIS_EXTERN int gpuvis_trace_end_ctx_vprintf( unsigned int ctx, const char *fm
     return trace_printf_impl( "end_ctx", ctx, fmt, ap );
 }
 
-//GPUVIS_EXTERN int gpuvis_start_tracing()
-//{
-//    //$ TODO
-//    // system( ESCAPE_STEAM_RUNTIME "kill -10 `" ESCAPE_STEAM_RUNTIME "pgrep -f gpu-trace`" );
-//    // sprintf( buf, ESCAPE_STEAM_RUNTIME "./gpu-trace -g -r -s 10 -p %d &", getpid() );
-//    return 0;
-//}
+GPUVIS_EXTERN int gpuvis_start_tracing()
+{
+    const char cmd[] =
+            "trace-cmd start -b 2000 -D -i "
+            // https://github.com/mikesart/gpuvis/wiki/TechDocs-Linux-Scheduler
+            " -e sched:sched_switch"
+            " -e sched:sched_process_fork"
+            " -e sched:sched_process_exec"
+            " -e sched:sched_process_exit"
+            " -e drm:drm_vblank_event"
+            " -e drm:drm_vblank_event_queued"
+            // https://github.com/mikesart/gpuvis/wiki/TechDocs-AMDGpu
+            " -e amdgpu:amdgpu_vm_flush"
+            " -e amdgpu:amdgpu_cs_ioctl"
+            " -e amdgpu:amdgpu_sched_run_job"
+            " -e *fence:*fence_signaled"
+            // https://github.com/mikesart/gpuvis/wiki/TechDocs-Intel
+            " -e i915:i915_flip_request"
+            " -e i915:i915_flip_complete"
+            " -e i915:intel_gpu_freq_change"
+            " -e i915:i915_gem_request_add"
+            " -e i915:i915_gem_request_submit"  // Require CONFIG_DRM_I915_LOW_LEVEL_TRACEPOINTS
+            " -e i915:i915_gem_request_in"      // Kconfig option to be enabled.
+            " -e i915:i915_gem_request_out"     //
+            " -e i915:intel_engine_notify"
+            " -e i915:i915_gem_request_wait_begin"
+            " -e i915:i915_gem_request_wait_end 2>&1";
 
-//GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing()
-//{
-//    //$ TODO
-//    return 0;
-//}
+    return exec_tracecmd( cmd );
+}
 
-//GPUVIS_EXTERN int gpuvis_stop_tracing()
-//{
-//    //$ TODO
-//    return 0;
-//}
+GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing()
+{
+    if ( gpuvis_tracing_on() )
+    {
+        char datetime[ 128 ];
+        char cmd[ PATH_MAX ];
+        time_t t = time( NULL );
+        struct tm *tmp = localtime( &t );
+
+        strftime( datetime, sizeof( datetime ), "%Y-%m-%d_%H-%M-%S", tmp );
+        datetime[ sizeof( datetime ) - 1 ] = 0;
+
+        snprintf( cmd, sizeof( cmd ), "trace-cmd extract -o \"trace_%s.dat\" 2>&1", datetime );
+        cmd[ sizeof( cmd ) - 1 ] = 0;
+
+        printf( "cmd: %s\n", cmd );
+        return exec_tracecmd( cmd );
+    }
+
+    return -1;
+}
+
+GPUVIS_EXTERN int gpuvis_stop_tracing()
+{
+    const char cmd[] = "trace-cmd reset 2>&1";
+
+    return exec_tracecmd( cmd );
+}
 
 GPUVIS_EXTERN int gpuvis_tracing_on()
 {
@@ -321,10 +398,7 @@ GPUVIS_EXTERN int gpuvis_tracing_on()
         if ( fd >= 0 )
         {
             if ( read( fd, buf, sizeof( buf ) ) > 0 )
-            {
-                buf[ 1 ] = 0;
                 ret = atoi( buf );
-            }
 
             close( fd );
         }
