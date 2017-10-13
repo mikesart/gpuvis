@@ -144,8 +144,7 @@ static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen,
 #define GPUVIS_STR( x ) #x
 #define GPUVIS_STR_VALUE( x ) GPUVIS_STR( x )
 
-static int trace_fd = -1;
-static const char *trace_err = NULL;
+static int trace_fd = -2;
 
 static int exec_tracecmd( const char *cmd )
 {
@@ -186,21 +185,15 @@ static int exec_tracecmd( const char *cmd )
 
 GPUVIS_EXTERN int gpuvis_trace_init()
 {
-    if ( ( trace_fd < 0 ) && !trace_err )
+    if ( trace_fd == -2 )
     {
         char filename[ PATH_MAX ];
 
         // The "trace_marker" file allows userspace to write into the ftrace buffer.
         if ( !gpuvis_get_tracefs_filename( filename, sizeof( filename ), "trace_marker" ) )
-        {
-            trace_err = strerror( EACCES );
-        }
+            trace_fd = -1;
         else
-        {
             trace_fd = open( filename, O_WRONLY );
-            if ( trace_fd < 0 )
-                trace_err = strerror( errno );
-        }
     }
 
     return trace_fd;
@@ -209,12 +202,8 @@ GPUVIS_EXTERN int gpuvis_trace_init()
 GPUVIS_EXTERN void gpuvis_trace_shutdown()
 {
     if ( trace_fd >= 0 )
-    {
         close( trace_fd );
-        trace_fd = -1;
-    }
-
-    trace_err = NULL;
+    trace_fd = -2;
 }
 
 static int trace_printf_impl( const char *key, unsigned int val, const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 3, 0 );
