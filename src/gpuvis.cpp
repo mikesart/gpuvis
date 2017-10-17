@@ -2378,7 +2378,7 @@ void TraceEvents::calculate_intel_event_durations()
             uint32_t ringno = strtoul( ring, NULL, 10 );
 
             snprintf_safe( buf, "i915_req ring%u", ringno );
-            uint32_t hashval = fnv_hashstr32( buf );
+            uint32_t hashval = fnv_hashstr32( m_strpool.getstr( buf ) );
 
             for ( uint32_t i = 0; i < i915_req_Max; i++ )
             {
@@ -2394,12 +2394,11 @@ void TraceEvents::calculate_intel_event_durations()
     // Sort the events in the ring maps
     for ( auto &req_locs : m_i915_req_locs.m_locs.m_map )
     {
-        std::vector< uint32_t > row_pos;
         std::vector< uint32_t > &locs = req_locs.second;
+        std::vector< int64_t > row_pos( s_opts().max_row_size() );
+        // const char *name = m_strpool.findstr( req_locs.first );
 
         std::sort( locs.begin(), locs.end() );
-
-        row_pos.resize( s_opts().max_row_size() );
 
         for ( uint32_t idx : locs )
         {
