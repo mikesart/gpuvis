@@ -316,6 +316,7 @@ public:
     void calculate_amd_event_durations();
     void calculate_intel_event_durations();
     void calculate_event_print_info();
+    void calculate_vblank_info();
 
     void invalidate_ftraceprint_colors();
     void update_ftraceprint_colors();
@@ -431,6 +432,21 @@ public:
 
     // map of pid to 'thread1-1234 (mainthread-1233)'
     util_umap< int, const char * > m_pid_commstr_map;
+
+    struct vblank_info_t
+    {
+        // Last vblank ts we hit for this crtc
+        int64_t last_vblank_ts = 0;
+        // Median diff ts
+        int64_t median_diff_ts = 0;
+
+        // map tsdiff to count
+        std::map< int64_t, uint32_t > diff_ts_count;
+        // Total count of vblank events in diff_ts_count map
+        uint32_t count = 0;
+    };
+    // vblank information for specific crtc
+    std::vector< vblank_info_t > m_vblank_info;
 
     // 0: events loaded, 1+: loading events, -1: error
     SDL_atomic_t m_eventsloaded = { 0 };
@@ -821,6 +837,8 @@ public:
 
     void setb( option_id_t optid, bool valb );
     void setf( option_id_t optid, float valf, float valf_min = FLT_MAX, float valf_max = FLT_MAX );
+
+    void setdesc( option_id_t optid, const std::string &desc );
 
     bool render_imgui_opt( option_id_t optid, float w = 200.0f );
     void render_imgui_options();

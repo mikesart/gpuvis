@@ -259,7 +259,7 @@ void Opts::init()
 
     for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
     {
-        const std::string desc = string_format( "Show drm_vblank_event crtc%d markers", i - OPT_RenderCrtc0 );
+        const std::string desc = string_format( "Show vblank crtc%d markers", i - OPT_RenderCrtc0 );
         const std::string inikey = string_format( "render_crtc%d", i - OPT_RenderCrtc0 );
 
         init_opt_bool( i, desc.c_str(), inikey.c_str(), true );
@@ -390,6 +390,11 @@ void Opts::setb( option_id_t optid, bool valb )
     m_options[ optid ].valf = valb ? 1.0f : 0.0f;
 }
 
+void Opts::setdesc( option_id_t optid, const std::string &desc )
+{
+    m_options[ optid ].desc = desc;
+}
+
 bool Opts::render_imgui_opt( option_id_t optid, float w )
 {
     bool changed = false;
@@ -404,8 +409,8 @@ bool Opts::render_imgui_opt( option_id_t optid, float w )
 
         if ( ( optid == OPT_RenderCrtc0 ) || ( optid == OPT_RenderCrtc1 ) )
         {
-            // Quick hack to color drm_vblank_event.
-            const char *vblankstr = "drm_vblank_event";
+            // Quick hack to color the vblank string.
+            const char *vblankstr = " vblank ";
             ImU32 color = col_VBlank0 + ( optid - OPT_RenderCrtc0 );
             std::string str = s_textclrs().mstr( vblankstr, s_clrs().get( color ) );
 
@@ -1769,6 +1774,33 @@ static const char *get_ftrace_val( const char *buf, const char *key, size_t keyl
     return NULL;
 }
 
+static int64_t normalize_vblank_diff( int64_t diff )
+{
+    static const int64_t rates[] =
+    {
+        66666666, // 15Hz
+        33333333, // 30Hz
+        16666666, // 60Hz
+        11111111, // 90Hz
+        10526315, // 95Hz
+        8333333,  // 120Hz
+        6944444,  // 144Hz
+        6060606,  // 165Hz
+        4166666,  // 240Hz
+    };
+
+    for ( size_t i = 0; i < ARRAY_SIZE( rates ); i++ )
+    {
+        int64_t pct = 10000 * ( diff - rates[ i ]  ) / rates[ i ];
+
+        // If the diff is < 1.0% off this common refresh rate, use it.
+        if ( ( pct > -100 ) && ( pct < 100 ) )
+            return rates[ i ];
+    }
+
+    return diff;
+}
+
 // new_event_cb adds all events to array, this function initializes them.
 void TraceEvents::init_new_event( trace_event_t &event )
 {
@@ -1854,6 +1886,23 @@ void TraceEvents::init_new_event( trace_event_t &event )
         }
 
         m_tdopexpr_locs.add_location_str( "$name=drm_vblank_event", event.id );
+
+        /*
+         * vblank interval calculations
+         */
+        if ( m_vblank_info[ event.crtc ].last_vblank_ts )
+        {
+            int64_t diff = event.ts - m_vblank_info[ event.crtc ].last_vblank_ts;
+
+            // Normalize ts diff to known frequencies
+            diff = normalize_vblank_diff( diff );
+
+            // Bump count for this diff ts value
+            m_vblank_info[ event.crtc ].diff_ts_count[ diff / 1000 ]++;
+            m_vblank_info[ event.crtc ].count++;
+        }
+
+        m_vblank_info[ event.crtc ].last_vblank_ts = event.ts;
     }
     else if ( !strcmp( event.name, "drm_vblank_event_queued" ) )
     {
@@ -2051,14 +2100,50 @@ TraceEvents::tracestatus_t TraceEvents::get_load_status( uint32_t *count )
     return Trace_Error;
 }
 
+void TraceEvents::calculate_vblank_info()
+{
+    // Go through all the vblank crtcs
+    for ( uint32_t i = 0; i < m_vblank_info.size(); i++ )
+    {
+        if ( !m_vblank_info[ i ].count )
+            continue;
+
+        uint32_t median = m_vblank_info[ i ].count / 2;
+
+        for ( const auto &x : m_vblank_info[ i ].diff_ts_count )
+        {
+            if ( x.second >= median )
+            {
+                // This is the median tsdiff
+                int64_t diff = x.first * 1000;
+
+                m_vblank_info[ i ].median_diff_ts = diff;
+
+                std::string str = ts_to_timestr( diff, 2 );
+                const std::string desc = string_format( "Show vblank crtc%u markers (~%s)", i, str.c_str() );
+
+                s_opts().setdesc( OPT_RenderCrtc0 + i, desc );
+                break;
+            }
+
+            median -= x.second;
+        }
+    }
+}
+
 void TraceEvents::init()
 {
     // Set m_eventsloaded initializing bit
     SDL_AtomicSet( &m_eventsloaded, 0x40000000 );
 
+    m_vblank_info.resize( s_app().m_crtc_max + 1 );
+
     // Initialize events...
     for ( trace_event_t &event : m_events )
         init_new_event( event );
+
+    // Figure out median vblank intervals
+    calculate_vblank_info();
 
     // Init amd event durations
     calculate_amd_event_durations();
