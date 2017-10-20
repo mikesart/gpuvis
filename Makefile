@@ -38,7 +38,8 @@ endif
 
 WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wshadow -Wno-unused-parameter -Wno-missing-field-initializers
 ifneq ($(COMPILER),clang)
-  WARNINGS += -Wsuggest-attribute=format
+  # https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
+  WARNINGS += -Wsuggest-attribute=format -Wimplicit-fallthrough=2
 endif
 
 CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 $(SDL2FLAGS) $(GTK3FLAGS) -I/usr/include/freetype2
