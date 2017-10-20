@@ -315,6 +315,17 @@ const char *get_event_field_val( const trace_event_t &event, const char *name, c
     return defval;
 }
 
+event_field_t *get_event_field( trace_event_t &event, const char *name )
+{
+    for ( event_field_t &field : event.fields )
+    {
+        if ( !strcmp( field.key, name ) )
+            return &field;
+    }
+
+    return NULL;
+}
+
 /*
  * event_renderer_t
  */

@@ -22,6 +22,11 @@
  * THE SOFTWARE.
  */
 
+// From kernel/trace/trace.h
+#ifndef TRACE_BUF_SIZE
+#define TRACE_BUF_SIZE     1024
+#endif
+
 // Mask for sched_switch prev_state field
 //   From include/linux/sched.h
 
@@ -156,6 +161,7 @@ struct trace_event_t
 };
 
 const char *get_event_field_val( const trace_event_t &event, const char *name, const char *defval = "" );
+event_field_t *get_event_field( trace_event_t &event, const char *name );
 
 typedef std::function< int ( const trace_info_t &info, const trace_event_t &event ) > EventCallback;
 int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb );

@@ -1415,16 +1415,22 @@ static struct
     { "end_ctx=", 8 },
 };
 
-static const char *get_print_buf_end( const char *buf )
+static const char *get_print_buf_end( const char *buf, size_t *len )
 {
     const char *buf_end;
+
+    *len = 0;
 
     // If we find any of our print variables, use that as buf end
     for ( size_t i = 0; i < ARRAY_SIZE( s_buf_vars ); i++ )
     {
         buf_end = strncasestr( buf, s_buf_vars[ i ].var, s_buf_vars[ i ].len );
+
         if ( buf_end )
+        {
+            *len = s_buf_vars[ i ].len;
             return buf_end + s_buf_vars[ i ].len;
+        }
     }
 
     // Search for :
@@ -1438,12 +1444,50 @@ static const char *get_print_buf_end( const char *buf )
     // No colon - try to find one of our buf prefixes
     for ( size_t i = 0; i < ARRAY_SIZE( s_buf_prefixes ); i++ )
     {
-        size_t len = strlen( s_buf_prefixes[ i ] );
-        if ( !strncasecmp( buf, s_buf_prefixes[ i ], len ) )
-            return buf + len;
+        size_t prefixlen = strlen( s_buf_prefixes[ i ] );
+
+        if ( !strncasecmp( buf, s_buf_prefixes[ i ], prefixlen ) )
+            return buf + prefixlen;
     }
 
     return NULL;
+}
+
+static void remove_ftrace_print_token( char ( &newbuf )[ TRACE_BUF_SIZE ],
+                                       const char *buf, const char *buf_end, size_t len )
+{
+    const char *tok1 = buf_end;
+    const char *tok0 = buf_end - len;
+
+    // Read to end of token value.
+    //   duration=-1234.5 ms
+
+    if ( *tok1 == '-' )
+        tok1++;
+    while ( isdigit( *tok1 ) )
+        tok1++;
+    if ( *tok1 == '.' )
+    {
+        tok1++;
+        while ( isdigit( *tok1 ) )
+            tok1++;
+    }
+
+    if ( tok1[ 0 ] == 'm' && tok1[ 1 ] == 's' )
+        tok1 += 2;
+    else  if ( tok1[ 0 ] == ' ' && tok1[ 1 ] == 'm' && tok1[ 2 ] == 's' )
+        tok1 += 3;
+
+    if ( ( tok0 > buf ) && ( tok0[ -1 ] == '(' ) && ( *tok1 == ')' ) )
+    {
+        tok0--;
+        tok1++;
+    }
+    if ( ( tok0 > buf ) && isspace( tok0[ -1 ] ) )
+        tok0--;
+
+    memcpy( newbuf, buf, tok0 - buf );
+    memcpy( newbuf + ( tok0 - buf ), tok1, strlen( tok1 ) + 1 );
 }
 
 void TraceEvents::calculate_event_print_info()
@@ -1460,9 +1504,10 @@ void TraceEvents::calculate_event_print_info()
 
     for ( uint32_t idx : *plocs )
     {
+        size_t len = 0;
         trace_event_t &event = m_events[ idx ];
         const char *buf = get_event_field_val( event, "buf" );
-        const char *buf_end = get_print_buf_end( buf );
+        const char *buf_end = get_print_buf_end( buf, &len );
 
         if ( !buf_end )
         {
@@ -1489,6 +1534,17 @@ void TraceEvents::calculate_event_print_info()
 
             // Set graph row id: 1..rows
             event.graph_row_id = *prow_id;
+        }
+
+        if ( len )
+        {
+            char newbuf[ TRACE_BUF_SIZE ];
+            event_field_t *field = get_event_field( event, "buf" );
+
+            remove_ftrace_print_token( newbuf, buf, buf_end, len );
+
+            buf = m_strpool.getstr( newbuf );
+            field->value = buf;
         }
 
         // Add cached print info for this event
