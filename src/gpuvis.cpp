@@ -1539,11 +1539,18 @@ void TraceEvents::calculate_event_print_info()
         if ( len )
         {
             char newbuf[ TRACE_BUF_SIZE ];
-            event_field_t *field = get_event_field( event, "buf" );
 
+            // Remove "duration=XXX", etc from buf
             remove_ftrace_print_token( newbuf, buf, buf_end, len );
 
+            // Add buf_orig field which holds original buf string
+            event.fields.push_back( { "buf_orig", buf } );
+
+            // Get string pool entry for newbuf
             buf = m_strpool.getstr( newbuf );
+
+            // Set buf to our new stripped string
+            event_field_t *field = get_event_field( event, "buf" );
             field->value = buf;
         }
 
