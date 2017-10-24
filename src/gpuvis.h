@@ -365,7 +365,6 @@ public:
 
 public:
     int64_t m_ts_min = 0;
-    std::vector< uint32_t > m_cpucount;
 
     std::string m_filename;
     size_t m_filesize = 0;

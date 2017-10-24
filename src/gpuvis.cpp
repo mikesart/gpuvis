@@ -686,16 +686,13 @@ int MainApp::new_event_cb( const trace_info_t &info, const trace_event_t &event 
     TraceEvents *trace_events = s_app().m_loading_info.trace_events;
     size_t id = trace_events->m_events.size();
 
+    // Set m_trace_info if it hasn't been set yet
+    if ( id == 0 )
+        trace_events->m_trace_info = info;
+
     // Add event to our m_events array
     trace_events->m_events.push_back( event );
     trace_events->m_events.back().id = id;
-
-    // Set m_trace_info if it hasn't been set yet
-    if ( trace_events->m_cpucount.empty() )
-    {
-        trace_events->m_trace_info = info;
-        trace_events->m_cpucount.resize( info.cpus, 0 );
-    }
 
     // If this is a sched_switch event, see if it has comm info we don't know about.
     // This is the reason we're initializing events in two passes to collect all this data.
@@ -1871,8 +1868,12 @@ void TraceEvents::init_new_event( trace_event_t &event )
         m_ts_min = event.ts;
     event.ts -= m_ts_min;
 
-    if ( event.cpu < m_cpucount.size() )
-        m_cpucount[ event.cpu ]++;
+    m_trace_info.cpu_info[ event.cpu ].min_ts =
+            std::min< int64_t >( event.ts, m_trace_info.cpu_info[ event.cpu ].min_ts );
+    m_trace_info.cpu_info[ event.cpu ].max_ts =
+            std::max< int64_t >( event.ts, m_trace_info.cpu_info[ event.cpu ].max_ts );
+
+    m_trace_info.cpu_info[ event.cpu ].events++;
 
     // If our pid is in the sched_switch pid map, update our comm to the sched_switch
     // value that it recorded.
@@ -2970,24 +2971,56 @@ void TraceWin::trace_render_info()
         ImGui::EndColumns();
     }
 
-    if ( !trace_info.cpustats.empty() &&
+    if ( !trace_info.cpu_info.empty() &&
          ImGui::CollapsingHeader( "CPU Info" ) )
     {
-        if ( imgui_begin_columns( "cpu_stats", { "CPU", "Stats" } ) )
+        if ( imgui_begin_columns( "cpu_stats", { "CPU", "Stats", "Events", "Min ts", "Max ts", "File Size" } ) )
             ImGui::SetColumnWidth( 0, imgui_scale( 250.0f ) );
 
-        for ( const std::string &str : trace_info.cpustats )
+        for ( const cpu_info_t &cpu_info : trace_info.cpu_info )
         {
-            const char *lf = strchr( str.c_str(), '\n' );
+            const char *lf;
+            std::string str = cpu_info.stats;
 
+            string_replace_str( str, "entries: 0\n", "" );
+            string_replace_str( str, "overrun: 0\n", "" );
+            string_replace_str( str, "commit overrun: 0\n", "" );
+
+            lf = strchr( str.c_str(), '\n' );
+
+            // CPU: 0, CPU: 1, etc.
             if ( lf )
-            {
                 ImGui::Text( "%.*s", ( int )( lf - str.c_str() ), str.c_str() );
-                ImGui::NextColumn();
+            ImGui::NextColumn();
+
+            // Stats
+            if ( lf )
                 ImGui::Text( "%s", lf + 1 );
-                ImGui::NextColumn();
-                ImGui::Separator();
-            }
+            //$ ImGui::Text( "file offset: %" PRIu64 "\n", cpu_info.file_offset );
+            ImGui::NextColumn();
+
+            // Events
+            ImGui::Text( "%" PRIu64, cpu_info.events );
+            ImGui::NextColumn();
+
+            // Min ts
+            if ( cpu_info.min_ts != INT64_MAX )
+                ImGui::Text( "%s", ts_to_timestr( cpu_info.min_ts, 6 ).c_str() );
+            ImGui::NextColumn();
+
+            // Max ts
+            if ( cpu_info.min_ts != INT64_MAX )
+                ImGui::Text( "%s", ts_to_timestr( cpu_info.max_ts, 6 ).c_str() );
+            ImGui::NextColumn();
+
+            // File Size
+            if  ( cpu_info.events )
+                ImGui::Text( "%" PRIu64 "\n%.2f b/event\n", cpu_info.file_size, ( float )cpu_info.file_size / cpu_info.events );
+            else
+                ImGui::Text( "%" PRIu64 "\n", cpu_info.file_size );
+            ImGui::NextColumn();
+
+            ImGui::Separator();
         }
 
         ImGui::EndColumns();

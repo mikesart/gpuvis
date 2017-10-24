@@ -68,13 +68,27 @@ struct tgid_info_t
     void add_pid( int pid );
 };
 
+struct cpu_info_t
+{
+    std::string stats;
+
+    uint64_t events = 0;
+
+    uint64_t file_offset = 0;
+    uint64_t file_size = 0;
+
+    int64_t min_ts = INT64_MAX;
+    int64_t max_ts = 0;
+};
+
 struct trace_info_t
 {
     uint32_t cpus = 0;
     std::string file;
     std::string uname;
     bool timestamp_in_us;
-    std::vector< std::string > cpustats;
+
+    std::vector< cpu_info_t > cpu_info;
 
     // Map tgid to vector of child pids and color
     util_umap< int, tgid_info_t > tgid_pids;

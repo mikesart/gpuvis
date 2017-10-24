@@ -1840,7 +1840,6 @@ int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
     }
 
     trace_info.cpus = handle->cpus;
-    trace_info.cpustats = handle->cpustats;
     trace_info.file = handle->file;
     trace_info.uname = handle->uname;
     trace_info.timestamp_in_us = is_timestamp_in_us( handle->pevent->trace_clock, handle->use_trace_clock );
@@ -1874,6 +1873,19 @@ int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
             // Pid --> tgid
             trace_info.pid_tgid_map.get_val( pid, tgid );
         }
+    }
+
+    for ( size_t cpu = 0; cpu < ( size_t )handle->cpus; cpu++ )
+    {
+        cpu_info_t cpu_info;
+
+        cpu_info.file_offset = handle->cpu_data[ cpu ].file_offset;
+        cpu_info.file_size = handle->cpu_data[ cpu ].file_size;
+
+        if ( cpu < handle->cpustats.size() )
+            cpu_info.stats = handle->cpustats[ cpu ];
+
+        trace_info.cpu_info.push_back( cpu_info );
     }
 
     for ( ;; )
