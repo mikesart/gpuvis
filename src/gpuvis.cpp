@@ -2954,8 +2954,11 @@ void TraceWin::trace_render_info()
 
     if ( ImGui::CollapsingHeader( "Event info" ) )
     {
-        if ( imgui_begin_columns( "event_info", { "Event Name", "Count" } ) )
-            ImGui::SetColumnWidth( 0, imgui_scale( 250.0f ) );
+        if ( imgui_begin_columns( "event_info", { "Event Name", "Count", "Pct" } ) )
+        {
+            ImGui::SetColumnWidth( 0, imgui_scale( 200.0f ) );
+            ImGui::SetColumnWidth( 1, imgui_scale( 75.0f ) );
+        }
 
         for ( auto item : m_trace_events.m_eventnames_locs.m_locs.m_map )
         {
@@ -2965,6 +2968,8 @@ void TraceWin::trace_render_info()
             ImGui::Text( "%s", eventname );
             ImGui::NextColumn();
             ImGui::Text( "%lu", locs.size() );
+            ImGui::NextColumn();
+            ImGui::Text( "%.2f%%", 100.0f * locs.size() / event_count );
             ImGui::NextColumn();
         }
 
