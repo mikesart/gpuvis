@@ -70,7 +70,29 @@ struct tgid_info_t
 
 struct cpu_info_t
 {
-    std::string stats;
+    // per_cpu/cpu0/stats
+    //
+    // This displays certain stats about the ring buffer:
+    //  entries: The number of events that are still in the buffer.
+    //  overrun: The number of lost events due to overwriting when·
+    //       the buffer was full.
+    //  commit overrun: Should always be zero.
+    //     This gets set if so many events happened within a nested
+    //     event (ring buffer is re-entrant), that it fills the
+    //     buffer and starts dropping events.
+    //  bytes: Bytes actually read (not overwritten).
+    //  oldest event ts: The oldest timestamp in the buffer
+    //  now ts: The current timestamp
+    //  dropped events: Events lost due to overwrite option being off.·
+    //  read events: The number of events read.
+    int64_t entries = 0;
+    int64_t overrun = 0;
+    int64_t commit_overrun = 0;
+    int64_t bytes = 0;
+    int64_t oldest_event_ts = 0;
+    int64_t now_ts = 0;
+    int64_t dropped_events = 0;
+    int64_t read_events = 0;
 
     uint64_t events = 0;
 

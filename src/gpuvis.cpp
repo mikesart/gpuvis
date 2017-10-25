@@ -2975,28 +2975,64 @@ void TraceWin::trace_render_info()
          ImGui::CollapsingHeader( "CPU Info" ) )
     {
         if ( imgui_begin_columns( "cpu_stats", { "CPU", "Stats", "Events", "Min ts", "Max ts", "File Size" } ) )
-            ImGui::SetColumnWidth( 0, imgui_scale( 250.0f ) );
+            ImGui::SetColumnWidth( 0, imgui_scale( 75.0f ) );
 
-        for ( const cpu_info_t &cpu_info : trace_info.cpu_info )
+        for ( uint32_t cpu = 0; cpu < trace_info.cpu_info.size(); cpu++ )
         {
-            const char *lf;
-            std::string str = cpu_info.stats;
-
-            string_replace_str( str, "entries: 0\n", "" );
-            string_replace_str( str, "overrun: 0\n", "" );
-            string_replace_str( str, "commit overrun: 0\n", "" );
-
-            lf = strchr( str.c_str(), '\n' );
+            const cpu_info_t &cpu_info = trace_info.cpu_info[ cpu ];
 
             // CPU: 0, CPU: 1, etc.
-            if ( lf )
-                ImGui::Text( "%.*s", ( int )( lf - str.c_str() ), str.c_str() );
+            ImGui::Text( "CPU: %u", cpu );
             ImGui::NextColumn();
 
             // Stats
-            if ( lf )
-                ImGui::Text( "%s", lf + 1 );
+            ImGui::BeginGroup();
+            if ( cpu_info.entries )
+                ImGui::Text( "entries: %" PRIu64, cpu_info.entries );
+            if ( cpu_info.overrun )
+                ImGui::Text( "overrun: %" PRIu64, cpu_info.overrun );
+            if ( cpu_info.commit_overrun )
+                ImGui::Text( "commit overrun: %" PRIu64, cpu_info.commit_overrun );
+            ImGui::Text( "bytes: %" PRIu64, cpu_info.bytes );
+            ImGui::Text( "oldest event ts: %s", ts_to_timestr( cpu_info.oldest_event_ts - m_trace_events.m_ts_min, 6 ).c_str() );
+            ImGui::Text( "now ts: %s", ts_to_timestr( cpu_info.now_ts - m_trace_events.m_ts_min, 6 ).c_str() );
+            ImGui::Text( "dropped events: %" PRIu64, cpu_info.dropped_events );
+            ImGui::Text( "read events: %" PRIu64, cpu_info.read_events );
             //$ ImGui::Text( "file offset: %" PRIu64 "\n", cpu_info.file_offset );
+            ImGui::EndGroup();
+
+            if ( ImGui::IsItemHovered() )
+            {
+                const char *text[] =
+                {
+                    "Ring buffer stats:",
+                    "  entries: The number of events that are still in the buffer.",
+                    "  overrun: The number of lost events due to overwriting when the buffer was full.",
+                    "  commit overrun: Should always be zero.",
+                    "    This gets set if so many events happened within a nested event (ring buffer is re-entrant),",
+                    "    that it fills the buffer and starts dropping events.",
+                    "  bytes: Bytes actually read (not overwritten).",
+                    "  oldest event ts: The oldest timestamp in the buffer.",
+                    "  now ts: The current timestamp.",
+                    "  dropped events: Events lost due to overwrite option being off.",
+                    "  read events: The number of events read."
+                };
+                const char *clr_bright = s_textclrs().str( TClr_Bright );
+                const char *clr_def = s_textclrs().str( TClr_Def );
+
+                ImGui::BeginTooltip();
+                for ( size_t i = 0; i < ARRAY_SIZE( text ); i++ )
+                {
+                    const char *str = text[ i ];
+                    const char *colon = strchr( str, ':' );
+
+                    if ( colon )
+                        ImGui::Text( "%s%.*s%s%s", clr_bright, ( int )( colon - str ), str, clr_def, colon );
+                    else
+                        ImGui::Text( "%s", str );
+                }
+                ImGui::EndTooltip();
+            }
             ImGui::NextColumn();
 
             // Events

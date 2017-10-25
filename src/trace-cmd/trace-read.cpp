@@ -1797,6 +1797,24 @@ void tgid_info_t::add_pid( int pid )
     }
 }
 
+static int64_t geti64( const char *str, const char *var )
+{
+    const char *val = strstr( str, var );
+
+    if ( val )
+        return strtoull( val + strlen( var ), NULL, 10 );
+    return 0;
+}
+
+static int64_t getf64( const char *str, const char *var )
+{
+    const char *val = strstr( str, var );
+
+    if ( val )
+        return strtold( val + strlen( var ), NULL ) * NSECS_PER_SEC;
+    return 0;
+}
+
 int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
 {
     trace_info_t trace_info;
@@ -1844,7 +1862,7 @@ int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
     trace_info.uname = handle->uname;
     trace_info.timestamp_in_us = is_timestamp_in_us( handle->pevent->trace_clock, handle->use_trace_clock );
 
-    // Explicitly add idle thread at pid 0 
+    // Explicitly add idle thread at pid 0
     trace_info.pid_comm_map.get_val( 0, strpool.getstr( "<idle>" ) );
 
     // Add comms for other pids
@@ -1883,7 +1901,18 @@ int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
         cpu_info.file_size = handle->cpu_data[ cpu ].file_size;
 
         if ( cpu < handle->cpustats.size() )
-            cpu_info.stats = handle->cpustats[ cpu ];
+        {
+            const char *stats = handle->cpustats[ cpu ].c_str();
+
+            cpu_info.entries = geti64( stats, "entries:" );
+            cpu_info.overrun = geti64( stats, "overrun:" );
+            cpu_info.commit_overrun = geti64( stats, "commit overrun:" );
+            cpu_info.bytes = geti64( stats, "bytes:" );
+            cpu_info.oldest_event_ts = getf64( stats, "oldest event ts:" );
+            cpu_info.now_ts = getf64( stats, "now ts:" );
+            cpu_info.dropped_events = geti64( stats, "dropped events:" );
+            cpu_info.read_events = geti64( stats, "read events:" );
+        }
 
         trace_info.cpu_info.push_back( cpu_info );
     }
