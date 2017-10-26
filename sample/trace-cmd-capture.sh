@@ -14,6 +14,12 @@ fi
 
 DATE=$(date +%m-%d-%Y_%H-%M-%S)
 
-CMD="trace-cmd extract -o trace_${DATE}.dat"
+# Take a snapshot of the trace buffer
+CMD="trace-cmd snapshot -s"
+echo ${CMD}
+$CMD
+
+# Extract the snapshot
+CMD="trace-cmd extract -s -o trace_${DATE}.dat"
 echo ${CMD}
 $CMD
