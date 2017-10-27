@@ -2364,11 +2364,11 @@ void ImGui::NewFrame()
     }
 
     // Find the window we are hovering. Child windows can extend beyond the limit of their parent so we need to derive HoveredRootWindow from HoveredWindow
-    g.HoveredWindow = g.MovedWindow ? g.MovedWindow : FindHoveredWindow(g.IO.MousePos, false);
+    g.HoveredWindow = g.MovingWindow ? g.MovingWindow : FindHoveredWindow(g.IO.MousePos, false);
     if (g.HoveredWindow && (g.HoveredWindow->Flags & ImGuiWindowFlags_ChildWindow))
         g.HoveredRootWindow = g.HoveredWindow->RootWindow;
     else
-        g.HoveredRootWindow = g.MovedWindow ? g.MovedWindow->RootWindow : FindHoveredWindow(g.IO.MousePos, true);
+        g.HoveredRootWindow = g.MovingWindow ? g.MovingWindow->RootWindow : FindHoveredWindow(g.IO.MousePos, true);
 
     if (ImGuiWindow* modal_window = GetFrontMostModalRootWindow())
     {
@@ -2506,7 +2506,7 @@ void ImGui::Shutdown()
     g.HoveredWindow = NULL;
     g.HoveredRootWindow = NULL;
     g.ActiveIdWindow = NULL;
-    g.MovedWindow = NULL;
+    g.MovingWindow = NULL;
     for (int i = 0; i < g.Settings.Size; i++)
         ImGui::MemFree(g.Settings[i].Name);
     g.Settings.clear();
@@ -2801,9 +2801,9 @@ void ImGui::EndFrame()
                     FocusWindow(g.HoveredWindow);
                     if (!(g.HoveredWindow->Flags & ImGuiWindowFlags_NoMove) && !(g.HoveredRootWindow->Flags & ImGuiWindowFlags_NoMove))
                     {
-                        g.MovedWindow = g.HoveredWindow;
-                        g.MovedWindowMoveId = g.HoveredWindow->MoveId;
-                        SetActiveID(g.MovedWindowMoveId, g.HoveredRootWindow);
+                        g.MovingWindow = g.HoveredWindow;
+                        g.MovingWindowMoveId = g.MovingWindow->MoveId;
+                        SetActiveID(g.MovingWindowMoveId, g.HoveredRootWindow);
                     }
                 }
                 else if (g.NavWindow != NULL && GetFrontMostModalRootWindow() == NULL)
