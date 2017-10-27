@@ -1,4 +1,4 @@
-// dear imgui, v1.52 WIP
+// dear imgui, v1.52
 // (headers)
 
 // See imgui.cpp file for documentation.
@@ -17,7 +17,7 @@
 #include <string.h>         // memset, memmove, memcpy, strlen, strchr, strcpy, strcmp
 #include <future>
 
-#define IMGUI_VERSION       "1.52 WIP"
+#define IMGUI_VERSION       "1.52"
 
 // Define attributes of all API symbols declarations, e.g. for DLL under Windows.
 #ifndef IMGUI_API
