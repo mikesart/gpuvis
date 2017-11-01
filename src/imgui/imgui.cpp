@@ -2287,31 +2287,31 @@ void ImGui::NewFrame()
     g.IO.Framerate = 1.0f / (g.FramerateSecPerFrameAccum / (float)IM_ARRAYSIZE(g.FramerateSecPerFrame));
 
     // Handle user moving window with mouse (at the beginning of the frame to avoid input lag or sheering). Only valid for root windows.
-    if (g.MovedWindowMoveId && g.MovedWindowMoveId == g.ActiveId)
+    if (g.MovingWindowMoveId && g.MovingWindowMoveId == g.ActiveId)
     {
-        KeepAliveID(g.MovedWindowMoveId);
-        IM_ASSERT(g.MovedWindow && g.MovedWindow->RootWindow);
-        IM_ASSERT(g.MovedWindow->MoveId == g.MovedWindowMoveId);
+        KeepAliveID(g.MovingWindowMoveId);
+        IM_ASSERT(g.MovingWindow && g.MovingWindow->RootWindow);
+        IM_ASSERT(g.MovingWindow->MoveId == g.MovingWindowMoveId);
         if (g.IO.MouseDown[0])
         {
             // FIXME: Won't work if the tooltip itself has child.
-            ImGuiWindow* actual_moved_window = ((g.MovedWindow->Flags & ImGuiWindowFlags_ChildWindow) && (g.MovedWindow->Flags & ImGuiWindowFlags_Tooltip)) ? g.MovedWindow : g.MovedWindow->RootWindow;
+            ImGuiWindow* actual_moved_window = ((g.MovingWindow->Flags & ImGuiWindowFlags_ChildWindow) && (g.MovingWindow->Flags & ImGuiWindowFlags_Tooltip)) ? g.MovingWindow : g.MovingWindow->RootWindow;
             actual_moved_window->PosFloat += g.IO.MouseDelta;
             if (g.IO.MouseDelta.x != 0.0f || g.IO.MouseDelta.y != 0.0f)
                 MarkIniSettingsDirty(actual_moved_window);
-            FocusWindow(g.MovedWindow);
+            FocusWindow(g.MovingWindow);
         }
         else
         {
             ClearActiveID();
-            g.MovedWindow = NULL;
-            g.MovedWindowMoveId = 0;
+            g.MovingWindow = NULL;
+            g.MovingWindowMoveId = 0;
         }
     }
     else
     {
-        g.MovedWindow = NULL;
-        g.MovedWindowMoveId = 0;
+        g.MovingWindow = NULL;
+        g.MovingWindowMoveId = 0;
     }
 
     // Delay saving settings so we don't spam disk too much
