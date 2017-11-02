@@ -5117,7 +5117,7 @@ bool ImGui::IsWindowHovered(ImGuiHoveredFlags flags)
     if (!IsWindowContentHoverable(g.HoveredRootWindow, flags))
         return false;
     if (!(flags & ImGuiHoveredFlags_AllowWhenBlockedByActiveItem))
-        if (g.ActiveId != 0 && g.ActiveIdWindow != g.CurrentWindow)
+        if (g.ActiveId != 0 && !g.ActiveIdAllowOverlap)
             return false;
     return true;
 }
@@ -5153,7 +5153,7 @@ bool ImGui::IsRootWindowOrAnyChildHovered(ImGuiHoveredFlags flags)
     if (!IsWindowContentHoverable(g.HoveredRootWindow, flags))
         return false;
     if (!(flags & ImGuiHoveredFlags_AllowWhenBlockedByActiveItem))
-        if (g.ActiveId != 0 && g.ActiveIdWindow != g.CurrentWindow)
+        if (g.ActiveId != 0 && !g.ActiveIdAllowOverlap)
             return false;
     return true;
 }
