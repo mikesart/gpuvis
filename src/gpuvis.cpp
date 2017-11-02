@@ -901,9 +901,26 @@ void MainApp::render_save_filename()
     }
 }
 
+static void imgui_setnextwindowsize( float w, float h, float x = -1.0f, float y = -1.0f )
+{
+    if ( x >= 0.0f )
+    {
+        ImGui::SetNextWindowPos( ImVec2( imgui_scale( x ), imgui_scale( y ) ),
+                                 ImGuiCond_FirstUseEver );
+    }
+
+    ImGui::SetNextWindowSize( ImVec2( imgui_scale( w ), imgui_scale( h ) ),
+                              ImGuiSetCond_FirstUseEver );
+}
+
 void MainApp::render()
 {
-    if ( !m_trace_windows_list.empty() )
+    if ( !m_show_scale_popup && m_trace_windows_list.empty() )
+    {
+        // If we have no windows up, show the console
+        m_show_gpuvis_console = true;
+    }
+    else if ( !m_trace_windows_list.empty() )
     {
         float y = 0;
         float w = ImGui::GetIO().DisplaySize.x;
@@ -933,70 +950,143 @@ void MainApp::render()
         }
     }
 
-    if ( m_show_gpuvis_console )
+    // Render dialogs only if the scale popup dialog isn't up
+    if ( !m_show_scale_popup )
     {
-        ImGui::SetNextWindowSize( ImVec2( 600, 800 ), ImGuiSetCond_FirstUseEver );
-
-        render_console();
-    }
-
-    if ( m_show_imgui_test_window )
-    {
-        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
-
-        ImGui::ShowTestWindow( &m_show_imgui_test_window );
-    }
-
-    if ( m_show_imgui_style_editor )
-    {
-        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
-
-        ImGui::Begin( "Style Editor", &m_show_imgui_style_editor );
-        ImGui::ShowStyleEditor();
-        ImGui::End();
-    }
-
-    if ( m_show_imgui_metrics_editor )
-    {
-        ImGui::ShowMetricsWindow( &m_show_imgui_metrics_editor );
-    }
-
-    if ( m_show_font_window )
-    {
-        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
-
-        ImGui::Begin( "Font Options", &m_show_font_window );
-        render_font_options();
-        ImGui::End();
-    }
-
-    if ( m_show_color_picker )
-    {
-        ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
-
-        ImGui::Begin( "Color Configuration", &m_show_color_picker );
-        render_color_picker();
-        ImGui::End();
-    }
-
-    if ( !m_show_trace_info.empty() )
-    {
-        bool show_trace_info = !m_trace_windows_list.empty();
-
-        if ( show_trace_info )
+        if ( m_show_gpuvis_console )
         {
-            ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiSetCond_FirstUseEver );
+            imgui_setnextwindowsize( 600, 600, 4, 4 );
 
-            ImGui::Begin( m_show_trace_info.c_str(), &show_trace_info );
-            m_trace_windows_list[ 0 ]->trace_render_info();
-            ImGui::End();
-
-            if ( s_actions().get( action_escape ) )
-                show_trace_info = false;
+            render_console();
         }
 
-        if ( !show_trace_info )
-            m_show_trace_info.clear();
+        if ( m_show_imgui_test_window )
+        {
+            imgui_setnextwindowsize( 800, 600 );
+
+            ImGui::ShowTestWindow( &m_show_imgui_test_window );
+        }
+
+        if ( m_show_imgui_style_editor )
+        {
+            imgui_setnextwindowsize( 800, 600 );
+
+            ImGui::Begin( "Style Editor", &m_show_imgui_style_editor );
+            ImGui::ShowStyleEditor();
+            ImGui::End();
+        }
+
+        if ( m_show_imgui_metrics_editor )
+        {
+            ImGui::ShowMetricsWindow( &m_show_imgui_metrics_editor );
+        }
+
+        if ( m_show_font_window )
+        {
+            imgui_setnextwindowsize( 800, 600 );
+
+            ImGui::Begin( "Font Options", &m_show_font_window );
+            render_font_options();
+            ImGui::End();
+        }
+
+        if ( m_show_color_picker )
+        {
+            imgui_setnextwindowsize( 800, 600 );
+
+            ImGui::Begin( "Color Configuration", &m_show_color_picker );
+            render_color_picker();
+            ImGui::End();
+        }
+
+        if ( !m_show_trace_info.empty() )
+        {
+            bool show_trace_info = !m_trace_windows_list.empty();
+
+            if ( show_trace_info )
+            {
+                imgui_setnextwindowsize( 800, 600 );
+
+                ImGui::Begin( m_show_trace_info.c_str(), &show_trace_info );
+                m_trace_windows_list[ 0 ]->trace_render_info();
+                ImGui::End();
+
+                if ( s_actions().get( action_escape ) )
+                    show_trace_info = false;
+            }
+
+            if ( !show_trace_info )
+                m_show_trace_info.clear();
+        }
+
+        if ( !m_saving_info.title.empty() && !ImGui::IsPopupOpen( "Save Filename" ) )
+            ImGui::OpenPopup( "Save Filename" );
+        if ( ImGui::BeginPopupModal( "Save Filename", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
+        {
+            render_save_filename();
+            ImGui::EndPopup();
+        }
+
+        if ( m_show_help && !ImGui::IsPopupOpen( "GpuVis Help" ) )
+        {
+            ImGui::OpenPopup( "GpuVis Help" );
+
+            imgui_setnextwindowsize( 600, 600 );
+        }
+        if ( ImGui::BeginPopupModal( "GpuVis Help", &m_show_help, 0 ) )
+        {
+            static const struct
+            {
+                const char *hotkey;
+                const char *desc;
+            } s_help[] =
+            {
+            { "Ctrl+click drag", "Select graph area" },
+            { "Shift+click drag", "Zoom selected graph area" },
+            { "Mousewheel", "Zoom graph in / out" },
+            { "Alt down", "Hide graph labels" },
+        };
+
+            if ( imgui_begin_columns( "gpuvis_help", { "Hotkey", "Description" } ) )
+                ImGui::SetColumnWidth( 0, imgui_scale( 170.0f ) );
+
+            for ( size_t i = 0; i < ARRAY_SIZE( s_help ); i++ )
+            {
+                ImGui::Text( "%s", s_textclrs().bright_str( s_help[ i ].hotkey ).c_str() );
+                ImGui::NextColumn();
+
+                ImGui::Text( "%s", s_help[ i ].desc );
+                ImGui::NextColumn();
+
+                ImGui::Separator();
+            }
+
+            for ( const Actions::actionmap_t &map : s_actions().m_actionmap )
+            {
+                if ( map.desc )
+                {
+                    std::string hotkey = s_actions().hotkey_str( map.action );
+
+                    ImGui::Text( "%s", s_textclrs().bright_str( hotkey ).c_str() );
+                    ImGui::NextColumn();
+
+                    ImGui::Text( "%s", map.desc );
+                    ImGui::NextColumn();
+
+                    ImGui::Separator();
+                }
+            }
+
+            ImGui::EndColumns();
+
+            if ( s_actions().get( action_escape ) )
+            {
+                m_show_help = false;
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::EndPopup();
+        }
     }
 
     if ( m_show_scale_popup && !ImGui::IsPopupOpen( "Display Scaling" ) )
@@ -1021,74 +1111,6 @@ void MainApp::render()
             m_font_main.m_changed = true;
             ImGui::CloseCurrentPopup();
             m_show_scale_popup = false;
-        }
-
-        ImGui::EndPopup();
-    }
-
-    if ( !m_saving_info.title.empty() && !ImGui::IsPopupOpen( "Save Filename" ) )
-        ImGui::OpenPopup( "Save Filename" );
-    if ( ImGui::BeginPopupModal( "Save Filename", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
-    {
-        render_save_filename();
-        ImGui::EndPopup();
-    }
-
-    if ( m_show_help && !ImGui::IsPopupOpen( "GpuVis Help" ) )
-    {
-        ImGui::OpenPopup( "GpuVis Help" );
-        ImGui::SetNextWindowSize( ImVec2( imgui_scale( 600 ), imgui_scale( 600 ) ), ImGuiSetCond_FirstUseEver );
-    }
-    if ( ImGui::BeginPopupModal( "GpuVis Help", &m_show_help, 0 ) )
-    {
-        static const struct
-        {
-            const char *hotkey;
-            const char *desc;
-        } s_help[] =
-        {
-            { "Ctrl+click drag", "Select graph area" },
-            { "Shift+click drag", "Zoom selected graph area" },
-            { "Mousewheel", "Zoom graph in / out" },
-            { "Alt down", "Hide graph labels" },
-        };
-
-        if ( imgui_begin_columns( "gpuvis_help", { "Hotkey", "Description" } ) )
-            ImGui::SetColumnWidth( 0, imgui_scale( 170.0f ) );
-
-        for ( size_t i = 0; i < ARRAY_SIZE( s_help ); i++ )
-        {
-            ImGui::Text( "%s", s_textclrs().bright_str( s_help[ i ].hotkey ).c_str() );
-            ImGui::NextColumn();
-
-            ImGui::Text( "%s", s_help[ i ].desc );
-            ImGui::NextColumn();
-
-            ImGui::Separator();
-        }
-
-        for ( const Actions::actionmap_t &map : s_actions().m_actionmap )
-        {
-            if ( map.desc )
-            {
-                std::string hotkey = s_actions().hotkey_str( map.action );
-
-                ImGui::Text( "%s", s_textclrs().bright_str( hotkey ).c_str() );
-                ImGui::NextColumn();
-
-                ImGui::Text( "%s", map.desc );
-                ImGui::NextColumn();
-
-                ImGui::Separator();
-            }
-        }
-
-        ImGui::EndColumns();
-
-        if ( s_actions().get( action_escape ) )
-        {
-            m_show_help = false;
-            ImGui::CloseCurrentPopup();
         }
 
         ImGui::EndPopup();
@@ -1146,7 +1168,6 @@ void MainApp::load_fonts()
         s_ini().PutFloat( "scale", s_opts().getf( OPT_Scale ) );
 
         m_show_scale_popup = true;
-        m_show_font_window = true;
     }
 }
 

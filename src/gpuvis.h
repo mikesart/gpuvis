@@ -970,7 +970,7 @@ public:
     ImageBuf m_imagebuf;
 
     bool m_quit = false;
-    bool m_show_gpuvis_console = true;
+    bool m_show_gpuvis_console = false;
     bool m_show_imgui_test_window = false;
     bool m_show_imgui_style_editor = false;
     bool m_show_imgui_metrics_editor = false;
