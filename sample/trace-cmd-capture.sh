@@ -20,6 +20,6 @@ echo ${CMD}
 $CMD
 
 # Extract the snapshot
-CMD="trace-cmd extract -s -o trace_${DATE}.dat"
+CMD="trace-cmd extract -s -k -o trace_${DATE}.dat"
 echo ${CMD}
 $CMD
