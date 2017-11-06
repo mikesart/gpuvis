@@ -374,9 +374,12 @@ GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing()
             exename = strrchr( exebuf, '/' );
         exename = exename ? ( exename + 1 ) : "trace";
 
-        // Save to something like "glxgears_2017-10-13_17-52-56.dat"
+        // Capture snapshot
+        exec_tracecmd( "trace-cmd snapshot -s" );
+
+        // Save the snapshot to something like "glxgears_2017-10-13_17-52-56.dat"
         snprintf( cmd, sizeof( cmd ),
-                  "trace-cmd extract -o \"%s_%s.dat\" > /tmp/blah.log 2>&1 &",
+                  "trace-cmd extract -s -k -o \"%s_%s.dat\" > /tmp/blah.log 2>&1 &",
                   exename, datetime );
         cmd[ sizeof( cmd ) - 1 ] = 0;
 
@@ -388,9 +391,12 @@ GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing()
 
 GPUVIS_EXTERN int gpuvis_stop_tracing()
 {
-    const char cmd[] = "trace-cmd reset 2>&1";
+    int ret = exec_tracecmd( "trace-cmd reset 2>&1");
 
-    return exec_tracecmd( cmd );
+    // Try freeing the snapshot buffers as well
+    exec_tracecmd( "trace-cmd snapshot -f" );
+
+    return ret;
 }
 
 GPUVIS_EXTERN int gpuvis_tracing_on()
