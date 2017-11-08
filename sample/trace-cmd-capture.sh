@@ -14,12 +14,17 @@ fi
 
 DATE=$(date +%m-%d-%Y_%H-%M-%S)
 
-# Take a snapshot of the trace buffer
-CMD="trace-cmd snapshot -s"
+# Stop tracer from recording more data
+CMD="trace-cmd stop"
 echo ${CMD}
 $CMD
 
-# Extract the snapshot
-CMD="trace-cmd extract -s -k -o trace_${DATE}.dat"
+# Extract trace
+CMD="trace-cmd extract -k -o trace_${DATE}.dat"
+echo ${CMD}
+$CMD
+
+# Restart recording
+CMD="trace-cmd restart"
 echo ${CMD}
 $CMD
