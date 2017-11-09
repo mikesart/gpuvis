@@ -45,12 +45,14 @@ EVENTS+=" -e i915:intel_engine_notify"
 EVENTS+=" -e i915:i915_gem_request_wait_begin"
 EVENTS+=" -e i915:i915_gem_request_wait_end"
 
+EVENTS+=" -e raw_syscalls:sys_exit -e raw_syscalls:sys_enter"
+
 CMD="trace-cmd reset"
 echo $CMD
 $CMD
 
 echo
-CMD="trace-cmd start -b 2000 -D -i ${EVENTS}"
+CMD="trace-cmd start -b 100 -D -i ${EVENTS}"
 echo $CMD
 $CMD
 
