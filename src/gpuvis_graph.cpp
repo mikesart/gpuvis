@@ -443,6 +443,7 @@ static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t r
     if ( row_type == LOC_TYPE_Print ||
          row_type == LOC_TYPE_Plot ||
          row_type == LOC_TYPE_AMDTimeline ||
+         row_type == LOC_TYPE_i915RequestWait ||
          row_type == LOC_TYPE_i915Request )
     {
         return s_opts().add_opt_graph_rowsize( row_name.c_str() );
@@ -1542,9 +1543,9 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 {
     float row_h = gi.text_h;
-    float y = gi.rc.y + ( gi.rc.h - row_h ) / 2;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.rc.y + 4, gi.rc.w, gi.rc.h - 8 );
+    uint32_t row_count = std::max< uint32_t >( 1, gi.rc.h / row_h );
     ImU32 barcolor = s_clrs().get( col_Graph_Bari915ReqWait );
     ImU32 textcolor = s_clrs().get( col_Graph_BarText );
     const trace_event_t *pevent_sel = NULL;
@@ -1553,6 +1554,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
           idx < locs.size();
           idx++ )
     {
+        float y;
         bool do_selrect = false;
         const trace_event_t &event = get_event( locs[ idx ] );
         const trace_event_t &event_begin = get_event( event.id_start );
@@ -1562,6 +1564,9 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
         if ( ( x0 > gi.rc.x + gi.rc.w ) || ( x1 < gi.rc.x ) )
             continue;
 
+        y = gi.rc.y + ( event.graph_row_id % row_count ) * row_h;
+
+        event_renderer.set_y( y, row_h );
         event_renderer.add_event( event_begin.id, x0, event_begin.color );
         event_renderer.add_event( event.id, x1, event.color );
 
@@ -1580,7 +1585,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
             imgui_pop_cliprect();
         }
 
-        if ( gi.mouse_over )
+        if ( gi.mouse_over && ( gi.mouse_pos.y >= y ) && ( gi.mouse_pos.y <= y + row_h ) )
         {
             bool add_hovered;
 

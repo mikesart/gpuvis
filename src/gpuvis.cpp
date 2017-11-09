@@ -277,6 +277,10 @@ void Opts::init()
     add_opt_graph_rowsize( "i915_req ring2", 8 );
     add_opt_graph_rowsize( "print", 10 );
 
+    add_opt_graph_rowsize( "i915_reqwait ring0", 2, 2 );
+    add_opt_graph_rowsize( "i915_reqwait ring1", 2, 2 );
+    add_opt_graph_rowsize( "i915_reqwait ring2", 2, 2 );
+
     // Create all the entries for the compute shader rows
     for ( uint32_t val = 0; ; val++ )
     {
@@ -311,7 +315,7 @@ void Opts::shutdown()
     }
 }
 
-option_id_t Opts::add_opt_graph_rowsize( const char *row_name, int defval )
+option_id_t Opts::add_opt_graph_rowsize( const char *row_name, int defval, int minval )
 {
     option_t opt;
     const char *fullname = row_name;
@@ -324,7 +328,7 @@ option_id_t Opts::add_opt_graph_rowsize( const char *row_name, int defval )
     opt.inikey = row_name;
     opt.inisection = "$row_sizes$";
     opt.valf = s_ini().GetInt( opt.inikey.c_str(), defval, opt.inisection.c_str() );
-    opt.valf_min = 4;
+    opt.valf_min = minval;
     opt.valf_max = max_row_size();
 
     // Upper case first letter in description
@@ -2134,10 +2138,11 @@ void TraceEvents::init_new_event( trace_event_t &event )
                     char buf[ 128 ];
                     uint32_t ringno = strtoul( ring, NULL, 10 );
 
+                    event.graph_row_id = ( uint32_t )-1;
+                    event.id_start = event_begin.id;
+
                     snprintf_safe( buf, "i915_reqwait ring%u", ringno );
                     m_i915_reqwait_end_locs.add_location_str( buf, event.id );
-
-                    event.id_start = event_begin.id;
                 }
             }
         }
@@ -2234,7 +2239,8 @@ void TraceEvents::init()
     calculate_amd_event_durations();
 
     // Init intel event durations
-    calculate_intel_event_durations();
+    calculate_i915_req_event_durations();
+    calculate_i915_reqwait_event_durations();
 
     // Init print column information
     calculate_event_print_info();
@@ -2463,7 +2469,39 @@ static bool intel_set_duration( trace_event_t *event0, trace_event_t *event1, ui
     return false;
 }
 
-void TraceEvents::calculate_intel_event_durations()
+void TraceEvents::calculate_i915_reqwait_event_durations()
+{
+    for ( auto &req_locs : m_i915_reqwait_end_locs.m_locs.m_map )
+    {
+        std::vector< uint32_t > &locs = req_locs.second;
+        std::vector< int64_t > row_pos( s_opts().max_row_size() );
+        // const char *name = m_strpool.findstr( req_locs.first );
+
+        for ( uint32_t idx : locs )
+        {
+            size_t row = 0;
+            trace_event_t &event = m_events[ idx ];
+            trace_event_t &event_begin = m_events[ event.id_start ];
+            int64_t min_ts = event_begin.ts;
+            int64_t max_ts = event.ts;
+
+            for ( ; row < row_pos.size(); row++ )
+            {
+                if ( row_pos[ row ] <= min_ts )
+                    break;
+            }
+            if ( row >= row_pos.size() )
+                row = 0;
+
+            event_begin.graph_row_id = row;
+            event.graph_row_id = row;
+
+            row_pos[ row ] = max_ts + 1;
+        }
+    }
+}
+
+void TraceEvents::calculate_i915_req_event_durations()
 {
     // Our map should have events with the same ring/ctx/seqno
     for ( auto &req_locs : m_i915_gem_req_locs.m_locs.m_map )

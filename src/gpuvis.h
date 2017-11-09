@@ -314,7 +314,8 @@ public:
     const std::vector< uint32_t > *get_sched_switch_locs( int pid, switch_t switch_type );
 
     void calculate_amd_event_durations();
-    void calculate_intel_event_durations();
+    void calculate_i915_req_event_durations();
+    void calculate_i915_reqwait_event_durations();
     void calculate_event_print_info();
     void calculate_vblank_info();
 
@@ -842,7 +843,7 @@ public:
     bool render_imgui_opt( option_id_t optid, float w = 200.0f );
     void render_imgui_options();
 
-    option_id_t add_opt_graph_rowsize( const char *row_name, int defval = 4 );
+    option_id_t add_opt_graph_rowsize( const char *row_name, int defval = 4, int minval = 4 );
     option_id_t get_opt_graph_rowsize_id( const std::string &row_name );
 
     uint32_t max_row_size() { return 128; }
