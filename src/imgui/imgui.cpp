@@ -10417,13 +10417,13 @@ bool ImGui::BeginColumns(const char* id, int columns_count, ImGuiColumnsFlags fl
         const ImGuiID column_id = window->DC.ColumnsSetId + ImGuiID(column_index);
         KeepAliveID(column_id);
         const float default_t = column_index / (float)window->DC.ColumnsCount;
-        float t = window->DC.StateStorage->GetFloat(column_id, default_t);
+        float t = window->DC.StateStorage->GetFloat(column_id, FLT_MAX);
 
-        if ((column_index == 0) && (t == default_t) && !window->DC.StateStorage->GetVoidPtr(column_id))
+        if (t == FLT_MAX)
         {
-            // Return true if we're initializing this column for the first time ever.
-            inited = true;
+            t = default_t;
             window->DC.StateStorage->SetFloat(column_id, t);
+            inited |= (column_index == 0);
         }
 
         if (!(window->DC.ColumnsFlags & ImGuiColumnsFlags_NoForceWithinWindow))
