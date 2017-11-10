@@ -83,7 +83,15 @@ if [ -z "${ROOT_CMDS}" ]; then
     :
 else
     ROOT_CMDS_FILE="$(mktemp)"
-    echo -e ${ROOT_CMDS} > ${ROOT_CMDS_FILE}
+
+    echo "if ! [ \"\$UID\" -eq 0 ]; then" > ${ROOT_CMDS_FILE}
+    echo "  echo Enter your password to setup trace-cmd permissions:" >> ${ROOT_CMDS_FILE}
+    echo "  echo sudo bash \"\$0\"" >> ${ROOT_CMDS_FILE}
+    echo "  exec sudo bash \"\$0\"" >> ${ROOT_CMDS_FILE}
+    echo "fi" >> ${ROOT_CMDS_FILE}
+    echo "" >> ${ROOT_CMDS_FILE}
+
+    echo -e ${ROOT_CMDS} >> ${ROOT_CMDS_FILE}
 
     echo ""
     echo "trace-cmd root initialization file (${ROOT_CMDS_FILE}):"
@@ -91,12 +99,32 @@ else
     cat -s -n "${ROOT_CMDS_FILE}"
     echo ""
 
-    if [ -z "$(which gksudo)" ]; then
-        echo 'xterm -e "echo Enter your password to setup trace-cmd permissions:; sudo bash ${ROOT_CMDS_FILE}"'
-        xterm -e "echo Enter your password to setup trace-cmd permissions:; sudo bash ${ROOT_CMDS_FILE}"
+    if [ "$UID" -eq 0 ]; then
+        echo "bash ${ROOT_CMDS_FILE}"
+        bash ${ROOT_CMDS_FILE}
     else
-        echo 'gksudo --message "Setup trace-cmd permissions" "bash ${ROOT_CMDS_FILE}"'
-        gksudo --message "Setup trace-cmd permissions" "bash ${ROOT_CMDS_FILE}"
+        # Do something ~ Baldur does in RenderDoc
+        # https://github.com/baldurk/renderdoc/blob/v0.x/qrenderdoc/Code/QRDUtils.cpp#L826
+        if [ -x "$(command -v blah)" ]; then
+            echo blah
+        elif [ -x "$(command -v pkexec)" ]; then
+            echo "pkexec bash ${ROOT_CMDS_FILE}"
+            pkexec bash ${ROOT_CMDS_FILE}
+        elif [ -x "$(command -v kdesudo)" ]; then
+            echo "kdesudo bash ${ROOT_CMDS_FILE}"
+            kdesudo -c "bash ${ROOT_CMDS_FILE}"
+        elif [ -x "$(command -v gksudo)" ]; then
+            echo gksudo --message \"Setup trace-cmd permissions\" \"bash ${ROOT_CMDS_FILE}\"
+            gksudo --message "Setup trace-cmd permissions" "bash ${ROOT_CMDS_FILE}"
+        elif [ -x "$(command -v beesu)" ]; then
+            echo beesu bash ${ROOT_CMDS_FILE}
+            beesu bash ${ROOT_CMDS_FILE}
+        elif [ -x "$(command -v xterm)" ]; then
+            echo xterm -e "bash ${ROOT_CMDS_FILE}"
+            xterm -e "bash ${ROOT_CMDS_FILE}; sleep 5"
+        else
+            echo "ERROR: Can't execute initilization file as root."
+        fi
     fi
 
     echo
