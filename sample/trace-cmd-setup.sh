@@ -38,8 +38,10 @@ ROOT_CMDS=
 #   nodev /sys/kernel/tracing tracefs rw,relatime 0 0
 TRACEFS="/sys/kernel/tracing"
 
-TRACECMD=$(which trace-cmd)
-TRACECMD=$(readlink -f ${TRACECMD})
+TRACECMD=
+if [ -x "$(command -v trace-cmd)" ]; then
+    TRACECMD=$(readlink -f "$(command -v trace-cmd)")
+fi
 
 if [ -z "${TRACECMD}" ]; then
     echo "ERROR: Could not locate trace-cmd binary"
@@ -105,9 +107,7 @@ else
     else
         # Do something ~ Baldur does in RenderDoc
         # https://github.com/baldurk/renderdoc/blob/v0.x/qrenderdoc/Code/QRDUtils.cpp#L826
-        if [ -x "$(command -v blah)" ]; then
-            echo blah
-        elif [ -x "$(command -v pkexec)" ]; then
+        if [ -x "$(command -v pkexec)" ]; then
             echo "pkexec bash ${ROOT_CMDS_FILE}"
             pkexec bash ${ROOT_CMDS_FILE}
         elif [ -x "$(command -v kdesudo)" ]; then
