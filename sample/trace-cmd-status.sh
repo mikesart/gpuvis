@@ -16,9 +16,19 @@ for (( i = 0 ; i <= 256 ; i++ )) ; do
     STAT_FILES+=($FILE)
 done
 
-awk '{
-        if ( ( $2 > 0 ) && ( $0 ~ /^(entries\:|overrun\:)/ ) )
-        {
-            printf "%s: %s\n", FILENAME, $0
-        }
-     }' ${STAT_FILES[@]}
+awk 'BEGIN { time = 0; entries = 0; overrun = 0 }
+    {
+       if ( $0 ~ /^entries\:/ )
+           entries = $2
+       if ( $0 ~ /^overrun\:/ )
+           overrun = $2
+       if ( $0 ~ /^oldest event ts\:/ )
+           time = (float)$4
+       if ( $0 ~ /^now ts\:/ ) {
+           time = (float)$3 - time
+           printf "%s entries:%u overrun:%u time:%f sec\n", FILENAME, entries, overrun, time
+           time = 0;
+           entries = 0;
+           overrun = 0;
+       }
+    }' ${STAT_FILES[@]}
