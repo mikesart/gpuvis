@@ -2464,6 +2464,7 @@ void ImGui::Shutdown()
     g.WindowsSortBuffer.clear();
     g.CurrentWindow = NULL;
     g.CurrentWindowStack.clear();
+    g.WindowsById.Clear();
     g.NavWindow = NULL;
     g.HoveredWindow = NULL;
     g.HoveredRootWindow = NULL;
