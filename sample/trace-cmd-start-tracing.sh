@@ -15,13 +15,14 @@ fi
 EVENTS=
 
 # https://github.com/mikesart/gpuvis/wiki/TechDocs-Linux-Scheduler
-EVENTS+=" -e sched:sched_switch"
+# EVENTS+=" -e sched:sched_switch"
 EVENTS+=" -e sched:sched_process_fork"
 EVENTS+=" -e sched:sched_process_exec"
 EVENTS+=" -e sched:sched_process_exit"
 
 EVENTS+=" -e drm:drm_vblank_event"
 EVENTS+=" -e drm:drm_vblank_event_queued"
+EVENTS+=" -e drm:drm_vblank_event_delivered"
 
 # https://github.com/mikesart/gpuvis/wiki/TechDocs-AMDGpu
 EVENTS+=" -e amdgpu:amdgpu_vm_flush"
@@ -44,8 +45,6 @@ EVENTS+=" -e i915:i915_gem_request_out"
 EVENTS+=" -e i915:intel_engine_notify"
 EVENTS+=" -e i915:i915_gem_request_wait_begin"
 EVENTS+=" -e i915:i915_gem_request_wait_end"
-
-EVENTS+=" -e raw_syscalls:sys_exit -e raw_syscalls:sys_enter"
 
 CMD="trace-cmd reset"
 echo $CMD
