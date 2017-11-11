@@ -52,7 +52,7 @@ echo $CMD
 $CMD
 
 echo
-CMD="trace-cmd start -b 100 -D -i ${EVENTS}"
+CMD="trace-cmd start -b 2000 -D -i ${EVENTS}"
 echo $CMD
 $CMD
 
