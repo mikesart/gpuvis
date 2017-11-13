@@ -4,6 +4,8 @@ CMD="trace-cmd stat"
 echo $CMD
 $CMD
 
+if [ -r "/sys/kernel/tracing/per_cpu/cpu0/stats" ]; then
+
 STAT_FILES=()
 
 # /sys/kernel/tracing/per_cpu/cpu0/stats
@@ -26,9 +28,14 @@ awk 'BEGIN { time = 0; entries = 0; overrun = 0 }
            time = (float)$4
        if ( $0 ~ /^now ts\:/ ) {
            time = (float)$3 - time
-           printf "%s entries:%u overrun:%u time:%f sec\n", FILENAME, entries, overrun, time
+           if ( entries == 0 )
+               printf "%s entries:%u\n", FILENAME, entries
+           else
+               printf "%s entries:%u overrun:%u time:%f sec\n", FILENAME, entries, overrun, time
            time = 0;
            entries = 0;
            overrun = 0;
        }
     }' ${STAT_FILES[@]}
+
+fi
