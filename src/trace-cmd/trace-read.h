@@ -94,13 +94,17 @@ struct cpu_info_t
     int64_t dropped_events = 0;
     int64_t read_events = 0;
 
-    uint64_t events = 0;
 
     uint64_t file_offset = 0;
     uint64_t file_size = 0;
 
     int64_t min_ts = INT64_MAX;
     int64_t max_ts = 0;
+
+    // Non-trimmed events read for this cpu
+    uint64_t events = 0;
+    // Total events read for this cpu
+    uint64_t tot_events = 0;
 };
 
 struct trace_info_t
@@ -111,6 +115,9 @@ struct trace_info_t
     bool timestamp_in_us;
 
     std::vector< cpu_info_t > cpu_info;
+
+    // ts of the first event in the file
+    int64_t first_ts_in_file = INT64_MAX;
 
     // Map tgid to vector of child pids and color
     util_umap< int, tgid_info_t > tgid_pids;
@@ -199,5 +206,5 @@ struct trace_event_t
 const char *get_event_field_val( const trace_event_t &event, const char *name, const char *defval = "" );
 event_field_t *get_event_field( trace_event_t &event, const char *name );
 
-typedef std::function< int ( const trace_info_t &info, const trace_event_t &event ) > EventCallback;
-int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb );
+typedef std::function< int ( const trace_event_t &event ) > EventCallback;
+int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb );

@@ -255,6 +255,7 @@ void Opts::init()
     init_opt( OPT_GraphHeightZoomed, "Zoomed Graph Size: %.1f", "graph_height_zoomed", 0, 0, 1, OPT_Float | OPT_Hidden );
     init_opt( OPT_EventListRowCount, "Event List Size: %.0f", "eventlist_rows", 0, 0, 100, OPT_Int | OPT_Hidden );
     init_opt( OPT_Scale, "Font Scale: %.1f", "scale", 2.0f, 0.25f, 6.0f, OPT_Float | OPT_Hidden );
+    init_opt_bool( OPT_TrimTrace, "Trim Trace to align CPU buffers", "trim_trace_to_cpu_buffers", true, OPT_Hidden );
     init_opt_bool( OPT_UseFreetype, "Use Freetype", "use_freetype", true, OPT_Hidden );
 
     for ( uint32_t i = OPT_RenderCrtc0; i <= OPT_RenderCrtc9; i++ )
@@ -685,18 +686,36 @@ void MainApp::add_sched_switch_pid_comm( const trace_event_t &event,
 
 // Callback from trace_read.cpp. We mostly just store the events in our array
 //  and then init_new_event() does the real work of initializing them later.
-int MainApp::new_event_cb( const trace_info_t &info, const trace_event_t &event )
+int MainApp::new_event_cb( const trace_event_t &event )
 {
     TraceEvents *trace_events = s_app().m_loading_info.trace_events;
-    size_t id = trace_events->m_events.size();
+    cpu_info_t &cpu_info = trace_events->m_trace_info.cpu_info[ event.cpu ];
 
-    // Set m_trace_info if it hasn't been set yet
-    if ( id == 0 )
-        trace_events->m_trace_info = info;
+    // Store the max ts value we've seen for this cpu
+    cpu_info.max_ts = std::max< int64_t >( cpu_info.max_ts,
+                                           event.ts - trace_events->m_trace_info.first_ts_in_file );
+
+    if ( !cpu_info.tot_events )
+    {
+        // First event for this cpu - set min_ts
+        cpu_info.min_ts = event.ts - trace_events->m_trace_info.first_ts_in_file;
+
+        if ( cpu_info.overrun && s_opts().getb( OPT_TrimTrace ) )
+        {
+            trace_events->m_ts_trimmed = cpu_info.min_ts;
+            trace_events->m_events.clear();
+        }
+
+        // Clear displayed event count for all cpus
+        for ( cpu_info_t &i : trace_events->m_trace_info.cpu_info )
+            i.events = 0;
+    }
+    cpu_info.events++;
+    cpu_info.tot_events++;
 
     // Add event to our m_events array
     trace_events->m_events.push_back( event );
-    trace_events->m_events.back().id = id;
+    trace_events->m_events.back().id = trace_events->m_events.size() - 1;
 
     // If this is a sched_switch event, see if it has comm info we don't know about.
     // This is the reason we're initializing events in two passes to collect all this data.
@@ -723,8 +742,8 @@ int SDLCALL MainApp::thread_func( void *data )
 
     logf( "Reading trace file %s...", filename );
 
-    EventCallback trace_cb = std::bind( new_event_cb, _1, _2 );
-    if ( read_trace_file( filename, trace_events->m_strpool, trace_cb ) < 0 )
+    EventCallback trace_cb = std::bind( new_event_cb, _1 );
+    if ( read_trace_file( filename, trace_events->m_strpool, trace_events->m_trace_info, trace_cb ) < 0 )
     {
         logf( "[Error]: read_trace_file(%s) failed.", filename );
 
@@ -1889,16 +1908,7 @@ static int64_t normalize_vblank_diff( int64_t diff )
 // new_event_cb adds all events to array, this function initializes them.
 void TraceEvents::init_new_event( trace_event_t &event )
 {
-    if ( event.id == 0 )
-        m_ts_min = event.ts;
-    event.ts -= m_ts_min;
-
-    m_trace_info.cpu_info[ event.cpu ].min_ts =
-            std::min< int64_t >( event.ts, m_trace_info.cpu_info[ event.cpu ].min_ts );
-    m_trace_info.cpu_info[ event.cpu ].max_ts =
-            std::max< int64_t >( event.ts, m_trace_info.cpu_info[ event.cpu ].max_ts );
-
-    m_trace_info.cpu_info[ event.cpu ].events++;
+    event.ts -= m_trace_info.first_ts_in_file;
 
     // If our pid is in the sched_switch pid map, update our comm to the sched_switch
     // value that it recorded.
@@ -2928,6 +2938,8 @@ void TraceWin::trace_render_info()
 
     ImGui::Text( "Trace time: %s",
                  ts_to_timestr( m_trace_events.m_events.back().ts, 4 ).c_str() );
+    ImGui::Text( "Time trimmed from trace to align cpu buffers: %s",
+                 ts_to_timestr( m_trace_events.m_ts_trimmed, 4 ).c_str() );
 
     ImGui::Text( "Trace cpus: %u", trace_info.cpus );
 
@@ -3038,6 +3050,8 @@ void TraceWin::trace_render_info()
     if ( !trace_info.cpu_info.empty() &&
          ImGui::CollapsingHeader( "CPU Info" ) )
     {
+        int64_t ts_min = m_trace_events.m_trace_info.first_ts_in_file;
+
         if ( imgui_begin_columns( "cpu_stats", { "CPU", "Stats", "Events", "Min ts", "Max ts", "File Size" } ) )
             ImGui::SetColumnWidth( 0, imgui_scale( 75.0f ) );
 
@@ -3052,16 +3066,17 @@ void TraceWin::trace_render_info()
             // Stats
             ImGui::BeginGroup();
             if ( cpu_info.entries )
-                ImGui::Text( "entries: %" PRIu64, cpu_info.entries );
+                ImGui::Text( "Entries: %" PRIu64, cpu_info.entries );
             if ( cpu_info.overrun )
-                ImGui::Text( "overrun: %" PRIu64, cpu_info.overrun );
+                ImGui::Text( "Overrun: %" PRIu64, cpu_info.overrun );
             if ( cpu_info.commit_overrun )
-                ImGui::Text( "commit overrun: %" PRIu64, cpu_info.commit_overrun );
-            ImGui::Text( "bytes: %" PRIu64, cpu_info.bytes );
-            ImGui::Text( "oldest event ts: %s", ts_to_timestr( cpu_info.oldest_event_ts - m_trace_events.m_ts_min, 6 ).c_str() );
-            ImGui::Text( "now ts: %s", ts_to_timestr( cpu_info.now_ts - m_trace_events.m_ts_min, 6 ).c_str() );
-            ImGui::Text( "dropped events: %" PRIu64, cpu_info.dropped_events );
-            ImGui::Text( "read events: %" PRIu64, cpu_info.read_events );
+                ImGui::Text( "Commit overrun: %" PRIu64, cpu_info.commit_overrun );
+            ImGui::Text( "Bytes: %" PRIu64, cpu_info.bytes );
+            ImGui::Text( "Oldest event ts: %s", ts_to_timestr( cpu_info.oldest_event_ts - ts_min, 6 ).c_str() );
+            ImGui::Text( "Now ts: %s", ts_to_timestr( cpu_info.now_ts - ts_min, 6 ).c_str() );
+            if ( cpu_info.dropped_events )
+                ImGui::Text( "Dropped events: %" PRIu64, cpu_info.dropped_events );
+            ImGui::Text( "Read events: %" PRIu64, cpu_info.read_events );
             //$ ImGui::Text( "file offset: %" PRIu64 "\n", cpu_info.file_offset );
             ImGui::EndGroup();
 
@@ -3070,16 +3085,16 @@ void TraceWin::trace_render_info()
                 const char *text[] =
                 {
                     "Ring buffer stats:",
-                    "  entries: The number of events that are still in the buffer.",
-                    "  overrun: The number of lost events due to overwriting when the buffer was full.",
-                    "  commit overrun: Should always be zero.",
+                    "  Entries: The number of events that are still in the buffer.",
+                    "  Overrun: The number of lost events due to overwriting when the buffer was full.",
+                    "  Commit overrun: Should always be zero.",
                     "    This gets set if so many events happened within a nested event (ring buffer is re-entrant),",
                     "    that it fills the buffer and starts dropping events.",
-                    "  bytes: Bytes actually read (not overwritten).",
-                    "  oldest event ts: The oldest timestamp in the buffer.",
-                    "  now ts: The current timestamp.",
-                    "  dropped events: Events lost due to overwrite option being off.",
-                    "  read events: The number of events read."
+                    "  Bytes: Bytes actually read (not overwritten).",
+                    "  Oldest event ts: The oldest timestamp in the buffer.",
+                    "  Now ts: The current timestamp.",
+                    "  Dropped events: Events lost due to overwrite option being off.",
+                    "  Read events: The number of events read."
                 };
                 const char *clr_bright = s_textclrs().str( TClr_Bright );
                 const char *clr_def = s_textclrs().str( TClr_Def );
@@ -3100,7 +3115,7 @@ void TraceWin::trace_render_info()
             ImGui::NextColumn();
 
             // Events
-            ImGui::Text( "%" PRIu64, cpu_info.events );
+            ImGui::Text( "%" PRIu64 " / %" PRIu64, cpu_info.events, cpu_info.tot_events );
             ImGui::NextColumn();
 
             // Min ts
@@ -3109,13 +3124,13 @@ void TraceWin::trace_render_info()
             ImGui::NextColumn();
 
             // Max ts
-            if ( cpu_info.min_ts != INT64_MAX )
+            if ( cpu_info.max_ts != INT64_MAX )
                 ImGui::Text( "%s", ts_to_timestr( cpu_info.max_ts, 6 ).c_str() );
             ImGui::NextColumn();
 
             // File Size
-            if  ( cpu_info.events )
-                ImGui::Text( "%" PRIu64 "\n%.2f b/event\n", cpu_info.file_size, ( float )cpu_info.file_size / cpu_info.events );
+            if  ( cpu_info.tot_events )
+                ImGui::Text( "%" PRIu64 "\n%.2f b/event\n", cpu_info.file_size, ( float )cpu_info.file_size / cpu_info.tot_events );
             else
                 ImGui::Text( "%" PRIu64 "\n", cpu_info.file_size );
             ImGui::NextColumn();

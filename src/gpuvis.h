@@ -365,7 +365,8 @@ public:
     void init_sched_switch_event( trace_event_t &event );
 
 public:
-    int64_t m_ts_min = 0;
+    // Time trimmed from start of trace so we have data from all CPU buffers
+    int64_t m_ts_trimmed = 0;
 
     std::string m_filename;
     size_t m_filesize = 0;
@@ -802,6 +803,7 @@ enum : uint32_t
     OPT_EventListRowCount,
     OPT_Scale,
     OPT_UseFreetype,
+    OPT_TrimTrace,
     OPT_ShowFps,
     OPT_VerticalSync,
     OPT_PresetMax
@@ -923,7 +925,7 @@ protected:
     void set_state( state_t state );
 
     static int SDLCALL thread_func( void *data );
-    static int new_event_cb( const trace_info_t &info, const trace_event_t &event );
+    static int new_event_cb( const trace_event_t &event );
     void add_sched_switch_pid_comm( const trace_event_t &event,
                                     const char *pidstr, const char *commstr );
 

@@ -1593,7 +1593,7 @@ static void init_event_flags( trace_event_t &event )
         event.flags |= TRACE_FLAG_SCHED_SWITCH;
 }
 
-static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_info_t &trace_info,
+static int trace_enum_events( EventCallback &cb, StrPool &strpool,
                              tracecmd_input_t *handle, pevent_record_t *record )
 {
     int ret = 0;
@@ -1748,7 +1748,7 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool, const trace_i
 
         init_event_flags( trace_event );
 
-        ret = cb( trace_info, trace_event );
+        ret = cb( trace_event );
 
         trace_seq_destroy( &seq );
     }
@@ -1815,9 +1815,8 @@ static int64_t getf64( const char *str, const char *var )
     return 0;
 }
 
-int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
+int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb )
 {
-    trace_info_t trace_info;
     tracecmd_input_t *handle;
     std::vector< file_info_t * > file_list;
 
@@ -1937,7 +1936,10 @@ int read_trace_file( const char *file, StrPool &strpool, EventCallback &cb )
         if ( !last_record )
             break;
 
-        int ret = trace_enum_events( cb, strpool, trace_info, last_file_info->handle, last_record );
+        if ( trace_info.first_ts_in_file == INT64_MAX )
+            trace_info.first_ts_in_file = last_record->ts;
+
+        int ret = trace_enum_events( cb, strpool, last_file_info->handle, last_record );
 
         free_record( last_file_info->handle, last_file_info->record );
         last_file_info->record = NULL;
