@@ -447,11 +447,6 @@ bool Opts::render_imgui_opt( option_id_t optid, float w )
 
 void Opts::render_imgui_options()
 {
-    uint32_t crtc_max = 0;
-
-    if ( s_app().m_trace_win )
-        crtc_max = s_app().m_trace_win->m_trace_events.m_crtc_max;
-
     for ( size_t i = 0; i < m_options.size(); i++ )
     {
         if ( m_options[ i ].flags & OPT_Hidden )
@@ -459,7 +454,7 @@ void Opts::render_imgui_options()
 
         if ( ( i >= OPT_RenderCrtc0 ) && ( i <= OPT_RenderCrtc9 ) )
         {
-            if ( i - OPT_RenderCrtc0 > crtc_max )
+            if ( i - OPT_RenderCrtc0 > m_crtc_max )
                 continue;
         }
 
@@ -951,7 +946,7 @@ void MainApp::render()
             ImGui::End();
         }
 
-        if ( !m_show_trace_info.empty() )
+        if ( !m_show_trace_info.empty() && is_trace_loaded() )
         {
             bool show_trace_info = !!m_trace_win;
 
@@ -2170,6 +2165,8 @@ void TraceEvents::init()
 
     m_vblank_info.resize( m_crtc_max + 1 );
 
+    s_opts().set_crtc_max( m_crtc_max );
+
     // Initialize events...
     for ( trace_event_t &event : m_events )
         init_new_event( event );
@@ -2777,6 +2774,8 @@ TraceWin::~TraceWin()
 
     m_frame_markers.shutdown();
     m_create_graph_row_dlg.shutdown();
+
+    s_opts().set_crtc_max( 0 );
 }
 
 void TraceWin::render()
@@ -3857,8 +3856,7 @@ void MainApp::render_menu_options()
         }
 
         // If we have a trace window and the events are loaded, show Trace Info menu item
-        if ( m_trace_win &&
-             ( m_trace_win->m_trace_events.get_load_status() == TraceEvents::Trace_Loaded ) )
+        if ( is_trace_loaded() )
         {
             const std::string label = trace_info_label( m_trace_win->m_trace_events );
 
@@ -4189,11 +4187,12 @@ static void reset_event_colors_to_default( TraceWin *win )
 void MainApp::render_color_picker()
 {
     bool changed = false;
+    TraceWin *win = is_trace_loaded() ? m_trace_win : NULL;
 
     if ( ImGui::Button( "Reset All to Defaults" ) )
     {
-        reset_colors_to_default( m_trace_win );
-        reset_event_colors_to_default( m_trace_win );
+        reset_colors_to_default( win );
+        reset_event_colors_to_default( win );
     }
 
     ImGui::Separator();
@@ -4219,13 +4218,13 @@ void MainApp::render_color_picker()
                                 &m_colorpicker_color, &m_colorpicker_event );
         }
 
-        if ( !m_trace_win )
+        if ( !win )
         {
             m_colorpicker_event.clear();
         }
         else if ( ImGui::CollapsingHeader( "Event Colors" ) )
         {
-            render_color_event_items( m_trace_win->m_trace_events,
+            render_color_event_items( win->m_trace_events,
                     &m_colorpicker_color, &m_colorpicker_event );
         }
 
@@ -4243,7 +4242,7 @@ void MainApp::render_color_picker()
     else if ( !m_colorpicker_event.empty() )
     {
         changed |= render_color_picker_event_colors( m_colorpicker,
-                m_trace_win, m_colorpicker_event );
+                win, m_colorpicker_event );
     }
 
     ImGui::NextColumn();
@@ -4253,8 +4252,8 @@ void MainApp::render_color_picker()
     {
         if ( m_colorpicker_color < col_Max )
         {
-            if ( m_trace_win )
-                update_changed_colors( m_trace_win->m_trace_events, m_colorpicker_color );
+            if ( win )
+                update_changed_colors( win->m_trace_events, m_colorpicker_color );
 
             // imgui color change - set new imgui colors
             if ( s_clrs().is_imgui_color( m_colorpicker_color ) )
@@ -4264,7 +4263,7 @@ void MainApp::render_color_picker()
         }
         else if ( !m_colorpicker_event.empty() )
         {
-            m_trace_win->m_trace_events.set_event_color( m_colorpicker_event, m_colorpicker.m_color );
+            win->m_trace_events.set_event_color( m_colorpicker_event, m_colorpicker.m_color );
         }
     }
 }
@@ -4394,7 +4393,7 @@ void MainApp::render_menu( const char *str_id )
         }
 #endif
 
-        if ( m_saving_info.title.empty() && m_trace_win )
+        if ( m_saving_info.title.empty() && is_trace_loaded() )
         {
             std::string &filename = m_trace_win->m_trace_events.m_filename;
             const char *basename = get_path_filename( filename.c_str() );
@@ -4478,7 +4477,7 @@ void MainApp::handle_hotkeys()
         SDL_PushEvent( &event );
     }
 
-    if ( s_actions().get( action_trace_info ) && m_trace_win )
+    if ( s_actions().get( action_trace_info ) && is_trace_loaded() )
     {
         const std::string label = trace_info_label( m_trace_win->m_trace_events );
 

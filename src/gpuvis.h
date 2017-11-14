@@ -374,7 +374,7 @@ public:
     StrPool m_strpool;
     trace_info_t m_trace_info;
     std::vector< trace_event_t > m_events;
-    
+
     // Max drm_vblank_event crc value we've seen
     uint32_t m_crtc_max = 0;
 
@@ -852,6 +852,8 @@ public:
 
     uint32_t max_row_size() { return 128; }
 
+    void set_crtc_max( uint32_t crtc_max ) { m_crtc_max = crtc_max; }
+
 private:
     typedef uint32_t OPT_Flags;
     enum : uint32_t
@@ -867,6 +869,7 @@ private:
                    float defval, float minval, float maxval, OPT_Flags flags );
 
 private:
+    uint32_t m_crtc_max = 0;
     std::vector< option_t > m_options;
 
     // Map row names to option IDs to store graph row sizes. Ie, "gfx", "print", "sdma0", etc.
@@ -896,6 +899,9 @@ public:
     bool load_file( const char *filename );
     void cancel_load_file();
     bool is_loading();
+
+    bool is_trace_loaded()
+        { return m_trace_win && ( m_trace_win->m_trace_events.get_load_status() == TraceEvents::Trace_Loaded ); }
 
     void render();
     void render_save_filename();
