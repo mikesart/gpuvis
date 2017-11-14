@@ -569,7 +569,7 @@ bool MainApp::load_file( const char *filename )
     m_trace_win = new TraceWin( filename, filesize );
 
     m_loading_info.win = m_trace_win;
-    m_loading_info.thread = SDL_CreateThread( thread_func, "eventloader", ( void * )this );
+    m_loading_info.thread = SDL_CreateThread( thread_func, "eventloader", &m_loading_info );
     if ( !m_loading_info.thread )
     {
         logf( "[Error] %s: SDL_CreateThread failed.", __func__ );
@@ -679,8 +679,9 @@ int MainApp::new_event_cb( TraceEvents *trace_events, const trace_event_t &event
 
 int SDLCALL MainApp::thread_func( void *data )
 {
-    TraceEvents &trace_events = s_app().m_loading_info.win->m_trace_events;
-    const char *filename = s_app().m_loading_info.filename.c_str();
+    loading_info_t *loading_info = ( loading_info_t *)data;
+    TraceEvents &trace_events = loading_info->win->m_trace_events;
+    const char *filename = loading_info->filename.c_str();
 
     logf( "Reading trace file %s...", filename );
 

@@ -933,7 +933,7 @@ protected:
     static int new_event_cb( TraceEvents *trace_events, const trace_event_t &event );
 
 public:
-    struct
+    struct loading_info_t
     {
         // State_Idle, Loading, Loaded, CancelLoading
         SDL_atomic_t state = { 0 };
@@ -942,7 +942,8 @@ public:
         TraceWin *win = nullptr;
         SDL_Thread *thread = nullptr;
         std::vector< std::string > inputfiles;
-    } m_loading_info;
+    };
+    loading_info_t m_loading_info;
 
     struct save_info_t
     {
