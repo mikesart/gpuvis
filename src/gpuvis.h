@@ -299,7 +299,7 @@ public:
         Trace_Initializing,
         Trace_Error
     };
-    tracestatus_t get_load_status( uint32_t *count );
+    tracestatus_t get_load_status( uint32_t *count = NULL );
 
     // Return vec of locations for a tdop expression. Ie: "$name=drm_handle_vblank"
     const std::vector< uint32_t > *get_tdopexpr_locs( const char *name, std::string *err = nullptr );
@@ -370,11 +370,13 @@ public:
 
     std::string m_filename;
     size_t m_filesize = 0;
-    std::string m_title;
 
     StrPool m_strpool;
     trace_info_t m_trace_info;
     std::vector< trace_event_t > m_events;
+    
+    // Max drm_vblank_event crc value we've seen
+    uint32_t m_crtc_max = 0;
 
     // Map of vblanks hashval to array of event locations.
     TraceLocations m_tdopexpr_locs;
@@ -450,7 +452,7 @@ public:
     std::vector< vblank_info_t > m_vblank_info;
 
     // 0: events loaded, 1+: loading events, -1: error
-    SDL_atomic_t m_eventsloaded = { 0 };
+    SDL_atomic_t m_eventsloaded = { 1 };
 };
 
 class GraphRows
@@ -523,7 +525,7 @@ class graph_info_t;
 class TraceWin
 {
 public:
-    TraceWin( TraceEvents &trace_events, std::string &title );
+    TraceWin( const char *filename, size_t filesize );
     ~TraceWin();
 
 public:
@@ -647,7 +649,7 @@ public:
     bool m_inited = false;
 
     // trace events
-    TraceEvents &m_trace_events;
+    TraceEvents m_trace_events;
 
     // Ftrace print event id to display create plot dialog
     uint32_t m_create_plot_eventid = INVALID_ID;
@@ -895,9 +897,6 @@ public:
     void cancel_load_file();
     bool is_loading();
 
-    void new_event_window( TraceEvents *trace_events );
-    void close_event_file( TraceEvents *trace_events, bool close_file  );
-
     void render();
     void render_save_filename();
     void render_menu( const char *str_id );
@@ -922,20 +921,20 @@ protected:
     void parse_cmdline( int argc, char **argv );
 
     state_t get_state();
-    void set_state( state_t state );
+    void set_state( state_t state, const char *filename = nullptr );
 
     static int SDLCALL thread_func( void *data );
-    static int new_event_cb( const trace_event_t &event );
-    void add_sched_switch_pid_comm( const trace_event_t &event,
-                                    const char *pidstr, const char *commstr );
+    static int new_event_cb( TraceEvents *trace_events, const trace_event_t &event );
 
 public:
     struct
     {
-        std::string filename;
+        // State_Idle, Loading, Loaded, CancelLoading
         SDL_atomic_t state = { 0 };
+
+        std::string filename;
+        TraceWin *win = nullptr;
         SDL_Thread *thread = nullptr;
-        TraceEvents *trace_events = nullptr;
         std::vector< std::string > inputfiles;
     } m_loading_info;
 
@@ -952,11 +951,7 @@ public:
     };
     save_info_t m_saving_info;
 
-    // Max drm_vblank_event crc value we've seen
-    uint32_t m_crtc_max = 0;
-
-    std::vector< TraceEvents * > m_trace_events_list;
-    std::vector< TraceWin * > m_trace_windows_list;
+    TraceWin *m_trace_win = nullptr;
 
     FontInfo m_font_main;
     FontInfo m_font_small;

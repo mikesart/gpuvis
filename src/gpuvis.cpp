@@ -447,7 +447,10 @@ bool Opts::render_imgui_opt( option_id_t optid, float w )
 
 void Opts::render_imgui_options()
 {
-    uint32_t crtc_max = s_app().m_crtc_max;
+    uint32_t crtc_max = 0;
+
+    if ( s_app().m_trace_win )
+        crtc_max = s_app().m_trace_win->m_trace_events.m_crtc_max;
 
     for ( size_t i = 0; i < m_options.size(); i++ )
     {
@@ -477,10 +480,14 @@ bool MainApp::is_loading()
     return ( get_state() == State_Loading || get_state() == State_CancelLoading );
 }
 
-void MainApp::set_state( state_t state )
+void MainApp::set_state( state_t state, const char *filename )
 {
-    m_loading_info.filename.clear();
-    m_loading_info.trace_events = NULL;
+    if ( state == State_Loading )
+        m_loading_info.filename = filename;
+    else
+        m_loading_info.filename.clear();
+
+    m_loading_info.win = NULL;
     m_loading_info.thread = NULL;
 
     SDL_AtomicSet( &m_loading_info.state, state );
@@ -559,88 +566,25 @@ bool MainApp::load_file( const char *filename )
         return false;
     }
 
-    std::string title = string_format( "%s (%.2f MB)", filename, filesize / ( 1024.0f * 1024.0f ) );
+    set_state( State_Loading, filename );
 
-    // Check if we've already loaded this trace file.
-    for ( TraceEvents *events : m_trace_events_list )
-    {
-        if ( events->m_title == title )
-            return true;
-    }
+    delete m_trace_win;
+    m_trace_win = new TraceWin( filename, filesize );
 
-    // Close currently opened trace files
-    while ( !m_trace_events_list.empty() )
-        close_event_file( m_trace_events_list.back(), true );
-
-    set_state( State_Loading );
-    m_loading_info.filename = filename;
-
-    m_loading_info.trace_events = new TraceEvents;
-    m_loading_info.trace_events->m_filename = filename;
-    m_loading_info.trace_events->m_filesize = filesize;
-    m_loading_info.trace_events->m_title = title;
-
-    // 1+ means loading events
-    SDL_AtomicSet( &m_loading_info.trace_events->m_eventsloaded, 1 );
-
+    m_loading_info.win = m_trace_win;
     m_loading_info.thread = SDL_CreateThread( thread_func, "eventloader", ( void * )this );
-    if ( m_loading_info.thread )
+    if ( !m_loading_info.thread )
     {
-        new_event_window( m_loading_info.trace_events );
-        m_trace_events_list.push_back( m_loading_info.trace_events );
-        return true;
+        logf( "[Error] %s: SDL_CreateThread failed.", __func__ );
+
+        delete m_trace_win;
+        m_trace_win = NULL;
+
+        set_state( State_Idle );
+        return false;
     }
 
-    logf( "[Error] %s: SDL_CreateThread failed.", __func__ );
-
-    delete m_loading_info.trace_events;
-    m_loading_info.trace_events = NULL;
-
-    set_state( State_Idle );
-    return false;
-}
-
-void MainApp::new_event_window( TraceEvents *trace_events )
-{
-    size_t refcount = 0;
-    std::string title = trace_events->m_title;
-
-    for ( int i = ( int )m_trace_windows_list.size() - 1; i >= 0; i-- )
-    {
-        if ( &m_trace_windows_list[ i ]->m_trace_events == trace_events )
-            refcount++;
-    }
-
-    if ( refcount )
-        title += string_format( " #%lu", refcount + 1 );
-
-    TraceWin *win = new TraceWin( *trace_events, title );
-
-    m_trace_windows_list.push_back( win );
-}
-
-void MainApp::close_event_file( TraceEvents *trace_events, bool close_file )
-{
-    for ( int i = ( int )m_trace_windows_list.size() - 1; i >= 0; i-- )
-    {
-        TraceWin *win = m_trace_windows_list[ i ];
-
-        if ( win->m_open && ( &win->m_trace_events == trace_events ) )
-            win->m_open = false;
-    }
-
-    if ( close_file )
-    {
-        for ( size_t i = 0; i < m_trace_events_list.size(); i++ )
-        {
-            if ( m_trace_events_list[ i ] == trace_events )
-            {
-                delete trace_events;
-                m_trace_events_list.erase( m_trace_events_list.begin() + i );
-                break;
-            }
-        }
-    }
+    return true;
 }
 
 // See notes at top of gpuvis_graph.cpp for explanation of these events.
@@ -660,14 +604,13 @@ static bool is_amd_timeline_event( const trace_event_t &event )
              !strcmp( event.name, "amdgpu_sched_run_job" ) );
 }
 
-void MainApp::add_sched_switch_pid_comm( const trace_event_t &event,
-                                             const char *pidstr, const char *commstr )
+static void add_sched_switch_pid_comm( trace_info_t &trace_info, const trace_event_t &event,
+                                       const char *pidstr, const char *commstr )
 {
     int pid = atoi( get_event_field_val( event, pidstr ) );
 
     if ( pid )
     {
-        trace_info_t &trace_info = m_loading_info.trace_events->m_trace_info;
         const char *comm = get_event_field_val( event, commstr );
 
         // If this pid is not in our pid_comm map or it is a sched_switch
@@ -686,29 +629,31 @@ void MainApp::add_sched_switch_pid_comm( const trace_event_t &event,
 
 // Callback from trace_read.cpp. We mostly just store the events in our array
 //  and then init_new_event() does the real work of initializing them later.
-int MainApp::new_event_cb( const trace_event_t &event )
+int MainApp::new_event_cb( TraceEvents *trace_events, const trace_event_t &event )
 {
-    TraceEvents *trace_events = s_app().m_loading_info.trace_events;
-    cpu_info_t &cpu_info = trace_events->m_trace_info.cpu_info[ event.cpu ];
+    trace_info_t &trace_info = trace_events->m_trace_info;
+    cpu_info_t &cpu_info = trace_info.cpu_info[ event.cpu ];
 
     // Store the max ts value we've seen for this cpu
     cpu_info.max_ts = std::max< int64_t >( cpu_info.max_ts,
-                                           event.ts - trace_events->m_trace_info.first_ts_in_file );
+                                           event.ts - trace_info.first_ts_in_file );
 
     if ( !cpu_info.tot_events )
     {
         // First event for this cpu - set min_ts
-        cpu_info.min_ts = event.ts - trace_events->m_trace_info.first_ts_in_file;
+        cpu_info.min_ts = event.ts - trace_info.first_ts_in_file;
 
+        // This cpu ring buffer was overwritten at the beginning, and this is the
+        //  first event we've seen from this cpu. Trim all the previous events.
         if ( cpu_info.overrun && s_opts().getb( OPT_TrimTrace ) )
         {
             trace_events->m_ts_trimmed = cpu_info.min_ts;
             trace_events->m_events.clear();
-        }
 
-        // Clear displayed event count for all cpus
-        for ( cpu_info_t &i : trace_events->m_trace_info.cpu_info )
-            i.events = 0;
+            // Clear displayed event count for all cpus back to 0
+            for ( cpu_info_t &i : trace_info.cpu_info )
+                i.events = 0;
+        }
     }
     cpu_info.events++;
     cpu_info.tot_events++;
@@ -721,12 +666,12 @@ int MainApp::new_event_cb( const trace_event_t &event )
     // This is the reason we're initializing events in two passes to collect all this data.
     if ( event.is_sched_switch() )
     {
-        s_app().add_sched_switch_pid_comm( event, "prev_pid", "prev_comm" );
-        s_app().add_sched_switch_pid_comm( event, "next_pid", "next_comm" );
+        add_sched_switch_pid_comm( trace_info, event, "prev_pid", "prev_comm" );
+        add_sched_switch_pid_comm( trace_info, event, "next_pid", "next_comm" );
     }
 
     // Record the maximum crtc value we've ever seen
-    s_app().m_crtc_max = std::max< int >( s_app().m_crtc_max, event.crtc );
+    trace_events->m_crtc_max = std::max< int >( trace_events->m_crtc_max, event.crtc );
 
     // 1+ means loading events
     SDL_AtomicAdd( &trace_events->m_eventsloaded, 1 );
@@ -737,30 +682,33 @@ int MainApp::new_event_cb( const trace_event_t &event )
 
 int SDLCALL MainApp::thread_func( void *data )
 {
-    TraceEvents *trace_events = s_app().m_loading_info.trace_events;
+    TraceEvents &trace_events = s_app().m_loading_info.win->m_trace_events;
     const char *filename = s_app().m_loading_info.filename.c_str();
 
     logf( "Reading trace file %s...", filename );
 
-    EventCallback trace_cb = std::bind( new_event_cb, _1 );
-    if ( read_trace_file( filename, trace_events->m_strpool, trace_events->m_trace_info, trace_cb ) < 0 )
+    EventCallback trace_cb = std::bind( new_event_cb, &trace_events, _1 );
+    int ret = read_trace_file( filename, trace_events.m_strpool,
+                               trace_events.m_trace_info, trace_cb );
+    if ( ret < 0 )
     {
         logf( "[Error]: read_trace_file(%s) failed.", filename );
 
         // -1 means loading error
-        SDL_AtomicSet( &trace_events->m_eventsloaded, -1 );
+        SDL_AtomicSet( &trace_events.m_eventsloaded, -1 );
         s_app().set_state( State_Idle );
         return -1;
     }
 
-    logf( "Events read: %lu", trace_events->m_events.size() );
+    logf( "Events read: %lu", trace_events.m_events.size() );
 
     // Call TraceEvents::init() to initialize all events, etc.
-    trace_events->init();
+    trace_events.init();
 
     // 0 means events loaded
-    SDL_AtomicSet( &trace_events->m_eventsloaded, 0 );
+    SDL_AtomicSet( &trace_events.m_eventsloaded, 0 );
     s_app().set_state( State_Loaded );
+
     return 0;
 }
 
@@ -846,13 +794,8 @@ void MainApp::shutdown( SDL_Window *window )
 
     set_state( State_Idle );
 
-    for ( TraceWin *win : m_trace_windows_list )
-        delete win;
-    m_trace_windows_list.clear();
-
-    for ( TraceEvents *events : m_trace_events_list )
-        delete events;
-    m_trace_events_list.clear();
+    delete m_trace_win;
+    m_trace_win = NULL;
 }
 
 void MainApp::render_save_filename()
@@ -938,39 +881,25 @@ static void imgui_setnextwindowsize( float w, float h, float x = -1.0f, float y 
 
 void MainApp::render()
 {
-    if ( !m_show_scale_popup && m_trace_windows_list.empty() )
+    if ( m_trace_win && m_trace_win->m_open )
+    {
+        float w = ImGui::GetIO().DisplaySize.x;
+        float h = ImGui::GetIO().DisplaySize.y;
+
+        ImGui::SetNextWindowPos( ImVec2( 0, 0 ), ImGuiSetCond_Always );
+        ImGui::SetNextWindowSizeConstraints( ImVec2( w, h ), ImVec2( w, h ) );
+
+        m_trace_win->render();
+    }
+    else if ( m_trace_win )
+    {
+        delete m_trace_win;
+        m_trace_win = NULL;
+    }
+    else if ( !m_show_scale_popup )
     {
         // If we have no windows up, show the console
         m_show_gpuvis_console = true;
-    }
-    else if ( !m_trace_windows_list.empty() )
-    {
-        float y = 0;
-        float w = ImGui::GetIO().DisplaySize.x;
-        float h = ImGui::GetIO().DisplaySize.y / m_trace_windows_list.size();
-
-        for ( int i = ( int )m_trace_windows_list.size() - 1; i >= 0; i-- )
-        {
-            TraceWin *win = m_trace_windows_list[ i ];
-
-            if ( !win->m_open )
-            {
-                // Prune closed windows
-                delete win;
-                m_trace_windows_list.erase( m_trace_windows_list.begin() + i );
-            }
-        }
-
-        for ( size_t i = 0; i < m_trace_windows_list.size(); i++ )
-        {
-            TraceWin *win = m_trace_windows_list[ i ];
-
-            ImGui::SetNextWindowPos( ImVec2( 0, y ), ImGuiSetCond_Always );
-            ImGui::SetNextWindowSizeConstraints( ImVec2( w, h ), ImVec2( w, h ) );
-
-            win->render();
-            y += h;
-        }
     }
 
     // Render dialogs only if the scale popup dialog isn't up
@@ -1024,14 +953,14 @@ void MainApp::render()
 
         if ( !m_show_trace_info.empty() )
         {
-            bool show_trace_info = !m_trace_windows_list.empty();
+            bool show_trace_info = !!m_trace_win;
 
             if ( show_trace_info )
             {
                 imgui_setnextwindowsize( 800, 600 );
 
                 ImGui::Begin( m_show_trace_info.c_str(), &show_trace_info );
-                m_trace_windows_list[ 0 ]->trace_render_info();
+                m_trace_win->trace_render_info();
                 ImGui::End();
 
                 if ( s_actions().get( action_escape ) )
@@ -1183,8 +1112,8 @@ void MainApp::load_fonts()
 
     // Reset max rect size for the print events so they'll redo the CalcTextSize for the
     //  print graph row backgrounds (in graph_render_print_timeline).
-    for ( TraceEvents *trace_event : m_trace_events_list )
-        trace_event->invalidate_ftraceprint_colors();
+    if ( m_trace_win )
+        m_trace_win->m_trace_events.invalidate_ftraceprint_colors();
 
     if ( s_ini().GetFloat( "scale", -1.0f ) == -1.0f )
     {
@@ -2185,18 +2114,21 @@ TraceEvents::tracestatus_t TraceEvents::get_load_status( uint32_t *count )
 
     if ( eventsloaded > 0 )
     {
-        *count = eventsloaded & ~0x40000000;
+        if ( count )
+            *count = eventsloaded & ~0x40000000;
 
         return ( eventsloaded & 0x40000000 ) ?
                     Trace_Initializing : Trace_Loading;
     }
     else if ( !eventsloaded )
     {
-        *count = m_events.size();
+        if ( count )
+            *count = m_events.size();
         return Trace_Loaded;
     }
 
-    *count = 0;
+    if ( count )
+        *count = 0;
     return Trace_Error;
 }
 
@@ -2236,7 +2168,7 @@ void TraceEvents::init()
     // Set m_eventsloaded initializing bit
     SDL_AtomicSet( &m_eventsloaded, 0x40000000 );
 
-    m_vblank_info.resize( s_app().m_crtc_max + 1 );
+    m_vblank_info.resize( m_crtc_max + 1 );
 
     // Initialize events...
     for ( trace_event_t &event : m_events )
@@ -2816,14 +2748,15 @@ static void remove_event_filter( char ( &dest )[ T ], const char *fmt, ... )
     str_strip_whitespace( dest );
 }
 
-TraceWin::TraceWin( TraceEvents &trace_events, std::string &title ) :
-    m_trace_events( trace_events)
+TraceWin::TraceWin( const char *filename, size_t filesize )
 {
     // Note that m_trace_events is possibly being loaded in
     //  a background thread at this moment, so be sure to check
     //  m_eventsloaded before accessing it...
 
-    m_title = title;
+    m_title = string_format( "%s (%.2f MB)", filename, filesize / ( 1024.0f * 1024.0f ) );
+    m_trace_events.m_filename = filename;
+    m_trace_events.m_filesize = filesize;
 
     strcpy_safe( m_eventlist.timegoto_buf, "0.0" );
 
@@ -3924,11 +3857,10 @@ void MainApp::render_menu_options()
         }
 
         // If we have a trace window and the events are loaded, show Trace Info menu item
-        if ( !m_trace_windows_list.empty() &&
-             !SDL_AtomicGet( &m_trace_windows_list[ 0 ]->m_trace_events.m_eventsloaded ) )
+        if ( m_trace_win &&
+             ( m_trace_win->m_trace_events.get_load_status() == TraceEvents::Trace_Loaded ) )
         {
-            TraceEvents &trace_events = m_trace_windows_list[ 0 ]->m_trace_events;
-            const std::string label = trace_info_label( trace_events );
+            const std::string label = trace_info_label( m_trace_win->m_trace_events );
 
             ImGui::Separator();
 
@@ -4169,9 +4101,10 @@ static bool render_color_picker_colors( ColorPicker &colorpicker, colors_t selec
 }
 
 static bool render_color_picker_event_colors( ColorPicker &colorpicker,
-        TraceEvents &trace_events, const std::string &selected_color_event )
+        TraceWin *win, const std::string &selected_color_event )
 {
     bool changed = false;
+    TraceEvents &trace_events = win->m_trace_events;
     const trace_event_t *event = get_first_colorable_event( trace_events, selected_color_event.c_str() );
 
     if ( event )
@@ -4216,16 +4149,16 @@ static void update_changed_colors( TraceEvents &trace_events, colors_t color )
     }
 }
 
-static void reset_colors_to_default( std::vector< TraceEvents * > &trace_events_list )
+static void reset_colors_to_default( TraceWin *win )
 {
     for ( colors_t i = 0; i < col_Max; i++ )
         s_clrs().reset( i );
 
-    for ( TraceEvents *trace_events : trace_events_list )
+    if ( win )
     {
-        trace_events->invalidate_ftraceprint_colors();
-        trace_events->update_tgid_colors();
-        trace_events->update_fence_signaled_timeline_colors();
+        win->m_trace_events.invalidate_ftraceprint_colors();
+        win->m_trace_events.update_tgid_colors();
+        win->m_trace_events.update_fence_signaled_timeline_colors();
     }
 
     imgui_set_custom_style( s_clrs().getalpha( col_ThemeAlpha ) );
@@ -4233,7 +4166,7 @@ static void reset_colors_to_default( std::vector< TraceEvents * > &trace_events_
     s_textclrs().update_colors();
 }
 
-static void reset_event_colors_to_default( std::vector< TraceEvents * > &trace_events_list )
+static void reset_event_colors_to_default( TraceWin *win )
 {
     std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$imgui_eventcolors$" );
 
@@ -4242,9 +4175,9 @@ static void reset_event_colors_to_default( std::vector< TraceEvents * > &trace_e
         s_ini().PutStr( entry.first.c_str(), "", "$imgui_eventcolors$" );
     }
 
-    for ( TraceEvents *trace_events : trace_events_list )
+    if ( win )
     {
-        for ( trace_event_t &event : trace_events->m_events )
+        for ( trace_event_t &event : win->m_trace_events.m_events )
         {
             // If it's not an autogen'd color, reset color back to 0
             if ( !( event.flags & TRACE_FLAG_AUTOGEN_COLOR ) )
@@ -4259,8 +4192,8 @@ void MainApp::render_color_picker()
 
     if ( ImGui::Button( "Reset All to Defaults" ) )
     {
-        reset_colors_to_default( m_trace_events_list );
-        reset_event_colors_to_default( m_trace_events_list );
+        reset_colors_to_default( m_trace_win );
+        reset_event_colors_to_default( m_trace_win );
     }
 
     ImGui::Separator();
@@ -4286,13 +4219,13 @@ void MainApp::render_color_picker()
                                 &m_colorpicker_color, &m_colorpicker_event );
         }
 
-        if ( m_trace_windows_list.empty() )
+        if ( !m_trace_win )
         {
             m_colorpicker_event.clear();
         }
         else if ( ImGui::CollapsingHeader( "Event Colors" ) )
         {
-            render_color_event_items( m_trace_windows_list[ 0 ]->m_trace_events,
+            render_color_event_items( m_trace_win->m_trace_events,
                     &m_colorpicker_color, &m_colorpicker_event );
         }
 
@@ -4309,9 +4242,8 @@ void MainApp::render_color_picker()
     }
     else if ( !m_colorpicker_event.empty() )
     {
-        TraceEvents &trace_events = m_trace_windows_list[ 0 ]->m_trace_events;
-
-        changed |= render_color_picker_event_colors( m_colorpicker, trace_events, m_colorpicker_event );
+        changed |= render_color_picker_event_colors( m_colorpicker,
+                m_trace_win, m_colorpicker_event );
     }
 
     ImGui::NextColumn();
@@ -4321,8 +4253,8 @@ void MainApp::render_color_picker()
     {
         if ( m_colorpicker_color < col_Max )
         {
-            for ( TraceEvents *trace_events : m_trace_events_list )
-                update_changed_colors( *trace_events, m_colorpicker_color );
+            if ( m_trace_win )
+                update_changed_colors( m_trace_win->m_trace_events, m_colorpicker_color );
 
             // imgui color change - set new imgui colors
             if ( s_clrs().is_imgui_color( m_colorpicker_color ) )
@@ -4332,10 +4264,7 @@ void MainApp::render_color_picker()
         }
         else if ( !m_colorpicker_event.empty() )
         {
-            for ( TraceEvents *trace_events : m_trace_events_list )
-            {
-                trace_events->set_event_color( m_colorpicker_event, m_colorpicker.m_color );
-            }
+            m_trace_win->m_trace_events.set_event_color( m_colorpicker_event, m_colorpicker.m_color );
         }
     }
 }
@@ -4465,12 +4394,9 @@ void MainApp::render_menu( const char *str_id )
         }
 #endif
 
-        if ( m_saving_info.title.empty() &&
-             !m_trace_windows_list.empty() &&
-             !m_trace_windows_list[ 0 ]->m_trace_events.m_filename.empty() )
+        if ( m_saving_info.title.empty() && m_trace_win )
         {
-            TraceEvents &trace_events = m_trace_windows_list[ 0 ]->m_trace_events;
-            std::string &filename = trace_events.m_filename;
+            std::string &filename = m_trace_win->m_trace_events.m_filename;
             const char *basename = get_path_filename( filename.c_str() );
             std::string label = string_format( "Save '%s' as...", basename );
 
@@ -4552,11 +4478,9 @@ void MainApp::handle_hotkeys()
         SDL_PushEvent( &event );
     }
 
-    if ( !m_trace_windows_list.empty() &&
-         s_actions().get( action_trace_info ) )
+    if ( s_actions().get( action_trace_info ) && m_trace_win )
     {
-        TraceEvents &trace_events = m_trace_windows_list[ 0 ]->m_trace_events;
-        const std::string label = trace_info_label( trace_events );
+        const std::string label = trace_info_label( m_trace_win->m_trace_events );
 
         ImGui::SetWindowFocus( label.c_str() );
         m_show_trace_info = label;
