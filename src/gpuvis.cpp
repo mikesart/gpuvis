@@ -454,7 +454,9 @@ void Opts::render_imgui_options()
 
         if ( ( i >= OPT_RenderCrtc0 ) && ( i <= OPT_RenderCrtc9 ) )
         {
-            if ( i - OPT_RenderCrtc0 > m_crtc_max )
+            int crtc = ( int )( i - OPT_RenderCrtc0 );
+
+            if ( crtc > m_crtc_max )
                 continue;
         }
 
@@ -2775,7 +2777,7 @@ TraceWin::~TraceWin()
     m_frame_markers.shutdown();
     m_create_graph_row_dlg.shutdown();
 
-    s_opts().set_crtc_max( 0 );
+    s_opts().set_crtc_max( -1 );
 }
 
 void TraceWin::render()

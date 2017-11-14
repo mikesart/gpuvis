@@ -376,7 +376,7 @@ public:
     std::vector< trace_event_t > m_events;
 
     // Max drm_vblank_event crc value we've seen
-    uint32_t m_crtc_max = 0;
+    int m_crtc_max = -1;
 
     // Map of vblanks hashval to array of event locations.
     TraceLocations m_tdopexpr_locs;
@@ -852,7 +852,7 @@ public:
 
     uint32_t max_row_size() { return 128; }
 
-    void set_crtc_max( uint32_t crtc_max ) { m_crtc_max = crtc_max; }
+    void set_crtc_max( int crtc_max ) { m_crtc_max = crtc_max; }
 
 private:
     typedef uint32_t OPT_Flags;
@@ -869,7 +869,7 @@ private:
                    float defval, float minval, float maxval, OPT_Flags flags );
 
 private:
-    uint32_t m_crtc_max = 0;
+    int m_crtc_max = -1;
     std::vector< option_t > m_options;
 
     // Map row names to option IDs to store graph row sizes. Ie, "gfx", "print", "sdma0", etc.
