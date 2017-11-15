@@ -915,6 +915,8 @@ public:
 
     void get_window_pos( int &x, int &y, int &w, int &h );
     void save_window_pos( int x, int y, int w, int h );
+    
+    void dialog_open_trace();
 
 protected:
     void render_menu_options();

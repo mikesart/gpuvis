@@ -70,6 +70,9 @@ const char *noc_file_dialog_open(int flags,
                                  const char *default_path,
                                  const char *default_name);
 
+// NULL: Success, ERROR: error string
+const char *noc_file_init();
+
 #if defined( NOC_FILE_DIALOG_IMPLEMENTATION )
 
 #include <stdlib.h>
@@ -80,6 +83,12 @@ static char *g_noc_file_dialog_ret = NULL;
 #if defined( NOC_FILE_DIALOG_GTK )
 
 #include <gtk/gtk.h>
+#include "hook_gtk3.h"
+
+const char *noc_file_init()
+{
+    return hook_gtk3_init();
+}
 
 const char *noc_file_dialog_open(int flags,
                                  const char *filters,
@@ -92,6 +101,9 @@ const char *noc_file_dialog_open(int flags,
     GtkFileChooserAction action;
     gint res;
     char buf[128], *patterns;
+
+    if ( noc_file_init() )
+        return NULL;
 
     action = flags & NOC_FILE_DIALOG_SAVE ? GTK_FILE_CHOOSER_ACTION_SAVE :
                                             GTK_FILE_CHOOSER_ACTION_OPEN;
@@ -152,6 +164,11 @@ const char *noc_file_dialog_open(int flags,
 #include <windows.h>
 #include <commdlg.h>
 
+const char *noc_file_init()
+{
+    return NULL;
+}
+
 const char *noc_file_dialog_open(int flags,
                                  const char *filters,
                                  const char *default_path,
@@ -185,9 +202,19 @@ const char *noc_file_dialog_open(int flags,
 
 #elif defined( NOC_FILE_DIALOG_OSX )
 
+const char *noc_file_init()
+{
+    return NULL;
+}
+
 // moved to noc_file_dialog_osx.mm
 
 #else
+
+const char *noc_file_init()
+{
+    return "ERROR: noc_file_dialog_open NYI";
+}
 
 inline const char *noc_file_dialog_open(int flags,
                                  const char *filters,

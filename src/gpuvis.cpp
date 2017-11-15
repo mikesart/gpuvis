@@ -4362,6 +4362,42 @@ void MainApp::render_console()
     ImGui::End();
 }
 
+#if !defined( NOC_FILE_DIALOG_IMPLEMENTATION )
+static const char *noc_file_init()
+{
+    return "File open dialog NYI";
+}
+
+#define NOC_FILE_DIALOG_OPEN 0
+static const char *noc_file_dialog_open(int flags, const char *filters,
+        const char *default_path, const char *default_name)
+{
+    return NULL;
+}
+#endif
+
+void MainApp::dialog_open_trace()
+{
+    const char *errstr = noc_file_init();
+
+    if ( errstr )
+    {
+        ImGui::SetWindowFocus( "Gpuvis Console" );
+        m_show_gpuvis_console = true;
+
+        logf( "[Error] Open Trace: %s\n", errstr );
+    }
+    else
+    {
+        const char *file = noc_file_dialog_open( NOC_FILE_DIALOG_OPEN,
+                                 "trace-cmd files (*.dat;*.trace)\0*.dat;*.trace\0",
+                                 NULL, "trace.dat" );
+
+        if ( file && file[ 0 ] )
+            m_loading_info.inputfiles.push_back( file );
+    }
+}
+
 void MainApp::render_menu( const char *str_id )
 {
     ImGui::PushID( str_id );
@@ -4387,13 +4423,7 @@ void MainApp::render_menu( const char *str_id )
 
 #if defined( NOC_FILE_DIALOG_IMPLEMENTATION )
         if ( ImGui::MenuItem( "Open Trace File...", s_actions().hotkey_str( action_open ).c_str() ) )
-        {
-            const char *file = noc_file_dialog_open( NOC_FILE_DIALOG_OPEN,
-                "trace-cmd files (*.dat)\0*.dat\0", NULL, "trace.dat" );
-
-            if ( file && file[ 0 ] )
-                m_loading_info.inputfiles.push_back( file );
-        }
+            dialog_open_trace();
 #endif
 
         if ( m_saving_info.title.empty() && is_trace_loaded() )
@@ -4461,16 +4491,8 @@ void MainApp::handle_hotkeys()
         m_show_help = true;
     }
 
-#if defined( NOC_FILE_DIALOG_IMPLEMENTATION )
     if ( s_actions().get( action_open ) )
-    {
-        const char *file = noc_file_dialog_open( NOC_FILE_DIALOG_OPEN,
-            "trace-cmd files (*.dat)\0*.dat\0", NULL, "trace.dat" );
-
-        if ( file && file[ 0 ] )
-            m_loading_info.inputfiles.push_back( file );
-    }
-#endif
+        dialog_open_trace();
 
     if ( s_actions().get( action_quit ) )
     {
