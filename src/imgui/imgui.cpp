@@ -4295,7 +4295,10 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
         window->SizeFull = CalcSizeFullWithConstraint(window, window->SizeFull);
         window->Size = window->Collapsed ? window->TitleBarRect().GetSize() : window->SizeFull;
         if ((flags & ImGuiWindowFlags_ChildWindow) && !(flags & ImGuiWindowFlags_Popup))
+        {
+            IM_ASSERT(window_size_set_by_api); // Submitted by BeginChild()
             window->Size = window->SizeFull;
+        }
 
         // SCROLLBAR STATUS
 
