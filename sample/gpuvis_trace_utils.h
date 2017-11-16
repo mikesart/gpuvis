@@ -328,14 +328,15 @@ GPUVIS_EXTERN int gpuvis_trace_end_ctx_vprintf( unsigned int ctx, const char *fm
 GPUVIS_EXTERN int gpuvis_start_tracing()
 {
     const char cmd[] =
-            "trace-cmd start -b 2000 -D -i "
+            "trace-cmd start -b 8000 -D -i "
             // https://github.com/mikesart/gpuvis/wiki/TechDocs-Linux-Scheduler
-            " -e sched:sched_switch"
+            // " -e sched:sched_switch"
             " -e sched:sched_process_fork"
             " -e sched:sched_process_exec"
             " -e sched:sched_process_exit"
             " -e drm:drm_vblank_event"
             " -e drm:drm_vblank_event_queued"
+            " -e drm:drm_vblank_event_delivered"
             // https://github.com/mikesart/gpuvis/wiki/TechDocs-AMDGpu
             " -e amdgpu:amdgpu_vm_flush"
             " -e amdgpu:amdgpu_cs_ioctl"
@@ -358,6 +359,8 @@ GPUVIS_EXTERN int gpuvis_start_tracing()
 
 GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing()
 {
+    int ret = -1;
+
     if ( gpuvis_tracing_on() )
     {
         char datetime[ 128 ];
@@ -374,27 +377,30 @@ GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing()
             exename = strrchr( exebuf, '/' );
         exename = exename ? ( exename + 1 ) : "trace";
 
-        // Capture snapshot
-        exec_tracecmd( "trace-cmd snapshot -s" );
+        // Stop tracing
+        exec_tracecmd( "trace-cmd stop 2>&1" );
 
-        // Save the snapshot to something like "glxgears_2017-10-13_17-52-56.dat"
+        // Save the trace data to something like "glxgears_2017-10-13_17-52-56.dat"
         snprintf( cmd, sizeof( cmd ),
-                  "trace-cmd extract -s -k -o \"%s_%s.dat\" > /tmp/blah.log 2>&1 &",
+                  "trace-cmd extract -k -o \"%s_%s.dat\" > /tmp/blah.log 2>&1 &",
                   exename, datetime );
         cmd[ sizeof( cmd ) - 1 ] = 0;
 
-        return system( cmd );
+        ret = system( cmd );
+
+        // Restart tracing
+        exec_tracecmd( "trace-cmd restart 2>&1" );
     }
 
-    return -1;
+    return ret;
 }
 
 GPUVIS_EXTERN int gpuvis_stop_tracing()
 {
     int ret = exec_tracecmd( "trace-cmd reset 2>&1");
 
-    // Try freeing the snapshot buffers as well
-    exec_tracecmd( "trace-cmd snapshot -f" );
+    // Try freeing any snapshot buffers as well
+    exec_tracecmd( "trace-cmd snapshot -f 2>&1" );
 
     return ret;
 }
