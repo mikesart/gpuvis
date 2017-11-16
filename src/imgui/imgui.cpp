@@ -4292,7 +4292,7 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
         // Apply minimum/maximum window size constraints and final size
         window->SizeFull = CalcSizeFullWithConstraint(window, window->SizeFull);
         window->Size = window->Collapsed ? window->TitleBarRect().GetSize() : window->SizeFull;
-        if ((flags & ImGuiWindowFlags_ChildWindow) && !(flags & ImGuiWindowFlags_Popup))
+        if ((flags & ImGuiWindowFlags_ChildWindow) && !(flags & (ImGuiWindowFlags_Popup|ImGuiWindowFlags_Tooltip)))
         {
             IM_ASSERT(window_size_set_by_api); // Submitted by BeginChild()
             window->Size = window->SizeFull;
@@ -4319,11 +4319,8 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
             window->OrderWithinParent = parent_window->DC.ChildWindows.Size;
             parent_window->DC.ChildWindows.push_back(window);
         }
-        if ((flags & ImGuiWindowFlags_ChildWindow) && !(flags & (ImGuiWindowFlags_Popup|ImGuiWindowFlags_Tooltip)))
-        {
-            IM_ASSERT(window_size_set_by_api); // Submitted by BeginChild()
+        if ((flags & ImGuiWindowFlags_ChildWindow) && !(flags & (ImGuiWindowFlags_Popup|ImGuiWindowFlags_Tooltip)) && !window_pos_set_by_api)
             window->Pos = window->PosFloat = parent_window->DC.CursorPos;
-        }
 
         const bool window_pos_with_pivot = (window->SetWindowPosVal.x != FLT_MAX && window->HiddenFrames == 0);
         if (window_pos_with_pivot)
