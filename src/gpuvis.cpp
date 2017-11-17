@@ -626,29 +626,28 @@ static void add_sched_switch_pid_comm( trace_info_t &trace_info, const trace_eve
 
 // Callback from trace_read.cpp. We mostly just store the events in our array
 //  and then init_new_event() does the real work of initializing them later.
-int MainApp::new_event_cb( TraceEvents *trace_events, const trace_event_t &event )
+int TraceEvents::new_event_cb( const trace_event_t &event )
 {
-    trace_info_t &trace_info = trace_events->m_trace_info;
-    cpu_info_t &cpu_info = trace_info.cpu_info[ event.cpu ];
+    cpu_info_t &cpu_info = m_trace_info.cpu_info[ event.cpu ];
 
     // Store the max ts value we've seen for this cpu
     cpu_info.max_ts = std::max< int64_t >( cpu_info.max_ts,
-                                           event.ts - trace_info.first_ts_in_file );
+                                           event.ts - m_trace_info.first_ts_in_file );
 
     if ( !cpu_info.tot_events )
     {
         // First event for this cpu - set min_ts
-        cpu_info.min_ts = event.ts - trace_info.first_ts_in_file;
+        cpu_info.min_ts = event.ts - m_trace_info.first_ts_in_file;
 
         // This cpu ring buffer was overwritten at the beginning, and this is the
         //  first event we've seen from this cpu. Trim all the previous events.
         if ( cpu_info.overrun && s_opts().getb( OPT_TrimTrace ) )
         {
-            trace_events->m_ts_trimmed = cpu_info.min_ts;
-            trace_events->m_events.clear();
+            m_ts_trimmed = cpu_info.min_ts;
+            m_events.clear();
 
             // Clear displayed event count for all cpus back to 0
-            for ( cpu_info_t &i : trace_info.cpu_info )
+            for ( cpu_info_t &i : m_trace_info.cpu_info )
                 i.events = 0;
         }
     }
@@ -656,25 +655,25 @@ int MainApp::new_event_cb( TraceEvents *trace_events, const trace_event_t &event
     cpu_info.tot_events++;
 
     // Add event to our m_events array
-    trace_events->m_events.push_back( event );
-    trace_events->m_events.back().id = trace_events->m_events.size() - 1;
+    m_events.push_back( event );
+    m_events.back().id = m_events.size() - 1;
 
     // If this is a sched_switch event, see if it has comm info we don't know about.
     // This is the reason we're initializing events in two passes to collect all this data.
     if ( event.is_sched_switch() )
     {
-        add_sched_switch_pid_comm( trace_info, event, "prev_pid", "prev_comm" );
-        add_sched_switch_pid_comm( trace_info, event, "next_pid", "next_comm" );
+        add_sched_switch_pid_comm( m_trace_info, event, "prev_pid", "prev_comm" );
+        add_sched_switch_pid_comm( m_trace_info, event, "next_pid", "next_comm" );
     }
 
     // Record the maximum crtc value we've ever seen
-    trace_events->m_crtc_max = std::max< int >( trace_events->m_crtc_max, event.crtc );
+    m_crtc_max = std::max< int >( m_crtc_max, event.crtc );
 
     // 1+ means loading events
-    SDL_AtomicAdd( &trace_events->m_eventsloaded, 1 );
+    SDL_AtomicAdd( &m_eventsloaded, 1 );
 
     // Return 1 to cancel loading
-    return ( s_app().get_state() == State_CancelLoading );
+    return ( s_app().get_state() == MainApp::State_CancelLoading );
 }
 
 int SDLCALL MainApp::thread_func( void *data )
@@ -685,7 +684,7 @@ int SDLCALL MainApp::thread_func( void *data )
 
     logf( "Reading trace file %s...", filename );
 
-    EventCallback trace_cb = std::bind( new_event_cb, &trace_events, _1 );
+    EventCallback trace_cb = std::bind( &TraceEvents::new_event_cb, &trace_events, _1 );
     int ret = read_trace_file( filename, trace_events.m_strpool,
                                trace_events.m_trace_info, trace_cb );
     if ( ret < 0 )

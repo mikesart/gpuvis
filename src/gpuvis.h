@@ -364,6 +364,8 @@ public:
     void init_new_event( trace_event_t &event );
     void init_sched_switch_event( trace_event_t &event );
 
+    int new_event_cb( const trace_event_t &event );
+
 public:
     // Time trimmed from start of trace so we have data from all CPU buffers
     int64_t m_ts_trimmed = 0;
@@ -918,7 +920,6 @@ public:
 
     void dialog_open_trace();
 
-protected:
     void render_menu_options();
     void render_console();
     void render_log();
@@ -932,7 +933,6 @@ protected:
     void set_state( state_t state, const char *filename = nullptr );
 
     static int SDLCALL thread_func( void *data );
-    static int new_event_cb( TraceEvents *trace_events, const trace_event_t &event );
 
 public:
     struct loading_info_t
