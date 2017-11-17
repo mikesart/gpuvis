@@ -472,9 +472,9 @@ MainApp::state_t MainApp::get_state()
     return ( state_t )SDL_AtomicGet( &m_loading_info.state );
 }
 
-bool MainApp::is_loading()
+bool MainApp::is_trace_loaded()
 {
-    return ( get_state() == State_Loading || get_state() == State_CancelLoading );
+    return m_trace_win && ( m_trace_win->m_trace_events.get_load_status() == TraceEvents::Trace_Loaded );
 }
 
 void MainApp::set_state( state_t state, const char *filename )
@@ -542,7 +542,7 @@ bool MainApp::load_file( const char *filename )
     std::string tmpfile;
     const char *ext = strrchr( filename, '.' );
 
-    if ( is_loading() )
+    if ( get_state() != State_Idle )
     {
         logf( "[Error] %s failed, currently loading %s.", __func__, m_loading_info.filename.c_str() );
         return false;
@@ -702,9 +702,9 @@ int SDLCALL MainApp::thread_func( void *data )
     // Call TraceEvents::init() to initialize all events, etc.
     trace_events.init();
 
-    // 0 means events loaded
+    // 0 means events have all all been loaded
     SDL_AtomicSet( &trace_events.m_eventsloaded, 0 );
-    s_app().set_state( State_Loaded );
+    s_app().set_state( State_Idle );
 
     return 0;
 }
@@ -893,9 +893,9 @@ void MainApp::render()
         delete m_trace_win;
         m_trace_win = NULL;
     }
-    else if ( !m_show_scale_popup )
+    else if ( !m_show_scale_popup && m_loading_info.inputfiles.empty() )
     {
-        // If we have no main window, show the console
+        // If we have no main window and nothing to load, show the console
         m_show_gpuvis_console = true;
     }
 
@@ -1074,7 +1074,7 @@ void MainApp::render()
 
 void MainApp::update()
 {
-    if ( !m_loading_info.inputfiles.empty() && !is_loading() )
+    if ( !m_loading_info.inputfiles.empty() && ( get_state() == State_Idle ) )
     {
         const char *filename = m_loading_info.inputfiles[ 0 ].c_str();
 
@@ -4378,7 +4378,7 @@ static const char *noc_file_dialog_open(int flags, const char *filters,
 }
 #endif
 
-void MainApp::dialog_open_trace()
+void MainApp::open_trace_dialog()
 {
     const char *errstr = noc_file_init();
 
@@ -4422,7 +4422,7 @@ void MainApp::render_menu( const char *str_id )
 
 #if defined( NOC_FILE_DIALOG_IMPLEMENTATION )
         if ( ImGui::MenuItem( "Open Trace File...", s_actions().hotkey_str( action_open ).c_str() ) )
-            dialog_open_trace();
+            open_trace_dialog();
 #endif
 
         if ( m_saving_info.title.empty() && is_trace_loaded() )
@@ -4491,7 +4491,7 @@ void MainApp::handle_hotkeys()
     }
 
     if ( s_actions().get( action_open ) )
-        dialog_open_trace();
+        open_trace_dialog();
 
     if ( s_actions().get( action_quit ) )
     {

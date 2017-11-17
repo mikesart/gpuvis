@@ -881,54 +881,47 @@ private:
 class MainApp
 {
 public:
-    enum state_t
-    {
-        State_Idle,
-        State_Loading,
-        State_Loaded,
-        State_CancelLoading
-    };
-
-public:
     MainApp() {}
     ~MainApp() {}
+
+    SDL_Window *create_window( const char *title );
 
     void init( int argc, char **argv );
     void shutdown( SDL_Window *window );
 
-    SDL_Window *create_window( const char *title );
-
     bool load_file( const char *filename );
     void cancel_load_file();
-    bool is_loading();
 
-    bool is_trace_loaded()
-        { return m_trace_win && ( m_trace_win->m_trace_events.get_load_status() == TraceEvents::Trace_Loaded ); }
+    // Trace file loaded and viewing?
+    bool is_trace_loaded();
 
     void render();
+    void render_log();
+    void render_console();
     void render_save_filename();
     void render_menu( const char *str_id );
+    void render_menu_options();
+    void render_font_options();
+    void render_color_picker();
 
     void update();
+    void load_fonts();
+
+    void parse_cmdline( int argc, char **argv );
 
     void handle_hotkeys();
-
-    void load_fonts();
 
     void get_window_pos( int &x, int &y, int &w, int &h );
     void save_window_pos( int x, int y, int w, int h );
 
-    void dialog_open_trace();
+    void open_trace_dialog();
 
-    void render_menu_options();
-    void render_console();
-    void render_log();
-    void render_font_options();
-
-    void render_color_picker();
-
-    void parse_cmdline( int argc, char **argv );
-
+    enum state_t
+    {
+        State_Idle,
+        State_Loading,
+        State_CancelLoading
+    };
     state_t get_state();
     void set_state( state_t state, const char *filename = nullptr );
 
