@@ -1373,7 +1373,7 @@ static tracecmd_input_t *tracecmd_alloc_fd( const char *file, int fd )
 
     if ( setjmp( handle->jump_buffer ) )
     {
-        logf( "%s: setjmp error code called for %s.\n", __func__, file );
+        logf( "[Error] %s: setjmp error code called for %s.\n", __func__, file );
 
         delete handle;
         close( fd );
@@ -1382,15 +1382,15 @@ static tracecmd_input_t *tracecmd_alloc_fd( const char *file, int fd )
 
     do_read_check( handle, buf, 3 );
     if ( memcmp( buf, test, 3 ) != 0 )
-        die( handle, "%s: header memcheck failed.\n", __func__ );
+        die( handle, "[Error] %s: header memcheck failed.\n", __func__ );
 
     do_read_check( handle, buf, 7 );
     if ( memcmp( buf, "tracing", 7 ) != 0 )
-        die( handle, "%s: failed to read tracing string.\n", __func__ );
+        die( handle, "[Error] %s: failed to read tracing string.\n", __func__ );
 
     version = read_string( handle );
     if ( !version )
-        die( handle, "%s: failed to read version string.\n", __func__ );
+        die( handle, "[Error] %s: failed to read version string.\n", __func__ );
 
     free( version );
 
@@ -1398,7 +1398,7 @@ static tracecmd_input_t *tracecmd_alloc_fd( const char *file, int fd )
 
     handle->pevent = pevent_alloc();
     if ( !handle->pevent )
-        die( handle, "%s: pevent_alloc failed.\n", __func__ );
+        die( handle, "[Error] %s: pevent_alloc failed.\n", __func__ );
 
     handle->pevent->file_bigendian = buf[ 0 ];
     handle->pevent->host_bigendian = tracecmd_host_bigendian();

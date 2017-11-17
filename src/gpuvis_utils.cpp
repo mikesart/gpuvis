@@ -64,6 +64,7 @@
 static SDL_threadID g_main_tid = -1;
 static std::vector< char * > g_log;
 static std::vector< char * > g_thread_log;
+static bool g_log_error = false;
 static SDL_mutex *g_mutex = nullptr;
 
 static float g_scale = 1.0f;
@@ -140,6 +141,8 @@ void logf( const char *fmt, ... )
     {
         if ( SDL_ThreadID() == g_main_tid )
         {
+            g_log_error |= !strncasecmp( buf, "[error]", 7 );
+
             g_log.push_back( buf );
         }
         else
@@ -151,18 +154,28 @@ void logf( const char *fmt, ... )
     }
 }
 
-void logf_update()
+bool logf_update()
 {
+    bool ret = g_log_error;
+
+    g_log_error = false;
+
     if ( g_thread_log.size() )
     {
         SDL_LockMutex( g_mutex );
 
         for ( char *str : g_thread_log )
+        {
+            ret |= !strncasecmp( str, "[error]", 7 );
+
             g_log.push_back( str );
+        }
         g_thread_log.clear();
 
         SDL_UnlockMutex( g_mutex );
     }
+
+    return ret;
 }
 
 void logf_clear()
@@ -477,9 +490,9 @@ bool copy_file( const char *filename, const char *newfilename )
     int dest = TEMP_FAILURE_RETRY( open( newfilename, O_WRONLY | O_CREAT, 0644 ) );
 
     if ( source < 0 )
-        logf( "ERROR: Opening file '%s' failed: %d", filename, errno );
+        logf( "[Error] Opening file '%s' failed: %d", filename, errno );
     else if ( dest < 0 )
-        logf ( "ERROR: Opening file '%s' failed: %d", newfilename, errno );
+        logf ( "[Error] Opening file '%s' failed: %d", newfilename, errno );
     else
     {
         for ( ;; )
@@ -497,7 +510,7 @@ bool copy_file( const char *filename, const char *newfilename )
 
             if ( size < 0 )
             {
-                logf( "ERROR: copy_file failed: %d\n", errno );
+                logf( "[Error] copy_file failed: %d\n", errno );
                 break;
             }
         }

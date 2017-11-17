@@ -74,7 +74,7 @@ inline const char *util_basename( const char *s )
 void logf_init();
 void logf_shutdown();
 void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
-void logf_update();
+bool logf_update();
 void logf_clear();
 const std::vector< char * > &logf_get();
 

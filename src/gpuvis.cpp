@@ -690,7 +690,7 @@ int SDLCALL MainApp::thread_func( void *data )
                                trace_events.m_trace_info, trace_cb );
     if ( ret < 0 )
     {
-        logf( "[Error]: read_trace_file(%s) failed.", filename );
+        logf( "[Error] read_trace_file(%s) failed.", filename );
 
         // -1 means loading error
         SDL_AtomicSet( &trace_events.m_eventsloaded, -1 );
@@ -896,13 +896,19 @@ void MainApp::render()
     }
     else if ( !m_show_scale_popup )
     {
-        // If we have no windows up, show the console
+        // If we have no main window, show the console
         m_show_gpuvis_console = true;
     }
 
     // Render dialogs only if the scale popup dialog isn't up
     if ( !m_show_scale_popup )
     {
+        if ( m_focus_gpuvis_console )
+        {
+            ImGui::SetWindowFocus( "Gpuvis Console" );
+            m_show_gpuvis_console = true;
+            m_focus_gpuvis_console = false;
+        }
         if ( m_show_gpuvis_console )
         {
             imgui_setnextwindowsize( 600, 600, 4, 4 );
@@ -3841,10 +3847,7 @@ void MainApp::render_menu_options()
         }
 
         if ( ImGui::MenuItem( "Gpuvis Console" ) )
-        {
-            ImGui::SetWindowFocus( "Gpuvis Console" );
-            m_show_gpuvis_console = true;
-        }
+            m_focus_gpuvis_console = true;
 
         if ( ImGui::MenuItem( "Font Options" ) )
         {
@@ -4382,9 +4385,6 @@ void MainApp::dialog_open_trace()
 
     if ( errstr )
     {
-        ImGui::SetWindowFocus( "Gpuvis Console" );
-        m_show_gpuvis_console = true;
-
         logf( "[Error] Open Trace: %s\n", errstr );
     }
     else
@@ -4701,7 +4701,11 @@ int main( int argc, char **argv )
         }
 
         // Check for logf() calls from background threads.
-        logf_update();
+        if ( logf_update() )
+        {
+            // One of the log items was an error - show the console
+            app.m_focus_gpuvis_console = true;
+        }
 
         // Handle global hotkeys
         app.handle_hotkeys();
