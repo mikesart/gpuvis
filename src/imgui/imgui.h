@@ -673,7 +673,7 @@ enum ImGuiStyleVar_
     ImGuiStyleVar_WindowPadding,       // ImVec2    WindowPadding
     ImGuiStyleVar_WindowRounding,      // float     WindowRounding
     ImGuiStyleVar_WindowMinSize,       // ImVec2    WindowMinSize
-    ImGuiStyleVar_ChildWindowRounding, // float     ChildWindowRounding
+    ImGuiStyleVar_ChildRounding,       // float     ChildRounding
     ImGuiStyleVar_FramePadding,        // ImVec2    FramePadding
     ImGuiStyleVar_FrameRounding,       // float     FrameRounding
     ImGuiStyleVar_ItemSpacing,         // ImVec2    ItemSpacing
@@ -682,6 +682,11 @@ enum ImGuiStyleVar_
     ImGuiStyleVar_GrabMinSize,         // float     GrabMinSize
     ImGuiStyleVar_ButtonTextAlign,     // ImVec2    ButtonTextAlign
     ImGuiStyleVar_Count_
+
+    // Obsolete names (will be removed)
+#ifndef IMGUI_DISABLE_OBSOLETE_FUNCTIONS
+    , ImGuiStyleVar_ChildWindowRounding = ImGuiStyleVar_ChildRounding
+#endif
 };
 
 // Enumeration for ColorEdit3() / ColorEdit4() / ColorPicker3() / ColorPicker4() / ColorButton()
@@ -750,7 +755,7 @@ struct ImGuiStyle
     ImVec2      WindowMinSize;              // Minimum window size
     float       WindowRounding;             // Radius of window corners rounding. Set to 0.0f to have rectangular windows
     ImVec2      WindowTitleAlign;           // Alignment for title bar text. Defaults to (0.0f,0.5f) for left-aligned,vertically centered.
-    float       ChildWindowRounding;        // Radius of child window corners rounding. Set to 0.0f to have rectangular windows
+    float       ChildRounding;              // Radius of child window corners rounding. Set to 0.0f to have rectangular windows.
     ImVec2      FramePadding;               // Padding within a framed rectangle (used by most widgets)
     float       FrameRounding;              // Radius of frame corners rounding. Set to 0.0f to have rectangular frame (used by most widgets).
     ImVec2      ItemSpacing;                // Horizontal and vertical spacing between widgets/lines
