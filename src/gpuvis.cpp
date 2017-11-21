@@ -686,11 +686,13 @@ int SDLCALL MainApp::thread_func( void *data )
         return -1;
     }
 
-    float time = util_time_to_ms( t0, util_get_time() );
-    logf( "Events read: %lu (%.2fms)", trace_events.m_events.size(), time );
+    float time_load = util_time_to_ms( t0, util_get_time() );
 
     // Call TraceEvents::init() to initialize all events, etc.
     trace_events.init();
+
+    float time_init = util_time_to_ms( t0, util_get_time() ) - time_load;
+    logf( "Events read: %lu (Load:%.2fms Init:%.2fms)", trace_events.m_events.size(), time_load, time_init );
 
     // 0 means events have all all been loaded
     SDL_AtomicSet( &trace_events.m_eventsloaded, 0 );
