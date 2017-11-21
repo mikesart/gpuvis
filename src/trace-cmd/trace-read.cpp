@@ -1613,28 +1613,16 @@ static int trace_enum_events( EventCallback &cb, trace_info_t &trace_info, StrPo
 
         trace_seq_init( &seq );
 
-        trace_event.id = 0;
         trace_event.pid = pid;
+        trace_event.id = trace_info.events++;
         trace_event.cpu = record->cpu;
-        trace_event.flags = 0;
+        trace_event.ts = record->ts - trace_info.min_file_ts;
 
         trace_seq_printf( &seq, "%s-%u", comm, pid );
         trace_event.comm = strpool.getstr( seq.buffer );
-
-        trace_event.ts = record->ts - trace_info.min_file_ts;
-        trace_event.duration = INT64_MAX;
-
         trace_event.system = strpool.getstr( event->system );
         trace_event.name = strpool.getstr( event->name );
-
-        trace_event.seqno = 0;
-        trace_event.crtc = -1;
         trace_event.user_comm = trace_event.comm;
-        trace_event.id_start = INVALID_ID;
-        trace_event.graph_row_id = 0;
-        trace_event.color = 0;
-        trace_event.color_index = ( uint32_t )-1;
-        trace_event.is_filtered_out = false;
 
         // Get count of fields for this event.
         int field_count = 0;

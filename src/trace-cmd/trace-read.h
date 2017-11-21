@@ -112,6 +112,7 @@ struct trace_info_t
     std::string file;
     std::string uname;
     bool timestamp_in_us;
+    uint32_t events = 0;
 
     std::vector< cpu_info_t > cpu_info;
 
@@ -158,6 +159,36 @@ enum trace_flag_type_t {
 
 struct trace_event_t
 {
+public:
+    bool is_filtered_out = false;
+
+    int pid;                        // event process id
+    uint32_t id;                    // event id
+    uint32_t cpu;                   // cpu this event was hit on
+    int64_t ts;                     // timestamp
+
+    uint32_t flags = 0;             // TRACE_FLAGS_IRQS_OFF, TRACE_FLAG_HARDIRQ, TRACE_FLAG_SOFTIRQ
+    uint32_t seqno = 0;             // event seqno (from fields)
+    uint32_t id_start = INVALID_ID; // start event if this is a graph sequence event (ie amdgpu_sched_run_job, fence_signaled)
+    uint32_t graph_row_id = 0;
+    int crtc = -1;                  // drm_vblank_event crtc (or -1)
+
+    uint32_t color = 0;             // color of the event (or 0 for default)
+
+    // i915 events: col_Graph_Bari915SubmitDelay, etc
+    // ftrace print events: buf hashval for colors
+    // otherwise: -1
+    uint32_t color_index = ( uint32_t )-1;
+
+    int64_t duration = INT64_MAX;   // how long this timeline event took (or INT64_MAX for not set)
+    const char *comm;               // command name
+    const char *system;             // event system (ftrace-print, etc.)
+    const char *name;               // event name
+    const char *user_comm;          // User space comm (if we can figure this out)
+
+    std::vector< event_field_t > fields;
+
+public:
     bool is_fence_signaled() const  { return !!( flags & TRACE_FLAG_FENCE_SIGNALED ); }
     bool is_ftrace_print() const    { return !!( flags & TRACE_FLAG_FTRACE_PRINT ); }
     bool is_vblank() const          { return !!( flags & TRACE_FLAG_VBLANK ); }
@@ -177,33 +208,6 @@ struct trace_event_t
 
         return def;
     }
-
-    bool is_filtered_out;
-    int pid;                    // event process id
-    int crtc;                   // drm_vblank_event crtc (or -1)
-
-    uint32_t id;                // event id
-    uint32_t cpu;               // cpu this event was hit on
-    uint32_t flags;             // TRACE_FLAGS_IRQS_OFF, TRACE_FLAG_HARDIRQ, TRACE_FLAG_SOFTIRQ
-    uint32_t seqno;             // event seqno (from fields)
-    uint32_t id_start;          // start event if this is a graph sequence event (ie amdgpu_sched_run_job, fence_signaled)
-    uint32_t graph_row_id;
-
-    uint32_t color;             // color of the event (or 0 for default)
-
-    // i915 events: col_Graph_Bari915SubmitDelay, etc
-    // ftrace print events: buf hashval for colors
-    // otherwise: -1
-    uint32_t color_index;
-
-    int64_t ts;                 // timestamp
-    int64_t duration;           // how long this timeline event took (or INT64_MAX for not set)
-    const char *comm;           // command name
-    const char *system;         // event system (ftrace-print, etc.)
-    const char *name;           // event name
-    const char *user_comm;      // User space comm (if we can figure this out)
-
-    std::vector< event_field_t > fields;
 };
 
 const char *get_event_field_val( const trace_event_t &event, const char *name, const char *defval = "" );
