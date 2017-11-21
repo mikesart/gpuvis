@@ -306,8 +306,10 @@ static void imgui_draw_textf( float x, float y, ImU32 color, const char *fmt, ..
 
 const char *get_event_field_val( const trace_event_t &event, const char *name, const char *defval )
 {
-    for ( const event_field_t &field : event.fields )
+    for ( uint32_t i = 0; i < event.numfields; i++ )
     {
+        const event_field_t &field = event.fields[ i ];
+
         if ( !strcmp( field.key, name ) )
             return field.value;
     }
@@ -317,8 +319,10 @@ const char *get_event_field_val( const trace_event_t &event, const char *name, c
 
 event_field_t *get_event_field( trace_event_t &event, const char *name )
 {
-    for ( event_field_t &field : event.fields )
+    for ( uint32_t i = 0; i < event.numfields; i++ )
     {
+        event_field_t &field = event.fields[ i ];
+
         if ( !strcmp( field.key, name ) )
             return &field;
     }

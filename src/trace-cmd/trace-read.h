@@ -181,12 +181,14 @@ public:
     uint32_t color_index = ( uint32_t )-1;
 
     int64_t duration = INT64_MAX;   // how long this timeline event took (or INT64_MAX for not set)
+
     const char *comm;               // command name
     const char *system;             // event system (ftrace-print, etc.)
     const char *name;               // event name
     const char *user_comm;          // User space comm (if we can figure this out)
 
-    std::vector< event_field_t > fields;
+    uint32_t numfields = 0;
+    event_field_t *fields = nullptr;
 
 public:
     bool is_fence_signaled() const  { return !!( flags & TRACE_FLAG_FENCE_SIGNALED ); }

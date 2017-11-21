@@ -1625,13 +1625,14 @@ static int trace_enum_events( EventCallback &cb, trace_info_t &trace_info, StrPo
         trace_event.user_comm = trace_event.comm;
 
         // Get count of fields for this event.
-        int field_count = 0;
+        uint32_t field_count = 0;
         format = event->format.fields;
         for ( ; format; format = format->next )
             field_count++;
 
-        // Reserve space in our fields array.
-        trace_event.fields.reserve( field_count );
+        // Alloc space for our fields array.
+        trace_event.numfields = 0;
+        trace_event.fields = new event_field_t[ field_count ];
 
         format = event->format.common_fields;
         for ( ; format; format = format->next )
@@ -1727,10 +1728,9 @@ static int trace_enum_events( EventCallback &cb, trace_info_t &trace_info, StrPo
 
             trace_seq_terminate( &seq );
 
-            event_field_t field;
-            field.key = strpool.getstr( format->name );
-            field.value = strpool.getstr( seq.buffer );
-            trace_event.fields.push_back( field );
+            trace_event.fields[ trace_event.numfields ].key = strpool.getstr( format->name );
+            trace_event.fields[ trace_event.numfields ].value = strpool.getstr( seq.buffer );
+            trace_event.numfields++;
         }
 
         init_event_flags( trace_event );

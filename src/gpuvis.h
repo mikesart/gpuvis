@@ -289,7 +289,7 @@ class TraceEvents
 {
 public:
     TraceEvents() {}
-    ~TraceEvents() {}
+    ~TraceEvents();
 
 public:
     enum tracestatus_t

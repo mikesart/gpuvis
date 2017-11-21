@@ -624,6 +624,19 @@ static void add_sched_switch_pid_comm( trace_info_t &trace_info, const trace_eve
     }
 }
 
+TraceEvents::~TraceEvents()
+{
+    for ( trace_event_t &event : m_events )
+    {
+        if ( event.fields )
+        {
+            delete [] event.fields;
+            event.fields = NULL;
+            event.numfields = 0;
+        }
+    }
+}
+
 // Callback from trace_read.cpp. We mostly just store the events in our array
 //  and then init_new_event() does the real work of initializing them later.
 int TraceEvents::new_event_cb( const trace_event_t &event )
@@ -1234,8 +1247,10 @@ const char *filter_get_keyval_func( trace_info_t *trace_info, const trace_event_
         return buf;
     }
 
-    for ( const event_field_t &field : event->fields )
+    for ( uint32_t i = 0; i < event->numfields; i++ )
     {
+        const event_field_t &field = event->fields[ i ];
+
         // We can compare pointers since they're from same string pool
         if ( name == field.key )
             return field.value;
@@ -1494,7 +1509,7 @@ void TraceEvents::calculate_event_print_info()
             remove_ftrace_print_token( newbuf, buf, buf_end, len );
 
             // Add buf_orig field which holds original buf string
-            event.fields.push_back( { "buf_orig", buf } );
+            //$$ event.fields.push_back( { "buf_orig", buf } );
 
             // Get string pool entry for newbuf
             buf = m_strpool.getstr( newbuf );
@@ -3196,23 +3211,23 @@ bool TraceWin::eventlist_render_popupmenu( uint32_t eventid )
 static std::string get_event_fields_str( const trace_event_t &event, const char *eqstr, char sep )
 {
     std::string fieldstr;
-    const std::vector< event_field_t > &fields = event.fields;
 
     if ( event.user_comm != event.comm )
         fieldstr += string_format( "%s%s%s%c", "user_comm", eqstr, event.user_comm, sep );
 
-    for ( const event_field_t &field : fields )
+    for ( uint32_t i = 0; i < event.numfields; i++ )
     {
         std::string buf;
-        const char *value = field.value;
+        const char *key = event.fields[ i ].key;
+        const char *value = event.fields[ i ].value;
 
-        if ( event.is_ftrace_print() && !strcmp( field.key, "buf" ) )
+        if ( event.is_ftrace_print() && !strcmp( key, "buf" ) )
         {
             buf = s_textclrs().mstr( value, event.color );
             value = buf.c_str();
         }
 
-        fieldstr += string_format( "%s%s%s%c", field.key, eqstr, value, sep );
+        fieldstr += string_format( "%s%s%s%c", key, eqstr, value, sep );
     }
 
     fieldstr += string_format( "%s%s%s", "system", eqstr, event.system );
