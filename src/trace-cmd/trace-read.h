@@ -94,11 +94,10 @@ struct cpu_info_t
     int64_t dropped_events = 0;
     int64_t read_events = 0;
 
-
     uint64_t file_offset = 0;
     uint64_t file_size = 0;
 
-    int64_t min_ts = INT64_MAX;
+    int64_t min_ts = 0;
     int64_t max_ts = 0;
 
     // Non-trimmed events read for this cpu
@@ -117,7 +116,11 @@ struct trace_info_t
     std::vector< cpu_info_t > cpu_info;
 
     // ts of the first event in the file
-    int64_t first_ts_in_file = INT64_MAX;
+    int64_t min_file_ts = INT64_MAX;
+
+    // ts where we trimmed from
+    bool trim_trace = false;
+    int64_t trimmed_ts = 0;
 
     // Map tgid to vector of child pids and color
     util_umap< int, tgid_info_t > tgid_pids;

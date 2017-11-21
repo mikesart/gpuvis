@@ -1593,8 +1593,8 @@ static void init_event_flags( trace_event_t &event )
         event.flags |= TRACE_FLAG_SCHED_SWITCH;
 }
 
-static int trace_enum_events( EventCallback &cb, StrPool &strpool,
-                             tracecmd_input_t *handle, pevent_record_t *record )
+static int trace_enum_events( EventCallback &cb, trace_info_t &trace_info, StrPool &strpool,
+                              tracecmd_input_t *handle, pevent_record_t *record )
 {
     int ret = 0;
     event_format_t *event;
@@ -1613,16 +1613,15 @@ static int trace_enum_events( EventCallback &cb, StrPool &strpool,
 
         trace_seq_init( &seq );
 
-        memset( &trace_event, 0, sizeof( trace_event ) );
-
         trace_event.id = 0;
         trace_event.pid = pid;
         trace_event.cpu = record->cpu;
+        trace_event.flags = 0;
 
         trace_seq_printf( &seq, "%s-%u", comm, pid );
         trace_event.comm = strpool.getstr( seq.buffer );
 
-        trace_event.ts = record->ts;
+        trace_event.ts = record->ts - trace_info.min_file_ts;
         trace_event.duration = INT64_MAX;
 
         trace_event.system = strpool.getstr( event->system );
@@ -1819,6 +1818,8 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
 {
     tracecmd_input_t *handle;
     std::vector< file_info_t * > file_list;
+    // Latest ts value where a cpu data starts
+    unsigned long long trim_ts = 0;
 
     handle = tracecmd_alloc( file );
     if ( !handle )
@@ -1892,9 +1893,20 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
         }
     }
 
+    // Find the lowest ts value in the trace file
     for ( size_t cpu = 0; cpu < ( size_t )handle->cpus; cpu++ )
     {
-        cpu_info_t cpu_info;
+        pevent_record_t *record = tracecmd_peek_data( handle, cpu );
+
+        if ( record )
+            trace_info.min_file_ts = std::min< int64_t >( trace_info.min_file_ts, record->ts );
+    }
+
+    trace_info.cpu_info.resize( handle->cpus );
+    for ( size_t cpu = 0; cpu < ( size_t )handle->cpus; cpu++ )
+    {
+        cpu_info_t &cpu_info = trace_info.cpu_info[ cpu ];
+        pevent_record_t *record = tracecmd_peek_data( handle, cpu );
 
         cpu_info.file_offset = handle->cpu_data[ cpu ].file_offset;
         cpu_info.file_size = handle->cpu_data[ cpu ].file_size;
@@ -1911,13 +1923,25 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
             cpu_info.now_ts = getf64( stats, "now ts:" );
             cpu_info.dropped_events = geti64( stats, "dropped events:" );
             cpu_info.read_events = geti64( stats, "read events:" );
+
+            if ( cpu_info.oldest_event_ts )
+                cpu_info.oldest_event_ts -= trace_info.min_file_ts;
+            if ( cpu_info.now_ts )
+                cpu_info.now_ts -= trace_info.min_file_ts;
         }
 
-        trace_info.cpu_info.push_back( cpu_info );
+        if ( record )
+        {
+            cpu_info.min_ts = record->ts - trace_info.min_file_ts;
+
+            if ( cpu_info.overrun && trace_info.trim_trace )
+                trim_ts = std::max< unsigned long long >( trim_ts, record->ts );
+        }
     }
 
     for ( ;; )
     {
+        int ret = 0;
         file_info_t *last_file_info = NULL;
         pevent_record_t *last_record = NULL;
 
@@ -1933,20 +1957,33 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
             }
         }
 
-        if ( !last_record )
-            break;
+        if ( last_record )
+        {
+            cpu_info_t &cpu_info = trace_info.cpu_info[ last_record->cpu ];
 
-        if ( trace_info.first_ts_in_file == INT64_MAX )
-            trace_info.first_ts_in_file = last_record->ts;
+            // Bump up total event count for this cpu
+            cpu_info.tot_events++;
 
-        int ret = trace_enum_events( cb, strpool, last_file_info->handle, last_record );
+            // Store the max ts value we've seen for this cpu
+            cpu_info.max_ts = last_record->ts - trace_info.min_file_ts;
 
-        free_record( last_file_info->handle, last_file_info->record );
-        last_file_info->record = NULL;
+            // If this ts is greater than our trim value, add it.
+            if ( last_record->ts >= trim_ts )
+            {
+                cpu_info.events++;
+                ret = trace_enum_events( cb, trace_info, strpool, last_file_info->handle, last_record );
+            }
 
-        if ( ret )
+            free_record( last_file_info->handle, last_file_info->record );
+            last_file_info->record = NULL;
+        }
+
+        if ( !last_record || ret )
             break;
     }
+
+    if ( trim_ts )
+        trace_info.trimmed_ts = trim_ts - trace_info.min_file_ts;
 
     for ( file_info_t *file_info : file_list )
     {

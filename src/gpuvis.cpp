@@ -628,32 +628,6 @@ static void add_sched_switch_pid_comm( trace_info_t &trace_info, const trace_eve
 //  and then init_new_event() does the real work of initializing them later.
 int TraceEvents::new_event_cb( const trace_event_t &event )
 {
-    cpu_info_t &cpu_info = m_trace_info.cpu_info[ event.cpu ];
-
-    // Store the max ts value we've seen for this cpu
-    cpu_info.max_ts = std::max< int64_t >( cpu_info.max_ts,
-                                           event.ts - m_trace_info.first_ts_in_file );
-
-    if ( !cpu_info.tot_events )
-    {
-        // First event for this cpu - set min_ts
-        cpu_info.min_ts = event.ts - m_trace_info.first_ts_in_file;
-
-        // This cpu ring buffer was overwritten at the beginning, and this is the
-        //  first event we've seen from this cpu. Trim all the previous events.
-        if ( cpu_info.overrun && s_opts().getb( OPT_TrimTrace ) )
-        {
-            m_ts_trimmed = cpu_info.min_ts;
-            m_events.clear();
-
-            // Clear displayed event count for all cpus back to 0
-            for ( cpu_info_t &i : m_trace_info.cpu_info )
-                i.events = 0;
-        }
-    }
-    cpu_info.events++;
-    cpu_info.tot_events++;
-
     // Add event to our m_events array
     m_events.push_back( event );
     m_events.back().id = m_events.size() - 1;
@@ -684,6 +658,8 @@ int SDLCALL MainApp::thread_func( void *data )
     const char *filename = loading_info->filename.c_str();
 
     logf( "Reading trace file %s...", filename );
+
+    trace_events.m_trace_info.trim_trace = s_opts().getb( OPT_TrimTrace );
 
     EventCallback trace_cb = std::bind( &TraceEvents::new_event_cb, &trace_events, _1 );
     int ret = read_trace_file( filename, trace_events.m_strpool,
@@ -1842,8 +1818,6 @@ static int64_t normalize_vblank_diff( int64_t diff )
 // new_event_cb adds all events to array, this function initializes them.
 void TraceEvents::init_new_event( trace_event_t &event )
 {
-    event.ts -= m_trace_info.first_ts_in_file;
-
     // If our pid is in the sched_switch pid map, update our comm to the sched_switch
     // value that it recorded.
     const char **comm = m_trace_info.sched_switch_pid_comm_map.get_val( event.pid );
@@ -2880,8 +2854,8 @@ void TraceWin::trace_render_info()
 
     ImGui::Text( "Trace time: %s",
                  ts_to_timestr( m_trace_events.m_events.back().ts, 4 ).c_str() );
-    ImGui::Text( "Time trimmed from trace to align cpu buffers: %s",
-                 ts_to_timestr( m_trace_events.m_ts_trimmed, 4 ).c_str() );
+    ImGui::Text( "Trace time start: %s",
+                 ts_to_timestr( m_trace_events.m_trace_info.trimmed_ts, 4 ).c_str() );
 
     ImGui::Text( "Trace cpus: %u", trace_info.cpus );
 
@@ -2992,8 +2966,6 @@ void TraceWin::trace_render_info()
     if ( !trace_info.cpu_info.empty() &&
          ImGui::CollapsingHeader( "CPU Info" ) )
     {
-        int64_t ts_min = m_trace_events.m_trace_info.first_ts_in_file;
-
         if ( imgui_begin_columns( "cpu_stats", { "CPU", "Stats", "Events", "Min ts", "Max ts", "File Size" } ) )
             ImGui::SetColumnWidth( 0, imgui_scale( 75.0f ) );
 
@@ -3014,8 +2986,8 @@ void TraceWin::trace_render_info()
             if ( cpu_info.commit_overrun )
                 ImGui::Text( "Commit overrun: %" PRIu64, cpu_info.commit_overrun );
             ImGui::Text( "Bytes: %" PRIu64, cpu_info.bytes );
-            ImGui::Text( "Oldest event ts: %s", ts_to_timestr( cpu_info.oldest_event_ts - ts_min, 6 ).c_str() );
-            ImGui::Text( "Now ts: %s", ts_to_timestr( cpu_info.now_ts - ts_min, 6 ).c_str() );
+            ImGui::Text( "Oldest event ts: %s", ts_to_timestr( cpu_info.oldest_event_ts, 6 ).c_str() );
+            ImGui::Text( "Now ts: %s", ts_to_timestr( cpu_info.now_ts, 6 ).c_str() );
             if ( cpu_info.dropped_events )
                 ImGui::Text( "Dropped events: %" PRIu64, cpu_info.dropped_events );
             ImGui::Text( "Read events: %" PRIu64, cpu_info.read_events );

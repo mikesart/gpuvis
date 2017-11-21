@@ -367,9 +367,6 @@ public:
     int new_event_cb( const trace_event_t &event );
 
 public:
-    // Time trimmed from start of trace so we have data from all CPU buffers
-    int64_t m_ts_trimmed = 0;
-
     std::string m_filename;
     size_t m_filesize = 0;
 
