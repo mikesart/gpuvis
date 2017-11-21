@@ -1589,12 +1589,38 @@ static void init_event_flags( trace_event_t &event )
         event.flags |= TRACE_FLAG_SCHED_SWITCH;
 }
 
-static int trace_enum_events( EventCallback &cb, trace_info_t &trace_info, StrPool &strpool,
-                              tracecmd_input_t *handle, pevent_record_t *record )
+class trace_data_t
+{
+public:
+    trace_data_t( EventCallback &_cb, trace_info_t &_trace_info, StrPool &_strpool ) :
+        cb( _cb ), trace_info( _trace_info ), strpool( _strpool )
+    {
+        seqno_str = strpool.getstr( "seqno" );
+        crtc_str = strpool.getstr( "crtc" );
+        ip_str = strpool.getstr( "ip" );
+        parent_ip_str = strpool.getstr( "parent_ip" );
+        buf_str = strpool.getstr( "buf" );
+    }
+
+public:
+    EventCallback &cb;
+    trace_info_t &trace_info;
+    StrPool &strpool;
+
+    uint32_t events = 0;
+    const char *seqno_str;
+    const char *crtc_str;
+    const char *ip_str;
+    const char *parent_ip_str;
+    const char *buf_str;
+};
+
+static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle, pevent_record_t *record )
 {
     int ret = 0;
     event_format_t *event;
     pevent_t *pevent = handle->pevent;
+    StrPool &strpool = trace_data.strpool;
 
     event = pevent_find_event_by_record( pevent, record );
     if ( event )
@@ -1610,9 +1636,9 @@ static int trace_enum_events( EventCallback &cb, trace_info_t &trace_info, StrPo
         trace_seq_init( &seq );
 
         trace_event.pid = pid;
-        trace_event.id = trace_info.events++;
+        trace_event.id = trace_data.events++;
         trace_event.cpu = record->cpu;
-        trace_event.ts = record->ts - trace_info.min_file_ts;
+        trace_event.ts = record->ts - trace_data.trace_info.min_file_ts;
 
         trace_seq_printf( &seq, "%s-%u", comm, pid );
         trace_event.comm = strpool.getstr( seq.buffer );
@@ -1647,17 +1673,19 @@ static int trace_enum_events( EventCallback &cb, trace_info_t &trace_info, StrPo
         format = event->format.fields;
         for ( ; format; format = format->next )
         {
+            const char *format_name = strpool.getstr( format->name );
+
             trace_seq_reset( &seq );
             pevent_print_field( &seq, record->data, format );
 
-            if ( !strcmp( format->name, "seqno" ) )
+            if ( format_name == trace_data.seqno_str )
             {
                 unsigned long long val = pevent_read_number( pevent,
                         ( char * )record->data + format->offset, format->size );
 
                 trace_event.seqno = val;
             }
-            else if ( !strcmp( format->name, "crtc" ) )
+            else if ( format_name == trace_data.crtc_str )
             {
                 unsigned long long val = pevent_read_number( pevent,
                         ( char * )record->data + format->offset, format->size );
@@ -1667,9 +1695,9 @@ static int trace_enum_events( EventCallback &cb, trace_info_t &trace_info, StrPo
 
             if ( is_ftrace_function )
             {
-                bool is_ip = !strcmp( format->name, "ip" );
+                bool is_ip = ( format_name == trace_data.ip_str );
 
-                if ( is_ip || !strcmp( format->name, "parent_ip" ) )
+                if ( is_ip || ( format_name == trace_data.parent_ip_str ) )
                 {
                     unsigned long long val = pevent_read_number( pevent,
                         ( char * )record->data + format->offset, format->size );
@@ -1689,7 +1717,7 @@ static int trace_enum_events( EventCallback &cb, trace_info_t &trace_info, StrPo
                     }
                 }
             }
-            else if ( is_printk_function && !strcmp( format->name, "buf" ) )
+            else if ( is_printk_function && ( format_name == trace_data.buf_str ) )
             {
                 struct print_arg *args = event->print_fmt.args;
 
@@ -1724,14 +1752,14 @@ static int trace_enum_events( EventCallback &cb, trace_info_t &trace_info, StrPo
 
             trace_seq_terminate( &seq );
 
-            trace_event.fields[ trace_event.numfields ].key = strpool.getstr( format->name );
+            trace_event.fields[ trace_event.numfields ].key = format_name;
             trace_event.fields[ trace_event.numfields ].value = strpool.getstr( seq.buffer );
             trace_event.numfields++;
         }
 
         init_event_flags( trace_event );
 
-        ret = cb( trace_event );
+        ret = trace_data.cb( trace_event );
 
         trace_seq_destroy( &seq );
     }
@@ -1923,6 +1951,8 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
         }
     }
 
+    trace_data_t trace_data( cb, trace_info, strpool );
+
     for ( ;; )
     {
         int ret = 0;
@@ -1955,7 +1985,7 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
             if ( last_record->ts >= trim_ts )
             {
                 cpu_info.events++;
-                ret = trace_enum_events( cb, trace_info, strpool, last_file_info->handle, last_record );
+                ret = trace_enum_events( trace_data, last_file_info->handle, last_record );
             }
 
             free_record( last_file_info->handle, last_file_info->record );

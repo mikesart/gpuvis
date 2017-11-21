@@ -112,7 +112,6 @@ struct trace_info_t
     std::string file;
     std::string uname;
     bool timestamp_in_us;
-    uint32_t events = 0;
 
     std::vector< cpu_info_t > cpu_info;
 
