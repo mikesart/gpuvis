@@ -1642,6 +1642,7 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
 
         trace_seq_printf( &seq, "%s-%u", comm, pid );
         trace_event.comm = strpool.getstr( seq.buffer );
+
         trace_event.system = strpool.getstr( event->system );
         trace_event.name = strpool.getstr( event->name );
         trace_event.user_comm = trace_event.comm;
@@ -1676,48 +1677,8 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
             const char *format_name = strpool.getstr( format->name );
 
             trace_seq_reset( &seq );
-            pevent_print_field( &seq, record->data, format );
 
-            if ( format_name == trace_data.seqno_str )
-            {
-                unsigned long long val = pevent_read_number( pevent,
-                        ( char * )record->data + format->offset, format->size );
-
-                trace_event.seqno = val;
-            }
-            else if ( format_name == trace_data.crtc_str )
-            {
-                unsigned long long val = pevent_read_number( pevent,
-                        ( char * )record->data + format->offset, format->size );
-
-                trace_event.crtc = val;
-            }
-
-            if ( is_ftrace_function )
-            {
-                bool is_ip = ( format_name == trace_data.ip_str );
-
-                if ( is_ip || ( format_name == trace_data.parent_ip_str ) )
-                {
-                    unsigned long long val = pevent_read_number( pevent,
-                        ( char * )record->data + format->offset, format->size );
-                    const char *func = pevent_find_function( pevent, val );
-
-                    if ( func )
-                    {
-                        trace_seq_printf( &seq, " (%s)", func );
-
-                        if ( is_ip )
-                        {
-                            // If this is a ftrace:function event, set the name
-                            //  to be the function name we just found.
-                            trace_event.system = "ftrace-function";
-                            trace_event.name = strpool.getstr( func );
-                        }
-                    }
-                }
-            }
-            else if ( is_printk_function && ( format_name == trace_data.buf_str ) )
+            if ( is_printk_function && ( format_name == trace_data.buf_str ) )
             {
                 struct print_arg *args = event->print_fmt.args;
 
@@ -1726,7 +1687,6 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
                 if ( args->type != PRINT_FIELD )
                     args = args->next;
 
-                trace_seq_reset( &seq );
                 print_str_arg( &seq, record->data, record->size,
                                event, "%s", -1, args );
 
@@ -1740,6 +1700,49 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
                 {
                     if ( seq.buffer[ i ] == '\n' )
                         seq.buffer[ i ] = ' ';
+                }
+            }
+            else
+            {
+                pevent_print_field( &seq, record->data, format );
+
+                if ( format_name == trace_data.seqno_str )
+                {
+                    unsigned long long val = pevent_read_number( pevent,
+                               ( char * )record->data + format->offset, format->size );
+
+                    trace_event.seqno = val;
+                }
+                else if ( format_name == trace_data.crtc_str )
+                {
+                    unsigned long long val = pevent_read_number( pevent,
+                               ( char * )record->data + format->offset, format->size );
+
+                    trace_event.crtc = val;
+                }
+                else if ( is_ftrace_function )
+                {
+                    bool is_ip = ( format_name == trace_data.ip_str );
+
+                    if ( is_ip || ( format_name == trace_data.parent_ip_str ) )
+                    {
+                        unsigned long long val = pevent_read_number( pevent,
+                                ( char * )record->data + format->offset, format->size );
+                        const char *func = pevent_find_function( pevent, val );
+
+                        if ( func )
+                        {
+                            trace_seq_printf( &seq, " (%s)", func );
+
+                            if ( is_ip )
+                            {
+                                // If this is a ftrace:function event, set the name
+                                //  to be the function name we just found.
+                                trace_event.system = "ftrace-function";
+                                trace_event.name = strpool.getstr( func );
+                            }
+                        }
+                    }
                 }
             }
 
