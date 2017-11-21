@@ -117,6 +117,8 @@ typedef struct cpu_data
     pevent_record_t *next_record = nullptr;
     page_t *page = nullptr;
     kbuffer_t *kbuf = nullptr;
+
+    pevent_record_t event_record;
 } cpu_data_t;
 
 typedef struct input_buffer_instance
@@ -755,8 +757,6 @@ static void __free_record( pevent_record_t *record )
 
         __free_page( page->handle, record->cpu, page );
     }
-
-    free( record );
 }
 
 static void free_record( tracecmd_input_t *handle, pevent_record_t *record )
@@ -898,7 +898,6 @@ static pevent_record_t *tracecmd_peek_data( tracecmd_input_t *handle, int cpu )
     unsigned long long ts;
     kbuffer_t *kbuf;
     page_t *page;
-    int index;
     void *data;
 
     if ( cpu >= handle->cpus )
@@ -939,24 +938,21 @@ read_again:
 
     handle->cpu_data[ cpu ].timestamp = ts + handle->ts_offset;
 
-    index = kbuffer_curr_offset( kbuf );
-
-    record = ( pevent_record_t * )trace_malloc( handle, sizeof( *record ) );
-
-    memset( record, 0, sizeof( *record ) );
+    record = &handle->cpu_data[ cpu ].event_record;
 
     record->ts = handle->cpu_data[ cpu ].timestamp;
+    record->offset = handle->cpu_data[ cpu ].offset + kbuffer_curr_offset( kbuf );
+    record->missed_events = 0;
+    record->record_size = kbuffer_curr_size( kbuf );
     record->size = kbuffer_event_size( kbuf );
-    record->cpu = cpu;
     record->data = data;
-    record->offset = handle->cpu_data[ cpu ].offset + index;
+    record->cpu = cpu;
     record->ref_count = 1;
     record->locked = 1;
+    record->priv = page;
 
     handle->cpu_data[ cpu ].next_record = record;
 
-    record->record_size = kbuffer_curr_size( kbuf );
-    record->priv = page;
     page->ref_count++;
 
     kbuffer_next_event( kbuf, NULL );
