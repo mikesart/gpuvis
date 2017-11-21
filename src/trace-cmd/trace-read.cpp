@@ -1561,34 +1561,6 @@ extern "C" void print_str_arg( struct trace_seq *s, void *data, int size,
               struct event_format *event, const char *format,
               int len_arg, struct print_arg *arg );
 
-static void init_event_flags( trace_event_t &event )
-{
-    // Make sure our event type bits are cleared
-    event.flags &= ~( TRACE_FLAG_FENCE_SIGNALED |
-                      TRACE_FLAG_FTRACE_PRINT |
-                      TRACE_FLAG_VBLANK |
-                      TRACE_FLAG_TIMELINE |
-                      TRACE_FLAG_SW_QUEUE |
-                      TRACE_FLAG_HW_QUEUE |
-                      TRACE_FLAG_SCHED_SWITCH |
-                      TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING |
-                      TRACE_FLAG_AUTOGEN_COLOR );
-
-    // fence_signaled was renamed to dma_fence_signaled post v4.9
-    if ( strstr( event.name, "fence_signaled" ) )
-        event.flags |= TRACE_FLAG_FENCE_SIGNALED;
-    else if ( !strcmp( event.system, "ftrace-print" ) )
-        event.flags |= TRACE_FLAG_FTRACE_PRINT;
-    else if ( !strcmp( event.name, "drm_vblank_event" ) )
-        event.flags |= TRACE_FLAG_VBLANK;
-    else if ( strstr( event.name, "amdgpu_cs_ioctl" ) )
-        event.flags |= TRACE_FLAG_SW_QUEUE;
-    else if ( strstr( event.name, "amdgpu_sched_run_job" ) )
-        event.flags |= TRACE_FLAG_HW_QUEUE;
-    else if ( !strcmp( event.name, "sched_switch" ) )
-        event.flags |= TRACE_FLAG_SCHED_SWITCH;
-}
-
 class trace_data_t
 {
 public:
@@ -1600,6 +1572,12 @@ public:
         ip_str = strpool.getstr( "ip" );
         parent_ip_str = strpool.getstr( "parent_ip" );
         buf_str = strpool.getstr( "buf" );
+
+        ftrace_print_str = strpool.getstr( "ftrace-print" );
+        ftrace_function_str = strpool.getstr( "ftrace-function" );
+
+        drm_vblank_event_str = strpool.getstr( "drm_vblank_event" );
+        sched_switch_str = strpool.getstr( "sched_switch" );
     }
 
 public:
@@ -1613,7 +1591,40 @@ public:
     const char *ip_str;
     const char *parent_ip_str;
     const char *buf_str;
+
+    const char *ftrace_print_str;
+    const char *ftrace_function_str;
+    const char *drm_vblank_event_str;
+    const char *sched_switch_str;
 };
+
+static void init_event_flags( trace_data_t &trace_data, trace_event_t &event )
+{
+    // Make sure our event type bits are cleared
+    event.flags &= ~( TRACE_FLAG_FENCE_SIGNALED |
+                      TRACE_FLAG_FTRACE_PRINT |
+                      TRACE_FLAG_VBLANK |
+                      TRACE_FLAG_TIMELINE |
+                      TRACE_FLAG_SW_QUEUE |
+                      TRACE_FLAG_HW_QUEUE |
+                      TRACE_FLAG_SCHED_SWITCH |
+                      TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING |
+                      TRACE_FLAG_AUTOGEN_COLOR );
+
+    // fence_signaled was renamed to dma_fence_signaled post v4.9
+    if ( event.system == trace_data.ftrace_print_str )
+        event.flags |= TRACE_FLAG_FTRACE_PRINT;
+    else if ( event.name == trace_data.drm_vblank_event_str )
+        event.flags |= TRACE_FLAG_VBLANK;
+    else if ( event.name == trace_data.sched_switch_str )
+        event.flags |= TRACE_FLAG_SCHED_SWITCH;
+    else if ( strstr( event.name, "fence_signaled" ) )
+        event.flags |= TRACE_FLAG_FENCE_SIGNALED;
+    else if ( strstr( event.name, "amdgpu_cs_ioctl" ) )
+        event.flags |= TRACE_FLAG_SW_QUEUE;
+    else if ( strstr( event.name, "amdgpu_sched_run_job" ) )
+        event.flags |= TRACE_FLAG_HW_QUEUE;
+}
 
 static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle, pevent_record_t *record )
 {
@@ -1693,7 +1704,7 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
                 // pretty_print prints IP and print string (buf).
                 //   pretty_print( &seq, record->data, record->size, event );
 
-                trace_event.system = "ftrace-print";
+                trace_event.system = trace_data.ftrace_print_str;
 
                 // Convert all LFs to spaces.
                 for ( unsigned int i = 0; i < seq.len; i++ )
@@ -1738,7 +1749,7 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
                             {
                                 // If this is a ftrace:function event, set the name
                                 //  to be the function name we just found.
-                                trace_event.system = "ftrace-function";
+                                trace_event.system = trace_data.ftrace_function_str;
                                 trace_event.name = strpool.getstr( func );
                             }
                         }
@@ -1760,7 +1771,7 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
             trace_event.numfields++;
         }
 
-        init_event_flags( trace_event );
+        init_event_flags( trace_data, trace_event );
 
         ret = trace_data.cb( trace_event );
 
