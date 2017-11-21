@@ -678,6 +678,7 @@ int TraceEvents::new_event_cb( const trace_event_t &event )
 
 int SDLCALL MainApp::thread_func( void *data )
 {
+    util_time_t t0 = util_get_time();
     loading_info_t *loading_info = ( loading_info_t *)data;
     TraceEvents &trace_events = loading_info->win->m_trace_events;
     const char *filename = loading_info->filename.c_str();
@@ -697,7 +698,8 @@ int SDLCALL MainApp::thread_func( void *data )
         return -1;
     }
 
-    logf( "Events read: %lu", trace_events.m_events.size() );
+    float time = util_time_to_ms( t0, util_get_time() );
+    logf( "Events read: %lu (%.2fms)", trace_events.m_events.size(), time );
 
     // Call TraceEvents::init() to initialize all events, etc.
     trace_events.init();
