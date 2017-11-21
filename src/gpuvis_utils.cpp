@@ -735,7 +735,6 @@ static colors_t col_index_from_imguicol( ImGuiCol col )
     case ImGuiCol_ScrollbarGrab: return col_ImGui_ScrollbarGrab;
     case ImGuiCol_ScrollbarGrabHovered: return col_ImGui_ScrollbarGrabHovered;
     case ImGuiCol_ScrollbarGrabActive: return col_ImGui_ScrollbarGrabActive;
-    case ImGuiCol_ComboBg: return col_ImGui_ComboBg;
     case ImGuiCol_CheckMark: return col_ImGui_CheckMark;
     case ImGuiCol_SliderGrab: return col_ImGui_SliderGrab;
     case ImGuiCol_SliderGrabActive: return col_ImGui_SliderGrabActive;
@@ -859,7 +858,6 @@ void TipWindows::set_tooltip( const char *name, bool *visible, const char *str )
             ImGuiWindowFlags_NoTitleBar |
             ImGuiWindowFlags_NoResize |
             ImGuiWindowFlags_NoScrollbar |
-            ImGuiWindowFlags_ShowBorders |
             ImGuiWindowFlags_NoSavedSettings |
             ImGuiWindowFlags_AlwaysAutoResize;
 
