@@ -36,9 +36,8 @@
 void trace_seq_init(struct trace_seq *s)
 {
 	s->len = 0;
-	s->readpos = 0;
 	s->buffer_size = TRACE_SEQ_BUF_SIZE;
-	s->buffer = malloc(s->buffer_size);
+	s->buffer = s->buf;
 }
 
 /**
@@ -47,11 +46,8 @@ void trace_seq_init(struct trace_seq *s)
  */
 void trace_seq_reset(struct trace_seq *s)
 {
-	if (!s)
-		return;
-
-	s->len = 0;
-	s->readpos = 0;
+	if (s)
+		s->len = 0;
 }
 
 /**
@@ -62,14 +58,20 @@ void trace_seq_reset(struct trace_seq *s)
  */
 void trace_seq_destroy(struct trace_seq *s)
 {
-	free(s->buffer);
+	if (s->buffer != s->buf)
+		free(s->buffer);
 }
 
 static void expand_buffer(struct trace_seq *s)
 {
 	char *buf;
 
-	buf = realloc(s->buffer, s->buffer_size + TRACE_SEQ_BUF_SIZE);
+	if (s->buffer == s->buf) {
+		buf = malloc(s->buffer_size + TRACE_SEQ_BUF_SIZE);
+		memcpy(buf, s->buf, s->len);
+	} else {
+		buf = realloc(s->buffer, s->buffer_size + TRACE_SEQ_BUF_SIZE);
+	}
 
 	s->buffer = buf;
 	s->buffer_size += TRACE_SEQ_BUF_SIZE;

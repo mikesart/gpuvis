@@ -69,7 +69,8 @@ struct trace_seq {
 	char			*buffer;
 	unsigned int		buffer_size;
 	unsigned int		len;
-	unsigned int		readpos;
+
+	char			buf[TRACE_SEQ_BUF_SIZE];
 };
 
 void trace_seq_init(struct trace_seq *s);
