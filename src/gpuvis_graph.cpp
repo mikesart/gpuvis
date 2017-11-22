@@ -2221,18 +2221,50 @@ void TraceWin::zoom_graph_row()
     }
 }
 
+bool TraceWin::frame_markers_enabled()
+{
+    return !m_frame_markers.m_left_frames.empty() &&
+            s_opts().getb( OPT_RenderFrameMarkers );
+}
+
+void TraceWin::frame_markers_goto( int target, bool fit_frame )
+{
+    if ( ( size_t )target < m_frame_markers.m_left_frames.size() )
+    {
+        float pct = 0.05f;
+        uint32_t left_eventid = m_frame_markers.m_left_frames[ target ];
+        const trace_event_t &left_event = get_event( left_eventid );
+
+        if ( fit_frame )
+        {
+            int64_t len = m_frame_markers.get_frame_len( m_trace_events, target );
+
+            m_graph.start_ts = left_event.ts - len * pct;
+            m_graph.length_ts = len * ( 1 + 2 * pct );
+        }
+        else
+        {
+            int64_t len = m_graph.length_ts;
+            int64_t start_ts = left_event.ts - len * pct;
+
+            m_graph.start_ts = start_ts;
+        }
+
+        m_graph.recalc_timebufs = true;
+    }
+}
+
 void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
 {
     // If there are no actions, bail.
     if ( !s_actions().count() )
         return;
 
-    if ( !m_frame_markers.m_left_frames.empty() &&
-         s_opts().getb( OPT_RenderFrameMarkers ) )
+    if ( frame_markers_enabled() )
     {
         int target = -1;
         bool fit_frame = s_actions().peek( action_frame_marker_prev_fit ) ||
-                s_actions().peek( action_frame_marker_next_fit );
+                         s_actions().peek( action_frame_marker_next_fit );
 
         if ( s_actions().get( action_frame_marker_prev_fit ) ||
              s_actions().get( action_frame_marker_prev ) )
@@ -2245,29 +2277,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             target = m_frame_markers.m_frame_marker_right;
         }
 
-        if ( ( size_t )target < m_frame_markers.m_left_frames.size() )
-        {
-            float pct = 0.05f;
-            uint32_t left_eventid = m_frame_markers.m_left_frames[ target ];
-            const trace_event_t &left_event = get_event( left_eventid );
-
-            if ( fit_frame )
-            {
-                int64_t len = m_frame_markers.get_frame_len( m_trace_events, target );
-
-                m_graph.start_ts = left_event.ts - len * pct;
-                m_graph.length_ts = len * ( 1 + 2 * pct );
-            }
-            else
-            {
-                int64_t len = m_graph.length_ts;
-                int64_t start_ts = left_event.ts - len * pct;
-
-                m_graph.start_ts = start_ts;
-            }
-
-            m_graph.recalc_timebufs = true;
-        }
+        frame_markers_goto( target, fit_frame );
     }
 
     if ( s_actions().get( action_graph_zoom_row ) )

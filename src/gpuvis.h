@@ -590,6 +590,9 @@ protected:
     void graph_render_frame_marker_text( graph_info_t &gi );
     void graph_render_framemarker_frames( graph_info_t &gi );
 
+    bool frame_markers_enabled();
+    void frame_markers_goto( int target, bool fit_frame );
+
     // Render plot, graph rows, filter dialogs, etc
     void graph_dialogs_render();
     // Handle graph popup menu
