@@ -63,7 +63,7 @@ _XTAG( col_Graph_BarHwQueue, 0x80613030, "Graph timeline hw queue bar" )
 _XTAG( col_Graph_BarHwRunning, 0xd9ffaa00, "Graph timeline hw running bar" )
 _XTAG( col_Graph_BarSelRect, 0xd9fff300, "Graph timeline selected bar rectangle" )
 _XTAG( col_Graph_BarText, IM_COL32( 0xff, 0xff, 0xff, 255 ), "Graph timeline bar text" )
-_XTAG( col_Graph_LocationText, 0x2517e62b, "Graph location text" )
+_XTAG( col_Graph_LocationText, 0x0017e62b, "Graph location text" )
 _XTAG( col_Graph_TaskRunning, 0x4fff00ff, "Sched_switch task running block" )
 _XTAG( col_Graph_TaskSleeping, 0x4fffff00, "Sched_switch task sleeping block" )
 
@@ -74,9 +74,9 @@ _XTAG( col_Graph_Bari915ExecuteDelay, 0xc89e9e9e, "Runnable requests waiting for
 _XTAG( col_Graph_Bari915Execute, 0xc8aa149a, "Requests executing on the GPU" )
 _XTAG( col_Graph_Bari915CtxCompleteDelay, 0xc800a5ff, "User interrupt to context complete" )
 
-_XTAG( col_FrameMarkerBk0, 0x4fff00ff, "Frame Marker Background #0" )
-_XTAG( col_FrameMarkerBk1, 0x4f00ffff, "Frame Marker Background #1" )
-_XTAG( col_FrameMarkerSelected, 0x1a00ff31, "Selected Frame Marker Background" )
+_XTAG( col_FrameMarkerBk0, 0x32323232, "Frame Marker Background #0" )
+_XTAG( col_FrameMarkerBk1, 0x64646464, "Frame Marker Background #1" )
+_XTAG( col_FrameMarkerSelected, 0x0000ff31, "Selected Frame Marker Background" )
 
 // ImGui colors
 _XTAG( col_ImGui_Text, 0xffe6e6e6, "ImGui text" )
