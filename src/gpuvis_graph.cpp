@@ -2628,8 +2628,20 @@ void TraceWin::graph_render()
         float pos = gi.rc.w * ( gi.ts0 - min_ts ) * gi.tsdxrcp;
         float width = gi.rc.w * ( max_ts - min_ts ) * gi.tsdxrcp;
 
+        float w1 = ImGui::GetContentRegionAvailWidth();
+
+        ImGui::SmallButton( "<<" );
+        if ( ImGui::IsItemActive() )
+        {
+            m_graph.start_ts -= m_graph.length_ts / 12.0f;
+            m_graph.recalc_timebufs = true;
+        }
+        ImGui::SameLine();
+
+        float w2 = ImGui::GetContentRegionAvailWidth();
+
         ImGui::SetNextWindowContentWidth( width );
-        ImGui::BeginChild( "#graph_scrollbar", ImVec2( 0.0f, scrollbar_size ),
+        ImGui::BeginChild( "#graph_scrollbar", ImVec2( w2 - ( w1 - w2 ), scrollbar_size ),
                            false, ImGuiWindowFlags_AlwaysHorizontalScrollbar );
 
         if ( pos != m_graph.scroll_pos )
@@ -2650,6 +2662,13 @@ void TraceWin::graph_render()
         }
 
         ImGui::EndChild();
+        ImGui::SameLine();
+        ImGui::SmallButton( ">>" );
+        if ( ImGui::IsItemActive() )
+        {
+            m_graph.start_ts += m_graph.length_ts / 12.0f;
+            m_graph.recalc_timebufs = true;
+        }
     }
 
     // Draggable resize graph row bar
