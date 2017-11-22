@@ -595,9 +595,9 @@ void graph_info_t::calc_process_graph_height()
         // If we have a zoomed row, use up all the available window space,
         // otherwise just use the total graph height
         float valf = prinfo_zoom ?
-                    ImGui::GetContentRegionAvail().y : total_graph_height;;
+                    ImGui::GetContentRegionAvail().y : total_graph_height;
 
-        visible_graph_height = Clamp< float >( valf, valf_min, ImGui::GetContentRegionAvail().y );
+        visible_graph_height = Clamp< float >( valf, valf_min, ImGui::GetContentRegionAvail().y - ImGui::GetStyle().ScrollbarSize );
         return;
     }
 
@@ -2378,12 +2378,11 @@ void TraceWin::graph_handle_keyboard_scroll( graph_info_t &gi )
     }
     else if ( s_actions().get( action_scroll_left ) )
     {
-        start_ts = std::max< int64_t >( start_ts - 9 * m_graph.length_ts / 10, -NSECS_PER_MSEC );
+        start_ts = start_ts - 9 * m_graph.length_ts / 10;
     }
     else if ( s_actions().get( action_scroll_right ) )
     {
-        start_ts = std::min< int64_t >( start_ts + 9 * m_graph.length_ts / 10,
-                                        events.back().ts - m_graph.length_ts + NSECS_PER_MSEC );
+        start_ts = start_ts + 9 * m_graph.length_ts / 10;
     }
     else if ( s_actions().get( action_scroll_home ) )
     {
@@ -2620,6 +2619,38 @@ void TraceWin::graph_render()
     }
     ImGui::EndChild();
     ImGui::PopStyleVar();
+
+    // Horizontal scrollbar
+    {
+        float scrollbar_size = ImGui::GetStyle().ScrollbarSize;
+        int64_t min_ts = m_trace_events.m_events.front().ts - NSECS_PER_MSEC;
+        int64_t max_ts = m_trace_events.m_events.back().ts;
+        float pos = gi.rc.w * ( gi.ts0 - min_ts ) * gi.tsdxrcp;
+        float width = gi.rc.w * ( max_ts - min_ts ) * gi.tsdxrcp;
+
+        ImGui::SetNextWindowContentWidth( width );
+        ImGui::BeginChild( "#graph_scrollbar", ImVec2( 0.0f, scrollbar_size ),
+                           false, ImGuiWindowFlags_AlwaysHorizontalScrollbar );
+
+        if ( pos != m_graph.scroll_pos )
+        {
+            // Graph pos changed: scroll_x should be 0..maxX
+            m_graph.scroll_x = ImGui::GetScrollMaxX() * pos / width;
+            m_graph.scroll_pos = pos;
+
+            ImGui::SetScrollX( m_graph.scroll_x );
+        }
+        else if ( m_graph.scroll_x != ImGui::GetScrollX() )
+        {
+            // Scrollbar changed: pct should be 0..1
+            float pct = ImGui::GetScrollX() / ImGui::GetScrollMaxX();
+
+            m_graph.start_ts = min_ts + pct * ( max_ts - min_ts );
+            m_graph.recalc_timebufs = true;
+        }
+
+        ImGui::EndChild();
+    }
 
     // Draggable resize graph row bar
     graph_render_resizer( gi );

@@ -1575,7 +1575,6 @@ public:
 
         ftrace_print_str = strpool.getstr( "ftrace-print" );
         ftrace_function_str = strpool.getstr( "ftrace-function" );
-
         drm_vblank_event_str = strpool.getstr( "drm_vblank_event" );
         sched_switch_str = strpool.getstr( "sched_switch" );
     }

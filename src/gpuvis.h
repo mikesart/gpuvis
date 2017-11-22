@@ -759,6 +759,9 @@ public:
 
         const int64_t s_min_length = 100;
         const int64_t s_max_length = 7500 * NSECS_PER_MSEC;
+
+        float scroll_pos = -1.0f;
+        float scroll_x = -1.0f;
     } m_graph;
 
     // Pinned graph tooltip windows
