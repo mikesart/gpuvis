@@ -556,6 +556,7 @@ protected:
 protected:
     // Internal render graph functions
     void graph_render_resizer( graph_info_t &gi );
+    void graph_render_hscrollbar( graph_info_t &gi );
 
     // Render graph rows
     void graph_render_rows( graph_info_t &gi );

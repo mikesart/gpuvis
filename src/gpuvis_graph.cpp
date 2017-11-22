@@ -2621,58 +2621,61 @@ void TraceWin::graph_render()
     ImGui::PopStyleVar();
 
     // Horizontal scrollbar
-    {
-        float scrollbar_size = ImGui::GetStyle().ScrollbarSize;
-        int64_t min_ts = m_trace_events.m_events.front().ts - NSECS_PER_MSEC;
-        int64_t max_ts = m_trace_events.m_events.back().ts;
-        float pos = gi.rc.w * ( gi.ts0 - min_ts ) * gi.tsdxrcp;
-        float width = gi.rc.w * ( max_ts - min_ts ) * gi.tsdxrcp;
-
-        float w1 = ImGui::GetContentRegionAvailWidth();
-
-        ImGui::SmallButton( "<<" );
-        if ( ImGui::IsItemActive() )
-        {
-            m_graph.start_ts -= m_graph.length_ts / 12.0f;
-            m_graph.recalc_timebufs = true;
-        }
-        ImGui::SameLine();
-
-        float w2 = ImGui::GetContentRegionAvailWidth();
-
-        ImGui::SetNextWindowContentWidth( width );
-        ImGui::BeginChild( "#graph_scrollbar", ImVec2( w2 - ( w1 - w2 ), scrollbar_size ),
-                           false, ImGuiWindowFlags_AlwaysHorizontalScrollbar );
-
-        if ( pos != m_graph.scroll_pos )
-        {
-            // Graph pos changed: scroll_x should be 0..maxX
-            m_graph.scroll_x = ImGui::GetScrollMaxX() * pos / width;
-            m_graph.scroll_pos = pos;
-
-            ImGui::SetScrollX( m_graph.scroll_x );
-        }
-        else if ( m_graph.scroll_x != ImGui::GetScrollX() )
-        {
-            // Scrollbar changed: pct should be 0..1
-            float pct = ImGui::GetScrollX() / ImGui::GetScrollMaxX();
-
-            m_graph.start_ts = min_ts + pct * ( max_ts - min_ts );
-            m_graph.recalc_timebufs = true;
-        }
-
-        ImGui::EndChild();
-        ImGui::SameLine();
-        ImGui::SmallButton( ">>" );
-        if ( ImGui::IsItemActive() )
-        {
-            m_graph.start_ts += m_graph.length_ts / 12.0f;
-            m_graph.recalc_timebufs = true;
-        }
-    }
+    graph_render_hscrollbar( gi );
 
     // Draggable resize graph row bar
     graph_render_resizer( gi );
+}
+
+void TraceWin::graph_render_hscrollbar( graph_info_t &gi )
+{
+    float scrollbar_size = ImGui::GetStyle().ScrollbarSize;
+    int64_t min_ts = m_trace_events.m_events.front().ts - NSECS_PER_MSEC;
+    int64_t max_ts = m_trace_events.m_events.back().ts;
+    float pos = gi.rc.w * ( gi.ts0 - min_ts ) * gi.tsdxrcp;
+    float width = gi.rc.w * ( max_ts - min_ts ) * gi.tsdxrcp;
+
+    float w1 = ImGui::GetContentRegionAvailWidth();
+
+    ImGui::SmallButton( "<<" );
+    if ( ImGui::IsItemActive() )
+    {
+        m_graph.start_ts -= m_graph.length_ts / 12.0f;
+        m_graph.recalc_timebufs = true;
+    }
+    ImGui::SameLine();
+
+    float w2 = ImGui::GetContentRegionAvailWidth();
+
+    ImGui::SetNextWindowContentWidth( width );
+    ImGui::BeginChild( "#graph_scrollbar", ImVec2( w2 - ( w1 - w2 ), scrollbar_size ),
+                       false, ImGuiWindowFlags_AlwaysHorizontalScrollbar );
+
+    if ( pos != m_graph.scroll_pos )
+    {
+        // Graph pos changed: scroll_x should be 0..maxX
+        m_graph.scroll_x = ImGui::GetScrollMaxX() * pos / width;
+        m_graph.scroll_pos = pos;
+
+        ImGui::SetScrollX( m_graph.scroll_x );
+    }
+    else if ( m_graph.scroll_x != ImGui::GetScrollX() )
+    {
+        // Scrollbar changed: pct should be 0..1
+        float pct = ImGui::GetScrollX() / ImGui::GetScrollMaxX();
+
+        m_graph.start_ts = min_ts + pct * ( max_ts - min_ts );
+        m_graph.recalc_timebufs = true;
+    }
+
+    ImGui::EndChild();
+    ImGui::SameLine();
+    ImGui::SmallButton( ">>" );
+    if ( ImGui::IsItemActive() )
+    {
+        m_graph.start_ts += m_graph.length_ts / 12.0f;
+        m_graph.recalc_timebufs = true;
+    }
 }
 
 void TraceWin::graph_render_resizer( graph_info_t &gi )
