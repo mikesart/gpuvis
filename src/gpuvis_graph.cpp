@@ -2645,6 +2645,9 @@ void TraceWin::graph_render_hscrollbar( graph_info_t &gi )
     float pos = gi.rc.w * ( gi.ts0 - min_ts ) * gi.tsdxrcp;
     float width = gi.rc.w * ( max_ts - min_ts ) * gi.tsdxrcp;
 
+    int target = -1;
+    bool frame_markers = frame_markers_enabled();
+
     float w1 = ImGui::GetContentRegionAvailWidth();
 
     ImGui::SmallButton( "<<" );
@@ -2655,37 +2658,56 @@ void TraceWin::graph_render_hscrollbar( graph_info_t &gi )
     }
     ImGui::SameLine();
 
+    if ( frame_markers )
+    {
+        if ( ImGui::SmallButton( "<" ) )
+            target = m_frame_markers.m_frame_marker_left;
+        ImGui::SameLine();
+    }
+
     float w2 = ImGui::GetContentRegionAvailWidth();
 
-    ImGui::SetNextWindowContentWidth( width );
-    ImGui::BeginChild( "#graph_scrollbar", ImVec2( w2 - ( w1 - w2 ), scrollbar_size ),
-                       false, ImGuiWindowFlags_AlwaysHorizontalScrollbar );
-
-    if ( pos != m_graph.scroll_pos )
     {
-        // Graph pos changed: scroll_x should be 0..maxX
-        m_graph.scroll_x = ImGui::GetScrollMaxX() * pos / width;
-        m_graph.scroll_pos = pos;
+        ImGui::SetNextWindowContentWidth( width );
+        ImGui::BeginChild( "#graph_scrollbar", ImVec2( w2 - ( w1 - w2 ), scrollbar_size ),
+                           false, ImGuiWindowFlags_AlwaysHorizontalScrollbar );
 
-        ImGui::SetScrollX( m_graph.scroll_x );
+        if ( pos != m_graph.scroll_pos )
+        {
+            // Graph pos changed: scroll_x should be 0..maxX
+            m_graph.scroll_x = ImGui::GetScrollMaxX() * pos / width;
+            m_graph.scroll_pos = pos;
+
+            ImGui::SetScrollX( m_graph.scroll_x );
+        }
+        else if ( m_graph.scroll_x != ImGui::GetScrollX() )
+        {
+            // Scrollbar changed: pct should be 0..1
+            float pct = ImGui::GetScrollX() / ImGui::GetScrollMaxX();
+
+            m_graph.start_ts = min_ts + pct * ( max_ts - min_ts );
+            m_graph.recalc_timebufs = true;
+        }
+
+        ImGui::EndChild();
     }
-    else if ( m_graph.scroll_x != ImGui::GetScrollX() )
-    {
-        // Scrollbar changed: pct should be 0..1
-        float pct = ImGui::GetScrollX() / ImGui::GetScrollMaxX();
-
-        m_graph.start_ts = min_ts + pct * ( max_ts - min_ts );
-        m_graph.recalc_timebufs = true;
-    }
-
-    ImGui::EndChild();
     ImGui::SameLine();
+
+    if ( frame_markers )
+    {
+        if ( ImGui::SmallButton( ">" ) )
+            target = m_frame_markers.m_frame_marker_right;
+        ImGui::SameLine();
+    }
+
     ImGui::SmallButton( ">>" );
     if ( ImGui::IsItemActive() )
     {
         m_graph.start_ts += m_graph.length_ts / 12.0f;
         m_graph.recalc_timebufs = true;
     }
+
+    frame_markers_goto( target, true );
 }
 
 void TraceWin::graph_render_resizer( graph_info_t &gi )
