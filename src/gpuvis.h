@@ -587,7 +587,6 @@ protected:
     void graph_render_mouse_selection( graph_info_t &gi );
     void graph_render_eventlist_selection( graph_info_t &gi );
     void graph_render_row_labels( graph_info_t &gi );
-    void graph_render_frame_marker_text( graph_info_t &gi );
     void graph_render_framemarker_frames( graph_info_t &gi );
 
     bool frame_markers_enabled();

@@ -1883,43 +1883,6 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
     }
 }
 
-void TraceWin::graph_render_frame_marker_text( graph_info_t &gi )
-{
-    ImU32 color = s_clrs().get( col_Graph_LocationText );
-
-    if ( color & IM_COL32_A_MASK )
-    {
-        ImVec2 pos;
-
-        imgui_push_bigfont();
-
-        pos.y = gi.rcwin.y + ( gi.rcwin.h - ImGui::GetTextLineHeight() ) / 2;
-
-        if ( 1 )
-        {
-            int64_t ts = gi.ts0 + ( gi.ts1 - gi.ts0 );
-            const std::string str = ts_to_timestr( ts / 1000, 4, "" );
-            const ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
-
-            pos.x = gi.rcwin.x + ( gi.rcwin.w - textsize.x ) / 2;
-            imgui_draw_text( pos.x, pos.y, color, str.c_str() );
-
-            pos.y += ImGui::GetTextLineHeight();
-        }
-
-        if ( m_frame_markers.m_frame_marker_selected != -1 )
-        {
-            const std::string str = string_format( "Frame #%d", m_frame_markers.m_frame_marker_selected );
-            const ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
-
-            pos.x = gi.rcwin.x + ( gi.rcwin.w - textsize.x ) / 2;
-            imgui_draw_text( pos.x, pos.y, color, str.c_str() );
-        }
-
-        imgui_pop_font();
-    }
-}
-
 void TraceWin::graph_render_framemarker_frames( graph_info_t &gi )
 {
     if ( m_frame_markers.m_right_frames.empty() )
@@ -2613,9 +2576,6 @@ void TraceWin::graph_render()
         // Render row labels (taking panning into consideration)
         gi.set_pos_y( gi.rcwin.y + ( gi.prinfo_zoom ? 0.0f : gi.start_y ), gi.rcwin.h, NULL );
         graph_render_row_labels( gi );
-
-        // Render location and frame marker text
-        graph_render_frame_marker_text( gi );
 
         // Handle right, left, pgup, pgdown, etc in graph
         graph_handle_keyboard_scroll( gi );
