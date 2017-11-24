@@ -2626,10 +2626,38 @@ void TraceWin::graph_render_hscrollbar( graph_info_t &gi )
     }
 
     float w2 = ImGui::GetContentRegionAvailWidth();
+    w2 = w2 - ( w1 - w2 );
 
     {
+        int style_count = 0;
+
+        if ( m_frame_markers.m_frame_marker_selected != -1 )
+        {
+            static ImGuiCol s_cols[] =
+            {
+                ImGuiCol_ScrollbarBg,
+                ImGuiCol_ScrollbarGrab,
+                ImGuiCol_ScrollbarGrabHovered,
+                ImGuiCol_ScrollbarGrabActive
+            };
+            ImVec2 cursorpos = ImGui::GetCursorPos();
+            std::string str = string_format( " (Frame #%d)", m_frame_markers.m_frame_marker_selected );
+            ImVec2 textsize = ImGui::CalcTextSize( str.c_str() );
+
+            for ( size_t i = 0; i < ARRAY_SIZE( s_cols ); i++ )
+            {
+                ImU32 col = ImGui::GetColorU32( s_cols[ i ] );
+
+                ImGui::PushStyleColor( s_cols[ i ], ( col & ~IM_COL32_A_MASK ) | 0x7f000000 );
+                style_count++;
+            }
+
+            textsize.x = cursorpos.x + ( w2 - textsize.x ) / 2;
+            imgui_draw_text( textsize.x, cursorpos.y, s_clrs().get( col_BrightText ), str.c_str() );
+        }
+
         ImGui::SetNextWindowContentWidth( width );
-        ImGui::BeginChild( "#graph_scrollbar", ImVec2( w2 - ( w1 - w2 ), scrollbar_size ),
+        ImGui::BeginChild( "#graph_scrollbar", ImVec2( w2, scrollbar_size ),
                            false, ImGuiWindowFlags_AlwaysHorizontalScrollbar );
 
         if ( pos != m_graph.scroll_pos )
@@ -2650,6 +2678,8 @@ void TraceWin::graph_render_hscrollbar( graph_info_t &gi )
         }
 
         ImGui::EndChild();
+
+        ImGui::PopStyleColor( style_count );
     }
     ImGui::SameLine();
 
