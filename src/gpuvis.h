@@ -633,9 +633,9 @@ protected:
 
 protected:
     // Return an event id for a given time stamp
-    int ts_to_eventid( int64_t ts );
+    uint32_t ts_to_eventid( int64_t ts );
     // Return an event id from a time string
-    int timestr_to_eventid( const char *buf );
+    uint32_t timestr_to_eventid( const char *buf );
 
     bool graph_marker_valid( int idx0 );
     void graph_marker_set( size_t index, int64_t ts, const char *str = NULL );
@@ -663,7 +663,7 @@ public:
     uint32_t m_create_filter_eventid = INVALID_ID;
     FrameMarkers m_frame_markers;
 
-    util_umap< int64_t, int > m_ts_to_eventid_cache;
+    util_umap< int64_t, uint32_t > m_ts_to_eventid_cache;
 
     // Filter data
     struct
@@ -681,7 +681,9 @@ public:
     struct
     {
         bool do_gotoevent = false;
-        int goto_eventid = 0;
+        uint32_t goto_eventid = 0;
+
+        int64_t ts_marker_mouse_sync = -1;
 
         bool hide_sched_switch_events_val = true;
 

@@ -3249,8 +3249,6 @@ void TraceWin::graph_mouse_tooltip_hovered_amd_fence_signaled( std::string &ttip
     const trace_event_t &event_hov = get_event( gi.hovered_fence_signaled );
     const char *gfxcontext = m_trace_events.get_event_gfxcontext_str( event_hov );
     const std::vector< uint32_t > *plocs = m_trace_events.get_gfxcontext_locs( gfxcontext );
-    bool sync_eventlist_to_graph = s_opts().getb( OPT_SyncEventListToGraph ) &&
-            s_opts().getb( OPT_ShowEventList );
 
     ttip += string_format( "\n\n%s",
                                m_trace_events.tgidcomm_from_commstr( event_hov.user_comm ) );
@@ -3268,13 +3266,6 @@ void TraceWin::graph_mouse_tooltip_hovered_amd_fence_signaled( std::string &ttip
                                    gi.clr_bright, event.id, gi.clr_def,
                                    name,
                                    s_textclrs().mstr( timestr, event_hov.color ).c_str() );
-    }
-
-    if ( sync_eventlist_to_graph && !m_eventlist.do_gotoevent )
-    {
-        // Sync event list to first event id in this context
-        m_eventlist.do_gotoevent = true;
-        m_eventlist.goto_eventid = plocs->at( 0 );
     }
 
     plocs = m_trace_events.m_gfxcontext_msg_locs.get_locations_str( gfxcontext );
@@ -3409,14 +3400,6 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
             gi.hovered_eventid = hov.eventid;
             dist_ts = hov.dist_ts;
         }
-    }
-
-    bool sync_eventlist_to_graph = s_opts().getb( OPT_SyncEventListToGraph ) &&
-            s_opts().getb( OPT_ShowEventList );
-    if ( sync_eventlist_to_graph && !m_eventlist.do_gotoevent )
-    {
-        m_eventlist.do_gotoevent = true;
-        m_eventlist.goto_eventid = gi.hovered_eventid;
     }
 }
 

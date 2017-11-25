@@ -108,18 +108,6 @@ Actions &s_actions()
     return s_actions;
 }
 
-static bool imgui_input_int( int *val, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
-{
-    bool ret = ImGui::Button( label );
-
-    ImGui::SameLine();
-    ImGui::PushItemWidth( imgui_scale( w ) );
-    ret |= ImGui::InputInt( label2, val, 0, 0, flags );
-    ImGui::PopItemWidth();
-
-    return ret;
-}
-
 /*
  * StrPool
  */
@@ -1159,13 +1147,13 @@ void TraceWin::graph_marker_set( size_t index, int64_t ts, const char *str )
     }
 }
 
-int TraceWin::ts_to_eventid( int64_t ts )
+uint32_t TraceWin::ts_to_eventid( int64_t ts )
 {
     // When running a debug build w/ ASAN on, the lower_bound function is
     //  horribly slow so we cache the timestamp to event ids.
-    int *pid = m_ts_to_eventid_cache.get_val( ts );
-    if ( pid )
-        return *pid;
+    uint32_t *peventid = m_ts_to_eventid_cache.get_val( ts );
+    if ( peventid )
+        return *peventid;
 
     trace_event_t x;
     const std::vector< trace_event_t > &events = m_trace_events.m_events;
@@ -1177,16 +1165,16 @@ int TraceWin::ts_to_eventid( int64_t ts )
             return f1.ts < f2.ts;
         } );
 
-    int id = eventidx - events.begin();
+    uint32_t id = eventidx - events.begin();
 
-    if ( ( size_t )id >= events.size() )
+    if ( id >= events.size() )
         id = events.size() - 1;
 
     m_ts_to_eventid_cache.set_val( ts, id );
     return id;
 }
 
-int TraceWin::timestr_to_eventid( const char *buf )
+uint32_t TraceWin::timestr_to_eventid( const char *buf )
 {
     int64_t ts = timestr_to_ts( buf );
 
@@ -3355,9 +3343,28 @@ static void draw_ts_line( const ImVec2 &pos, ImU32 color )
     ImGui::PushColumnClipRect();
 }
 
+static bool imgui_input_uint32( uint32_t *pval, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
+{
+    int val = *pval;
+    bool ret = ImGui::Button( label );
+
+    ImGui::SameLine();
+    ImGui::PushItemWidth( imgui_scale( w ) );
+    ret |= ImGui::InputInt( label2, &val, 0, 0, flags );
+    ImGui::PopItemWidth();
+
+    if ( ret )
+        *pval = val;
+
+    return ret;
+}
+
 void TraceWin::eventlist_render_options()
 {
-    m_eventlist.do_gotoevent |= imgui_input_int( &m_eventlist.goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
+    // Goto event
+    m_eventlist.do_gotoevent |= imgui_input_uint32( &m_eventlist.goto_eventid, 75.0f, "Goto Event:", "##GotoEvent" );
+    if ( ImGui::IsItemActive() )
+        m_eventlist.ts_marker_mouse_sync = m_graph.ts_marker_mouse;
 
     ImGui::SameLine();
     if ( imgui_input_text2( "Goto Time:", m_eventlist.timegoto_buf, 120.0f, ImGuiInputText2FlagsLeft_LabelIsButton ) )
@@ -3527,13 +3534,22 @@ void TraceWin::eventlist_render()
 
         bool filtered_events = !m_filter.events.empty();
 
+        if ( !m_eventlist.do_gotoevent &&
+             ( m_graph.ts_marker_mouse != -1 ) &&
+             ( m_graph.ts_marker_mouse != m_eventlist.ts_marker_mouse_sync ) )
+        {
+            m_eventlist.do_gotoevent = true;
+            m_eventlist.goto_eventid = ts_to_eventid( m_graph.ts_marker_mouse );
+        }
+
         if ( m_eventlist.do_gotoevent )
         {
             uint32_t pos;
 
             if ( filtered_events )
             {
-                auto i = std::lower_bound( m_filter.events.begin(), m_filter.events.end(), m_eventlist.goto_eventid );
+                auto i = std::lower_bound( m_filter.events.begin(), m_filter.events.end(),
+                                           m_eventlist.goto_eventid );
 
                 pos = i - m_filter.events.begin();
             }
@@ -3541,27 +3557,16 @@ void TraceWin::eventlist_render()
             {
                 pos = m_eventlist.goto_eventid;
             }
-
             pos = std::min< uint32_t >( pos, event_count - 1 );
 
-            // Only scroll if our goto event isn't visible.
-            if ( ( uint32_t )m_eventlist.goto_eventid <= m_eventlist.start_eventid )
-            {
-                float scrolly = std::max< int >( 0, pos ) * lineh;
-
-                ImGui::SetScrollY( scrolly );
-            }
-            else if ( ( uint32_t )m_eventlist.goto_eventid + 1 >= m_eventlist.end_eventid )
-            {
-                float scrolly = std::max< int >( 0, pos - visible_rows + 1 ) * lineh;
-
-                ImGui::SetScrollY( scrolly );
-            }
+            ImGui::SetScrollY( ( ( float )pos - visible_rows / 2 + 1 ) * lineh );
 
             // Select the event also
-            m_eventlist.selected_eventid = m_eventlist.goto_eventid;
+            m_eventlist.selected_eventid = std::min< uint32_t >( m_eventlist.goto_eventid,
+                                                                 events.size() - 1 );
 
             m_eventlist.do_gotoevent = false;
+            m_eventlist.ts_marker_mouse_sync = m_graph.ts_marker_mouse;
         }
 
         float scrolly = ImGui::GetScrollY();
