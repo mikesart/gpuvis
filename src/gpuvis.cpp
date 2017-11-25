@@ -3534,7 +3534,8 @@ void TraceWin::eventlist_render()
 
         bool filtered_events = !m_filter.events.empty();
 
-        if ( !m_eventlist.do_gotoevent &&
+        if ( s_opts().getb( OPT_SyncEventListToGraph ) &&
+             !m_eventlist.do_gotoevent &&
              ( m_graph.ts_marker_mouse != -1 ) &&
              ( m_graph.ts_marker_mouse != m_eventlist.ts_marker_mouse_sync ) )
         {
