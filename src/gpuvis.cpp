@@ -4649,7 +4649,7 @@ int main( int argc, char **argv )
     ImGui_ImplSdlGL3_Init( window );
 
     // 1 for updates synchronized with the vertical retrace
-    int vsync = 1;
+    bool vsync = true;
     SDL_GL_SetSwapInterval( vsync );
 
     // Load our fonts
