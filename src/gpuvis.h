@@ -45,6 +45,7 @@ enum loc_type_t
 
 enum i915_type_t
 {
+    i915_req_Queue,
     i915_req_Add,
     i915_req_Submit,
     i915_req_In,

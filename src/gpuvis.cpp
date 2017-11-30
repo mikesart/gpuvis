@@ -2039,11 +2039,13 @@ void TraceEvents::init_new_event( trace_event_t &event )
     }
     else if ( event.seqno )
     {
-        if ( !strcmp( event.name, "i915_gem_request_wait_begin" ) )
+        i915_type_t event_type = get_i915_reqtype( event );
+
+        if ( event_type == i915_reqwait_begin )
         {
              m_i915_reqwait_begin_locs.add_location( event );
         }
-        else if ( !strcmp( event.name, "i915_gem_request_wait_end" ) )
+        else if ( event_type == i915_reqwait_end )
         {
             std::vector< uint32_t > *plocs = m_i915_reqwait_begin_locs.get_locations( event );
 
@@ -2068,11 +2070,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
                 }
             }
         }
-        else if ( !strcmp( event.name, "i915_gem_request_add" ) ||
-                  !strcmp( event.name, "i915_gem_request_submit" ) ||
-                  !strcmp( event.name, "i915_gem_request_in" ) ||
-                  !strcmp( event.name, "i915_gem_request_out" ) ||
-                  !strcmp( event.name, "intel_engine_notify" ) )
+        else if ( event_type <= i915_req_Notify )
         {
             m_i915_gem_req_locs.add_location( event );
         }
@@ -2365,7 +2363,9 @@ void TraceEvents::calculate_amd_event_durations()
 
 i915_type_t get_i915_reqtype( const trace_event_t &event )
 {
-    if ( !strcmp( event.name, "i915_gem_request_add" ) )
+    if ( !strcmp( event.name, "i915_gem_request_queue" ) )
+        return i915_req_Queue;
+    else if ( !strcmp( event.name, "i915_gem_request_add" ) )
         return i915_req_Add;
     else if ( !strcmp( event.name, "i915_gem_request_submit" ) )
         return i915_req_Submit;
@@ -2492,8 +2492,10 @@ void TraceEvents::calculate_i915_req_event_durations()
             }
         }
 
+        bool set_duration = intel_set_duration( events[ i915_req_Queue ], events[ i915_req_Add ], col_Graph_Bari915Queue );
+
         // submit-delay: req_add -> req_submit
-        bool set_duration = intel_set_duration( events[ i915_req_Add ], events[ i915_req_Submit ], col_Graph_Bari915SubmitDelay );
+        set_duration |= intel_set_duration( events[ i915_req_Add ], events[ i915_req_Submit ], col_Graph_Bari915SubmitDelay );
 
         // execute-delay: req_submit -> req_in
         set_duration |= intel_set_duration( events[ i915_req_Submit ], events[ i915_req_In ], col_Graph_Bari915ExecuteDelay );
