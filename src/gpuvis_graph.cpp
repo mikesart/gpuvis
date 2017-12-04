@@ -3302,11 +3302,19 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
     ttip += "\n";
 
     // Show tooltip with the closest events we could drum up
-    for ( graph_info_t::hovered_t &hov : gi.hovered_items )
+    for ( size_t i = 0; i < gi.hovered_items.size(); i++ )
     {
+        graph_info_t::hovered_t &hov = gi.hovered_items[ i ];
         trace_event_t &event = get_event( hov.eventid );
+        i915_type_t i915_type = get_i915_reqtype( event );
 
         m_eventlist.highlight_ids.push_back( event.id );
+
+        if ( !i && ( i915_type < i915_req_Max ) )
+        {
+            ttip += "\n";
+            ttip += m_trace_events.tgidcomm_from_commstr( event.comm );
+        }
 
         // Add event id and distance from cursor to this event
         ttip += string_format( "\n%s%u%s %c%s",
@@ -3322,7 +3330,6 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
         if ( event.crtc >= 0 )
             ttip += std::to_string( event.crtc );
 
-        i915_type_t i915_type = get_i915_reqtype( event );
         if ( i915_type < i915_req_Max )
         {
             const char *ctxstr = get_event_field_val( event, "ctx", NULL );
