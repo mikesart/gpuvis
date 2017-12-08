@@ -67,7 +67,7 @@ public:
 
     void add_location_u32( uint32_t hashval, uint32_t loc )
     {
-        std::vector< uint32_t > *plocs = m_locs.get_val( hashval, std::vector< uint32_t >() );
+        std::vector< uint32_t > *plocs = m_locs.get_val_create( hashval );
 
         plocs->push_back( loc );
     }
@@ -286,6 +286,44 @@ public:
     std::vector< std::pair< std::string, std::string > > m_previous_filters;
 };
 
+// ftrace print event information
+enum bufvar_t
+{
+    bufvar_duration,
+    bufvar_begin_ctx,
+    bufvar_end_ctx,
+    bufvar_begin_gctx,
+    bufvar_end_gctx,
+
+    bufvar_equal,
+    bufvar_prefix,
+
+    bufvar_Max
+};
+
+struct print_info_t
+{
+    int64_t ts;
+    int tgid;
+
+    uint32_t graph_row_id_pid;
+    uint32_t graph_row_id_tgid;
+
+    const char *buf;
+    ImVec2 size;
+};
+
+struct ftrace_row_info_t
+{
+    // pid=-1: rows+count for all ftrace print events
+    // tgid=# & pid=0: rows+count for tgid
+    // tgid=0 & pid=#: rows+count for pid
+    int pid = 0;
+    int tgid = 0;
+    uint32_t rows = 0;
+    uint32_t count = 0;
+};
+
 class TraceEvents
 {
 public:
@@ -358,14 +396,27 @@ public:
 
     std::string get_ftrace_ctx_str( const trace_event_t &event );
 
+    print_info_t *get_print_info( uint32_t id )
+    {
+        return m_ftrace.print_info.get_val( id );
+    }
+    uint32_t ts_to_ftrace_print_info_idx( const std::vector< uint32_t > &locs, int64_t ts );
+
 public:
     // Called once on background thread after all events loaded.
     void init();
 
     void init_new_event( trace_event_t &event );
+    void init_new_event_vblank( trace_event_t &event );
     void init_sched_switch_event( trace_event_t &event );
 
     int new_event_cb( const trace_event_t &event );
+    void new_event_ftrace_print( trace_event_t &event );
+
+    ftrace_row_info_t *get_ftrace_row_info_pid( int pid, bool add = false );
+    ftrace_row_info_t *get_ftrace_row_info_tgid( int tgid, bool add = false );
+    // Get info for print row names: "print", "print pid:1234", "print tgid:3456", etc.
+    ftrace_row_info_t *get_ftrace_row_info( const char *row_name );
 
 public:
     std::string m_filename;
@@ -413,28 +464,32 @@ public:
     util_umap< uint32_t, uint32_t > m_drm_vblank_event_queued;
 
     // Map of ftrace print begin/end ctx to event ids
-    util_umap< uint32_t, uint32_t > m_ftrace_begin_ctx;
-    util_umap< uint32_t, uint32_t > m_ftrace_end_ctx;
-
-    struct event_print_info_t
-    {
-        const char *buf;
-        ImVec2 size;
-    };
-    // ftrace print eventid to text pointer and rendering size
-    util_umap< uint32_t, event_print_info_t > m_print_buf_info;
-    // Max ftrace print rendering x size value
-    float m_print_size_max = -1.0f;
-
-    // Max and min ftrace print ts duration value
-    int64_t m_print_duration_ts_min = 0;
-    int64_t m_print_duration_ts_max = 0;
+    util_umap< uint64_t, uint32_t > m_ftrace_begin_ctx;
+    util_umap< uint64_t, uint32_t > m_ftrace_end_ctx;
 
     // plot name to GraphPlot
     util_umap< uint32_t, GraphPlot > m_graph_plots;
 
     // map of pid to 'thread1-1234 (mainthread-1233)'
     util_umap< int, const char * > m_pid_commstr_map;
+
+    struct
+    {
+        // ftrace print event IDs sorted by timestamp
+        std::vector< uint32_t > print_locs;
+
+        // event id to ftrace print event info map
+        util_umap< uint32_t, print_info_t > print_info;
+
+        // Max ftrace print rendering x size value
+        float text_size_max = -1.0f;
+
+        // Max ftrace print ts duration value
+        int64_t print_ts_max = 0;
+
+        // Row info for each pid / tgid row
+        util_umap< uint32_t, ftrace_row_info_t > row_info;
+    } m_ftrace;
 
     struct vblank_info_t
     {
@@ -498,8 +553,8 @@ public:
     void show_tgid_rows( const tgid_info_t *tgid_info, graph_rows_show_t show );
 
 protected:
-    void push_row( const std::string &name, loc_type_t type, size_t event_count )
-        { m_graph_rows_list.push_back( { type, name, name, event_count, false } ); }
+    void push_row( const std::string &name, loc_type_t type, size_t event_count, bool hidden = false )
+        { m_graph_rows_list.push_back( { type, name, name, event_count, hidden } ); }
 
 public:
     TraceEvents *m_trace_events = nullptr;
@@ -859,9 +914,9 @@ public:
     option_id_t add_opt_graph_rowsize( const char *row_name, int defval = 4, int minval = 4 );
     option_id_t get_opt_graph_rowsize_id( const std::string &row_name );
 
-    uint32_t max_row_size() { return 128; }
-
     void set_crtc_max( int crtc_max ) { m_crtc_max = crtc_max; }
+
+    static const uint32_t MAX_ROW_SIZE = 128;
 
 private:
     typedef uint32_t OPT_Flags;

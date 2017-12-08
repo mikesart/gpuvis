@@ -169,7 +169,7 @@ bool TraceLocationsRingCtxSeq::add_location( const trace_event_t &event )
 
     if ( key )
     {
-        std::vector< uint32_t > *plocs = m_locs.get_val( key, std::vector< uint32_t >() );
+        std::vector< uint32_t > *plocs = m_locs.get_val_create( key );
 
         plocs->push_back( event.id );
         return true;
@@ -261,24 +261,21 @@ void Opts::init()
     m_options[ OPT_RenderFrameMarkers ].action = action_toggle_framemarkers;
 
     add_opt_graph_rowsize( "gfx", 8 );
-    add_opt_graph_rowsize( "i915_req ring0", 8 );
-    add_opt_graph_rowsize( "i915_req ring1", 8 );
-    add_opt_graph_rowsize( "i915_req ring2", 8 );
-    add_opt_graph_rowsize( "print", 10 );
 
-    add_opt_graph_rowsize( "i915_reqwait ring0", 2, 2 );
-    add_opt_graph_rowsize( "i915_reqwait ring1", 2, 2 );
-    add_opt_graph_rowsize( "i915_reqwait ring2", 2, 2 );
+    // Default sizes for these rows are in get_comm_option_id() in gpuvis_graph.cpp...
+    //   add_opt_graph_rowsize( "print", 10 );
+    //   add_opt_graph_rowsize( "i915_req ring0", 8 );
+    //   add_opt_graph_rowsize( "i915_reqwait ring0", 2, 2 );
 
     // Create all the entries for the compute shader rows
-    for ( uint32_t val = 0; ; val++ )
-    {
-        std::string str = comp_str_create_val( val );
-        if ( str.empty() )
-            break;
-
-        add_opt_graph_rowsize( str.c_str() );
-    }
+    // for ( uint32_t val = 0; ; val++ )
+    // {
+    //     std::string str = comp_str_create_val( val );
+    //     if ( str.empty() )
+    //         break;
+    //
+    //     add_opt_graph_rowsize( str.c_str() );
+    // }
 
     // Read option values stored in ini file
     for ( size_t i = 0; i < m_options.size(); i++ )
@@ -318,7 +315,7 @@ option_id_t Opts::add_opt_graph_rowsize( const char *row_name, int defval, int m
     opt.inisection = "$row_sizes$";
     opt.valf = s_ini().GetInt( opt.inikey.c_str(), defval, opt.inisection.c_str() );
     opt.valf_min = minval;
-    opt.valf_max = max_row_size();
+    opt.valf_max = MAX_ROW_SIZE;
 
     // Upper case first letter in description
     opt.desc[ 0 ] = toupper( opt.desc[ 0 ] );
@@ -625,6 +622,283 @@ TraceEvents::~TraceEvents()
     }
 }
 
+ftrace_row_info_t *TraceEvents::get_ftrace_row_info_pid( int pid, bool add )
+{
+    ftrace_row_info_t *row_info = m_ftrace.row_info.get_val( pid );
+
+    if ( !row_info && add )
+    {
+        row_info = m_ftrace.row_info.get_val_create( pid );
+
+        if ( pid & 0xffff )
+            row_info->pid = pid;
+        else
+            row_info->tgid = pid >> 16;
+    }
+
+    return row_info;
+}
+
+ftrace_row_info_t *TraceEvents::get_ftrace_row_info_tgid( int tgid, bool add )
+{
+    return get_ftrace_row_info_pid( tgid << 16, add );
+}
+
+ftrace_row_info_t *TraceEvents::get_ftrace_row_info( const char *row_name )
+{
+    ftrace_row_info_t *ftrace_row_info = NULL;
+
+    if ( !strcmp( row_name, "print" ) )
+        ftrace_row_info = get_ftrace_row_info_pid( -1 );
+    else if ( !strncmp( row_name, "print pid:", 10 ) )
+        ftrace_row_info = get_ftrace_row_info_pid( atoi( row_name + 10 ) );
+    else if ( !strncmp( row_name, "print tgid:", 11 ) )
+        ftrace_row_info = get_ftrace_row_info_tgid( atoi( row_name + 11 ) );
+
+    return ftrace_row_info;
+}
+
+/*
+[Compositor Client] Received Idx ###
+[Compositor Client] WaitGetPoses Begin ThreadId=####
+[Compositor Client] WaitGetPoses End ThreadId=####
+
+[Compositor] Detected dropped frames: ###
+[Compositor] frameTimeout( ### ms )
+[Compositor] NewFrame idx=####
+[Compositor] Predicting( ##.###### ms )
+[Compositor] Re-predicting( ##.###### ms )
+[Compositor] TimeSinceLastVSync: #.######(#####)
+
+[Compositor Client] PostPresentHandoff Begin
+[Compositor Client] PostPresentHandoff End
+
+[Compositor Client] Submit End
+[Compositor Client] Submit Left
+[Compositor Client] Submit Right
+*/
+static const char *s_buf_prefixes[] =
+{
+    "[Compositor Client] Received Idx ",
+    "[Compositor Client] WaitGetPoses ",
+    "[Compositor] frameTimeout( ",
+    "[Compositor] Predicting( ",
+    "[Compositor] Re-predicting( ",
+    "[Compositor Client] PostPresentHandoff ",
+    "[Compositor Client] Submit ",
+    "[Compositor] Present() ",
+};
+
+static struct
+{
+    const char *var;
+    size_t len;
+} s_buf_vars[] =
+{
+    { "duration=", 9 },
+    { "begin_ctx=", 10 },
+    { "end_ctx=", 8 },
+    { "begin_gctx=", 11 },
+    { "end_gctx=", 9 },
+};
+
+static const char *find_buf_var( const char *buf, bufvar_t *bufvar )
+{
+    const char *var;
+
+    // If we find any of our print variables, use that as buf end
+    for ( size_t i = 0; i <= bufvar_end_ctx; i++ )
+    {
+        var = strncasestr( buf, s_buf_vars[ i ].var, s_buf_vars[ i ].len );
+
+        if ( var )
+        {
+            *bufvar = ( bufvar_t )i;
+            return var + s_buf_vars[ i ].len;
+        }
+    }
+
+    // Search for : or =
+    var = strpbrk( buf, ":=" );
+    if ( var )
+    {
+        *bufvar = bufvar_equal;
+        return var + 1;
+    }
+
+    // No colon - try to find one of our buf prefixes
+    for ( size_t i = 0; i < ARRAY_SIZE( s_buf_prefixes ); i++ )
+    {
+        size_t prefixlen = strlen( s_buf_prefixes[ i ] );
+
+        if ( !strncasecmp( buf, s_buf_prefixes[ i ], prefixlen ) )
+        {
+            *bufvar = bufvar_prefix;
+            return buf + prefixlen;
+        }
+    }
+
+    *bufvar = bufvar_Max;
+    return NULL;
+}
+
+static const char *trim_ftrace_print_buf(
+        char ( &newbuf )[ TRACE_BUF_SIZE ],
+        const char *buf, const char *buf_end, size_t len )
+{
+    const char *tok1 = buf_end;
+    const char *tok0 = buf_end - len;
+
+    // Read to end of token value.
+    //   duration=-1234.5 ms
+
+    if ( *tok1 == '-' )
+        tok1++;
+    while ( isdigit( *tok1 ) )
+        tok1++;
+    if ( *tok1 == '.' )
+    {
+        tok1++;
+        while ( isdigit( *tok1 ) )
+            tok1++;
+    }
+
+    if ( tok1[ 0 ] == 'm' && tok1[ 1 ] == 's' )
+        tok1 += 2;
+    else  if ( tok1[ 0 ] == ' ' && tok1[ 1 ] == 'm' && tok1[ 2 ] == 's' )
+        tok1 += 3;
+
+    if ( ( tok0 > buf ) && ( tok0[ -1 ] == '(' ) && ( *tok1 == ')' ) )
+    {
+        tok0--;
+        tok1++;
+    }
+    if ( ( tok0 > buf ) && isspace( tok0[ -1 ] ) )
+        tok0--;
+
+    memmove( newbuf, buf, tok0 - buf );
+    memmove( newbuf + ( tok0 - buf ), tok1, strlen( tok1 ) + 1 );
+    return newbuf;
+}
+
+void TraceEvents::new_event_ftrace_print( trace_event_t &event )
+{
+    bufvar_t bufvar;
+    int pid = event.pid;
+    int64_t ts_offset = 0;
+    char newbuf[ TRACE_BUF_SIZE ];
+    trace_event_t *add_event = &event;
+    const char *buf = get_event_field_val( event, "buf" );
+    const char *ts_offset_str = strncasestr( buf, "offset=", 7 );
+
+    event.color_index = 0;
+    event.seqno = UINT32_MAX;
+
+    if ( ts_offset_str )
+    {
+        ts_offset_str += 7;
+        ts_offset = ( int64_t )( atof( ts_offset_str ) * NSECS_PER_MSEC );
+
+        buf = trim_ftrace_print_buf( newbuf, buf, ts_offset_str, 7 );
+    }
+
+    const char *var = find_buf_var( buf, &bufvar );
+
+    if ( bufvar <= bufvar_end_gctx )
+    {
+        // This is a duration or ctx print event...
+
+        // Remove "duration=XXX", etc from buf
+        buf = trim_ftrace_print_buf( newbuf, buf, var, s_buf_vars[ bufvar ].len );
+
+        // Set color index to hash of new string
+        event.color_index = fnv_hashstr32( buf );
+
+        if ( bufvar == bufvar_duration )
+        {
+            event.duration = ( int64_t )( atof( var ) * NSECS_PER_MSEC );
+        }
+        else
+        {
+            uint64_t key = 0;
+
+            event.seqno = strtoul( var, 0, 10 );
+
+            if ( ( bufvar == bufvar_begin_ctx ) || ( bufvar == bufvar_end_ctx ) )
+                key = ( uint64_t )pid << 32;
+
+            key |= event.seqno;
+
+            if ( ( bufvar == bufvar_begin_ctx ) || ( bufvar == bufvar_begin_gctx ) )
+                m_ftrace_begin_ctx.get_val( key, event.id );
+            else
+                m_ftrace_end_ctx.get_val( key, event.id );
+
+            // We're only going to add a single event for the begin/end ctx pairs
+            add_event = NULL;
+
+            uint32_t *begin_eventid = m_ftrace_begin_ctx.get_val( key );
+            uint32_t *end_eventid = m_ftrace_end_ctx.get_val( key );
+
+            if ( begin_eventid && end_eventid  )
+            {
+                // We have a begin/end pair for this ctx
+                trace_event_t &event0 = m_events[ *begin_eventid ];
+                const trace_event_t &event1 = m_events[ *end_eventid ];
+
+                event0.id_start = event1.id;
+                event0.duration = event1.ts - event0.ts;
+                event0.color_index = event.color_index;
+
+                // Erase all knowledge of this ctx so it can be reused
+                m_ftrace_begin_ctx.erase_key( event.seqno );
+                m_ftrace_end_ctx.erase_key( event.seqno );
+
+                add_event = &event0;
+            }
+        }
+    }
+    else if ( bufvar < bufvar_Max )
+    {
+        event.color_index = fnv_hashstr32( buf );
+    }
+
+    if ( add_event )
+    {
+        print_info_t print_info;
+        const tgid_info_t *tgid_info = tgid_from_pid( pid );
+
+        if ( buf == newbuf )
+        {
+            event_field_t *field = get_event_field( event, "buf" );
+
+            buf = m_strpool.getstr( newbuf );
+            field->value = buf;
+        }
+
+        print_info.ts = add_event->ts + ts_offset;
+        print_info.tgid = tgid_info ? tgid_info->tgid : 0;
+        print_info.graph_row_id_pid = 0;
+        print_info.graph_row_id_tgid = 0;
+        print_info.buf = buf;
+        print_info.size = ImVec2( 0, 0 );
+
+        if ( add_event->duration < 0 )
+        {
+            print_info.ts += add_event->duration;
+            add_event->duration = -add_event->duration;
+        }
+
+        // Add cached print info for this event
+        m_ftrace.print_info.get_val( add_event->id, print_info );
+
+        m_ftrace.print_locs.push_back( add_event->id );
+
+        if ( add_event->has_duration() )
+            m_ftrace.print_ts_max = std::max< int64_t >( m_ftrace.print_ts_max, add_event->duration );
+    }
+}
+
 // Callback from trace_read.cpp. We mostly just store the events in our array
 //  and then init_new_event() does the real work of initializing them later.
 int TraceEvents::new_event_cb( const trace_event_t &event )
@@ -638,6 +912,10 @@ int TraceEvents::new_event_cb( const trace_event_t &event )
     {
         add_sched_switch_pid_comm( m_trace_info, event, "prev_pid", "prev_comm" );
         add_sched_switch_pid_comm( m_trace_info, event, "next_pid", "next_comm" );
+    }
+    else if ( event.is_ftrace_print() )
+    {
+        new_event_ftrace_print( m_events.back() );
     }
 
     // Record the maximum crtc value we've ever seen
@@ -1328,203 +1606,95 @@ const std::vector< uint32_t > *TraceEvents::get_gfxcontext_locs( const char *nam
     return m_gfxcontext_locs.get_locations_str( name );
 }
 
-/*
-[Compositor Client] Received Idx ###
-[Compositor Client] WaitGetPoses Begin ThreadId=####
-[Compositor Client] WaitGetPoses End ThreadId=####
-
-[Compositor] Detected dropped frames: ###
-[Compositor] frameTimeout( ### ms )
-[Compositor] NewFrame idx=####
-[Compositor] Predicting( ##.###### ms )
-[Compositor] Re-predicting( ##.###### ms )
-[Compositor] TimeSinceLastVSync: #.######(#####)
-
-[Compositor Client] PostPresentHandoff Begin
-[Compositor Client] PostPresentHandoff End
-
-[Compositor Client] Submit End
-[Compositor Client] Submit Left
-[Compositor Client] Submit Right
-*/
-static const char *s_buf_prefixes[] =
+class row_pos_t
 {
-    "[Compositor Client] Received Idx ",
-    "[Compositor Client] WaitGetPoses ",
-    "[Compositor] frameTimeout( ",
-    "[Compositor] Predicting( ",
-    "[Compositor] Re-predicting( ",
-    "[Compositor Client] PostPresentHandoff ",
-    "[Compositor Client] Submit ",
-    "[Compositor] Present() ",
-};
+public:
+    row_pos_t() {}
+    ~row_pos_t() {}
 
-static struct
-{
-    const char *var;
-    size_t len;
-} s_buf_vars[] =
-{
-    { "duration=", 9 },
-    { "begin_ctx=", 10 },
-    { "end_ctx=", 8 },
-};
-
-static const char *get_print_buf_end( const char *buf, size_t *len )
-{
-    const char *buf_end;
-
-    *len = 0;
-
-    // If we find any of our print variables, use that as buf end
-    for ( size_t i = 0; i < ARRAY_SIZE( s_buf_vars ); i++ )
+    uint32_t get_row( int64_t min_ts, int64_t max_ts )
     {
-        buf_end = strncasestr( buf, s_buf_vars[ i ].var, s_buf_vars[ i ].len );
+        uint32_t row = 0;
 
-        if ( buf_end )
+        for ( ; row < m_row_pos.size(); row++ )
         {
-            *len = s_buf_vars[ i ].len;
-            return buf_end + s_buf_vars[ i ].len;
+            if ( m_row_pos[ row ] <= min_ts )
+                break;
         }
+        if ( row >= m_row_pos.size() )
+            row = 0;
+
+        m_row_pos[ row ] = max_ts + 1;
+
+        m_rows = std::max< uint32_t >( m_rows, row + 1 );
+        return row;
     }
 
-    // Search for :
-    buf_end = strchr( buf, ':' );
-    // No colon, try to find '='
-    if ( !buf_end )
-        buf_end = strchr( buf, '=' );
-    if ( buf_end )
-        return buf_end + 1;
-
-    // No colon - try to find one of our buf prefixes
-    for ( size_t i = 0; i < ARRAY_SIZE( s_buf_prefixes ); i++ )
-    {
-        size_t prefixlen = strlen( s_buf_prefixes[ i ] );
-
-        if ( !strncasecmp( buf, s_buf_prefixes[ i ], prefixlen ) )
-            return buf + prefixlen;
-    }
-
-    return NULL;
-}
-
-static void remove_ftrace_print_token( char ( &newbuf )[ TRACE_BUF_SIZE ],
-                                       const char *buf, const char *buf_end, size_t len )
-{
-    const char *tok1 = buf_end;
-    const char *tok0 = buf_end - len;
-
-    // Read to end of token value.
-    //   duration=-1234.5 ms
-
-    if ( *tok1 == '-' )
-        tok1++;
-    while ( isdigit( *tok1 ) )
-        tok1++;
-    if ( *tok1 == '.' )
-    {
-        tok1++;
-        while ( isdigit( *tok1 ) )
-            tok1++;
-    }
-
-    if ( tok1[ 0 ] == 'm' && tok1[ 1 ] == 's' )
-        tok1 += 2;
-    else  if ( tok1[ 0 ] == ' ' && tok1[ 1 ] == 'm' && tok1[ 2 ] == 's' )
-        tok1 += 3;
-
-    if ( ( tok0 > buf ) && ( tok0[ -1 ] == '(' ) && ( *tok1 == ')' ) )
-    {
-        tok0--;
-        tok1++;
-    }
-    if ( ( tok0 > buf ) && isspace( tok0[ -1 ] ) )
-        tok0--;
-
-    memcpy( newbuf, buf, tok0 - buf );
-    memcpy( newbuf + ( tok0 - buf ), tok1, strlen( tok1 ) + 1 );
-}
+public:
+    uint32_t m_rows = 0;
+    std::array< int64_t, Opts::MAX_ROW_SIZE > m_row_pos = {};
+};
 
 void TraceEvents::calculate_event_print_info()
 {
-    if ( !m_print_buf_info.m_map.empty() )
+    if ( m_ftrace.print_locs.empty() )
         return;
 
-    const std::vector< uint32_t > *plocs = get_tdopexpr_locs( "$name=print" );
-    if ( !plocs )
-        return;
-
-    uint32_t row_id = 1;
-    util_umap< uint32_t, uint32_t > hash_row_map;
-
-    for ( uint32_t idx : *plocs )
+    // Sort ftrace print event IDs based on ts start locations
+    auto cmp = [&]( const uint32_t lx, const uint32_t rx )
     {
-        size_t len = 0;
+        const print_info_t *lval = m_ftrace.print_info.get_val( lx );
+        const print_info_t *rval = m_ftrace.print_info.get_val( rx );
+
+        return ( lval->ts < rval->ts );
+    };
+    std::sort( m_ftrace.print_locs.begin(), m_ftrace.print_locs.end(), cmp );
+
+    row_pos_t row_pos;
+    ftrace_row_info_t *row_info;
+    util_umap< int, row_pos_t > row_pos_pid;
+    util_umap< int, row_pos_t > row_pos_tgid;
+
+    for ( uint32_t idx : m_ftrace.print_locs )
+    {
+        row_pos_t *prow_pos;
         trace_event_t &event = m_events[ idx ];
-        const char *buf = get_event_field_val( event, "buf" );
-        const char *buf_end = get_print_buf_end( buf, &len );
+        print_info_t *print_info = m_ftrace.print_info.get_val( event.id );
+        int64_t min_ts = print_info->ts;
+        uint32_t duration = ( event.has_duration() ? event.duration : 0 );
+        int64_t max_ts = min_ts + std::max< int64_t >( duration, 1 * NSECS_PER_MSEC );
 
-        if ( !buf_end )
+        // Global print row id
+        event.graph_row_id = row_pos.get_row( min_ts, max_ts );
+
+        // Pid print row id
+        prow_pos = row_pos_pid.get_val_create( event.pid );
+        print_info->graph_row_id_pid = prow_pos->get_row( min_ts, max_ts );
+
+        row_info = get_ftrace_row_info_pid( event.pid, true );
+        row_info->rows = std::max< uint32_t >( row_info->rows, prow_pos->m_rows );
+        row_info->count++;
+
+        if ( print_info->tgid )
         {
-            // Throw all unrecognized events on line 0
-            event.graph_row_id = 0;
-        }
-        else if ( is_valid_id( event.id_start ) )
-        {
-            // This is the begin of a begin_ctx / end_ctx pair. We want to use the
-            // same rowid / colors as the end but it may not be initialized yet.
-            // So... set these values in the update_ftraceprint_colors() function.
-        }
-        else
-        {
-            // hash our prefix and put em all on their own row with their own color
-            uint32_t hashval = fnv_hashstr32( buf, buf_end - buf );
-            uint32_t *prow_id = hash_row_map.get_val( hashval, 0 );
+            prow_pos = row_pos_tgid.get_val_create( print_info->tgid );
+            print_info->graph_row_id_tgid = prow_pos->get_row( min_ts, max_ts );
 
-            if ( *prow_id == 0 )
-                *prow_id = row_id++;
-
-            // Store hash string value in color_index
-            event.color_index = hashval;
-
-            // Set graph row id: 1..rows
-            event.graph_row_id = *prow_id;
-        }
-
-        if ( len )
-        {
-            char newbuf[ TRACE_BUF_SIZE ];
-
-            // Remove "duration=XXX", etc from buf
-            remove_ftrace_print_token( newbuf, buf, buf_end, len );
-
-            // Add buf_orig field which holds original buf string
-            //$$ event.fields.push_back( { "buf_orig", buf } );
-
-            // Get string pool entry for newbuf
-            buf = m_strpool.getstr( newbuf );
-
-            // Set buf to our new stripped string
-            event_field_t *field = get_event_field( event, "buf" );
-            field->value = buf;
-        }
-
-        // Add cached print info for this event
-        m_print_buf_info.get_val( event.id, { buf, ImVec2( 0, 0 ) } );
-
-        if ( event.has_duration() )
-        {
-            m_print_duration_ts_min = std::min< int64_t >( m_print_duration_ts_min, event.duration );
-            m_print_duration_ts_max = std::max< int64_t >( m_print_duration_ts_max, event.duration );
+            row_info = get_ftrace_row_info_tgid( print_info->tgid, true );
+            row_info->rows = std::max< uint32_t >( row_info->rows, prow_pos->m_rows );
+            row_info->count++;
         }
     }
 
-    invalidate_ftraceprint_colors();
+    // Add info for special pid=-1 (all ftrace print events)
+    row_info = get_ftrace_row_info_pid( -1, true );
+    row_info->rows = row_pos.m_rows;
+    row_info->count = m_ftrace.print_locs.size();
 }
 
 void TraceEvents::invalidate_ftraceprint_colors()
 {
-    m_print_size_max = -1.0f;
+    m_ftrace.text_size_max = -1.0f;
 }
 
 void TraceEvents::update_ftraceprint_colors()
@@ -1533,33 +1703,29 @@ void TraceEvents::update_ftraceprint_colors()
     float label_alpha = s_clrs().getalpha( col_Graph_PrintLabelAlpha );
     ImU32 color = s_clrs().get( col_FtracePrintText, label_alpha * 255 );
 
-    m_print_size_max = 0.0f;
+    m_ftrace.text_size_max = 0.0f;
 
-    for ( auto &entry : m_print_buf_info.m_map )
+    for ( auto &entry : m_ftrace.print_info.m_map )
     {
         trace_event_t &event = m_events[ entry.first ];
-        event_print_info_t &print_info = entry.second;
+        print_info_t &print_info = entry.second;
 
         print_info.size = ImGui::CalcTextSize( print_info.buf );
-
-        m_print_size_max = std::max< float >( print_info.size.x, m_print_size_max );
+        m_ftrace.text_size_max = std::max< float >( print_info.size.x, m_ftrace.text_size_max );
 
         // Mark this event as autogen'd color so it doesn't get overwritten
         event.flags |= TRACE_FLAG_AUTOGEN_COLOR;
 
-        if ( is_valid_id( event.id_start ) )
-        {
-            // This is a begin_ctx event...
-            // Use the rowid and color from the end_ctx event.
-            const trace_event_t &event_end = m_events[ event.id_start ];
-
-            event.graph_row_id = event_end.graph_row_id;
-            event.color = imgui_col_from_hashval( event_end.color_index, label_sat, label_alpha );
-        }
-        else if ( event.graph_row_id )
+        if ( event.color_index )
         {
             // If we have a graph row id, use the hashval stored in color_index
             event.color = imgui_col_from_hashval( event.color_index, label_sat, label_alpha );
+
+            if ( is_valid_id( event.id_start ) )
+            {
+                m_events[ event.id_start ].color = event.color;
+                m_events[ event.id_start ].flags |= TRACE_FLAG_AUTOGEN_COLOR;
+            }
         }
         else
         {
@@ -1768,30 +1934,6 @@ void TraceEvents::init_sched_switch_event( trace_event_t &event )
     }
 }
 
-/*
- * Read a 'duration' value from ftrace print buffer.
- * Looks for numbers after key. Example:
- *   duration: 0.076272(79975)
- */
-static const char *get_ftrace_val( const char *buf, const char *key, size_t keylen )
-{
-    for (;;)
-    {
-        buf = strncasestr( buf, key, keylen );
-        if ( !buf )
-            break;
-
-        buf += keylen;
-
-        if ( isspace( *buf ) )
-            buf++;
-        if ( isdigit( *buf ) || ( ( *buf == '-' ) && isdigit( buf[ 1 ] ) ) )
-            return buf;
-    }
-
-    return NULL;
-}
-
 static int64_t normalize_vblank_diff( int64_t diff )
 {
     static const int64_t rates[] =
@@ -1819,6 +1961,40 @@ static int64_t normalize_vblank_diff( int64_t diff )
     return diff;
 }
 
+void TraceEvents::init_new_event_vblank( trace_event_t &event )
+{
+    // See if we have a drm_vblank_event_queued with the same seq number
+    uint32_t seqno = strtoul( get_event_field_val( event, "seq" ), NULL, 10 );
+    uint32_t *vblank_queued_id = m_drm_vblank_event_queued.get_val( seqno );
+
+    if ( vblank_queued_id )
+    {
+        trace_event_t &event_vblank_queued = m_events[ *vblank_queued_id ];
+
+        // If so, set the vblank queued time
+        event_vblank_queued.duration = event.ts - event_vblank_queued.ts;
+    }
+
+    m_tdopexpr_locs.add_location_str( "$name=drm_vblank_event", event.id );
+
+    /*
+     * vblank interval calculations
+     */
+    if ( m_vblank_info[ event.crtc ].last_vblank_ts )
+    {
+        int64_t diff = event.ts - m_vblank_info[ event.crtc ].last_vblank_ts;
+
+        // Normalize ts diff to known frequencies
+        diff = normalize_vblank_diff( diff );
+
+        // Bump count for this diff ts value
+        m_vblank_info[ event.crtc ].diff_ts_count[ diff / 1000 ]++;
+        m_vblank_info[ event.crtc ].count++;
+    }
+
+    m_vblank_info[ event.crtc ].last_vblank_ts = event.ts;
+}
+
 // new_event_cb adds all events to array, this function initializes them.
 void TraceEvents::init_new_event( trace_event_t &event )
 {
@@ -1833,87 +2009,9 @@ void TraceEvents::init_new_event( trace_event_t &event )
         event.comm = m_strpool.getstr( buf );
     }
 
-    if ( event.is_ftrace_print() )
+    if ( event.is_vblank() )
     {
-        const char *buf = get_event_field_val( event, "buf" );
-        const char *val = get_ftrace_val( buf, "duration=", 9 );
-
-        //$ TODO mikesart: Add 'offset=###' key which moves the event?
-
-        // Initialize ftrace seqnos to invalid value
-        event.seqno = UINT32_MAX;
-
-        if ( val )
-        {
-            // We have a direct "duration=###"
-            event.duration = ( int64_t )( atof( val ) * NSECS_PER_MSEC );
-        }
-        else
-        {
-            // Search for "begin_ctx" / "end_ctx"
-            const char *begin_ctx = get_ftrace_val( buf, "begin_ctx=", 10 );
-            const char *ctxstr = begin_ctx ? begin_ctx : get_ftrace_val( buf, "end_ctx=", 8 );
-
-            if ( ctxstr  )
-            {
-                // Store ctx number in event seqno
-                event.seqno = strtoul( ctxstr, 0, 10 );
-
-                if ( begin_ctx )
-                    m_ftrace_begin_ctx.get_val( event.seqno, event.id );
-                else
-                    m_ftrace_end_ctx.get_val( event.seqno, event.id );
-
-                uint32_t *begin_eventid = m_ftrace_begin_ctx.get_val( event.seqno );
-                uint32_t *end_eventid = m_ftrace_end_ctx.get_val( event.seqno );
-                if ( begin_eventid && end_eventid )
-                {
-                    // We have a begin/end pair for this ctx
-                    trace_event_t &event0 = m_events[ *begin_eventid ];
-                    const trace_event_t &event1 = m_events[ *end_eventid ];
-
-                    event0.id_start = event1.id;
-                    event0.duration = event1.ts - event0.ts;
-
-                    // Erase all knowledge of this ctx so it can be reused
-                    m_ftrace_begin_ctx.erase_key( event.seqno );
-                    m_ftrace_end_ctx.erase_key( event.seqno );
-                }
-            }
-        }
-    }
-    else if ( event.is_vblank() )
-    {
-        // See if we have a drm_vblank_event_queued with the same seq number
-        uint32_t seqno = strtoul( get_event_field_val( event, "seq" ), NULL, 10 );
-        uint32_t *vblank_queued_id = m_drm_vblank_event_queued.get_val( seqno );
-
-        if ( vblank_queued_id )
-        {
-            trace_event_t &event_vblank_queued = m_events[ *vblank_queued_id ];
-
-            // If so, set the vblank queued time
-            event_vblank_queued.duration = event.ts - event_vblank_queued.ts;
-        }
-
-        m_tdopexpr_locs.add_location_str( "$name=drm_vblank_event", event.id );
-
-        /*
-         * vblank interval calculations
-         */
-        if ( m_vblank_info[ event.crtc ].last_vblank_ts )
-        {
-            int64_t diff = event.ts - m_vblank_info[ event.crtc ].last_vblank_ts;
-
-            // Normalize ts diff to known frequencies
-            diff = normalize_vblank_diff( diff );
-
-            // Bump count for this diff ts value
-            m_vblank_info[ event.crtc ].diff_ts_count[ diff / 1000 ]++;
-            m_vblank_info[ event.crtc ].count++;
-        }
-
-        m_vblank_info[ event.crtc ].last_vblank_ts = event.ts;
+        init_new_event_vblank( event );
     }
     else if ( !strcmp( event.name, "drm_vblank_event_queued" ) )
     {
@@ -1975,7 +2073,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
 
         if ( tgid && pid && tgid_comm && child_comm )
         {
-            tgid_info_t *tgid_info = m_trace_info.tgid_pids.get_val( tgid, tgid_info_t() );
+            tgid_info_t *tgid_info = m_trace_info.tgid_pids.get_val_create( tgid );
 
             if ( !tgid_info->tgid )
             {
@@ -2037,7 +2135,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
             }
         }
     }
-    else if ( event.seqno )
+    else if ( event.seqno && !event.is_ftrace_print() )
     {
         i915_type_t event_type = get_i915_reqtype( event );
 
@@ -2400,30 +2498,18 @@ void TraceEvents::calculate_i915_reqwait_event_durations()
 {
     for ( auto &req_locs : m_i915_reqwait_end_locs.m_locs.m_map )
     {
+        row_pos_t row_pos;
         std::vector< uint32_t > &locs = req_locs.second;
-        std::vector< int64_t > row_pos( s_opts().max_row_size() );
         // const char *name = m_strpool.findstr( req_locs.first );
 
         for ( uint32_t idx : locs )
         {
-            size_t row = 0;
             trace_event_t &event = m_events[ idx ];
             trace_event_t &event_begin = m_events[ event.id_start ];
-            int64_t min_ts = event_begin.ts;
-            int64_t max_ts = event.ts;
-
-            for ( ; row < row_pos.size(); row++ )
-            {
-                if ( row_pos[ row ] <= min_ts )
-                    break;
-            }
-            if ( row >= row_pos.size() )
-                row = 0;
+            uint32_t row = row_pos.get_row( event_begin.ts, event.ts );
 
             event_begin.graph_row_id = row;
             event.graph_row_id = row;
-
-            row_pos[ row ] = max_ts + 1;
         }
     }
 }
@@ -2531,8 +2617,8 @@ void TraceEvents::calculate_i915_req_event_durations()
     // Sort the events in the ring maps
     for ( auto &req_locs : m_i915_req_locs.m_locs.m_map )
     {
+        row_pos_t row_pos;
         std::vector< uint32_t > &locs = req_locs.second;
-        std::vector< int64_t > row_pos( s_opts().max_row_size() );
         // const char *name = m_strpool.findstr( req_locs.first );
 
         std::sort( locs.begin(), locs.end() );
@@ -2550,22 +2636,12 @@ void TraceEvents::calculate_i915_req_event_durations()
             plocs = m_i915_gem_req_locs.get_locations( *pevent );
             if ( plocs )
             {
-                size_t row = 0;
                 int64_t min_ts = m_events[ plocs->front() ].ts;
                 int64_t max_ts = m_events[ plocs->back() ].ts;
-
-                for ( ; row < row_pos.size(); row++ )
-                {
-                    if ( row_pos[ row ] <= min_ts )
-                        break;
-                }
-                if ( row >= row_pos.size() )
-                    row = 0;
+                uint32_t row = row_pos.get_row( min_ts, max_ts );
 
                 for ( uint32_t i : *plocs )
                     m_events[ i ].graph_row_id = row;
-
-                row_pos[ row ] = max_ts + 1;
             }
         }
     }
@@ -2580,10 +2656,10 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
     if ( errstr )
         errstr->clear();
 
-    if ( !strcmp( name, "print" ) )
+    if ( get_ftrace_row_info( name ) )
     {
         type = LOC_TYPE_Print;
-        plocs = get_tdopexpr_locs( "$name=print" );
+        plocs = &m_ftrace.print_locs;
     }
     else if ( !strncmp( name, "i915_reqwait ring", 17 ) )
     {
@@ -2881,6 +2957,7 @@ void TraceWin::trace_render_info()
         {
             const tgid_info_t *tgid_info = NULL;
             const char *row_name = info.row_name.c_str();
+            ftrace_row_info_t *ftrace_row_info = m_trace_events.get_ftrace_row_info( row_name );
 
             if ( info.type == LOC_TYPE_Comm )
                 tgid_info = m_trace_events.tgid_from_commstr( info.row_name.c_str() );
@@ -2920,7 +2997,7 @@ void TraceWin::trace_render_info()
                 ImGui::Text( "%s", row_name );
 
                 ImGui::NextColumn();
-                ImGui::Text( "%lu", info.event_count );
+                ImGui::Text( "%lu", ftrace_row_info ? ftrace_row_info->count : info.event_count );
 
                 if ( info.type == LOC_TYPE_Plot )
                 {

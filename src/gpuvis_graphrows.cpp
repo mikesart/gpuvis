@@ -329,7 +329,38 @@ void GraphRows::init( TraceEvents &trace_events )
     }
 
     if ( ( plocs = trace_events.get_locs( "print", &type ) ) )
+    {
         push_row( "print", type, plocs->size() );
+
+        auto add_print_row_lambda = [&]( const char *str, int pid )
+        {
+            std::string name = string_format( "print %s:%d", str, pid );
+            const char *comm = trace_events.comm_from_pid( pid );
+
+            if ( comm )
+            {
+                const char *pidstr = strrchr( comm, '-' );
+                int len = pidstr ? ( pidstr - comm ) : 64;
+
+                name += string_format( " (%.*s)", len, comm );
+            }
+
+            bool hidden = !s_ini().GetInt( name.c_str(), 0.0f, "$row_sizes$" );
+
+            push_row( name, type, plocs->size(), hidden );
+        };
+
+        for ( auto item : m_trace_events->m_ftrace.row_info.m_map )
+        {
+            if ( item.second.pid == -1 )
+                continue;
+
+            if ( item.second.pid )
+                add_print_row_lambda( "pid", item.second.pid );
+            else
+                add_print_row_lambda( "tgid", item.second.tgid );
+        }
+    }
 
     {
         std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$graph_plots$" );
@@ -381,7 +412,8 @@ void GraphRows::init( TraceEvents &trace_events )
         {
             auto idx = std::find( m_graph_rows_hide.begin(), m_graph_rows_hide.end(), row_info.row_name );
 
-            row_info.hidden = ( idx != m_graph_rows_hide.end() );
+            if ( idx != m_graph_rows_hide.end() )
+                row_info.hidden = true;
         }
     }
 

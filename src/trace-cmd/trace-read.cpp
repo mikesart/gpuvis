@@ -1904,7 +1904,7 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
 
         if ( tgid > 0 )
         {
-            tgid_info_t *tgid_info = trace_info.tgid_pids.get_val( tgid, tgid_info_t() );
+            tgid_info_t *tgid_info = trace_info.tgid_pids.get_val_create( tgid );
 
             if ( !tgid_info->tgid )
             {

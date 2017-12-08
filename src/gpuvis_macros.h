@@ -113,6 +113,13 @@ public:
         return &res.first->second;
     }
 
+    V *get_val_create( const K key )
+    {
+        auto i = m_map.find( key );
+        if ( i != m_map.end() )
+            return &i->second;
+        return get_val( key, V() );
+    }
     V *get_val( const K key )
     {
         auto i = m_map.find( key );

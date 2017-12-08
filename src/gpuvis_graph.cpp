@@ -118,6 +118,7 @@ public:
     void set_pos_y( float y, float h, row_info_t *ri );
 
     float ts_to_x( int64_t ts );
+    float ts_to_dx( int64_t ts );
     float ts_to_screenx( int64_t ts );
 
     int64_t screenx_to_ts( float x_in );
@@ -450,7 +451,24 @@ static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t r
          row_type == LOC_TYPE_i915RequestWait ||
          row_type == LOC_TYPE_i915Request )
     {
-        return s_opts().add_opt_graph_rowsize( row_name.c_str() );
+        int defval = 4;
+        int minval = 4;
+
+        if ( row_type == LOC_TYPE_Print )
+        {
+            defval = 10;
+        }
+        else if ( row_type == LOC_TYPE_i915Request )
+        {
+            defval = 8;
+        }
+        else if ( row_type == LOC_TYPE_i915RequestWait )
+        {
+            defval = 2;
+            minval = 2;
+        }
+
+        return s_opts().add_opt_graph_rowsize( row_name.c_str(), defval, minval );
     }
 
     return OPT_Invalid;
@@ -543,7 +561,7 @@ void graph_info_t::init_rows( const std::vector< GraphRows::graph_rows_info_t > 
         {
             int rows = s_opts().geti( optid );
 
-            rinfo.row_h = Clamp< int >( rows, 2, s_opts().max_row_size() ) * text_h;
+            rinfo.row_h = Clamp< int >( rows, 2, s_opts().MAX_ROW_SIZE ) * text_h;
         }
 
         rinfo.id = id++;
@@ -724,6 +742,11 @@ void graph_info_t::set_pos_y( float y_in, float h_in, row_info_t *ri )
 float graph_info_t::ts_to_x( int64_t ts )
 {
     return rc.w * ( ts - ts0 ) * tsdxrcp;
+}
+
+float graph_info_t::ts_to_dx( int64_t ts )
+{
+    return ts * rc.w * tsdxrcp;
 }
 
 float graph_info_t::ts_to_screenx( int64_t ts )
@@ -1066,61 +1089,123 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
     return points.size();
 }
 
+class row_draw_info_t
+{
+public:
+    void set_event( graph_info_t &gi, float h,
+                    float x2 = FLT_MAX, float y2 = FLT_MAX,
+                    const trace_event_t *event = NULL,
+                    const print_info_t *print_info = NULL );
+    void render_text( graph_info_t &gi, float w, float h );
+
+public:
+    float m_x = 0.0f;
+    float m_y = 0.0f;
+    const trace_event_t *m_event = nullptr;
+    const print_info_t *m_print_info = nullptr;
+};
+
+void row_draw_info_t::render_text( graph_info_t &gi, float w, float h )
+{
+    // Text size
+    const ImVec2 &tsize = m_print_info->size;
+
+    if ( m_event->has_duration() )
+    {
+        // Get width of duration, capped at available width
+        float wduration = std::min< float >( w, gi.ts_to_dx( m_event->duration ) );
+
+        wduration -= imgui_scale( 4.0f );
+
+        // Text size less than duration width?
+        if ( tsize.x < wduration )
+        {
+            // Save duration x right position
+            float xr = m_x + wduration;
+
+            // Center text in duration width
+            m_x = m_x + ( wduration - tsize.x ) / 2.0f;
+
+            if ( m_x < gi.rc.x )
+            {
+                // Centered text off left edge, move it right as far as possible
+                m_x = std::min< float >( gi.rc.x, xr - tsize.x );
+            }
+        }
+    }
+
+    // Center text vertically in middle of rectangle
+    m_y = m_y + ( h / 2.0f ) - ( tsize.y / 2.0f ) - imgui_scale( 2.0f );
+
+    imgui_push_cliprect( { m_x, m_y, w, tsize.y + imgui_scale( 1.0f ) } );
+    imgui_draw_text( m_x, m_y, m_event->color, m_print_info->buf );
+    imgui_pop_cliprect();
+}
+
+void row_draw_info_t::set_event( graph_info_t &gi,
+                                 float h, float x2, float y2,
+                                 const trace_event_t *event,
+                                 const print_info_t *print_info )
+{
+    // Adding a new event at x2,y2. If we had a previous event and
+    //   there is room for the label, draw it.
+
+    // Available width
+    float wavail = x2 - m_x;
+
+    if ( m_print_info && ( wavail >= imgui_scale( 16.0f ) ) )
+    {
+        // Right x is x2 or right edge of drawing rect
+        float xright = std::min< float >( x2, gi.rc.x + gi.rc.w );
+        // Available width is visible right edge to our left edge
+        float w = xright - m_x;
+
+        if ( w > 0.0f )
+            render_text( gi, w, h );
+    }
+
+    m_x = x2 + imgui_scale( 3.0f );
+    m_y = y2;
+    m_print_info = print_info;
+    m_event = event;
+}
+
+// Given an array of ftrace print event IDs, do a lower_bound binary search on
+//  m_ftrace.print_info ts values.
+// Note: locs is sorted by ts values in m_ftrace.print_info.
+uint32_t TraceEvents::ts_to_ftrace_print_info_idx( const std::vector< uint32_t > &locs, int64_t ts )
+{
+    size_t first = 0;
+    size_t count = locs.size();
+
+    while ( count > 0 )
+    {
+        size_t step = count / 2;
+        size_t it = first + step;
+        const trace_event_t &event = m_events[ locs[ it ] ];
+        const print_info_t *print_info = get_print_info( event.id );
+
+        if ( print_info->ts < ts )
+        {
+            first = ++it;
+            count -= step + 1;
+        }
+        else
+        {
+            count = step;
+        }
+    }
+
+    return first;
+}
+
 uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 {
     imgui_push_smallfont();
 
     // Recalc colors and sizes if font/colors have changed
-    if ( m_trace_events.m_print_size_max == -1.0f )
+    if ( m_trace_events.m_ftrace.text_size_max == -1.0f )
         m_trace_events.update_ftraceprint_colors();
-
-    struct row_draw_info_t
-    {
-        float m_x = 0.0f;
-        float m_y = 0.0f;
-        const trace_event_t *m_event = nullptr;
-        const TraceEvents::event_print_info_t *m_print_info = nullptr;
-
-        void set_event( float x, float y, const trace_event_t *event = NULL,
-                        const TraceEvents::event_print_info_t *print_info = NULL )
-        {
-            // Adding a new event at x,y. If we had a previous event and
-            // there is room for the label, draw it.
-            if ( m_print_info )
-            {
-                const ImVec2 &size = m_print_info->size;
-
-                if ( x - m_x > size.x )
-                    imgui_draw_text( m_x, m_y, m_event->color, m_print_info->buf );
-            }
-
-            m_x = x + imgui_scale( 3.0f );
-            m_y = y + imgui_scale( 2.0f );
-            m_print_info = print_info;
-            m_event = event;
-        }
-    };
-    uint32_t row_count = std::max< uint32_t >( 1, gi.rc.h / gi.text_h - 1 );
-    std::vector< row_draw_info_t > row_draw_info( row_count + 1 );
-
-    // Check if we're drawing timeline labels
-    bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
-            !ImGui::GetIO().KeyAlt;
-
-    // Move ts start to the left to accommodate largest print label
-    int64_t tsa = timeline_labels ?
-                gi.screenx_to_ts( gi.rc.x - m_trace_events.m_print_size_max ) : gi.ts0;
-    // Pick furthest left time: w/ labels or w/ max duration
-    int64_t ts = std::min< int64_t >( tsa, gi.ts0 - m_trace_events.m_print_duration_ts_max );
-    uint32_t eventstart = ts_to_eventid( ts );
-
-    // Pick furthest right point where all duration bars will draw
-    int64_t ts1 = gi.ts1 - m_trace_events.m_print_duration_ts_min;
-    uint32_t eventend = ts_to_eventid( ts1 );
-
-    ImU32 baralpha = s_clrs().get( col_Graph_PrintBarAlpha ) & IM_COL32_A_MASK;
-
-    event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
 
     struct
     {
@@ -1130,32 +1215,76 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         rect_t rc;
     } hovinfo;
 
+    const char *row_name = gi.prinfo_cur->row_name.c_str();
+    ftrace_row_info_t *ftrace_row_info = m_trace_events.get_ftrace_row_info( row_name );
+    if ( !ftrace_row_info )
+        ftrace_row_info = m_trace_events.get_ftrace_row_info_pid( -1 );
+
+    uint32_t row_count = ftrace_row_info->rows;
+    std::vector< row_draw_info_t > row_draw_info( row_count );
+    ImU32 baralpha = s_clrs().get( col_Graph_PrintBarAlpha ) & IM_COL32_A_MASK;
+
+    // Check if we're drawing timeline labels
+    bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
+            !ImGui::GetIO().KeyAlt;
+
+    // Get height of each bar.
+    float h = std::max< float>( 2.0f, gi.rc.h / row_count );
+
+    // If height is less than half text height, turn off labels.
+    if ( h < ( gi.text_h / 2.0f ) )
+        timeline_labels = false;
+
+    int64_t ts_duration_max = m_trace_events.m_ftrace.print_ts_max;
+    int64_t ts_text_max = timeline_labels ? gi.dx_to_ts( m_trace_events.m_ftrace.text_size_max ) : 0;
+    int64_t ts_offset = std::max< int64_t >( ts_duration_max, ts_text_max );
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
-    for ( size_t idx = vec_find_eventid( locs, eventstart );
+
+    event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
+
+    for ( size_t idx = m_trace_events.ts_to_ftrace_print_info_idx( locs, gi.ts0 - ts_offset );
           idx < locs.size();
           idx++ )
     {
+        uint32_t row_id;
         const trace_event_t &event = get_event( locs[ idx ] );
-        uint32_t row_id = event.graph_row_id ? ( event.graph_row_id % row_count + 1 ) : 0;
-        float x = gi.ts_to_screenx( event.ts );
-        float y = gi.rc.y + row_id * gi.text_h;
+        const print_info_t *print_info = m_trace_events.get_print_info( event.id );
 
-        if ( event.id > eventend )
+        if ( print_info->ts > gi.ts1 )
             break;
         else if ( gi.graph_only_filtered && event.is_filtered_out )
             continue;
 
+        if ( ftrace_row_info->pid < 0 )
+        {
+            row_id = event.graph_row_id;
+        }
+        else if ( ftrace_row_info->tgid )
+        {
+            if ( ftrace_row_info->tgid != print_info->tgid )
+                continue;
+            row_id = print_info->graph_row_id_tgid;
+        }
+        else
+        {
+            if ( ftrace_row_info->pid != event.pid )
+                continue;
+            row_id = print_info->graph_row_id_pid;
+        }
+
+        float x = gi.ts_to_screenx( print_info->ts );
+        float y = gi.rc.y + row_id * h;
+
         if ( timeline_labels )
         {
-            row_draw_info[ row_id ].set_event( x, y, &event,
-                m_trace_events.m_print_buf_info.get_val( event.id ) );
+            row_draw_info[ row_id ].set_event( gi, h, x, y, &event, print_info );
         }
 
         if ( event.has_duration() )
         {
-            float offy = imgui_scale( 2.0f );
+            float offy = h * .10f;
             float x1 = gi.ts_to_screenx( event.ts + event.duration );
-            rect_t rc = { x, y + offy, x1 - x, gi.text_h - offy * 2 };
+            rect_t rc = { x, y + offy, x1 - x, h - offy * 2 };
             ImU32 color = baralpha | ( event.color & ~IM_COL32_A_MASK );
 
             if ( rc.w < 0 )
@@ -1180,11 +1309,11 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         }
 
         // Draw a tick for this event
-        event_renderer.set_y( y, gi.text_h );
+        event_renderer.set_y( y, h );
         event_renderer.add_event( event.id, x, event.color );
 
         // Check if we're mouse hovering this event
-        if ( gi.mouse_over && ( gi.mouse_pos.y >= y ) && ( gi.mouse_pos.y <= y + gi.text_h ) )
+        if ( gi.mouse_over && ( gi.mouse_pos.y >= y ) && ( gi.mouse_pos.y <= y + h ) )
             gi.add_mouse_hovered_event( x, event );
     }
 
@@ -1213,7 +1342,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
     // Flush print labels
     for ( uint32_t row_id = 0; row_id < row_draw_info.size(); row_id++ )
-        row_draw_info[ row_id ].set_event( FLT_MAX, FLT_MAX );
+        row_draw_info[ row_id ].set_event( gi, h );
 
     imgui_pop_font();
 
