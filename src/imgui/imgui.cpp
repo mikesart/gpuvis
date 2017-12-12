@@ -3401,6 +3401,12 @@ bool ImGui::IsAnyWindowHovered()
     return g.HoveredWindow != NULL;
 }
 
+bool ImGui::IsAnyWindowFocused()
+{
+    ImGuiContext& g = *GImGui;
+    return g.NavWindow != NULL;
+}
+
 static bool IsKeyPressedMap(ImGuiKey key, bool repeat)
 {
     const int key_index = GImGui->IO.KeyMap[key];
