@@ -10866,6 +10866,19 @@ float ImGui::GetColumnOffset(int column_index)
     return x_offset;
 }
 
+static float GetColumnWidthEx(ImGuiColumnsSet* columns, int column_index, bool before_resize = false)
+{
+    if (column_index < 0)
+        column_index = columns->Current;
+
+    float offset_norm;
+    if (before_resize)
+        offset_norm = columns->Columns[column_index + 1].OffsetNormBeforeResize - columns->Columns[column_index].OffsetNormBeforeResize;
+    else
+        offset_norm = columns->Columns[column_index + 1].OffsetNorm - columns->Columns[column_index].OffsetNorm;
+    return OffsetNormToPixels(columns, offset_norm);
+}
+
 float ImGui::GetColumnWidth(int column_index)
 {
     ImGuiWindow* window = GetCurrentWindowRead();
@@ -10889,7 +10902,7 @@ void ImGui::SetColumnOffset(int column_index, float offset)
     IM_ASSERT(column_index < columns->Columns.Size);
 
     const bool preserve_width = !(columns->Flags & ImGuiColumnsFlags_NoPreserveWidths) && (column_index < columns->Count-1);
-    const float width = preserve_width ? GetColumnWidth(column_index) : 0.0f;
+    const float width = preserve_width ? GetColumnWidthEx(columns, column_index, columns->IsBeingResized) : 0.0f;
 
     if (!(columns->Flags & ImGuiColumnsFlags_NoForceWithinWindow))
         offset = ImMin(offset, columns->MaxX - g.Style.ColumnsMinSpacing * (columns->Count - column_index));
