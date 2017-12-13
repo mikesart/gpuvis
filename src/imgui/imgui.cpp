@@ -10834,9 +10834,9 @@ static float GetDraggedColumnOffset(ImGuiColumnsSet* columns, int column_index)
     IM_ASSERT(g.ActiveId == columns->ID + ImGuiID(column_index));
 
     float x = g.IO.MousePos.x - g.ActiveIdClickOffset.x - window->Pos.x;
-    x = ImMax(x, ImGui::GetColumnOffset(column_index-1) + g.Style.ColumnsMinSpacing);
+    x = ImMax(x, ImGui::GetColumnOffset(column_index - 1) + g.Style.ColumnsMinSpacing);
     if ((columns->Flags & ImGuiColumnsFlags_NoPreserveWidths))
-        x = ImMin(x, ImGui::GetColumnOffset(column_index+1) - g.Style.ColumnsMinSpacing);
+        x = ImMin(x, ImGui::GetColumnOffset(column_index + 1) - g.Style.ColumnsMinSpacing);
 
     return x;
 }
@@ -10849,6 +10849,7 @@ float ImGui::GetColumnOffset(int column_index)
 
     if (column_index < 0)
         column_index = columns->Current;
+    IM_ASSERT(column_index < columns->Columns.Size);
 
     /*
     if (g.ActiveId)
@@ -10860,7 +10861,6 @@ float ImGui::GetColumnOffset(int column_index)
     }
     */
 
-    IM_ASSERT(column_index < columns->Columns.Size);
     const float t = columns->Columns[column_index].OffsetNorm;
     const float x_offset = ImLerp(columns->MinX, columns->MaxX, t);
     return x_offset;
@@ -10875,7 +10875,6 @@ void ImGui::SetColumnOffset(int column_index, float offset)
 
     if (column_index < 0)
         column_index = columns->Current;
-
     IM_ASSERT(column_index < columns->Columns.Size);
 
     const bool preserve_width = !(columns->Flags & ImGuiColumnsFlags_NoPreserveWidths) && (column_index < columns->Count-1);
@@ -10883,11 +10882,7 @@ void ImGui::SetColumnOffset(int column_index, float offset)
 
     if (!(columns->Flags & ImGuiColumnsFlags_NoForceWithinWindow))
         offset = ImMin(offset, columns->MaxX - g.Style.ColumnsMinSpacing * (columns->Count - column_index));
-    const float offset_norm = PixelsToOffsetNorm(columns, offset);
-
-    const ImGuiID column_id = columns->ID + ImGuiID(column_index);
-    window->DC.StateStorage->SetFloat(column_id, offset_norm);
-    columns->Columns[column_index].OffsetNorm = offset_norm;
+    columns->Columns[column_index].OffsetNorm = PixelsToOffsetNorm(columns, offset);
 
     if (preserve_width)
         SetColumnOffset(column_index + 1, offset + ImMax(g.Style.ColumnsMinSpacing, width));
@@ -11017,6 +11012,7 @@ bool ImGui::EndColumns()
             const ImGuiID column_id = window->DC.ColumnsSetId + ImGuiID(i);
             const float column_hw = 4.0f; // Half-width for interaction
             const ImRect column_rect(ImVec2(x - column_hw, y1), ImVec2(x + column_hw, y2));
+            KeepAliveID(column_id);
             if (IsClippedEx(column_rect, column_id, false))
                 continue;
             
@@ -11032,8 +11028,7 @@ bool ImGui::EndColumns()
                     dragging_column = i;
             }
 
-            // Draw column
-            // We clip the Y boundaries CPU side because very long triangles are mishandled by some GPU drivers.
+            // Draw column (we clip the Y boundaries CPU side because very long triangles are mishandled by some GPU drivers.)
             const ImU32 col = GetColorU32(held ? ImGuiCol_SeparatorActive : hovered ? ImGuiCol_SeparatorHovered : ImGuiCol_Separator);
             const float xi = (float)(int)x;
             window->DrawList->AddLine(ImVec2(xi, ImMax(y1 + 1.0f, window->ClipRect.Min.y)), ImVec2(xi, ImMin(y2, window->ClipRect.Max.y)), col);
