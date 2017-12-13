@@ -330,14 +330,6 @@ struct ImGuiGroupData
     bool        AdvanceCursor;
 };
 
-// Per column data for Columns()
-struct ImGuiColumnData
-{
-    float       OffsetNorm; // Column start offset, normalized 0.0 (far left) -> 1.0 (far right)
-    ImRect      ClipRect;
-    //float     IndentX;
-};
-
 // Simple column measurement currently used for MenuItem() only. This is very short-sighted/throw-away code and NOT a generic helper.
 struct IMGUI_API ImGuiSimpleColumns
 {
@@ -417,6 +409,42 @@ struct ImGuiPopupRef
     ImVec2          MousePosOnOpen; // Copy of mouse position at the time of opening popup
 
     ImGuiPopupRef(ImGuiID id, ImGuiWindow* parent_window, ImGuiID parent_menu_set, const ImVec2& mouse_pos) { PopupId = id; Window = NULL; ParentWindow = parent_window; ParentMenuSet = parent_menu_set; MousePosOnOpen = mouse_pos; }
+};
+
+// Per column data for Columns()
+struct ImGuiColumnData
+{
+    float       OffsetNorm; // Column start offset, normalized 0.0 (far left) -> 1.0 (far right)
+    ImRect      ClipRect;
+};
+
+struct ImGuiColumnsSet
+{
+    int                 ColumnsCurrent;
+    int                 ColumnsCount;
+    float               ColumnsMinX;
+    float               ColumnsMaxX;
+    float               ColumnsStartPosY;
+    float               ColumnsStartMaxPosX;   // Backup of CursorMaxPos
+    float               ColumnsCellMinY;
+    float               ColumnsCellMaxY;
+    ImGuiColumnsFlags   ColumnsFlags;
+    ImGuiID             ColumnsSetId;
+    ImVector<ImGuiColumnData> ColumnsData;
+
+    ImGuiColumnsSet()   { Clear(); }
+    void Clear()
+    {
+        ColumnsCurrent = 0;
+        ColumnsCount = 1;
+        ColumnsMinX = ColumnsMaxX = 0.0f;
+        ColumnsStartPosY = 0.0f;
+        ColumnsStartMaxPosX = 0.0f;
+        ColumnsCellMinY = ColumnsCellMaxY = 0.0f;
+        ColumnsFlags = 0;
+        ColumnsSetId = 0;
+        ColumnsData.clear();
+    }
 };
 
 // Main state for ImGui
@@ -673,17 +701,8 @@ struct IMGUI_API ImGuiDrawContext
     float                   IndentX;                // Indentation / start position from left of window (increased by TreePush/TreePop, etc.)
     float                   GroupOffsetX;
     float                   ColumnsOffsetX;         // Offset to the current column (if ColumnsCurrent > 0). FIXME: This and the above should be a stack to allow use cases like Tree->Column->Tree. Need revamp columns API.
-    int                     ColumnsCurrent;
-    int                     ColumnsCount;
-    float                   ColumnsMinX;
-    float                   ColumnsMaxX;
-    float                   ColumnsStartPosY;
-    float                   ColumnsStartMaxPosX;   // Backup of CursorMaxPos
-    float                   ColumnsCellMinY;
-    float                   ColumnsCellMaxY;
-    ImGuiColumnsFlags       ColumnsFlags;
-    ImGuiID                 ColumnsSetId;
-    ImVector<ImGuiColumnData> ColumnsData;
+    ImGuiColumnsSet*          ColumnsSet;
+    ImVector<ImGuiColumnsSet> ColumnsSets;
 
     ImGuiDrawContext()
     {
@@ -707,14 +726,7 @@ struct IMGUI_API ImGuiDrawContext
         IndentX = 0.0f;
         GroupOffsetX = 0.0f;
         ColumnsOffsetX = 0.0f;
-        ColumnsCurrent = 0;
-        ColumnsCount = 1;
-        ColumnsMinX = ColumnsMaxX = 0.0f;
-        ColumnsStartPosY = 0.0f;
-        ColumnsStartMaxPosX = 0.0f;
-        ColumnsCellMinY = ColumnsCellMaxY = 0.0f;
-        ColumnsFlags = 0;
-        ColumnsSetId = 0;
+        ColumnsSet = NULL;
     }
 };
 

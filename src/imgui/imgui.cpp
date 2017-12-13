@@ -627,8 +627,6 @@
 // Forward Declarations
 //-------------------------------------------------------------------------
 
-static float            GetDraggedColumnOffset(int column_index);
-
 static bool             IsKeyPressedMap(ImGuiKey key, bool repeat = true);
 
 static ImFont*          GetDefaultFont();
@@ -1744,8 +1742,8 @@ static void SetCursorPosYAndSetupDummyPrevLine(float pos_y, float line_height)
     ImGuiWindow* window = ImGui::GetCurrentWindow();
     window->DC.CursorPosPrevLine.y = window->DC.CursorPos.y - line_height;      // Setting those fields so that SetScrollHere() can properly function after the end of our clipper usage.
     window->DC.PrevLineHeight = (line_height - GImGui->Style.ItemSpacing.y);    // If we end up needing more accurate data (to e.g. use SameLine) we may as well make the clipper have a fourth step to let user process and display the last item in their list.
-    if (window->DC.ColumnsCount > 1)
-        window->DC.ColumnsCellMinY = window->DC.CursorPos.y;                    // Setting this so that cell Y position are set properly
+    if (window->DC.ColumnsSet)
+        window->DC.ColumnsSet->ColumnsCellMinY = window->DC.CursorPos.y;           // Setting this so that cell Y position are set properly
 }
 
 // Use case A: Begin() called from constructor with items_height<0, then called again from Sync() in StepNo 1
@@ -4835,11 +4833,7 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
         window->DC.ItemFlagsStack.resize(0);
         window->DC.ItemWidthStack.resize(0);
         window->DC.TextWrapPosStack.resize(0);
-        window->DC.ColumnsCurrent = 0;
-        window->DC.ColumnsCount = 1;
-        window->DC.ColumnsStartPosY = window->DC.CursorPos.y;
-        window->DC.ColumnsStartMaxPosX = window->DC.CursorMaxPos.x;
-        window->DC.ColumnsCellMinY = window->DC.ColumnsCellMaxY = window->DC.ColumnsStartPosY;
+        window->DC.ColumnsSet = NULL;
         window->DC.TreeDepth = 0;
         window->DC.StateStorage = &window->StateStorage;
         window->DC.GroupStack.resize(0);
@@ -4992,7 +4986,7 @@ void ImGui::End()
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
 
-    if (window->DC.ColumnsCount != 1) // close columns set if any is open
+    if (window->DC.ColumnsSet != NULL)
         EndColumns();
     PopClipRect();   // inner window clip rectangle
 
@@ -5738,8 +5732,8 @@ ImVec2 ImGui::GetContentRegionMax()
 {
     ImGuiWindow* window = GetCurrentWindowRead();
     ImVec2 mx = window->ContentsRegionRect.Max;
-    if (window->DC.ColumnsCount != 1)
-        mx.x = GetColumnOffset(window->DC.ColumnsCurrent + 1) - window->WindowPadding.x;
+    if (window->DC.ColumnsSet)
+        mx.x = GetColumnOffset(window->DC.ColumnsSet->ColumnsCurrent + 1) - window->WindowPadding.x;
     return mx;
 }
 
@@ -9335,7 +9329,7 @@ bool ImGui::Selectable(const char* label, bool selected, ImGuiSelectableFlags fl
     ImGuiContext& g = *GImGui;
     const ImGuiStyle& style = g.Style;
 
-    if ((flags & ImGuiSelectableFlags_SpanAllColumns) && window->DC.ColumnsCount > 1) // FIXME-OPT: Avoid if vertically clipped.
+    if ((flags & ImGuiSelectableFlags_SpanAllColumns) && window->DC.ColumnsSet) // FIXME-OPT: Avoid if vertically clipped.
         PopClipRect();
 
     ImGuiID id = window->GetID(label);
@@ -9366,7 +9360,7 @@ bool ImGui::Selectable(const char* label, bool selected, ImGuiSelectableFlags fl
     bb_with_spacing.Max.y += spacing_D;
     if (!ItemAdd(bb_with_spacing, id))
     {
-        if ((flags & ImGuiSelectableFlags_SpanAllColumns) && window->DC.ColumnsCount > 1)
+        if ((flags & ImGuiSelectableFlags_SpanAllColumns) && window->DC.ColumnsSet)
             PushColumnClipRect();
         return false;
     }
@@ -9388,7 +9382,7 @@ bool ImGui::Selectable(const char* label, bool selected, ImGuiSelectableFlags fl
         RenderFrame(bb_with_spacing.Min, bb_with_spacing.Max, col, false, 0.0f);
     }
 
-    if ((flags & ImGuiSelectableFlags_SpanAllColumns) && window->DC.ColumnsCount > 1)
+    if ((flags & ImGuiSelectableFlags_SpanAllColumns) && window->DC.ColumnsSet)
     {
         PushColumnClipRect();
         bb_with_spacing.Max.x -= (GetContentRegionMax().x - max_x);
@@ -10539,7 +10533,7 @@ void ImGui::Separator()
     }
 
     // Horizontal Separator
-    if (window->DC.ColumnsCount > 1)
+    if (window->DC.ColumnsSet)
         PopClipRect();
 
     float x1 = window->Pos.x;
@@ -10551,7 +10545,7 @@ void ImGui::Separator()
     ItemSize(ImVec2(0.0f, 0.0f)); // NB: we don't provide our width so that it doesn't get feed back into AutoFit, we don't provide height to not alter layout.
     if (!ItemAdd(bb, 0))
     {
-        if (window->DC.ColumnsCount > 1)
+        if (window->DC.ColumnsSet)
             PushColumnClipRect();
         return;
     }
@@ -10561,10 +10555,10 @@ void ImGui::Separator()
     if (g.LogEnabled)
             LogRenderedText(NULL, IM_NEWLINE "--------------------------------");
 
-    if (window->DC.ColumnsCount > 1)
+    if (window->DC.ColumnsSet)
     {
         PushColumnClipRect();
-        window->DC.ColumnsCellMinY = window->DC.CursorPos.y;
+        window->DC.ColumnsSet->ColumnsCellMinY = window->DC.CursorPos.y;
     }
 }
 
@@ -10777,29 +10771,30 @@ void ImGui::NewLine()
 void ImGui::NextColumn()
 {
     ImGuiWindow* window = GetCurrentWindow();
-    if (window->SkipItems || window->DC.ColumnsCount <= 1)
+    if (window->SkipItems || window->DC.ColumnsSet == NULL)
         return;
 
     ImGuiContext& g = *GImGui;
     PopItemWidth();
     PopClipRect();
 
-    window->DC.ColumnsCellMaxY = ImMax(window->DC.ColumnsCellMaxY, window->DC.CursorPos.y);
-    if (++window->DC.ColumnsCurrent < window->DC.ColumnsCount)
+    ImGuiColumnsSet* columns = window->DC.ColumnsSet;
+    columns->ColumnsCellMaxY = ImMax(columns->ColumnsCellMaxY, window->DC.CursorPos.y);
+    if (++columns->ColumnsCurrent < columns->ColumnsCount)
     {
         // Columns 1+ cancel out IndentX
-        window->DC.ColumnsOffsetX = GetColumnOffset(window->DC.ColumnsCurrent) - window->DC.IndentX + g.Style.ItemSpacing.x;
-        window->DrawList->ChannelsSetCurrent(window->DC.ColumnsCurrent);
+        window->DC.ColumnsOffsetX = GetColumnOffset(columns->ColumnsCurrent) - window->DC.IndentX + g.Style.ItemSpacing.x;
+        window->DrawList->ChannelsSetCurrent(columns->ColumnsCurrent);
     }
     else
     {
-        window->DC.ColumnsCurrent = 0;
         window->DC.ColumnsOffsetX = 0.0f;
-        window->DC.ColumnsCellMinY = window->DC.ColumnsCellMaxY;
+        columns->ColumnsCurrent = 0;
+        columns->ColumnsCellMinY = columns->ColumnsCellMaxY;
         window->DrawList->ChannelsSetCurrent(0);
     }
     window->DC.CursorPos.x = (float)(int)(window->Pos.x + window->DC.IndentX + window->DC.ColumnsOffsetX);
-    window->DC.CursorPos.y = window->DC.ColumnsCellMinY;
+    window->DC.CursorPos.y = columns->ColumnsCellMinY;
     window->DC.CurrentLineHeight = 0.0f;
     window->DC.CurrentLineTextBaseOffset = 0.0f;
 
@@ -10810,37 +10805,37 @@ void ImGui::NextColumn()
 int ImGui::GetColumnIndex()
 {
     ImGuiWindow* window = GetCurrentWindowRead();
-    return window->DC.ColumnsCurrent;
+    return window->DC.ColumnsSet ? window->DC.ColumnsSet->ColumnsCurrent : 0;
 }
 
 int ImGui::GetColumnsCount()
 {
     ImGuiWindow* window = GetCurrentWindowRead();
-    return window->DC.ColumnsCount;
+    return window->DC.ColumnsSet ? window->DC.ColumnsSet->ColumnsCount : 1;
 }
 
-static float OffsetNormToPixels(ImGuiWindow* window, float offset_norm)
+static float OffsetNormToPixels(const ImGuiColumnsSet* columns, float offset_norm)
 {
-    return offset_norm * (window->DC.ColumnsMaxX - window->DC.ColumnsMinX);
+    return offset_norm * (columns->ColumnsMaxX - columns->ColumnsMinX);
 }
 
-static float PixelsToOffsetNorm(ImGuiWindow* window, float offset)
+static float PixelsToOffsetNorm(const ImGuiColumnsSet* columns, float offset)
 {
-    return (offset - window->DC.ColumnsMinX) / (window->DC.ColumnsMaxX - window->DC.ColumnsMinX);
+    return (offset - columns->ColumnsMinX) / (columns->ColumnsMaxX - columns->ColumnsMinX);
 }
 
-static float GetDraggedColumnOffset(int column_index)
+static float GetDraggedColumnOffset(ImGuiColumnsSet* columns, int column_index)
 {
     // Active (dragged) column always follow mouse. The reason we need this is that dragging a column to the right edge of an auto-resizing
     // window creates a feedback loop because we store normalized positions. So while dragging we enforce absolute positioning.
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
     IM_ASSERT(column_index > 0); // We cannot drag column 0. If you get this assert you may have a conflict between the ID of your columns and another widgets.
-    IM_ASSERT(g.ActiveId == window->DC.ColumnsSetId + ImGuiID(column_index));
+    IM_ASSERT(g.ActiveId == columns->ColumnsSetId + ImGuiID(column_index));
 
     float x = g.IO.MousePos.x - g.ActiveIdClickOffset.x - window->Pos.x;
     x = ImMax(x, ImGui::GetColumnOffset(column_index-1) + g.Style.ColumnsMinSpacing);
-    if ((window->DC.ColumnsFlags & ImGuiColumnsFlags_NoPreserveWidths))
+    if ((columns->ColumnsFlags & ImGuiColumnsFlags_NoPreserveWidths))
         x = ImMin(x, ImGui::GetColumnOffset(column_index+1) - g.Style.ColumnsMinSpacing);
 
     return x;
@@ -10849,44 +10844,50 @@ static float GetDraggedColumnOffset(int column_index)
 float ImGui::GetColumnOffset(int column_index)
 {
     ImGuiWindow* window = GetCurrentWindowRead();
+    ImGuiColumnsSet* columns = window->DC.ColumnsSet;
+    IM_ASSERT(columns != NULL);
+
     if (column_index < 0)
-        column_index = window->DC.ColumnsCurrent;
+        column_index = columns->ColumnsCurrent;
 
     /*
     if (g.ActiveId)
     {
         ImGuiContext& g = *GImGui;
-        const ImGuiID column_id = window->DC.ColumnsSetId + ImGuiID(column_index);
+        const ImGuiID column_id = columns->ColumnsSetId + ImGuiID(column_index);
         if (g.ActiveId == column_id)
-            return GetDraggedColumnOffset(column_index);
+            return GetDraggedColumnOffset(columns, column_index);
     }
     */
 
-    IM_ASSERT(column_index < window->DC.ColumnsData.Size);
-    const float t = window->DC.ColumnsData[column_index].OffsetNorm;
-    const float x_offset = ImLerp(window->DC.ColumnsMinX, window->DC.ColumnsMaxX, t);
+    IM_ASSERT(column_index < columns->ColumnsData.Size);
+    const float t = columns->ColumnsData[column_index].OffsetNorm;
+    const float x_offset = ImLerp(columns->ColumnsMinX, columns->ColumnsMaxX, t);
     return x_offset;
 }
 
 void ImGui::SetColumnOffset(int column_index, float offset)
 {
     ImGuiContext& g = *GImGui;
-    ImGuiWindow* window = GetCurrentWindow();
+    ImGuiWindow* window = g.CurrentWindow;
+    ImGuiColumnsSet* columns = window->DC.ColumnsSet;
+    IM_ASSERT(columns != NULL);
+
     if (column_index < 0)
-        column_index = window->DC.ColumnsCurrent;
+        column_index = columns->ColumnsCurrent;
 
-    IM_ASSERT(column_index < window->DC.ColumnsData.Size);
+    IM_ASSERT(column_index < columns->ColumnsData.Size);
 
-    const bool preserve_width = !(window->DC.ColumnsFlags & ImGuiColumnsFlags_NoPreserveWidths) && (column_index < window->DC.ColumnsCount-1);
+    const bool preserve_width = !(columns->ColumnsFlags & ImGuiColumnsFlags_NoPreserveWidths) && (column_index < columns->ColumnsCount-1);
     const float width = preserve_width ? GetColumnWidth(column_index) : 0.0f;
 
-    if (!(window->DC.ColumnsFlags & ImGuiColumnsFlags_NoForceWithinWindow))
-        offset = ImMin(offset, window->DC.ColumnsMaxX - g.Style.ColumnsMinSpacing * (window->DC.ColumnsCount - column_index));
-    const float offset_norm = PixelsToOffsetNorm(window, offset);
+    if (!(columns->ColumnsFlags & ImGuiColumnsFlags_NoForceWithinWindow))
+        offset = ImMin(offset, columns->ColumnsMaxX - g.Style.ColumnsMinSpacing * (columns->ColumnsCount - column_index));
+    const float offset_norm = PixelsToOffsetNorm(columns, offset);
 
-    const ImGuiID column_id = window->DC.ColumnsSetId + ImGuiID(column_index);
+    const ImGuiID column_id = columns->ColumnsSetId + ImGuiID(column_index);
     window->DC.StateStorage->SetFloat(column_id, offset_norm);
-    window->DC.ColumnsData[column_index].OffsetNorm = offset_norm;
+    columns->ColumnsData[column_index].OffsetNorm = offset_norm;
 
     if (preserve_width)
         SetColumnOffset(column_index + 1, offset + ImMax(g.Style.ColumnsMinSpacing, width));
@@ -10977,11 +10978,11 @@ bool ImGui::BeginColumns(const char* id, int columns_count, ImGuiColumnsFlags fl
     {
         float clip_x1 = ImFloor(0.5f + window->Pos.x + GetColumnOffset(column_index) - 1.0f);
         float clip_x2 = ImFloor(0.5f + window->Pos.x + GetColumnOffset(column_index + 1) - 1.0f);
-        window->DC.ColumnsData[column_index].ClipRect = ImRect(clip_x1, -FLT_MAX, clip_x2, +FLT_MAX);
-        window->DC.ColumnsData[column_index].ClipRect.ClipWith(window->ClipRect);
+        columns->ColumnsData[column_index].ClipRect = ImRect(clip_x1, -FLT_MAX, clip_x2, +FLT_MAX);
+        columns->ColumnsData[column_index].ClipRect.ClipWith(window->ClipRect);
     }
 
-    window->DrawList->ChannelsSplit(window->DC.ColumnsCount);
+    window->DrawList->ChannelsSplit(columns->ColumnsCount);
     PushColumnClipRect();
     PushItemWidth(GetColumnWidth() * 0.65f);
 
@@ -11064,7 +11065,7 @@ void ImGui::Columns(int columns_count, const char* id, bool border)
     ImGuiWindow* window = GetCurrentWindow();
     IM_ASSERT(columns_count >= 1);
 
-    if (window->DC.ColumnsCount != columns_count && window->DC.ColumnsCount != 1)
+    if (window->DC.ColumnsSet != NULL && window->DC.ColumnsSet->ColumnsCount != columns_count)
         EndColumns();
     
     ImGuiColumnsFlags flags = (border ? 0 : ImGuiColumnsFlags_NoBorder);
