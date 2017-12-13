@@ -10866,6 +10866,17 @@ float ImGui::GetColumnOffset(int column_index)
     return x_offset;
 }
 
+float ImGui::GetColumnWidth(int column_index)
+{
+    ImGuiWindow* window = GetCurrentWindowRead();
+    ImGuiColumnsSet* columns = window->DC.ColumnsSet;
+    IM_ASSERT(columns != NULL);
+
+    if (column_index < 0)
+        column_index = columns->Current;
+    return OffsetNormToPixels(columns, columns->Columns[column_index + 1].OffsetNorm - columns->Columns[column_index].OffsetNorm);
+}
+
 void ImGui::SetColumnOffset(int column_index, float offset)
 {
     ImGuiContext& g = *GImGui;
@@ -11025,7 +11036,7 @@ bool ImGui::EndColumns()
                 if (held && g.ActiveIdIsJustActivated)
                     g.ActiveIdClickOffset.x -= column_hw; // Store from center of column line (we used a 8 wide rect for columns clicking). This is used by GetDraggedColumnOffset().
                 if (held)
-                    dragging_column = i;
+                    dragging_column = n;
             }
 
             // Draw column (we clip the Y boundaries CPU side because very long triangles are mishandled by some GPU drivers.)
