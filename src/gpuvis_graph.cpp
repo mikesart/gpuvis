@@ -3452,12 +3452,18 @@ void TraceWin::graph_handle_mouse_captured( graph_info_t &gi )
     bool is_mouse_down = ImGui::IsMouseDown( 0 );
     bool mouse_pos_valid = ImGui::IsMousePosValid( &gi.mouse_pos );
 
+    // When mouse goes up and mouse is out of window area, mouse_pos goes
+    //  to invalid (-FLT_MAX) values. So store away the last known valid
+    //  mouse pos here so we can zoom there on mouse up.
+    if ( mouse_pos_valid )
+        m_graph.mouse_capture_last = gi.mouse_pos;
+
     if ( ( m_graph.mouse_captured == MOUSE_CAPTURED_ZOOM ) ||
          ( m_graph.mouse_captured == MOUSE_CAPTURED_SELECT_AREA ) )
     {
         // shift + click: zoom area
         int64_t event_ts0 = gi.screenx_to_ts( m_graph.mouse_capture_pos.x );
-        int64_t event_ts1 = gi.screenx_to_ts( gi.mouse_pos.x );
+        int64_t event_ts1 = gi.screenx_to_ts( m_graph.mouse_capture_last.x );
 
         if ( event_ts0 > event_ts1 )
             std::swap( event_ts0, event_ts1 );

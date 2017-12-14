@@ -761,6 +761,7 @@ public:
         std::pair< int64_t, int64_t > zoom_loc = { INT64_MAX, INT64_MAX };
 
         ImVec2 mouse_capture_pos;
+        ImVec2 mouse_capture_last;
         mouse_captured_t mouse_captured = MOUSE_NOT_CAPTURED;
 
         const int64_t s_min_length = 100;
