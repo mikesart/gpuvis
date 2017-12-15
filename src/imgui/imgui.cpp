@@ -11271,7 +11271,7 @@ bool ImGui::BeginDragDropSource(ImGuiDragDropFlags flags, int mouse_button)
             g.DragDropMouseButton = mouse_button;
         }
 
-        if (!(flags & ImGuiDragDropFlags_SourceNoAutoTooltip))
+        if (!(flags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
         {
             // FIXME-DRAG
             //SetNextWindowPos(g.IO.MousePos - g.ActiveIdClickOffset - g.Style.WindowPadding);
@@ -11294,7 +11294,7 @@ void ImGui::EndDragDropSource()
     ImGuiContext& g = *GImGui;
     IM_ASSERT(g.DragDropActive);
 
-    if (!(g.DragDropSourceFlags & ImGuiDragDropFlags_SourceNoAutoTooltip))
+    if (!(g.DragDropSourceFlags & ImGuiDragDropFlags_SourceNoPreviewTooltip))
     {
         EndTooltip();
         PopStyleColor();
