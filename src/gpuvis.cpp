@@ -1612,28 +1612,63 @@ public:
     row_pos_t() {}
     ~row_pos_t() {}
 
-    uint32_t get_row( int64_t min_ts, int64_t max_ts )
-    {
-        uint32_t row = 0;
-
-        for ( ; row < m_row_pos.size(); row++ )
-        {
-            if ( m_row_pos[ row ] <= min_ts )
-                break;
-        }
-        if ( row >= m_row_pos.size() )
-            row = 0;
-
-        m_row_pos[ row ] = max_ts + 1;
-
-        m_rows = std::max< uint32_t >( m_rows, row + 1 );
-        return row;
-    }
+    uint32_t get_row( int64_t min_ts, int64_t max_ts );
 
 public:
     uint32_t m_rows = 0;
-    std::array< int64_t, Opts::MAX_ROW_SIZE > m_row_pos = {};
+    std::array< std::map< int64_t, int64_t >, Opts::MAX_ROW_SIZE > m_row_pos = {};
 };
+
+uint32_t row_pos_t::get_row( int64_t min_ts, int64_t max_ts )
+{
+    uint32_t row = 0;
+
+    for ( ; row < m_row_pos.size(); row++ )
+    {
+        int64_t ts_end_prev = INT64_MIN;
+        int64_t ts_start_next = INT64_MAX;
+
+        // Find first element with start time >= min_ts
+        auto &rpos = m_row_pos[ row ];
+        auto idx = rpos.lower_bound( min_ts );
+
+        if ( idx != rpos.end() )
+        {
+            // Got item with start time >= our min_ts.
+            ts_start_next = idx->first;
+
+            if ( idx != rpos.begin() )
+            {
+                // Get previous item end time
+                --idx;
+                ts_end_prev = idx->second;
+            }
+        }
+        else
+        {
+            // No items start after us - grab last item in map
+            auto idx2 = rpos.rbegin();
+
+            // Get end of last item ever
+            if ( idx2 != rpos.rend() )
+                ts_end_prev = idx2->second;
+        }
+
+        // If start of next item is greater than our end
+        // And end of previous item is less than our start
+        if ( ( ts_start_next >= max_ts ) && ( ts_end_prev <= min_ts ) )
+            break;
+    }
+
+    if ( row >= m_row_pos.size() )
+        row = 0;
+
+    auto &rpos = m_row_pos[ row ];
+    rpos[ min_ts ] = max_ts;
+
+    m_rows = std::max< uint32_t >( m_rows, row + 1 );
+    return row;
+}
 
 void TraceEvents::calculate_event_print_info()
 {
@@ -1641,21 +1676,35 @@ void TraceEvents::calculate_event_print_info()
         return;
 
     // Sort ftrace print event IDs based on ts start locations
-    auto cmp = [&]( const uint32_t lx, const uint32_t rx )
+    auto cmp_ts = [&]( const uint32_t lx, const uint32_t rx )
     {
         const print_info_t *lval = m_ftrace.print_info.get_val( lx );
         const print_info_t *rval = m_ftrace.print_info.get_val( rx );
 
         return ( lval->ts < rval->ts );
     };
-    std::sort( m_ftrace.print_locs.begin(), m_ftrace.print_locs.end(), cmp );
+    std::sort( m_ftrace.print_locs.begin(), m_ftrace.print_locs.end(), cmp_ts );
+
+    // Sort ftrace print event IDs based on duration
+    auto cmp_dur = [&]( const uint32_t lx, const uint32_t rx )
+    {
+        const trace_event_t &lval = m_events[ lx ];
+        const trace_event_t &rval = m_events[ rx ];
+        int64_t ldur = lval.has_duration() ? lval.duration : 0;
+        int64_t rdur = rval.has_duration() ? rval.duration : 0;
+
+        return ( ldur > rdur );
+    };
+    std::vector< uint32_t > locs_duration = m_ftrace.print_locs;
+    std::sort( locs_duration.begin(), locs_duration.end(), cmp_dur );
 
     row_pos_t row_pos;
     ftrace_row_info_t *row_info;
     util_umap< int, row_pos_t > row_pos_pid;
     util_umap< int, row_pos_t > row_pos_tgid;
 
-    for ( uint32_t idx : m_ftrace.print_locs )
+    // Go through all the ftrace print events with largest durations first
+    for ( uint32_t idx : locs_duration )
     {
         row_pos_t *prow_pos;
         trace_event_t &event = m_events[ idx ];

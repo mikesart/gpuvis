@@ -1273,7 +1273,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         }
 
         float x = gi.ts_to_screenx( print_info->ts );
-        float y = gi.rc.y + row_id * h;
+        float y = gi.rc.y + ( row_count - row_id - 1 ) * h;
 
         if ( timeline_labels )
         {
