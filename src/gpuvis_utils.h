@@ -144,6 +144,9 @@ void imgui_pop_font();
 
 bool imgui_collapsingheader( const char *label, bool *has_focus, ImGuiTreeNodeFlags flags = 0 );
 
+bool imgui_begin_columns( const char* str_id, int columns_count, ImGuiColumnsFlags flags = 0 );
+bool imgui_end_columns();
+
 bool imgui_begin_columns( const char *title,
                           const std::initializer_list< const char * > &headers,
                           bool *resized = NULL );

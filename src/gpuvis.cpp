@@ -3886,7 +3886,7 @@ void TraceWin::eventlist_render()
                 m_eventlist.popup_eventid = INVALID_ID;
             }
         }
-        if ( ImGui::EndColumns() )
+        if ( imgui_end_columns() )
             m_eventlist.columns_resized = true;
 
         ImGui::EndChild();
@@ -4326,7 +4326,7 @@ void MainApp::render_color_picker()
 
     ImGui::Separator();
 
-    if ( ImGui::BeginColumns( "color_picker", 2, 0 ) )
+    if ( imgui_begin_columns( "color_picker", 2, 0 ) )
         ImGui::SetColumnWidth( 0, imgui_scale( 250.0f ) );
 
     /*
@@ -4417,7 +4417,7 @@ void MainApp::render_log()
 
     {
         ImGui::BeginChild( "ScrollingRegion",
-                           ImVec2( 0, -ImGui::GetItemsLineHeightWithSpacing() ),
+                           ImVec2( 0, -ImGui::GetTextLineHeightWithSpacing() ),
                            false, ImGuiWindowFlags_HorizontalScrollbar );
 
         // Log popup menu

@@ -655,11 +655,28 @@ bool imgui_collapsingheader( const char *label, bool *has_focus, ImGuiTreeNodeFl
     return ret;
 }
 
+bool imgui_begin_columns( const char* str_id, int columns_count, ImGuiColumnsFlags flags )
+{
+    ImGui::BeginColumns( str_id, columns_count, flags );
+
+    ImGuiColumnsSet *columns = ImGui::GetCurrentWindow()->DC.ColumnsSet;
+    return columns->IsFirstFrame;
+}
+
+bool imgui_end_columns()
+{
+    ImGuiColumnsSet *columns = ImGui::GetCurrentWindow()->DC.ColumnsSet;
+
+    ImGui::EndColumns();
+
+    return columns->IsBeingResized;
+}
+
 bool imgui_begin_columns( const char *title,
                           const std::initializer_list< const char * > &headers,
                           bool *resized )
 {
-    bool inited = ImGui::BeginColumns( title, headers.size() );
+    bool inited = imgui_begin_columns( title, headers.size() );
     bool temp = false;
 
     if ( !resized )
@@ -720,7 +737,7 @@ static colors_t col_index_from_imguicol( ImGuiCol col )
     case ImGuiCol_Text: return col_ImGui_Text;
     case ImGuiCol_TextDisabled: return col_ImGui_TextDisabled;
     case ImGuiCol_WindowBg: return col_ImGui_WindowBg;
-    case ImGuiCol_ChildWindowBg: return col_ImGui_ChildWindowBg;
+    case ImGuiCol_ChildBg: return col_ImGui_ChildBg;
     case ImGuiCol_PopupBg: return col_ImGui_PopupBg;
     case ImGuiCol_Border: return col_ImGui_Border;
     case ImGuiCol_BorderShadow: return col_ImGui_BorderShadow;
@@ -728,8 +745,8 @@ static colors_t col_index_from_imguicol( ImGuiCol col )
     case ImGuiCol_FrameBgHovered: return col_ImGui_FrameBgHovered;
     case ImGuiCol_FrameBgActive: return col_ImGui_FrameBgActive;
     case ImGuiCol_TitleBg: return col_ImGui_TitleBg;
-    case ImGuiCol_TitleBgCollapsed: return col_ImGui_TitleBgCollapsed;
     case ImGuiCol_TitleBgActive: return col_ImGui_TitleBgActive;
+    case ImGuiCol_TitleBgCollapsed: return col_ImGui_TitleBgCollapsed;
     case ImGuiCol_MenuBarBg: return col_ImGui_MenuBarBg;
     case ImGuiCol_ScrollbarBg: return col_ImGui_ScrollbarBg;
     case ImGuiCol_ScrollbarGrab: return col_ImGui_ScrollbarGrab;
@@ -753,13 +770,13 @@ static colors_t col_index_from_imguicol( ImGuiCol col )
     case ImGuiCol_CloseButton: return col_ImGui_CloseButton;
     case ImGuiCol_CloseButtonHovered: return col_ImGui_CloseButtonHovered;
     case ImGuiCol_CloseButtonActive: return col_ImGui_CloseButtonActive;
-    case ImGuiCol_TextSelectedBg: return col_ImGui_TextSelectedBg;
-    case ImGuiCol_ModalWindowDarkening: return col_ImGui_ModalWindowDarkening;
-
     case ImGuiCol_PlotLines: return col_Max;
     case ImGuiCol_PlotLinesHovered: return col_Max;
     case ImGuiCol_PlotHistogram: return col_Max;
     case ImGuiCol_PlotHistogramHovered: return col_Max;
+    case ImGuiCol_TextSelectedBg: return col_ImGui_TextSelectedBg;
+    case ImGuiCol_ModalWindowDarkening: return col_ImGui_ModalWindowDarkening;
+    case ImGuiCol_DragDropTarget: return col_Max;
     }
 
     assert( 0 );
