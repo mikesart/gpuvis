@@ -1650,8 +1650,7 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
         trace_event.cpu = record->cpu;
         trace_event.ts = record->ts - trace_data.trace_info.min_file_ts;
 
-        trace_seq_printf( &seq, "%s-%u", comm, pid );
-        trace_event.comm = strpool.getstr( seq.buffer );
+        trace_event.comm = strpool.getstrf( "%s-%u", comm, pid );
 
         trace_event.system = strpool.getstr( event->system );
         trace_event.name = strpool.getstr( event->name );

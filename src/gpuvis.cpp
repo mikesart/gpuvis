@@ -123,6 +123,7 @@ const char *StrPool::getstr( const char *str, size_t len )
             len = strlen( str );
         ret = m_pool.get_val( hashval, std::string( str, len ) );
     }
+
     return ret->c_str();
 }
 
@@ -136,6 +137,33 @@ const char *StrPool::getstrf( const char *fmt, ... )
     va_end( args );
 
     return getstr( buf );
+}
+
+uint32_t StrPool::getu32( const char *str, size_t len )
+{
+    uint32_t hashval = fnv_hashstr32( str, len );
+    const std::string *ret = m_pool.get_val( hashval );
+
+    if ( !ret )
+    {
+        if ( len == ( size_t )-1 )
+            len = strlen( str );
+        m_pool.get_val( hashval, std::string( str, len ) );
+    }
+
+    return hashval;
+}
+
+uint32_t StrPool::getu32f( const char *fmt, ... )
+{
+    va_list args;
+    char buf[ 512 ];
+
+    va_start( args, fmt );
+    vsnprintf_safe( buf, fmt, args );
+    va_end( args );
+
+    return getu32( buf );
 }
 
 const char *StrPool::findstr( uint32_t hashval )
@@ -1783,9 +1811,9 @@ void TraceEvents::init_new_event( trace_event_t &event )
     if ( event.is_vblank() )
     {
         // Add vblanks as "drm_vblank_event1", etc
-        const char *str = m_strpool.getstrf( "%s%d", event.name, event.crtc );
+        uint32_t hashval = m_strpool.getu32f( "%s%d", event.name, event.crtc );
 
-        m_eventnames_locs.add_location_str( str, event.id );
+        m_eventnames_locs.add_location_u32( hashval, event.id );
     }
     else
     {
@@ -2262,7 +2290,7 @@ void TraceEvents::calculate_i915_req_event_durations()
         if ( set_duration )
         {
             uint32_t ringno = strtoul( ring, NULL, 10 );
-            uint32_t hashval = fnv_hashstr32( m_strpool.getstrf( "i915_req ring%u", ringno ) );
+            uint32_t hashval = m_strpool.getu32f( "i915_req ring%u", ringno );
 
             for ( uint32_t i = 0; i < i915_req_Max; i++ )
             {
