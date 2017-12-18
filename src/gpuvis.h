@@ -951,10 +951,13 @@ public:
     row_pos_t() {}
     ~row_pos_t() {}
 
+    // Given a start and end time, return a row index with an open spot
     uint32_t get_row( int64_t min_ts, int64_t max_ts );
 
 public:
+    // Count of total rows used
     uint32_t m_rows = 0;
+    // Map of min_ts -> max_ts blocks used for for each row
     std::array< std::map< int64_t, int64_t >, Opts::MAX_ROW_SIZE > m_row_pos = {};
 };
 
