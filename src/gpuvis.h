@@ -395,6 +395,9 @@ public:
     void init_new_event( trace_event_t &event );
     void init_new_event_vblank( trace_event_t &event );
     void init_sched_switch_event( trace_event_t &event );
+    void init_sched_process_fork( trace_event_t &event );
+    void init_amd_timeline_event( trace_event_t &event );
+    void init_i915_event( trace_event_t &event );
 
     int new_event_cb( const trace_event_t &event );
     void new_event_ftrace_print( trace_event_t &event );

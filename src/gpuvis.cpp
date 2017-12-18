@@ -1581,6 +1581,114 @@ void TraceEvents::init_sched_switch_event( trace_event_t &event )
     }
 }
 
+void TraceEvents::init_sched_process_fork( trace_event_t &event )
+{
+    // parent_comm=glxgears parent_pid=23543 child_comm=glxgears child_pid=23544
+    int tgid = atoi( get_event_field_val( event, "parent_pid", "0" ) );
+    int pid = atoi( get_event_field_val( event, "child_pid", "0" ) );
+    const char *tgid_comm = get_event_field_val( event, "parent_comm", NULL );
+    const char *child_comm = get_event_field_val( event, "child_comm", NULL );
+
+    if ( tgid && pid && tgid_comm && child_comm )
+    {
+        tgid_info_t *tgid_info = m_trace_info.tgid_pids.get_val_create( tgid );
+
+        if ( !tgid_info->tgid )
+        {
+            tgid_info->tgid = tgid;
+            tgid_info->hashval += fnv_hashstr32( tgid_comm );
+        }
+        tgid_info->add_pid( tgid );
+        tgid_info->add_pid( pid );
+
+        // Add to our pid --> comm map
+        m_trace_info.pid_comm_map.get_val( tgid, m_strpool.getstr( tgid_comm ) );
+        m_trace_info.pid_comm_map.get_val( pid, m_strpool.getstr( child_comm ) );
+
+        // tgid --> tgid, pid --> tgid
+        m_trace_info.pid_tgid_map.get_val( tgid, tgid );
+        m_trace_info.pid_tgid_map.get_val( pid, tgid );
+    }
+}
+
+void TraceEvents::init_amd_timeline_event( trace_event_t &event )
+{
+    const char *gfxcontext = get_event_gfxcontext_str( event );
+    const char *timeline = get_event_field_val( event, "timeline" );
+
+    // Add this event under the "gfx", "sdma0", etc timeline map
+    m_amd_timeline_locs.add_location_str( timeline, event.id );
+
+    // Add this event under our "gfx_ctx_seq" or "sdma0_ctx_seq", etc. map
+    m_gfxcontext_locs.add_location_str( gfxcontext, event.id );
+
+    // Grab the event locations for this event context
+    const std::vector< uint32_t > *plocs = get_gfxcontext_locs( gfxcontext );
+    if ( plocs->size() > 1 )
+    {
+        // First event.
+        const trace_event_t &event0 = m_events[ plocs->front() ];
+
+        // Event right before the event we just added.
+        auto it = plocs->rbegin() + 1;
+        const trace_event_t &event_prev = m_events[ *it ];
+
+        // Assume the user comm is the first comm event in this set.
+        event.user_comm = event0.comm;
+
+        // Point the event we just added to the previous event in this series
+        event.id_start = event_prev.id;
+
+        if ( event.is_fence_signaled() )
+        {
+            // Mark all the events in this series as timeline events
+            for ( uint32_t idx : *plocs )
+            {
+                m_events[ idx ].flags |= TRACE_FLAG_TIMELINE;
+            }
+        }
+    }
+}
+
+void TraceEvents::init_i915_event( trace_event_t &event )
+{
+    i915_type_t event_type = get_i915_reqtype( event );
+
+    if ( event_type == i915_reqwait_begin )
+    {
+        m_i915.reqwait_begin_locs.add_location( event );
+    }
+    else if ( event_type == i915_reqwait_end )
+    {
+        std::vector< uint32_t > *plocs = m_i915.reqwait_begin_locs.get_locations( event );
+
+        if ( plocs )
+        {
+            trace_event_t &event_begin = m_events[ plocs->back() ];
+            const char *ring = get_event_field_val( event, "ring", NULL );
+
+            event_begin.duration = event.ts - event_begin.ts;
+            event.duration = event_begin.duration;
+
+            if ( ring )
+            {
+                char buf[ 128 ];
+                uint32_t ringno = strtoul( ring, NULL, 10 );
+
+                event.graph_row_id = ( uint32_t )-1;
+                event.id_start = event_begin.id;
+
+                snprintf_safe( buf, "i915_reqwait ring%u", ringno );
+                m_i915.reqwait_end_locs.add_location_str( buf, event.id );
+            }
+        }
+    }
+    else if ( event_type <= i915_req_Notify )
+    {
+        m_i915.gem_req_locs.add_location( event );
+    }
+}
+
 static int64_t normalize_vblank_diff( int64_t diff )
 {
     static const int64_t rates[] =
@@ -1712,113 +1820,21 @@ void TraceEvents::init_new_event( trace_event_t &event )
     //    <...>-7861  [010]  3726.825304: sched_process_fork:   comm=glxgears pid=7861 child_comm=glxgears child_pid=7863
     else if ( !strcmp( event.name, "sched_process_fork" ) )
     {
-        // parent_comm=glxgears parent_pid=23543 child_comm=glxgears child_pid=23544
-        int tgid = atoi( get_event_field_val( event, "parent_pid", "0" ) );
-        int pid = atoi( get_event_field_val( event, "child_pid", "0" ) );
-        const char *tgid_comm = get_event_field_val( event, "parent_comm", NULL );
-        const char *child_comm = get_event_field_val( event, "child_comm", NULL );
-
-        if ( tgid && pid && tgid_comm && child_comm )
-        {
-            tgid_info_t *tgid_info = m_trace_info.tgid_pids.get_val_create( tgid );
-
-            if ( !tgid_info->tgid )
-            {
-                tgid_info->tgid = tgid;
-                tgid_info->hashval += fnv_hashstr32( tgid_comm );
-            }
-            tgid_info->add_pid( tgid );
-            tgid_info->add_pid( pid );
-
-            // Add to our pid --> comm map
-            m_trace_info.pid_comm_map.get_val( tgid, m_strpool.getstr( tgid_comm ) );
-            m_trace_info.pid_comm_map.get_val( pid, m_strpool.getstr( child_comm ) );
-
-            // tgid --> tgid, pid --> tgid
-            m_trace_info.pid_tgid_map.get_val( tgid, tgid );
-            m_trace_info.pid_tgid_map.get_val( pid, tgid );
-        }
+        init_sched_process_fork( event );
     }
 #endif
 
     if ( event.is_sched_switch() )
-        init_sched_switch_event( event );
-
-    if ( is_amd_timeline_event( event ) )
     {
-        const char *gfxcontext = get_event_gfxcontext_str( event );
-        const char *timeline = get_event_field_val( event, "timeline" );
-
-        // Add this event under the "gfx", "sdma0", etc timeline map
-        m_amd_timeline_locs.add_location_str( timeline, event.id );
-
-        // Add this event under our "gfx_ctx_seq" or "sdma0_ctx_seq", etc. map
-        m_gfxcontext_locs.add_location_str( gfxcontext, event.id );
-
-        // Grab the event locations for this event context
-        const std::vector< uint32_t > *plocs = get_gfxcontext_locs( gfxcontext );
-        if ( plocs->size() > 1 )
-        {
-            // First event.
-            const trace_event_t &event0 = m_events[ plocs->front() ];
-
-            // Event right before the event we just added.
-            auto it = plocs->rbegin() + 1;
-            const trace_event_t &event_prev = m_events[ *it ];
-
-            // Assume the user comm is the first comm event in this set.
-            event.user_comm = event0.comm;
-
-            // Point the event we just added to the previous event in this series
-            event.id_start = event_prev.id;
-
-            if ( event.is_fence_signaled() )
-            {
-                // Mark all the events in this series as timeline events
-                for ( uint32_t idx : *plocs )
-                {
-                    m_events[ idx ].flags |= TRACE_FLAG_TIMELINE;
-                }
-            }
-        }
+        init_sched_switch_event( event );
+    }
+    else if ( is_amd_timeline_event( event ) )
+    {
+        init_amd_timeline_event( event );
     }
     else if ( event.seqno && !event.is_ftrace_print() )
     {
-        i915_type_t event_type = get_i915_reqtype( event );
-
-        if ( event_type == i915_reqwait_begin )
-        {
-             m_i915.reqwait_begin_locs.add_location( event );
-        }
-        else if ( event_type == i915_reqwait_end )
-        {
-            std::vector< uint32_t > *plocs = m_i915.reqwait_begin_locs.get_locations( event );
-
-            if ( plocs )
-            {
-                trace_event_t &event_begin = m_events[ plocs->back() ];
-                const char *ring = get_event_field_val( event, "ring", NULL );
-
-                event_begin.duration = event.ts - event_begin.ts;
-                event.duration = event_begin.duration;
-
-                if ( ring )
-                {
-                    char buf[ 128 ];
-                    uint32_t ringno = strtoul( ring, NULL, 10 );
-
-                    event.graph_row_id = ( uint32_t )-1;
-                    event.id_start = event_begin.id;
-
-                    snprintf_safe( buf, "i915_reqwait ring%u", ringno );
-                    m_i915.reqwait_end_locs.add_location_str( buf, event.id );
-                }
-            }
-        }
-        else if ( event_type <= i915_req_Notify )
-        {
-            m_i915.gem_req_locs.add_location( event );
-        }
+        init_i915_event( event );
     }
 
     if ( !strcmp( event.name, "amdgpu_job_msg" ) )
