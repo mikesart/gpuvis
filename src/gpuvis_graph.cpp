@@ -3057,15 +3057,17 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
             for ( const GraphRows::graph_rows_info_t &entry : m_graph.hidden_rows )
             {
+                const char *entry_name = entry.row_name.c_str();
+                ftrace_row_info_t *ftrace_row_info = m_trace_events.get_ftrace_row_info( entry_name );
+                size_t entry_count = ftrace_row_info ? ftrace_row_info->count : entry.event_count;
                 const char *commstr = ( entry.type == LOC_TYPE_Comm ) ?
-                            m_trace_events.tgidcomm_from_commstr( entry.row_name.c_str() ) :
-                            entry.row_name.c_str();
+                            m_trace_events.tgidcomm_from_commstr( entry_name ) : entry_name;
                 const std::string label = string_format( "%s (%lu events)",
-                                                         commstr, entry.event_count );
+                                                         commstr, entry_count );
 
                 if ( ImGui::MenuItem( label.c_str() ) )
                 {
-                    m_graph.rows.show_row( entry.row_name.c_str(), GraphRows::SHOW_ROW );
+                    m_graph.rows.show_row( entry_name, GraphRows::SHOW_ROW );
                 }
             }
 
