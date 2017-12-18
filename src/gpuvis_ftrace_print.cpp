@@ -71,6 +71,21 @@ static const char *s_buf_prefixes[] =
     "[Compositor] Present() ",
 };
 
+// ftrace print event information
+enum bufvar_t
+{
+    bufvar_duration,
+    bufvar_begin_ctx,
+    bufvar_end_ctx,
+    bufvar_begin_gctx,
+    bufvar_end_gctx,
+
+    bufvar_equal,
+    bufvar_prefix,
+
+    bufvar_Max
+};
+
 static struct
 {
     const char *var;

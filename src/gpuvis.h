@@ -286,23 +286,9 @@ public:
     std::vector< std::pair< std::string, std::string > > m_previous_filters;
 };
 
-// ftrace print event information
-enum bufvar_t
-{
-    bufvar_duration,
-    bufvar_begin_ctx,
-    bufvar_end_ctx,
-    bufvar_begin_gctx,
-    bufvar_end_gctx,
-
-    bufvar_equal,
-    bufvar_prefix,
-
-    bufvar_Max
-};
-
 struct print_info_t
 {
+    // Event time stamp. Can be shifted from original event ts.
     int64_t ts;
     int tgid;
 
