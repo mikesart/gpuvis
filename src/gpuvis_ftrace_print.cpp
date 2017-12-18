@@ -249,15 +249,15 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
             key |= event.seqno;
 
             if ( ( bufvar == bufvar_begin_ctx ) || ( bufvar == bufvar_begin_gctx ) )
-                m_ftrace_begin_ctx.get_val( key, event.id );
+                m_ftrace.begin_ctx.get_val( key, event.id );
             else
-                m_ftrace_end_ctx.get_val( key, event.id );
+                m_ftrace.end_ctx.get_val( key, event.id );
 
             // We're only going to add a single event for the begin/end ctx pairs
             add_event = NULL;
 
-            uint32_t *begin_eventid = m_ftrace_begin_ctx.get_val( key );
-            uint32_t *end_eventid = m_ftrace_end_ctx.get_val( key );
+            uint32_t *begin_eventid = m_ftrace.begin_ctx.get_val( key );
+            uint32_t *end_eventid = m_ftrace.end_ctx.get_val( key );
 
             if ( begin_eventid && end_eventid  )
             {
@@ -270,8 +270,8 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
                 event0.color_index = event.color_index;
 
                 // Erase all knowledge of this ctx so it can be reused
-                m_ftrace_begin_ctx.erase_key( event.seqno );
-                m_ftrace_end_ctx.erase_key( event.seqno );
+                m_ftrace.begin_ctx.erase_key( event.seqno );
+                m_ftrace.end_ctx.erase_key( event.seqno );
 
                 add_event = &event0;
             }

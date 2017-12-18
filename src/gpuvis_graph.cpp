@@ -1835,7 +1835,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
             {
                 const std::vector< uint32_t > *plocs;
 
-                plocs = m_trace_events.m_i915_gem_req_locs.get_locations( *pevent );
+                plocs = m_trace_events.m_i915.gem_req_locs.get_locations( *pevent );
                 if ( plocs )
                 {
                     for ( uint32_t i : *plocs )

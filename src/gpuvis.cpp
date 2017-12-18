@@ -1788,11 +1788,11 @@ void TraceEvents::init_new_event( trace_event_t &event )
 
         if ( event_type == i915_reqwait_begin )
         {
-             m_i915_reqwait_begin_locs.add_location( event );
+             m_i915.reqwait_begin_locs.add_location( event );
         }
         else if ( event_type == i915_reqwait_end )
         {
-            std::vector< uint32_t > *plocs = m_i915_reqwait_begin_locs.get_locations( event );
+            std::vector< uint32_t > *plocs = m_i915.reqwait_begin_locs.get_locations( event );
 
             if ( plocs )
             {
@@ -1811,13 +1811,13 @@ void TraceEvents::init_new_event( trace_event_t &event )
                     event.id_start = event_begin.id;
 
                     snprintf_safe( buf, "i915_reqwait ring%u", ringno );
-                    m_i915_reqwait_end_locs.add_location_str( buf, event.id );
+                    m_i915.reqwait_end_locs.add_location_str( buf, event.id );
                 }
             }
         }
         else if ( event_type <= i915_req_Notify )
         {
-            m_i915_gem_req_locs.add_location( event );
+            m_i915.gem_req_locs.add_location( event );
         }
     }
 
@@ -2143,7 +2143,7 @@ static bool intel_set_duration( trace_event_t *event0, trace_event_t *event1, ui
 
 void TraceEvents::calculate_i915_reqwait_event_durations()
 {
-    for ( auto &req_locs : m_i915_reqwait_end_locs.m_locs.m_map )
+    for ( auto &req_locs : m_i915.reqwait_end_locs.m_locs.m_map )
     {
         row_pos_t row_pos;
         std::vector< uint32_t > &locs = req_locs.second;
@@ -2166,7 +2166,7 @@ void TraceEvents::calculate_i915_reqwait_event_durations()
 void TraceEvents::calculate_i915_req_event_durations()
 {
     // Our map should have events with the same ring/ctx/seqno
-    for ( auto &req_locs : m_i915_gem_req_locs.m_locs.m_map )
+    for ( auto &req_locs : m_i915.gem_req_locs.m_locs.m_map )
     {
         const char *ring = "";
         trace_event_t *events[ i915_req_Max ] = { NULL };
@@ -2199,7 +2199,7 @@ void TraceEvents::calculate_i915_req_event_durations()
             {
                 uint32_t global_seqno = strtoul( globalstr, NULL, 10 );
                 const std::vector< uint32_t > *plocs =
-                        m_i915_gem_req_locs.get_locations( ring, global_seqno, "0" );
+                        m_i915.gem_req_locs.get_locations( ring, global_seqno, "0" );
 
                 // We found event(s) that match our ring and global seqno.
                 if ( plocs )
@@ -2257,14 +2257,14 @@ void TraceEvents::calculate_i915_req_event_durations()
                 if ( events[ i ] )
                 {
                     events[ i ]->graph_row_id = ( uint32_t )-1;
-                    m_i915_req_locs.add_location_u32( hashval, events[ i ]->id );
+                    m_i915.req_locs.add_location_u32( hashval, events[ i ]->id );
                 }
             }
         }
     }
 
     // Sort the events in the ring maps
-    for ( auto &req_locs : m_i915_req_locs.m_locs.m_map )
+    for ( auto &req_locs : m_i915.req_locs.m_locs.m_map )
     {
         row_pos_t row_pos;
         std::vector< uint32_t > &locs = req_locs.second;
@@ -2282,7 +2282,7 @@ void TraceEvents::calculate_i915_req_event_durations()
             const trace_event_t *pevent = !strcmp( event.name, "intel_engine_notify" ) ?
                         &m_events[ event.id_start ] : &event;
 
-            plocs = m_i915_gem_req_locs.get_locations( *pevent );
+            plocs = m_i915.gem_req_locs.get_locations( *pevent );
             if ( plocs )
             {
                 int64_t min_ts = m_events[ plocs->front() ].ts;
@@ -2315,12 +2315,12 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
     else if ( !strncmp( name, "i915_reqwait ring", 17 ) )
     {
         type = LOC_TYPE_i915RequestWait;
-        plocs = m_i915_reqwait_end_locs.get_locations_str( name );
+        plocs = m_i915.reqwait_end_locs.get_locations_str( name );
     }
     else if ( !strncmp( name, "i915_req ring", 13 ) )
     {
         type = LOC_TYPE_i915Request;
-        plocs = m_i915_req_locs.get_locations_str( name );
+        plocs = m_i915.req_locs.get_locations_str( name );
     }
     else if ( !strncmp( name, "plot:", 5 ) )
     {

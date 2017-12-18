@@ -429,7 +429,7 @@ public:
     // Max drm_vblank_event crc value we've seen
     int m_crtc_max = -1;
 
-    // Map of vblanks hashval to array of event locations.
+    // Map of tdop expression string hashval to array of event locations.
     TraceLocations m_tdopexpr_locs;
     std::set< uint32_t > m_failed_commands;
 
@@ -450,27 +450,27 @@ public:
     TraceLocations m_sched_switch_prev_locs;
     TraceLocations m_sched_switch_next_locs;
 
-    // Intel request_wait_begin events key'd on ring/ctx/seqno
-    TraceLocationsRingCtxSeq m_i915_reqwait_begin_locs;
-    // Intel request_wait_end events key'd on: "i915_reqwait ring%u",ring
-    TraceLocations m_i915_reqwait_end_locs;
-
-    // i915_gem_request_[add|submit|in|out], intel_engine_notify events
-    TraceLocationsRingCtxSeq m_i915_gem_req_locs;
-    // Intel request events key'd on: "i915_req ring%u",ring
-    TraceLocations m_i915_req_locs;
-
-    // Map vblank seq to m_drm_vblank_event_queued event id
-    util_umap< uint32_t, uint32_t > m_drm_vblank_event_queued;
-
     // plot name to GraphPlot
     util_umap< uint32_t, GraphPlot > m_graph_plots;
 
     // map of pid to 'thread1-1234 (mainthread-1233)'
     util_umap< int, const char * > m_pid_commstr_map;
 
-    // Map hashed row name to count of rows calculated
+    // Map hashed row name to count of rows calculated by row_pos_t
     util_umap< uint32_t, uint32_t > m_row_count;
+
+    struct
+    {
+        // Intel request_wait_begin events key'd on ring/ctx/seqno
+        TraceLocationsRingCtxSeq reqwait_begin_locs;
+        // Intel request_wait_end events key'd on: "i915_reqwait ring%u",ring
+        TraceLocations reqwait_end_locs;
+
+        // i915_gem_request_[add|submit|in|out], intel_engine_notify events
+        TraceLocationsRingCtxSeq gem_req_locs;
+        // Intel request events key'd on: "i915_req ring%u",ring
+        TraceLocations req_locs;
+    } m_i915;
 
     struct
     {
@@ -508,6 +508,8 @@ public:
     };
     // vblank information for specific crtc
     std::vector< vblank_info_t > m_vblank_info;
+    // Map vblank seq to m_drm_vblank_event_queued event id
+    util_umap< uint32_t, uint32_t > m_drm_vblank_event_queued;
 
     // 0: events loaded, 1+: loading events, -1: error
     SDL_atomic_t m_eventsloaded = { 1 };
