@@ -2561,6 +2561,8 @@ void TraceEvents::calculate_i915_reqwait_event_durations()
             event_begin.graph_row_id = row;
             event.graph_row_id = row;
         }
+
+        m_row_count.m_map[ req_locs.first ] = row_pos.m_rows;
     }
 }
 
@@ -2694,6 +2696,8 @@ void TraceEvents::calculate_i915_req_event_durations()
                     m_events[ i ].graph_row_id = row;
             }
         }
+
+        m_row_count.m_map[ req_locs.first ] = row_pos.m_rows;
     }
 }
 

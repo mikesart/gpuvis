@@ -473,6 +473,9 @@ public:
     // map of pid to 'thread1-1234 (mainthread-1233)'
     util_umap< int, const char * > m_pid_commstr_map;
 
+    // Map hashed row name to count of rows calculated
+    util_umap< uint32_t, uint32_t > m_row_count;
+
     struct
     {
         // ftrace print event IDs sorted by timestamp
