@@ -463,10 +463,6 @@ public:
     // Map vblank seq to m_drm_vblank_event_queued event id
     util_umap< uint32_t, uint32_t > m_drm_vblank_event_queued;
 
-    // Map of ftrace print begin/end ctx to event ids
-    util_umap< uint64_t, uint32_t > m_ftrace_begin_ctx;
-    util_umap< uint64_t, uint32_t > m_ftrace_end_ctx;
-
     // plot name to GraphPlot
     util_umap< uint32_t, GraphPlot > m_graph_plots;
 
@@ -492,6 +488,10 @@ public:
 
         // Row info for each pid / tgid row
         util_umap< uint32_t, ftrace_row_info_t > row_info;
+
+        // Map of ftrace print begin/end ctx to event ids
+        util_umap< uint64_t, uint32_t > begin_ctx;
+        util_umap< uint64_t, uint32_t > end_ctx;
     } m_ftrace;
 
     struct vblank_info_t
@@ -941,6 +941,19 @@ private:
 
     // Map row names to option IDs to store graph row sizes. Ie, "gfx", "print", "sdma0", etc.
     util_umap< std::string, option_id_t > m_graph_rowname_optid_map;
+};
+
+class row_pos_t
+{
+public:
+    row_pos_t() {}
+    ~row_pos_t() {}
+
+    uint32_t get_row( int64_t min_ts, int64_t max_ts );
+
+public:
+    uint32_t m_rows = 0;
+    std::array< std::map< int64_t, int64_t >, Opts::MAX_ROW_SIZE > m_row_pos = {};
 };
 
 class MainApp

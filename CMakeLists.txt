@@ -72,6 +72,7 @@ set ( SRC_LIST
     src/gpuvis_framemarkers.cpp
     src/gpuvis_plots.cpp
     src/gpuvis_graphrows.cpp
+    src/gpuvis_ftrace_print.cpp
     src/gpuvis_utils.cpp
     src/tdopexpr.cpp
     src/ya_getopt.c
