@@ -1680,13 +1680,23 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 
 uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 {
-    float row_h = gi.text_h;
+    const trace_event_t *pevent_sel = NULL;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.rc.y + 4, gi.rc.w, gi.rc.h - 8 );
-    uint32_t row_count = std::max< uint32_t >( 1, gi.rc.h / row_h );
     ImU32 barcolor = s_clrs().get( col_Graph_Bari915ReqWait );
     ImU32 textcolor = s_clrs().get( col_Graph_BarText );
-    const trace_event_t *pevent_sel = NULL;
+
+    uint32_t hashval = fnv_hashstr32( gi.prinfo_cur->row_name.c_str() );
+    uint32_t row_count = m_trace_events.m_row_count.m_map[ hashval ];
+    float row_h = std::max< float >( 2.0f, gi.rc.h / row_count );
+
+    // Check if we're drawing timeline labels
+    bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
+            !ImGui::GetIO().KeyAlt;
+
+    // If height is less than half text height, turn off labels.
+    if ( row_h < ( gi.text_h / 2.0f ) )
+        timeline_labels = false;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -1711,15 +1721,14 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
         // Draw bar
         imgui_drawrect_filled( x0, y, x1 - x0, row_h, barcolor );
 
-        if ( x1 - x0 >= imgui_scale( 16.0f ) )
+        if ( timeline_labels && ( x1 - x0 >= imgui_scale( 16.0f ) ) )
         {
             const char *ctxstr = get_event_field_val( event, "ctx", "0" );
+            float ty = y + ( row_h / 2.0f ) - ( gi.text_h / 2.0f ) - imgui_scale( 2.0f );
 
-            imgui_push_cliprect( { x0, y, x1 - x0, row_h } );
-
-            imgui_draw_textf( x0 + imgui_scale( 1.0f ), y + imgui_scale( 1.0f ),
+            imgui_push_cliprect( { x0, ty, x1 - x0, gi.text_h } );
+            imgui_draw_textf( x0 + imgui_scale( 1.0f ), ty,
                              textcolor, "%s-%u", ctxstr, event.seqno );
-
             imgui_pop_cliprect();
         }
 
