@@ -126,6 +126,18 @@ const char *StrPool::getstr( const char *str, size_t len )
     return ret->c_str();
 }
 
+const char *StrPool::getstrf( const char *fmt, ... )
+{
+    va_list args;
+    char buf[ 512 ];
+
+    va_start( args, fmt );
+    vsnprintf_safe( buf, fmt, args );
+    va_end( args );
+
+    return getstr( buf );
+}
+
 const char *StrPool::findstr( uint32_t hashval )
 {
     std::string *str = m_pool.get_val( hashval );
@@ -1421,24 +1433,21 @@ void TraceEvents::update_tgid_colors()
 
         TextClr clr( tgid_info.color );
         const char *commstr = comm_from_pid( tgid_info.tgid, "<...>" );
-        std::string commstr_col = string_format( "%s%s%s", clr.str(),
-                                                 commstr, s_textclrs().str( TClr_Def ) );
 
-        tgid_info.commstr_clr = m_strpool.getstr( commstr_col.c_str() );
+        tgid_info.commstr_clr = m_strpool.getstrf( "%s%s%s", clr.str(),
+                                                   commstr, s_textclrs().str( TClr_Def ) );
         tgid_info.commstr = commstr;
     }
 }
 
 const char *TraceEvents::comm_from_pid( int pid, const char *def )
 {
-    char commbuf[ 64 ];
     const char *const *comm = m_trace_info.pid_comm_map.get_val( pid );
 
     if ( !comm && !def )
         return NULL;
 
-    snprintf_safe( commbuf, "%s-%d", comm ? *comm : def, pid );
-    return m_strpool.getstr( commbuf );
+    return m_strpool.getstrf( "%s-%d", comm ? *comm : def, pid );
 }
 
 const char *TraceEvents::tgidcomm_from_pid( int pid )
@@ -1453,10 +1462,7 @@ const char *TraceEvents::tgidcomm_from_pid( int pid )
 
     if ( tgid_info )
     {
-        char commbuf[ 128 ];
-
-        snprintf_safe( commbuf, "%s (%s)", comm, tgid_info->commstr_clr );
-        comm = m_strpool.getstr( commbuf );
+        comm = m_strpool.getstrf( "%s (%s)", comm, tgid_info->commstr_clr );
     }
 
     // Add pid / comm mapping
@@ -1510,10 +1516,7 @@ const char *TraceEvents::get_event_gfxcontext_str( const trace_event_t &event )
 
         if ( timeline && context )
         {
-            char buf[ 256 ];
-
-            snprintf_safe( buf, "%s_%s_%u", timeline, context, event.seqno );
-            return m_strpool.getstr( buf );
+            return m_strpool.getstrf( "%s_%s_%u", timeline, context, event.seqno );
         }
     }
 
@@ -1758,10 +1761,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
     const char **comm = m_trace_info.sched_switch_pid_comm_map.get_val( event.pid );
     if ( comm )
     {
-        char buf[ 64 ];
-
-        snprintf_safe( buf, "%s-%d", *comm, event.pid );
-        event.comm = m_strpool.getstr( buf );
+        event.comm = m_strpool.getstrf( "%s-%d", *comm, event.pid );
     }
 
     if ( event.is_vblank() )
@@ -1782,11 +1782,10 @@ void TraceEvents::init_new_event( trace_event_t &event )
     // Add this event name to event name map
     if ( event.is_vblank() )
     {
-        char buf[ 64 ];
-
         // Add vblanks as "drm_vblank_event1", etc
-        snprintf_safe( buf, "%s%d", event.name, event.crtc );
-        m_eventnames_locs.add_location_str( m_strpool.getstr( buf ), event.id );
+        const char *str = m_strpool.getstrf( "%s%d", event.name, event.crtc );
+
+        m_eventnames_locs.add_location_str( str, event.id );
     }
     else
     {
@@ -2262,11 +2261,8 @@ void TraceEvents::calculate_i915_req_event_durations()
 
         if ( set_duration )
         {
-            char buf[ 32 ];
             uint32_t ringno = strtoul( ring, NULL, 10 );
-
-            snprintf_safe( buf, "i915_req ring%u", ringno );
-            uint32_t hashval = fnv_hashstr32( m_strpool.getstr( buf ) );
+            uint32_t hashval = fnv_hashstr32( m_strpool.getstrf( "i915_req ring%u", ringno ) );
 
             for ( uint32_t i = 0; i < i915_req_Max; i++ )
             {

@@ -176,6 +176,7 @@ public:
     ~StrPool() {}
 
     const char *getstr( const char *str, size_t len = ( size_t )-1 );
+    const char *getstrf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
     const char *findstr( uint32_t hashval );
 
 public:
