@@ -1018,11 +1018,11 @@ void MainApp::render()
                 const char *desc;
             } s_help[] =
             {
-            { "Ctrl+click drag", "Select graph area" },
-            { "Shift+click drag", "Zoom selected graph area" },
-            { "Mousewheel", "Zoom graph in / out" },
-            { "Alt down", "Hide graph labels" },
-        };
+                { "Ctrl+click drag", "Select graph area" },
+                { "Shift+click drag", "Zoom selected graph area" },
+                { "Mousewheel", "Zoom graph in / out" },
+                { "Alt down", "Hide graph labels" },
+            };
 
             if ( imgui_begin_columns( "gpuvis_help", { "Hotkey", "Description" } ) )
                 ImGui::SetColumnWidth( 0, imgui_scale( 170.0f ) );
@@ -3264,9 +3264,27 @@ void TraceWin::eventlist_render_options()
 
 void TraceWin::eventlist_render()
 {
-    const std::vector< trace_event_t > &events = m_trace_events.m_events;
-    size_t event_count = m_filter.events.empty() ?
-                events.size() : m_filter.events.size();
+    size_t event_count;
+    std::vector< uint32_t > *filtered_events = NULL;
+
+    if ( ImGui::GetIO().KeyShift && !m_eventlist.highlight_ids.empty() )
+    {
+        // If shift is down and we have a tooltip with highlighted events,
+        // show only those
+        filtered_events = &m_eventlist.highlight_ids;
+        event_count = filtered_events->size();
+    }
+    else if ( !m_filter.events.empty() )
+    {
+        // Otherwise display filtered events
+        filtered_events = &m_filter.events;
+        event_count = filtered_events->size();
+    }
+    else
+    {
+        // Display all events
+        event_count = m_trace_events.m_events.size();
+    }
 
     // Set focus on event list first time we open.
     if ( s_actions().get( action_focus_eventlist ) ||
@@ -3302,8 +3320,6 @@ void TraceWin::eventlist_render()
         if ( scroll_lines )
             ImGui::SetScrollY( ImGui::GetScrollY() + scroll_lines * lineh );
 
-        bool filtered_events = !m_filter.events.empty();
-
         if ( s_opts().getb( OPT_SyncEventListToGraph ) &&
              !m_eventlist.do_gotoevent &&
              ( m_graph.ts_marker_mouse != -1 ) &&
@@ -3319,10 +3335,10 @@ void TraceWin::eventlist_render()
 
             if ( filtered_events )
             {
-                auto i = std::lower_bound( m_filter.events.begin(), m_filter.events.end(),
+                auto i = std::lower_bound( filtered_events->begin(), filtered_events->end(),
                                            m_eventlist.goto_eventid );
 
-                pos = i - m_filter.events.begin();
+                pos = i - filtered_events->begin();
             }
             else
             {
@@ -3334,7 +3350,7 @@ void TraceWin::eventlist_render()
 
             // Select the event also
             m_eventlist.selected_eventid = std::min< uint32_t >( m_eventlist.goto_eventid,
-                                                                 events.size() - 1 );
+                                                                 event_count - 1 );
 
             m_eventlist.do_gotoevent = false;
             m_eventlist.ts_marker_mouse_sync = m_graph.ts_marker_mouse;
@@ -3359,8 +3375,8 @@ void TraceWin::eventlist_render()
 
             if ( filtered_events )
             {
-                m_eventlist.start_eventid = m_filter.events[ start_idx ];
-                m_eventlist.end_eventid = m_filter.events[ end_idx - 1 ];
+                m_eventlist.start_eventid = filtered_events->at( start_idx );
+                m_eventlist.end_eventid = filtered_events->at( end_idx - 1 );
             }
             else
             {
@@ -3375,7 +3391,7 @@ void TraceWin::eventlist_render()
             {
                 std::string markerbuf;
                 trace_event_t &event = filtered_events ?
-                        m_trace_events.m_events[ m_filter.events[ i ] ] :
+                        m_trace_events.m_events[ filtered_events->at( i ) ] :
                         m_trace_events.m_events[ i ];
                 bool selected = ( m_eventlist.selected_eventid == event.id );
                 ImVec2 cursorpos = ImGui::GetCursorScreenPos();
@@ -3533,6 +3549,11 @@ void TraceWin::eventlist_render()
 
         ImGui::EndChild();
     }
+
+    // If we are displaying highlighted events only, reset the mouse marker so the
+    // next render frame we'll recalc our event list location
+    if ( filtered_events == &m_eventlist.highlight_ids )
+        m_eventlist.ts_marker_mouse_sync = -1;
 }
 
 void TraceWin::eventlist_handle_hotkeys()

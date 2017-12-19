@@ -390,6 +390,7 @@ void TraceEvents::calculate_event_print_info()
 
         if ( print_info->tgid )
         {
+            // Tgid print row id
             prow_pos = row_pos_tgid.get_val_create( print_info->tgid );
             print_info->graph_row_id_tgid = prow_pos->get_row( min_ts, max_ts );
 
