@@ -1065,7 +1065,6 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
     {
         bool closed = false;
         float thickness = 2.0f;
-        bool anti_aliased = true;
 
         gi.prinfo_cur->minval = minval;
         gi.prinfo_cur->maxval = maxval;
@@ -1081,7 +1080,7 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
             pt.y = gi.rc.y + ( maxval - pt.y ) * rcpdenom;
 
         ImGui::GetWindowDrawList()->AddPolyline( points.data(), points.size(),
-                                                 color_line, closed, thickness, anti_aliased );
+                                                 color_line, closed, thickness );
 
         for ( const ImVec2 &pt : points )
         {
