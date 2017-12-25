@@ -2932,6 +2932,7 @@ void ImGui::EndFrame()
                         g.MovingWindow = g.HoveredWindow;
                         g.MovingWindowMoveId = g.MovingWindow->MoveId;
                         SetActiveID(g.MovingWindowMoveId, g.HoveredRootWindow);
+                        g.ActiveIdClickOffset = g.IO.MousePos - g.MovingWindow->RootWindow->Pos;
                     }
                 }
                 else if (g.NavWindow != NULL && GetFrontMostModalRootWindow() == NULL)
