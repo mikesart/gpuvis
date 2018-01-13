@@ -941,7 +941,7 @@ void MainApp::render()
         {
             imgui_setnextwindowsize( 800, 600 );
 
-            ImGui::ShowTestWindow( &m_show_imgui_test_window );
+            ImGui::ShowDemoWindow( &m_show_imgui_test_window );
         }
 
         if ( m_show_imgui_style_editor )
