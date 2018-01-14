@@ -25,6 +25,7 @@
 #include <string.h>
 
 #include <set>
+#include <array>
 #include <vector>
 #include <algorithm>
 #include <functional>
