@@ -60,7 +60,7 @@ namespace ImGui
 */
 
 // Allow meshes with more than 64k indices (NB: probably a sign that we aren't clipping enough when using ImDrawList? but doesn't hurt/cost too much to have 32-bit indices anyway)
-#define ImDrawIdx uint32_t
+#define ImDrawIdx unsigned int
 
 //$ TODO mikesart: quick hack to change text color until imgui gets official method.
 //    https://github.com/ocornut/imgui/issues/902
