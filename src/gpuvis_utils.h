@@ -25,6 +25,8 @@
 #ifndef _GPUVIS_UTILS_H
 #define _GPUVIS_UTILS_H
 
+#include <future>
+
 // ini file singleton
 CIniFile &s_ini();
 

@@ -819,21 +819,6 @@ void TipWindows::update( bool mouse_captured )
     m_mousepos = ImGui::GetMousePos();
     m_mouse_captured = mouse_captured;
 
-    if ( !mouse_captured )
-    {
-        // Go through all tip windows
-        for ( const rect_t &rc : m_windows )
-        {
-            // If mouse is over tip window...
-            if ( rc.point_in_rect( m_mousepos ) )
-            {
-                // ...invalidate mouse pos so nobody does stuff under us
-                ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX };
-                break;
-            }
-        }
-    }
-
     m_windows.clear();
 }
 
