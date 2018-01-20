@@ -19,8 +19,7 @@
 // Data
 static double       g_Time = 0.0f;
 static bool         g_MousePressed[3] = { false, false, false };
-static float        g_MouseHorizWheel = 0.0f;
-static float        g_MouseWheel = 0.0f;
+static ImVec2       g_MouseWheel = ImVec2(0.0f, 0.0f);
 static GLuint       g_FontTexture = 0;
 static int          g_ShaderHandle = 0, g_VertHandle = 0, g_FragHandle = 0;
 static int          g_AttribLocationTex = 0, g_AttribLocationProjMtx = 0;
@@ -147,14 +146,10 @@ bool ImGui_ImplSdlGL3_ProcessEvent(SDL_Event* event)
     {
     case SDL_MOUSEWHEEL:
         {
-            if (event->wheel.x > 0)
-                g_MouseHorizWheel = 1;
-            if (event->wheel.x < 0)
-                g_MouseHorizWheel = -1;
-            if (event->wheel.y > 0)
-                g_MouseWheel = 1;
-            if (event->wheel.y < 0)
-                g_MouseWheel = -1;
+            if (event->wheel.x > 0) g_MouseWheel.x = +1;
+            if (event->wheel.x < 0) g_MouseWheel.x = -1;
+            if (event->wheel.y > 0) g_MouseWheel.y = +1;
+            if (event->wheel.y < 0) g_MouseWheel.y = -1;
             return true;
         }
     case SDL_MOUSEBUTTONDOWN:
