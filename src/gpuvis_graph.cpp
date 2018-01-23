@@ -687,7 +687,7 @@ void graph_info_t::init()
     clr_def = s_textclrs().str( TClr_Def );
 
     // Get mouse position
-    mouse_pos = ImGui::IsRootWindowOrAnyChildFocused() ?
+    mouse_pos = ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows) ?
                 ImGui::GetMousePos() : ImVec2( -FLT_MAX, -FLT_MAX );
 
     // Render timeline user space bars?

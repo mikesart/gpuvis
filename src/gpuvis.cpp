@@ -3024,8 +3024,7 @@ bool TraceWin::eventlist_handle_mouse( const trace_event_t &event, uint32_t i )
 
     // Check if item is hovered and we don't have a popup menu going already.
     if ( !is_valid_id( m_eventlist.popup_eventid ) &&
-         ImGui::IsItemHovered() &&
-         ImGui::IsRootWindowOrAnyChildFocused() )
+         ImGui::IsItemHovered() )
     {
         // Store the hovered event id.
         m_eventlist.hovered_eventid = event.id;
