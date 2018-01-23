@@ -895,7 +895,7 @@ static void imgui_setnextwindowsize( float w, float h, float x = -1.0f, float y 
     }
 
     ImGui::SetNextWindowSize( ImVec2( imgui_scale( w ), imgui_scale( h ) ),
-                              ImGuiSetCond_FirstUseEver );
+                              ImGuiCond_FirstUseEver );
 }
 
 void MainApp::render()
@@ -905,7 +905,7 @@ void MainApp::render()
         float w = ImGui::GetIO().DisplaySize.x;
         float h = ImGui::GetIO().DisplaySize.y;
 
-        ImGui::SetNextWindowPos( ImVec2( 0, 0 ), ImGuiSetCond_Always );
+        ImGui::SetNextWindowPos( ImVec2( 0, 0 ), ImGuiCond_Always );
         ImGui::SetNextWindowSizeConstraints( ImVec2( w, h ), ImVec2( w, h ) );
 
         m_trace_win->render();
@@ -4193,7 +4193,7 @@ void MainApp::render_menu( const char *str_id )
         return;
     }
 
-    if ( ImGui::IsRootWindowOrAnyChildFocused() )
+    if ( ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) )
     {
         if ( s_actions().get( action_menu_file ) )
             ImGui::OpenPopup( "File" );

@@ -1143,7 +1143,7 @@ void FontInfo::render_font_options( bool m_use_freetype )
 
     {
         ImGui::PushItemWidth( imgui_scale( 400.0f ) );
-        ImGui::AlignFirstTextHeightToWidgets();
+        ImGui::AlignTextToFramePadding();
         ImGui::Text( "TTF Filename:" );
         ImGui::SameLine();
 

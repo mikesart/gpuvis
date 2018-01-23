@@ -2808,7 +2808,7 @@ void TraceWin::graph_render_hscrollbar( graph_info_t &gi )
             imgui_draw_text( textsize.x, cursorpos.y, s_clrs().get( col_BrightText ), str.c_str() );
         }
 
-        ImGui::SetNextWindowContentWidth( width );
+        ImGui::SetNextWindowContentSize( ImVec2( width, 0 ) );
         ImGui::BeginChild( "#graph_scrollbar", ImVec2( w2, scrollbar_size ),
                            false, ImGuiWindowFlags_AlwaysHorizontalScrollbar );
 

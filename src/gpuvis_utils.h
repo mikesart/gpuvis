@@ -172,7 +172,7 @@ bool imgui_input_text2( const char *label, char ( &buf ) [ T ], float w = 120.0f
     }
     else if ( !( flags & ImGuiInputText2FlagsLeft_LabelOnRight ) )
     {
-        ImGui::AlignFirstTextHeightToWidgets();
+        ImGui::AlignTextToFramePadding();
         ImGui::Text( "%s", label );
         label = "##imgui_input_text2";
     }
@@ -198,7 +198,7 @@ static bool imgui_input_text( const char *label, char ( &buf )[ T ], float x, fl
 
     ImGui::PushID( label );
 
-    ImGui::AlignFirstTextHeightToWidgets();
+    ImGui::AlignTextToFramePadding();
     ImGui::Text( "%s", label );
 
     ImGui::SameLine();
