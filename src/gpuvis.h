@@ -734,6 +734,9 @@ public:
     bool m_show_create_row_filter_dlg = false;
     CreateRowFilterDlg m_create_row_filter_dlg;
 
+    // Map graph row name hash to array of row_filters
+    util_umap< uint32_t, std::vector< std::string > > m_graph_row_filters;
+
     uint32_t m_create_filter_eventid = INVALID_ID;
     FrameMarkers m_frame_markers;
 

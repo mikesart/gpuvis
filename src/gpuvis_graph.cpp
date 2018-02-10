@@ -1028,7 +1028,6 @@ void CreateRowFilterDlg::init()
         m_previous_filters.push_back( "$name = drm_vblank_event && $crtc = 0" );
         m_previous_filters.push_back( "$name = drm_vblank_event && $crtc = 1" );
     }
-
 }
 
 void CreateRowFilterDlg::shutdown()
@@ -3361,6 +3360,53 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         m_show_create_row_filter_dlg = true;
     }
 
+    if ( !m_graph.mouse_over_row_name.empty() &&
+         !m_create_row_filter_dlg.m_previous_filters.empty() )
+    {
+        // Hash of row name
+        uint32_t hashval = fnv_hashstr32( m_graph.mouse_over_row_name.c_str() );
+        // Find array of applied filters for this row
+        std::vector< std::string > *row_filters = m_graph_row_filters.get_val( hashval );
+
+        if ( ImGui::BeginMenu( "Row Filters" ) )
+        {
+            // Go through all the row filters
+            for ( const std::string &val : m_create_row_filter_dlg.m_previous_filters )
+            {
+                size_t idx = ( size_t )-1;
+
+                if ( row_filters )
+                {
+                    // This row has some applied filters, see if this is one of them
+                    auto i = std::find( row_filters->begin(), row_filters->end(), val );
+
+                    if ( i != row_filters->end() )
+                        idx = i - row_filters->begin();
+                }
+
+                if ( ImGui::MenuItem( val.c_str(), NULL, idx != ( size_t )-1 ) )
+                {
+                    if ( idx == ( size_t )-1 )
+                    {
+                        // New Filter
+                        if ( !row_filters )
+                            row_filters = m_graph_row_filters.get_val_create( hashval );
+
+                        row_filters->push_back( val );
+                        std::sort( row_filters->begin(), row_filters->end() );
+                    }
+                    else
+                    {
+                        // Remove this filter
+                        row_filters->erase( row_filters->begin() + idx );
+                    }
+                }
+            }
+
+            ImGui::EndMenu();
+        }
+    }
+
     // Frame Markers
     {
         if ( is_valid_id( gi.hovered_eventid ) &&
@@ -3436,6 +3482,8 @@ static std::string task_state_to_str( int state )
 void TraceWin::graph_mouse_tooltip_rowinfo( std::string &ttip, graph_info_t &gi, int64_t mouse_ts )
 {
     const std::string &row_name = m_graph.mouse_over_row_name;
+    uint32_t hashval = fnv_hashstr32( row_name.c_str() );
+    std::vector< std::string > *row_filters = m_graph_row_filters.get_val( hashval );
 
     if ( !row_name.empty() )
     {
@@ -3454,6 +3502,16 @@ void TraceWin::graph_mouse_tooltip_rowinfo( std::string &ttip, graph_info_t &gi,
     else if ( !row_name.empty() && ( row_name != m_graph.mouse_over_row_filter ) )
     {
         ttip += "\nFilter: " + m_graph.mouse_over_row_filter;
+    }
+
+    if ( row_filters && !row_filters->empty() )
+    {
+        ttip += "\nActive Row Filters:";
+
+        for ( const std::string &filter : *row_filters )
+        {
+            ttip += "\n  " + filter;
+        }
     }
 }
 
