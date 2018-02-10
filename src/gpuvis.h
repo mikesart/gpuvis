@@ -225,6 +225,27 @@ public:
     std::vector< std::string > m_previous_filters;
 };
 
+class CreateRowFilterDlg
+{
+public:
+    CreateRowFilterDlg() {}
+    ~CreateRowFilterDlg() {}
+
+    void init();
+    void shutdown();
+
+    bool show_dlg( TraceEvents &trace_events );
+    bool render_dlg( TraceEvents &trace_events );
+
+public:
+    std::string m_buf;
+    std::string m_err_str;
+
+    char m_filter_buf[ 512 ];
+
+    std::vector< std::string > m_previous_filters;
+};
+
 class FrameMarkers
 {
 public:
@@ -709,6 +730,9 @@ public:
 
     uint32_t m_create_graph_row_eventid = INVALID_ID;
     CreateGraphRowDlg m_create_graph_row_dlg;
+
+    bool m_show_create_row_filter_dlg = false;
+    CreateRowFilterDlg m_create_row_filter_dlg;
 
     uint32_t m_create_filter_eventid = INVALID_ID;
     FrameMarkers m_frame_markers;

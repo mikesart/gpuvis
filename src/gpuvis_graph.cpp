@@ -870,11 +870,9 @@ void CreateGraphRowDlg::init()
 
     if ( m_previous_filters.empty() )
     {
-        // Add some default filters
-        m_previous_filters.push_back( "$name = drm_vblank_event && $crtc = 0" );
-        m_previous_filters.push_back( "$name = drm_vblank_event && $crtc = 1" );
+        // Add a default filter
+        m_previous_filters.push_back( "$name = drm_vblank_event" );
     }
-
 }
 
 void CreateGraphRowDlg::shutdown()
@@ -971,6 +969,148 @@ bool CreateGraphRowDlg::render_dlg( TraceEvents &trace_events )
     }
 
     bool disabled = !m_name_buf[ 0 ] || !m_filter_buf[ 0 ];
+
+    ImGui::PushStyleColor( ImGuiCol_Text,
+        ImGui::GetStyleColorVec4( disabled ? ImGuiCol_TextDisabled : ImGuiCol_Text ) );
+
+    bool do_create = ImGui::Button( "Create", button_size ) ||
+            s_actions().get( action_return );
+
+    ImGui::PopStyleColor();
+
+    if ( do_create && !disabled )
+    {
+        const std::vector< uint32_t > *plocs = trace_events.get_locs(
+                    m_filter_buf, NULL, &m_err_str );
+
+        ret = !!plocs;
+
+        if ( ret )
+        {
+            // Try to find this filter pair in our previous filters array
+            auto idx = std::find( m_previous_filters.begin(), m_previous_filters.end(), m_filter_buf );
+
+            // Erase the one we found
+            if ( idx != m_previous_filters.end() )
+                m_previous_filters.erase( idx );
+
+            // Insert it at the beginning
+            m_previous_filters.insert( m_previous_filters.begin(), m_filter_buf );
+
+            // Make sure we don't go over ~ 20 filters
+            if ( m_previous_filters.size() > 20 )
+                m_previous_filters.resize( 20 );
+        }
+        else if ( m_err_str.empty() )
+        {
+            m_err_str = "ERROR: No events found.";
+        }
+    }
+
+    ImGui::SameLine();
+    if ( ImGui::Button( "Cancel", button_size ) || s_actions().get( action_escape ) || ret )
+        ImGui::CloseCurrentPopup();
+
+    ImGui::EndPopup();
+    return ret;
+}
+
+void CreateRowFilterDlg::init()
+{
+    std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$graphrow_row_filters$" );
+
+    for ( const INIEntry &entry : entries )
+        m_previous_filters.push_back( entry.second );
+
+    if ( m_previous_filters.empty() )
+    {
+        // Add some default filters
+        m_previous_filters.push_back( "$name = drm_vblank_event && $crtc = 0" );
+        m_previous_filters.push_back( "$name = drm_vblank_event && $crtc = 1" );
+    }
+
+}
+
+void CreateRowFilterDlg::shutdown()
+{
+    for ( size_t i = 0; i < m_previous_filters.size(); i++ )
+    {
+        char key[ 32 ];
+        const std::string &value = m_previous_filters[ i ];
+
+        snprintf_safe( key, "%02lu", i );
+
+        s_ini().PutStr( key, value.c_str(), "$graphrow_row_filters$" );
+    }
+}
+
+bool CreateRowFilterDlg::show_dlg( TraceEvents &trace_events )
+{
+    strcpy_safe( m_filter_buf, m_previous_filters[ 0 ].c_str() );
+
+    ImGui::OpenPopup( "Create New Row Filter" );
+    return false;
+}
+
+bool CreateRowFilterDlg::render_dlg( TraceEvents &trace_events )
+{
+    if ( !ImGui::BeginPopupModal( "Create New Row Filter", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
+        return false;
+
+    bool ret = false;
+    float w = imgui_scale( 350.0f );
+    const char row_filter[] = "Row Filter:  ";
+    const ImVec2 button_size = { imgui_scale( 120.0f ), 0.0f };
+    const ImVec2 text_size = ImGui::CalcTextSize( row_filter );
+    float x = ImGui::GetCursorPos().x + text_size.x;
+
+    if ( ImGui::IsWindowAppearing() )
+        ImGui::SetKeyboardFocusHere( -1 );
+
+    imgui_input_text( row_filter, m_filter_buf, x, w );
+    if ( ImGui::IsItemHovered() )
+    {
+        std::string tooltip;
+
+        tooltip += s_textclrs().bright_str( "Add a new row with filtered events\n\n" );
+
+        tooltip += "Examples:\n";
+        tooltip += "  $pid = 4615\n";
+        tooltip += "  $duration >= 5.5\n";
+        tooltip += "  $buf =~ \"[Compositor] Warp\"\n";
+        tooltip += "  ( $timeline = gfx ) && ( $id < 10 || $id > 100 )\n";
+        tooltip += "  gfx, gfx hw, sdma0, print, etc.";
+
+        ImGui::SetTooltip( "%s", tooltip.c_str() );
+    }
+
+    if ( !m_err_str.empty() )
+        ImGui::TextColored( ImVec4( 1, 0, 0, 1), "%s", m_err_str.c_str() );
+
+    if ( ImGui::CollapsingHeader( "Previous Filters", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        ImGui::BeginChild( "previous_filters", ImVec2( 0.0f, imgui_scale( 150.0f ) ) );
+        ImGui::Indent();
+
+        ImGuiSelectableFlags flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_DontClosePopups;
+
+        for ( auto i : m_previous_filters )
+        {
+            const char *str0 = i.c_str();
+
+            ImGui::PushID( str0 );
+
+            if ( ImGui::Selectable( str0, false, flags ) )
+                strcpy_safe( m_filter_buf, str0 );
+
+            ImGui::PopID();
+        }
+
+        ImGui::Unindent();
+        ImGui::EndChild();
+    }
+
+    bool disabled = !m_filter_buf[ 0 ];
 
     ImGui::PushStyleColor( ImGuiCol_Text,
         ImGui::GetStyleColorVec4( disabled ? ImGuiCol_TextDisabled : ImGuiCol_Text ) );
@@ -3214,6 +3354,11 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     {
         m_create_graph_row_eventid = is_valid_id( gi.hovered_eventid ) ?
                     gi.hovered_eventid : m_trace_events.m_events.size();
+    }
+
+    if ( ImGui::MenuItem( "Create Row Filter..." ) )
+    {
+        m_show_create_row_filter_dlg = true;
     }
 
     // Frame Markers

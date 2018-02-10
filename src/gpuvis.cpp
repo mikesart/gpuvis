@@ -2521,6 +2521,7 @@ TraceWin::TraceWin( const char *filename, size_t filesize )
 
     m_frame_markers.init();
     m_create_graph_row_dlg.init();
+    m_create_row_filter_dlg.init();
 }
 
 TraceWin::~TraceWin()
@@ -2531,6 +2532,7 @@ TraceWin::~TraceWin()
 
     m_frame_markers.shutdown();
     m_create_graph_row_dlg.shutdown();
+    m_create_row_filter_dlg.shutdown();
 
     s_opts().set_crtc_max( -1 );
 }
@@ -3598,6 +3600,17 @@ void TraceWin::graph_dialogs_render()
     {
         m_graph.rows.add_row( m_create_graph_row_dlg.m_name_buf,
                               m_create_graph_row_dlg.m_filter_buf );
+    }
+
+    // Row filters
+    if ( m_show_create_row_filter_dlg )
+    {
+        m_create_row_filter_dlg.show_dlg( m_trace_events );
+        m_show_create_row_filter_dlg = false;
+    }
+    if ( m_create_row_filter_dlg.render_dlg( m_trace_events ) )
+    {
+        //$ TODO: apply filter to m_graph.mouse_over_row_name
     }
 
     // Filter events
