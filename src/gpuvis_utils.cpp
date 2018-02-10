@@ -777,6 +777,8 @@ static colors_t col_index_from_imguicol( ImGuiCol col )
     case ImGuiCol_TextSelectedBg: return col_ImGui_TextSelectedBg;
     case ImGuiCol_ModalWindowDarkening: return col_ImGui_ModalWindowDarkening;
     case ImGuiCol_DragDropTarget: return col_Max;
+    case ImGuiCol_NavHighlight: return col_Max;
+    case ImGuiCol_NavWindowingHighlight: return col_Max;
     }
 
     assert( 0 );

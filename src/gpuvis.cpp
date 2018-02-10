@@ -4393,6 +4393,9 @@ int main( int argc, char **argv )
         return -1;
     }
 
+    // Create ImGui Context
+    ImGui::CreateContext();
+
     SDL_Window *window = NULL;
     SDL_GLContext glcontext = NULL;
     SDL_Cursor *cursor_sizens = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENS );
@@ -4523,11 +4526,13 @@ int main( int argc, char **argv )
     logf_shutdown();
 
     ImGui_ImplSdlGL3_Shutdown();
+    ImGui::DestroyContext();
 
     SDL_FreeCursor( cursor_sizens );
 
     SDL_GL_DeleteContext( glcontext );
     SDL_DestroyWindow( window );
     SDL_Quit();
+
     return 0;
 }
