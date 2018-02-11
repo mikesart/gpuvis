@@ -871,7 +871,8 @@ void CreateGraphRowDlg::init()
     if ( m_previous_filters.empty() )
     {
         // Add a default filter
-        m_previous_filters.push_back( "$name = drm_vblank_event" );
+        m_previous_filters.push_back( "$name = drm_vblank_event && $crtc = 0" );
+        m_previous_filters.push_back( "$name = drm_vblank_event && $crtc = 1" );
     }
 }
 
@@ -1025,8 +1026,7 @@ void CreateRowFilterDlg::init()
     if ( m_previous_filters.empty() )
     {
         // Add some default filters
-        m_previous_filters.push_back( "$name = drm_vblank_event && $crtc = 0" );
-        m_previous_filters.push_back( "$name = drm_vblank_event && $crtc = 1" );
+        m_previous_filters.push_back( "$name = drm_vblank_event" );
     }
 }
 
