@@ -3392,43 +3392,18 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     if ( !m_graph.mouse_over_row_name.empty() &&
          !m_create_row_filter_dlg.m_previous_filters.empty() )
     {
-        // Hash of row name
-        uint32_t hashval = fnv_hashstr32( m_graph.mouse_over_row_name.c_str() );
-        // Find array of applied filters for this row
-        std::vector< std::string > *row_filters = m_graph_row_filters.get_val( hashval );
-
         if ( ImGui::BeginMenu( "Row Filters" ) )
         {
+            RowFilters rowfilters( m_graph_row_filters, m_graph.mouse_over_row_name );
+
             // Go through all the row filters
             for ( const std::string &val : m_create_row_filter_dlg.m_previous_filters )
             {
-                size_t idx = ( size_t )-1;
-
-                if ( row_filters )
-                {
-                    // This row has some applied filters, see if this is one of them
-                    auto i = std::find( row_filters->begin(), row_filters->end(), val );
-
-                    if ( i != row_filters->end() )
-                        idx = i - row_filters->begin();
-                }
+                size_t idx = rowfilters.find_filter( val );
 
                 if ( ImGui::MenuItem( val.c_str(), NULL, idx != ( size_t )-1 ) )
                 {
-                    if ( idx == ( size_t )-1 )
-                    {
-                        // New Filter
-                        if ( !row_filters )
-                            row_filters = m_graph_row_filters.get_val_create( hashval );
-
-                        row_filters->push_back( val );
-                        std::sort( row_filters->begin(), row_filters->end() );
-                    }
-                    else
-                    {
-                        // Remove this filter
-                        row_filters->erase( row_filters->begin() + idx );
-                    }
+                    rowfilters.toggle_filter( idx, val );
                 }
             }
 

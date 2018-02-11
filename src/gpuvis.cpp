@@ -3612,36 +3612,12 @@ void TraceWin::graph_dialogs_render()
     {
         if ( !m_create_row_filter_dlg_rowname.empty() )
         {
-            const std::string &val = m_create_row_filter_dlg.m_previous_filters[ 0 ];
-            size_t idx = ( size_t )-1;
-            // Hash of row name
-            uint32_t hashval = fnv_hashstr32( m_create_row_filter_dlg_rowname.c_str() );
-            // Find array of applied filters for this row
-            std::vector< std::string > *row_filters = m_graph_row_filters.get_val( hashval );
-
-            if ( row_filters )
-            {
-                // This row has some applied filters, see if this is one of them
-                auto i = std::find( row_filters->begin(), row_filters->end(), val );
-
-                if ( i != row_filters->end() )
-                    idx = i - row_filters->begin();
-            }
+            RowFilters rowfilters( m_graph_row_filters, m_create_row_filter_dlg_rowname );
+            const std::string &filter = m_create_row_filter_dlg.m_previous_filters[ 0 ];
+            size_t idx = rowfilters.find_filter( filter );
 
             if ( idx == ( size_t )-1 )
-            {
-                // New Filter
-                if ( !row_filters )
-                    row_filters = m_graph_row_filters.get_val_create( hashval );
-
-                row_filters->push_back( val );
-                std::sort( row_filters->begin(), row_filters->end() );
-            }
-            else
-            {
-                // Remove this filter
-                row_filters->erase( row_filters->begin() + idx );
-            }
+                rowfilters.toggle_filter( idx, filter );
         }
     }
 
