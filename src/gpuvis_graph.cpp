@@ -1071,7 +1071,7 @@ bool CreateRowFilterDlg::render_dlg( TraceEvents &trace_events )
     {
         std::string tooltip;
 
-        tooltip += s_textclrs().bright_str( "Add a new row with filtered events\n\n" );
+        tooltip += s_textclrs().bright_str( "Row filter expression\n\n" );
 
         tooltip += "Examples:\n";
         tooltip += "  $pid = 4615\n";
