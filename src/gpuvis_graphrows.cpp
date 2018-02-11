@@ -394,7 +394,7 @@ void GraphRows::init( TraceEvents &trace_events )
         uint32_t hashval = item.first;
         const char *comm = trace_events.m_strpool.findstr( hashval );
 
-        comms.push_back( { LOC_TYPE_Comm, comm, comm, item.second.size(), false } );
+        comms.push_back( { false, LOC_TYPE_Comm, comm, comm, item.second.size() } );
     }
 
     // Sort by tgids, count of events, and comm name...
@@ -482,11 +482,11 @@ void GraphRows::shutdown()
     save_umap_ini_entries( m_graph_row_scale_ts, "$graph_rows_scale_ts$" );
 }
 
-void GraphRows::add_row( const std::string &name_in, const std::string &filter, float scale )
+void GraphRows::add_row( const std::string &name_in, const std::string &filter_expr, float scale )
 {
     loc_type_t type;
     std::string name = name_in;
-    const std::vector< uint32_t > *plocs = m_trace_events->get_locs( filter.c_str(), &type );
+    const std::vector< uint32_t > *plocs = m_trace_events->get_locs( filter_expr.c_str(), &type );
     size_t event_count = plocs ? plocs->size() : 0;
 
     if ( type == LOC_TYPE_Tdopexpr )
@@ -509,7 +509,7 @@ void GraphRows::add_row( const std::string &name_in, const std::string &filter, 
     else
     {
         // Add expression to our added rows list
-        m_graph_rows_add.m_map[ name ] = filter;
+        m_graph_rows_add.m_map[ name ] = filter_expr;
     }
 
     // Set time scale
@@ -520,7 +520,7 @@ void GraphRows::add_row( const std::string &name_in, const std::string &filter, 
     {
         graph_rows_info_t &row = m_graph_rows_list[ idx ];
 
-        row.row_filter = filter;
+        row.row_filter_expr = filter_expr;
         row.type = type;
         row.event_count = event_count;
         row.hidden = false;
@@ -531,7 +531,7 @@ void GraphRows::add_row( const std::string &name_in, const std::string &filter, 
         auto it = m_graph_rows_list.begin() + print_row_index + 1;
 
         m_graph_rows_list.insert( it,
-            { LOC_TYPE_Plot, name, filter, event_count, false } );
+            { false, LOC_TYPE_Plot, name, filter_expr, event_count } );
     }
     else
     {
@@ -542,13 +542,13 @@ void GraphRows::add_row( const std::string &name_in, const std::string &filter, 
                  m_graph_rows_list[ i ].type == LOC_TYPE_Comm )
             {
                 m_graph_rows_list.insert( m_graph_rows_list.begin() + i,
-                    { type, name, filter, event_count, false } );
+                    { false, type, name, filter_expr, event_count } );
                 return;
             }
         }
 
         // Just add to the end.
-        m_graph_rows_list.push_back( { type, name, filter, event_count, false } );
+        m_graph_rows_list.push_back( { false, type, name, filter_expr, event_count } );
     }
 }
 

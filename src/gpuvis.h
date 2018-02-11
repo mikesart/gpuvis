@@ -554,11 +554,12 @@ public:
 public:
     struct graph_rows_info_t
     {
-        loc_type_t type;
-        std::string row_name;
-        std::string row_filter;
-        size_t event_count;
         bool hidden;
+        loc_type_t type;
+
+        std::string row_name;
+        std::string row_filter_expr;
+        size_t event_count;
     };
 
 public:
@@ -566,7 +567,7 @@ public:
     void init( TraceEvents &trace_events );
     void shutdown();
 
-    void add_row( const std::string &name, const std::string &filter, float scale = 1.0f );
+    void add_row( const std::string &name, const std::string &filter_expr, float scale = 1.0f );
     void move_row( const std::string &name_src, const std::string &name_dest );
 
     // Search in m_graph_rows_list for name. Returns index or -1 if not found.
@@ -589,7 +590,7 @@ public:
 
 protected:
     void push_row( const std::string &name, loc_type_t type, size_t event_count, bool hidden = false )
-        { m_graph_rows_list.push_back( { type, name, name, event_count, hidden } ); }
+        { m_graph_rows_list.push_back( { hidden, type, name, name, event_count } ); }
 
 public:
     TraceEvents *m_trace_events = nullptr;
@@ -832,7 +833,7 @@ public:
 
         std::string zoom_row_name;
         std::string mouse_over_row_name;
-        std::string mouse_over_row_filter;
+        std::string mouse_over_row_filter_expr;
         loc_type_t mouse_over_row_type;
 
         std::vector< GraphRows::graph_rows_info_t > hidden_rows;

@@ -92,7 +92,7 @@ struct row_info_t
 
     loc_type_t row_type;
     std::string row_name;
-    std::string row_filter;
+    std::string row_filter_expr;
     const std::vector< uint32_t > *plocs;
 
     float scale_ts = 1.0f;
@@ -521,12 +521,12 @@ void graph_info_t::init_rows( const std::vector< GraphRows::graph_rows_info_t > 
         if ( grow.hidden )
             continue;
 
-        plocs = win.m_trace_events.get_locs( grow.row_filter.c_str(), &rinfo.row_type );
+        plocs = win.m_trace_events.get_locs( grow.row_filter_expr.c_str(), &rinfo.row_type );
 
         rinfo.row_y = total_graph_height;
         rinfo.row_h = text_h * 2;
         rinfo.row_name = row_name;
-        rinfo.row_filter = grow.row_filter;
+        rinfo.row_filter_expr = grow.row_filter_expr;
         rinfo.scale_ts = win.m_graph.rows.get_row_scale_ts( row_name );
 
         if ( plocs )
@@ -679,7 +679,7 @@ void graph_info_t::init()
     if ( !win.m_graph.popupmenu )
     {
         win.m_graph.mouse_over_row_name.clear();
-        win.m_graph.mouse_over_row_filter.clear();
+        win.m_graph.mouse_over_row_filter_expr.clear();
         win.m_graph.mouse_over_row_type = LOC_TYPE_Max;
     }
 
@@ -2070,7 +2070,7 @@ void TraceWin::graph_render_single_row( graph_info_t &gi )
     if ( gi.mouse_over )
     {
         m_graph.mouse_over_row_name = gi.prinfo_cur->row_name;
-        m_graph.mouse_over_row_filter = gi.prinfo_cur->row_filter;
+        m_graph.mouse_over_row_filter_expr = gi.prinfo_cur->row_filter_expr;
         m_graph.mouse_over_row_type = gi.prinfo_cur->row_type;
     }
 
@@ -3534,9 +3534,9 @@ void TraceWin::graph_mouse_tooltip_rowinfo( std::string &ttip, graph_info_t &gi,
         GraphPlot &plot = m_trace_events.get_plot( row_name.c_str() );
         ttip += "\nFilter: " + plot.m_filter_str;
     }
-    else if ( !row_name.empty() && ( row_name != m_graph.mouse_over_row_filter ) )
+    else if ( !row_name.empty() && ( row_name != m_graph.mouse_over_row_filter_expr ) )
     {
-        ttip += "\nFilter: " + m_graph.mouse_over_row_filter;
+        ttip += "\nFilter: " + m_graph.mouse_over_row_filter_expr;
     }
 
     if ( row_filters && !row_filters->empty() )
