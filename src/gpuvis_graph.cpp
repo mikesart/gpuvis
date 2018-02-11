@@ -1386,6 +1386,9 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
     event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
 
+    // Get all the row_filters for this row
+    std::vector< std::string > *row_filters = m_graph_row_filters.get_val( fnv_hashstr32( row_name ) );
+
     for ( size_t idx = m_trace_events.ts_to_ftrace_print_info_idx( locs, gi.ts0 - ts_offset );
           idx < locs.size();
           idx++ )
@@ -1414,6 +1417,31 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
             if ( ftrace_row_info->pid != event.pid )
                 continue;
             row_id = print_info->graph_row_id_pid;
+        }
+
+        if ( row_filters && !row_filters->empty() )
+        {
+            bool found = true;
+
+            // Go through all filters
+            for ( const std::string &filter : *row_filters )
+            {
+                // Get all events for this filter
+                const std::vector< uint32_t > *plocs = m_trace_events.get_locs( filter.c_str() );
+
+                if ( plocs )
+                {
+                    // See if we can find this event in the filter
+                    auto i = std::find( plocs->begin(), plocs->end(), event.id );
+
+                    found = i != plocs->end();
+                    if ( !found )
+                        break;
+                }
+            }
+
+            if ( !found )
+                continue;
         }
 
         float x = gi.ts_to_screenx( print_info->ts );
@@ -3357,7 +3385,8 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
     if ( ImGui::MenuItem( "Create Row Filter..." ) )
     {
-        m_show_create_row_filter_dlg = true;
+        m_create_row_filter_dlg_show = true;
+        m_create_row_filter_dlg_rowname = m_graph.mouse_over_row_name;
     }
 
     if ( !m_graph.mouse_over_row_name.empty() &&

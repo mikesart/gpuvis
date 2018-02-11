@@ -731,7 +731,8 @@ public:
     uint32_t m_create_graph_row_eventid = INVALID_ID;
     CreateGraphRowDlg m_create_graph_row_dlg;
 
-    bool m_show_create_row_filter_dlg = false;
+    bool m_create_row_filter_dlg_show = false;
+    std::string m_create_row_filter_dlg_rowname;
     CreateRowFilterDlg m_create_row_filter_dlg;
 
     // Map graph row name hash to array of row_filters
