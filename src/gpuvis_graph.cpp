@@ -461,7 +461,7 @@ bool event_renderer_t::is_event_filtered( uint32_t event_id )
         for ( const std::string &filter : *m_row_filters )
         {
             // Get events for this filter
-            const std::vector< uint32_t > *plocs = m_gi.win.m_trace_events.get_locs( filter.c_str() );
+            const std::vector< uint32_t > *plocs = m_gi.win.m_trace_events.get_tdopexpr_locs( filter.c_str() );
 
             // See if we can find this event in the filter
             if ( plocs && !std::binary_search( plocs->begin(), plocs->end(), event_id ) )
@@ -1820,6 +1820,9 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
         else if ( gi.graph_only_filtered && event.is_filtered_out )
             continue;
         else if ( hide_sched_switch && event.is_sched_switch() )
+            continue;
+
+        if ( event_renderer.is_event_filtered( event.id ) )
             continue;
 
         float x = gi.ts_to_screenx( event.ts );
