@@ -1156,6 +1156,40 @@ bool CreateRowFilterDlg::render_dlg( TraceEvents &trace_events )
     return ret;
 }
 
+size_t RowFilters::find_filter( const std::string &filter )
+{
+    size_t idx = ( size_t )-1;
+
+    if ( m_row_filters )
+    {
+        // This row has some applied filters, see if this is one of them
+        auto i = std::find( m_row_filters->begin(), m_row_filters->end(), filter );
+
+        if ( i != m_row_filters->end() )
+            idx = i - m_row_filters->begin();
+    }
+
+    return idx;
+}
+
+void RowFilters::toggle_filter( size_t idx, const std::string &filter )
+{
+    if ( idx == ( size_t )-1 )
+    {
+        // New Filter
+        if ( !m_row_filters )
+            m_row_filters = m_graph_row_filters.get_val_create( m_rowname_hash );
+
+        m_row_filters->push_back( filter );
+        std::sort( m_row_filters->begin(), m_row_filters->end() );
+    }
+    else
+    {
+        // Remove this filter
+        m_row_filters->erase( m_row_filters->begin() + idx );
+    }
+}
+
 uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
 {
     float minval = FLT_MAX;

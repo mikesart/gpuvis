@@ -252,47 +252,16 @@ public:
     RowFilters( util_umap< uint32_t, std::vector< std::string > > &graph_row_filters, const std::string &row_name ) :
         m_graph_row_filters( graph_row_filters )
     {
-        m_hashval = fnv_hashstr32( row_name.c_str() );
-        m_row_filters = m_graph_row_filters.get_val( m_hashval );
+        m_rowname_hash = fnv_hashstr32( row_name.c_str() );
+        m_row_filters = m_graph_row_filters.get_val( m_rowname_hash );
     }
     ~RowFilters() {}
 
-    size_t find_filter( const std::string &filter )
-    {
-        size_t idx = ( size_t )-1;
-
-        if ( m_row_filters )
-        {
-            // This row has some applied filters, see if this is one of them
-            auto i = std::find( m_row_filters->begin(), m_row_filters->end(), filter );
-
-            if ( i != m_row_filters->end() )
-                idx = i - m_row_filters->begin();
-        }
-
-        return idx;
-    }
-    
-    void toggle_filter( size_t idx, const std::string &filter )
-    {
-        if ( idx == ( size_t )-1 )
-        {
-            // New Filter
-            if ( !m_row_filters )
-                m_row_filters = m_graph_row_filters.get_val_create( m_hashval );
-
-            m_row_filters->push_back( filter );
-            std::sort( m_row_filters->begin(), m_row_filters->end() );
-        }
-        else
-        {
-            // Remove this filter
-            m_row_filters->erase( m_row_filters->begin() + idx );
-        }
-    }
+    size_t find_filter( const std::string &filter );
+    void toggle_filter( size_t idx, const std::string &filter );
 
 public:
-    uint32_t m_hashval = 0;
+    uint32_t m_rowname_hash = 0;
     std::vector< std::string > *m_row_filters = nullptr;
     util_umap< uint32_t, std::vector< std::string > > &m_graph_row_filters;
 };
