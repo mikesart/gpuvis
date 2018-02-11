@@ -1463,14 +1463,11 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
                 // Get all events for this filter
                 const std::vector< uint32_t > *plocs = m_trace_events.get_locs( filter.c_str() );
 
-                if ( plocs )
+                // See if we can find this event in the filter
+                if ( plocs && !std::binary_search( plocs->begin(), plocs->end(), event.id ) )
                 {
-                    // See if we can find this event in the filter
-                    auto i = std::find( plocs->begin(), plocs->end(), event.id );
-
-                    found = i != plocs->end();
-                    if ( !found )
-                        break;
+                    found = false;
+                    break;
                 }
             }
 
