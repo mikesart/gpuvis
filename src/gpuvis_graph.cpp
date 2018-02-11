@@ -59,6 +59,8 @@ public:
 
     void set_y( float y_in, float h_in );
 
+    bool is_event_filtered( uint32_t event_id );
+
 protected:
     void start( float x, ImU32 color );
     void draw();
@@ -80,6 +82,8 @@ public:
         ImU32 color;
     };
     std::vector< markers_t > m_markers;
+
+    std::vector< std::string > *m_row_filters = nullptr;
 
     graph_info_t &m_gi;
 };
@@ -356,6 +360,11 @@ event_renderer_t::event_renderer_t( graph_info_t &gi, float y_in, float w_in, fl
     m_h = h_in;
 
     start( -1.0f, 0 );
+
+    uint32_t hashval = fnv_hashstr32( gi.prinfo_cur->row_name.c_str() );
+    m_row_filters = gi.win.m_graph_row_filters.get_val( hashval );
+    if ( m_row_filters && m_row_filters->empty() )
+        m_row_filters = NULL;
 }
 
 void event_renderer_t::set_y( float y_in, float h_in )
@@ -442,6 +451,25 @@ void event_renderer_t::draw()
     float width = std::max< float >( m_x1 - m_x0, min_width );
 
     imgui_drawrect_filled( m_x0, m_y, width, m_h, color );
+}
+
+bool event_renderer_t::is_event_filtered( uint32_t event_id )
+{
+    if ( m_row_filters )
+    {
+        // Go through all the row filters
+        for ( const std::string &filter : *m_row_filters )
+        {
+            // Get events for this filter
+            const std::vector< uint32_t > *plocs = m_gi.win.m_trace_events.get_locs( filter.c_str() );
+
+            // See if we can find this event in the filter
+            if ( plocs && !std::binary_search( plocs->begin(), plocs->end(), event_id ) )
+                return true;
+        }
+    }
+
+    return false;
 }
 
 static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t row_type )
@@ -1420,9 +1448,6 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
     event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
 
-    // Get all the row_filters for this row
-    std::vector< std::string > *row_filters = m_graph_row_filters.get_val( fnv_hashstr32( row_name ) );
-
     for ( size_t idx = m_trace_events.ts_to_ftrace_print_info_idx( locs, gi.ts0 - ts_offset );
           idx < locs.size();
           idx++ )
@@ -1453,27 +1478,8 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
             row_id = print_info->graph_row_id_pid;
         }
 
-        if ( row_filters && !row_filters->empty() )
-        {
-            bool found = true;
-
-            // Go through all filters
-            for ( const std::string &filter : *row_filters )
-            {
-                // Get all events for this filter
-                const std::vector< uint32_t > *plocs = m_trace_events.get_locs( filter.c_str() );
-
-                // See if we can find this event in the filter
-                if ( plocs && !std::binary_search( plocs->begin(), plocs->end(), event.id ) )
-                {
-                    found = false;
-                    break;
-                }
-            }
-
-            if ( !found )
-                continue;
-        }
+        if ( event_renderer.is_event_filtered( event.id ) )
+            continue;
 
         float x = gi.ts_to_screenx( print_info->ts );
         float y = gi.rc.y + ( row_count - row_id - 1 ) * h;
