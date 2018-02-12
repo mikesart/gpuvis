@@ -246,10 +246,15 @@ public:
     std::vector< std::string > m_previous_filters;
 };
 
+struct row_filter_t
+{
+    std::vector< std::string > filters;
+};
+
 class RowFilters
 {
 public:
-    RowFilters( util_umap< uint32_t, std::vector< std::string > > &graph_row_filters, const std::string &row_name ) :
+    RowFilters( util_umap< uint32_t, row_filter_t > &graph_row_filters, const std::string &row_name ) :
         m_graph_row_filters( graph_row_filters )
     {
         m_rowname_hash = fnv_hashstr32( row_name.c_str() );
@@ -262,8 +267,8 @@ public:
 
 public:
     uint32_t m_rowname_hash = 0;
-    std::vector< std::string > *m_row_filters = nullptr;
-    util_umap< uint32_t, std::vector< std::string > > &m_graph_row_filters;
+    row_filter_t *m_row_filters = nullptr;
+    util_umap< uint32_t, row_filter_t > &m_graph_row_filters;
 };
 
 class FrameMarkers
@@ -757,7 +762,7 @@ public:
     CreateRowFilterDlg m_create_row_filter_dlg;
 
     // Map graph row name hash to array of row_filters
-    util_umap< uint32_t, std::vector< std::string > > m_graph_row_filters;
+    util_umap< uint32_t, row_filter_t > m_graph_row_filters;
 
     uint32_t m_create_filter_eventid = INVALID_ID;
     FrameMarkers m_frame_markers;

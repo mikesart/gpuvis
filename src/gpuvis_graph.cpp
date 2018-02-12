@@ -83,7 +83,7 @@ public:
     };
     std::vector< markers_t > m_markers;
 
-    std::vector< std::string > *m_row_filters = nullptr;
+    row_filter_t *m_row_filters = nullptr;
 
     graph_info_t &m_gi;
 };
@@ -363,7 +363,7 @@ event_renderer_t::event_renderer_t( graph_info_t &gi, float y_in, float w_in, fl
 
     uint32_t hashval = fnv_hashstr32( gi.prinfo_cur->row_name.c_str() );
     m_row_filters = gi.win.m_graph_row_filters.get_val( hashval );
-    if ( m_row_filters && m_row_filters->empty() )
+    if ( m_row_filters && m_row_filters->filters.empty() )
         m_row_filters = NULL;
 }
 
@@ -458,7 +458,7 @@ bool event_renderer_t::is_event_filtered( uint32_t event_id )
     if ( m_row_filters )
     {
         // Go through all the row filters
-        for ( const std::string &filter : *m_row_filters )
+        for ( const std::string &filter : m_row_filters->filters )
         {
             // Get events for this filter
             const std::vector< uint32_t > *plocs = m_gi.win.m_trace_events.get_tdopexpr_locs( filter.c_str() );
@@ -1191,10 +1191,10 @@ size_t RowFilters::find_filter( const std::string &filter )
     if ( m_row_filters )
     {
         // This row has some applied filters, see if this is one of them
-        auto i = std::find( m_row_filters->begin(), m_row_filters->end(), filter );
+        auto i = std::find( m_row_filters->filters.begin(), m_row_filters->filters.end(), filter );
 
-        if ( i != m_row_filters->end() )
-            idx = i - m_row_filters->begin();
+        if ( i != m_row_filters->filters.end() )
+            idx = i - m_row_filters->filters.begin();
     }
 
     return idx;
@@ -1208,13 +1208,13 @@ void RowFilters::toggle_filter( size_t idx, const std::string &filter )
         if ( !m_row_filters )
             m_row_filters = m_graph_row_filters.get_val_create( m_rowname_hash );
 
-        m_row_filters->push_back( filter );
-        std::sort( m_row_filters->begin(), m_row_filters->end() );
+        m_row_filters->filters.push_back( filter );
+        std::sort( m_row_filters->filters.begin(), m_row_filters->filters.end() );
     }
     else
     {
         // Remove this filter
-        m_row_filters->erase( m_row_filters->begin() + idx );
+        m_row_filters->filters.erase( m_row_filters->filters.begin() + idx );
     }
 }
 
@@ -3527,7 +3527,7 @@ void TraceWin::graph_mouse_tooltip_rowinfo( std::string &ttip, graph_info_t &gi,
 {
     const std::string &row_name = m_graph.mouse_over_row_name;
     uint32_t hashval = fnv_hashstr32( row_name.c_str() );
-    std::vector< std::string > *row_filters = m_graph_row_filters.get_val( hashval );
+    row_filter_t *row_filters = m_graph_row_filters.get_val( hashval );
 
     if ( !row_name.empty() )
     {
@@ -3548,11 +3548,11 @@ void TraceWin::graph_mouse_tooltip_rowinfo( std::string &ttip, graph_info_t &gi,
         ttip += "\nFilter: " + m_graph.mouse_over_row_filter_expr;
     }
 
-    if ( row_filters && !row_filters->empty() )
+    if ( row_filters && !row_filters->filters.empty() )
     {
         ttip += "\nActive Row Filters:";
 
-        for ( const std::string &filter : *row_filters )
+        for ( const std::string &filter : row_filters->filters )
         {
             ttip += "\n  " + filter;
         }
