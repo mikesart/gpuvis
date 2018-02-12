@@ -457,12 +457,15 @@ bool event_renderer_t::is_event_filtered( uint32_t event_id )
 {
     bool filtered = false;
 
-    if ( m_row_filters && m_row_filters->bitvec )
+    if ( m_gi.win.m_row_filters_enabled )
     {
-        if ( event_id >= m_row_filters->bitvec->size() )
-            filtered = true;
-        else
-            filtered = !m_row_filters->bitvec->get( event_id );
+        if ( m_row_filters && m_row_filters->bitvec )
+        {
+            if ( event_id >= m_row_filters->bitvec->size() )
+                filtered = true;
+            else
+                filtered = !m_row_filters->bitvec->get( event_id );
+        }
     }
 
     return filtered;
@@ -2656,6 +2659,9 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
         frame_markers_goto( target, fit_frame );
     }
 
+    if ( s_actions().get( action_toggle_frame_filters ) )
+        m_row_filters_enabled = !m_row_filters_enabled;
+
     if ( s_actions().get( action_graph_zoom_row ) )
     {
         if ( !m_graph.zoom_row_name.empty() )
@@ -3480,11 +3486,18 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     // Graph Row Filters
     if ( ImGui::BeginMenu( "Row Filters") )
     {
+        const char *enablelabel = m_row_filters_enabled ?
+                    "Disable All Row Filters" : "Enable All Row Filters";
+        const std::string shortcut = s_actions().hotkey_str( action_toggle_frame_filters );
+
         if ( ImGui::MenuItem( "Create Row Filter..." ) )
         {
             m_create_row_filter_dlg_show = true;
             m_create_row_filter_dlg_rowname = m_graph.mouse_over_row_name;
         }
+
+        if ( ImGui::MenuItem( enablelabel, shortcut.c_str() ) )
+            m_row_filters_enabled = !m_row_filters_enabled;
 
         ImGui::Separator();
 
@@ -3499,7 +3512,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
                 size_t idx = rowfilters.find_filter( val );
                 bool selected = ( idx != ( size_t )-1 );
 
-                if ( ImGui::MenuItem( val.c_str(), NULL, selected ) )
+                if ( ImGui::MenuItem( val.c_str(), NULL, selected, m_row_filters_enabled ) )
                 {
                     rowfilters.toggle_filter( m_trace_events, idx, val );
                 }
@@ -3608,7 +3621,10 @@ void TraceWin::graph_mouse_tooltip_rowinfo( std::string &ttip, graph_info_t &gi,
 
     if ( row_filters && !row_filters->filters.empty() )
     {
-        ttip += "\nActive Row Filters:";
+        if ( m_row_filters_enabled )
+            ttip += "\nRow Filters (enabled):";
+        else
+            ttip += "\nRow Filters (disabled):";
 
         for ( const std::string &filter : row_filters->filters )
         {

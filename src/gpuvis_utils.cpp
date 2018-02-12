@@ -1506,6 +1506,7 @@ void Actions::init()
     m_actionmap.push_back( { action_toggle_vblank0, KMOD_CTRL | KMOD_SHIFT, SDLK_m, "Toggle showing vblank 0 markers" } );
     m_actionmap.push_back( { action_toggle_vblank1, KMOD_CTRL | KMOD_SHIFT, SDLK_n, "Toggle showing vblank 1 markers" } );
     m_actionmap.push_back( { action_toggle_framemarkers, KMOD_CTRL | KMOD_SHIFT, SDLK_f, "Toggle showing Frame Markers" } );
+    m_actionmap.push_back( { action_toggle_frame_filters, KMOD_CTRL | KMOD_SHIFT, SDLK_r, "Toggle Frame Filters" } );
 
     m_actionmap.push_back( { action_frame_marker_prev_fit, KMOD_CTRL | KMOD_REPEAT, SDLK_LEFT, "Show and fit previous frame marker frame in graph" } );
     m_actionmap.push_back( { action_frame_marker_next_fit, KMOD_CTRL | KMOD_REPEAT, SDLK_RIGHT, "Show and fit next frame marker frame in graph" } );
