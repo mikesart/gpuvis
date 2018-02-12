@@ -3610,6 +3610,7 @@ void TraceWin::graph_dialogs_render()
     }
     if ( m_create_row_filter_dlg.render_dlg( m_trace_events ) )
     {
+        // If the context menu was over a graph row
         if ( !m_create_row_filter_dlg_rowname.empty() )
         {
             RowFilters rowfilters( m_graph_row_filters, m_create_row_filter_dlg_rowname );
@@ -3617,7 +3618,10 @@ void TraceWin::graph_dialogs_render()
             size_t idx = rowfilters.find_filter( filter );
 
             if ( idx == ( size_t )-1 )
-                rowfilters.toggle_filter( idx, filter );
+            {
+                // If this filter isn't already set for this graph row, add it
+                rowfilters.toggle_filter( m_trace_events, idx, filter );
+            }
         }
     }
 

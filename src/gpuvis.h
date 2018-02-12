@@ -248,6 +248,7 @@ public:
 
 struct row_filter_t
 {
+    BitVec *bitvec = nullptr;
     std::vector< std::string > filters;
 };
 
@@ -263,7 +264,7 @@ public:
     ~RowFilters() {}
 
     size_t find_filter( const std::string &filter );
-    void toggle_filter( size_t idx, const std::string &filter );
+    void toggle_filter( TraceEvents &trace_events, size_t idx, const std::string &filter );
 
 public:
     uint32_t m_rowname_hash = 0;

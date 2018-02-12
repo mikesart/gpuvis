@@ -455,21 +455,17 @@ void event_renderer_t::draw()
 
 bool event_renderer_t::is_event_filtered( uint32_t event_id )
 {
-    if ( m_row_filters )
-    {
-        // Go through all the row filters
-        for ( const std::string &filter : m_row_filters->filters )
-        {
-            // Get events for this filter
-            const std::vector< uint32_t > *plocs = m_gi.win.m_trace_events.get_tdopexpr_locs( filter.c_str() );
+    bool filtered = false;
 
-            // See if we can find this event in the filter
-            if ( plocs && !std::binary_search( plocs->begin(), plocs->end(), event_id ) )
-                return true;
-        }
+    if ( m_row_filters && m_row_filters->bitvec )
+    {
+        if ( event_id >= m_row_filters->bitvec->size() )
+            filtered = true;
+        else
+            filtered = !m_row_filters->bitvec->get( event_id );
     }
 
-    return false;
+    return filtered;
 }
 
 static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t row_type )
@@ -1200,7 +1196,7 @@ size_t RowFilters::find_filter( const std::string &filter )
     return idx;
 }
 
-void RowFilters::toggle_filter( size_t idx, const std::string &filter )
+void RowFilters::toggle_filter( TraceEvents &trace_events, size_t idx, const std::string &filter )
 {
     if ( idx == ( size_t )-1 )
     {
@@ -1215,6 +1211,64 @@ void RowFilters::toggle_filter( size_t idx, const std::string &filter )
     {
         // Remove this filter
         m_row_filters->filters.erase( m_row_filters->filters.begin() + idx );
+    }
+
+    // Free old bitmask
+    delete m_row_filters->bitvec;
+    m_row_filters->bitvec = NULL;
+
+    // Create new bitmask of valid eventids
+    const std::vector< uint32_t > *plocs_smallest = NULL;
+    std::vector< const std::vector< uint32_t > * > locs;
+
+    // Go through all the filters
+    for ( const std::string &filterstr : m_row_filters->filters )
+    {
+        // Get events for this filter
+        const std::vector< uint32_t > *plocs = trace_events.get_tdopexpr_locs( filterstr.c_str() );
+
+        if ( plocs )
+        {
+            if ( !plocs_smallest || ( plocs->size() < plocs_smallest->size() ) )
+                plocs_smallest = plocs;
+
+            locs.push_back( plocs );
+        }
+    }
+
+    if ( plocs_smallest )
+    {
+        // Remove plocs_smallest from array of filter locs
+        auto idx0 = std::find( locs.begin(), locs.end(), plocs_smallest );
+        locs.erase( idx0 );
+
+        for ( auto it = plocs_smallest->rbegin(); it != plocs_smallest->rend(); it++ )
+        {
+            uint32_t eventid = *it;
+            bool set_in_all_filters = true;
+
+            // Try to find this eventid in all the filters
+            for ( const std::vector< uint32_t > *plocs : locs )
+            {
+                if ( !std::binary_search( plocs->begin(), plocs->end(), eventid ) )
+                {
+                    set_in_all_filters = false;
+                    break;
+                }
+            }
+
+            if ( set_in_all_filters )
+            {
+                if ( !m_row_filters->bitvec )
+                    m_row_filters->bitvec = new BitVec( eventid + 1 );
+
+                m_row_filters->bitvec->set( eventid );
+            }
+        }
+
+        // No events found - just make a small empty bitvec
+        if ( !m_row_filters->bitvec )
+            m_row_filters->bitvec = new BitVec( 1 );
     }
 }
 
@@ -3440,10 +3494,11 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
             for ( const std::string &val : m_create_row_filter_dlg.m_previous_filters )
             {
                 size_t idx = rowfilters.find_filter( val );
+                bool selected = ( idx != ( size_t )-1 );
 
-                if ( ImGui::MenuItem( val.c_str(), NULL, idx != ( size_t )-1 ) )
+                if ( ImGui::MenuItem( val.c_str(), NULL, selected ) )
                 {
-                    rowfilters.toggle_filter( idx, val );
+                    rowfilters.toggle_filter( m_trace_events, idx, val );
                 }
             }
 
