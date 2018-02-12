@@ -3477,16 +3477,19 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
                     gi.hovered_eventid : m_trace_events.m_events.size();
     }
 
-    if ( ImGui::MenuItem( "Create Row Filter..." ) )
+    // Graph Row Filters
+    if ( ImGui::BeginMenu( "Row Filters") )
     {
-        m_create_row_filter_dlg_show = true;
-        m_create_row_filter_dlg_rowname = m_graph.mouse_over_row_name;
-    }
+        if ( ImGui::MenuItem( "Create Row Filter..." ) )
+        {
+            m_create_row_filter_dlg_show = true;
+            m_create_row_filter_dlg_rowname = m_graph.mouse_over_row_name;
+        }
 
-    if ( !m_graph.mouse_over_row_name.empty() &&
-         !m_create_row_filter_dlg.m_previous_filters.empty() )
-    {
-        if ( ImGui::BeginMenu( "Row Filters" ) )
+        ImGui::Separator();
+
+        if ( !m_graph.mouse_over_row_name.empty() &&
+             !m_create_row_filter_dlg.m_previous_filters.empty() )
         {
             RowFilters rowfilters( m_graph_row_filters, m_graph.mouse_over_row_name );
 
@@ -3501,9 +3504,9 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
                     rowfilters.toggle_filter( m_trace_events, idx, val );
                 }
             }
-
-            ImGui::EndMenu();
         }
+
+        ImGui::EndMenu();
     }
 
     // Frame Markers
