@@ -186,6 +186,32 @@ public:
     util_umap< uint32_t, std::string > m_pool;
 };
 
+class BitVec
+{
+public:
+    explicit BitVec( size_t size )
+    {
+        m_size = size;
+        m_bits = ( uint8_t * )calloc( ( m_size + 7 ) / 8, 1 );
+    }
+    ~BitVec()                               { free( m_bits ); }
+
+    void set( size_t index )                { m_bits[ index >> 3 ] |= mask( index ); }
+    void unset( size_t index )              { m_bits[ index >> 3 ] &= ~mask( index ); }
+    void toggle( size_t index )             { m_bits[ index >> 3 ] ^= mask( index ); }
+
+    bool get( size_t index ) const          { return !!( m_bits[ index >> 3 ] & mask( index ) ); }
+
+    size_t size() const                     { return m_size; };
+
+protected:
+    static uint32_t mask( size_t index )    { return 1U << ( index & 7 ); }
+
+private:
+    size_t m_size = 0;
+    uint8_t *m_bits = nullptr;
+};
+
 extern "C" uint32_t fnv_hashstr32( const char *str, size_t len = ( size_t )-1 );
 
 size_t get_file_size( const char *filename );
