@@ -74,7 +74,8 @@ enum
     TRACECMD_OPTION_UNAME,
     TRACECMD_OPTION_HOOK,
     TRACECMD_OPTION_OFFSET,
-    TRACECMD_OPTION_TGID,
+    TRACEMCD_OPTION_CPUCOUNT,
+    TRACECMD_OPTION_SAVED_TGIDS = 32,
 };
 
 enum
@@ -1207,7 +1208,11 @@ static int handle_options( tracecmd_input_t *handle )
             // Used by trace-cmd report --profile. We don't need it.
             //   hook = tracecmd_create_event_hook( buf );
             break;
-        case TRACECMD_OPTION_TGID:
+        case TRACEMCD_OPTION_CPUCOUNT:
+            if ( size > sizeof( uint64_t ) )
+                tracecmd_parse_tgids(handle->pevent, buf, size);
+            break;
+        case TRACECMD_OPTION_SAVED_TGIDS:
             tracecmd_parse_tgids(handle->pevent, buf, size);
             break;
         default:
