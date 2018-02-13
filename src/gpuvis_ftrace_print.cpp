@@ -223,8 +223,12 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
     int64_t ts_offset = 0;
     char newbuf[ TRACE_BUF_SIZE ];
     trace_event_t *add_event = &event;
-    const char *buf = get_event_field_val( event, "buf" );
+    const char *orig_buf = get_event_field_val( event, "buf" );
+    const char *buf = orig_buf;
     const char *ts_offset_str = strncasestr( buf, "offset=", 7 );
+
+    // Default color for ctx events without sibling
+    event.color = 0xffff00ff;
 
     event.color_index = 0;
     event.seqno = UINT32_MAX;
@@ -298,18 +302,30 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
         event.color_index = fnv_hashstr32( buf );
     }
 
+    if ( buf == newbuf )
+    {
+        event_field_t *field = get_event_field( event, "buf" );
+
+        buf = m_strpool.getstr( newbuf );
+        field->value = buf;
+#if 0
+        // Add orig_buf which points to original buf data
+        event_field_t *fields = new event_field_t[ event.numfields + 1 ];
+        memcpy( fields, event.fields, event.numfields * sizeof( fields[ 0 ] ) );
+
+        fields[ event.numfields ].key = m_strpool.getstr( "orig_buf" );
+        fields[ event.numfields ].value = orig_buf;
+
+        delete [] event.fields;
+        event.fields = fields;
+        event.numfields++;
+#endif
+    }
+
     if ( add_event )
     {
         print_info_t print_info;
         const tgid_info_t *tgid_info = tgid_from_pid( pid );
-
-        if ( buf == newbuf )
-        {
-            event_field_t *field = get_event_field( event, "buf" );
-
-            buf = m_strpool.getstr( newbuf );
-            field->value = buf;
-        }
 
         print_info.ts = add_event->ts + ts_offset;
         print_info.tgid = tgid_info ? tgid_info->tgid : 0;
