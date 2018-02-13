@@ -331,9 +331,9 @@ void GraphRows::init( TraceEvents &trace_events )
 
     if ( ( plocs = trace_events.get_locs( "print", &type ) ) )
     {
-        push_row( "print", type, plocs->size() );
+        push_row( "print", type, plocs->size(), true );
 
-        auto add_print_row_lambda = [&]( const char *str, int pid )
+        auto add_print_row_lambda = [&]( const char *str, int pid, bool hidden_def )
         {
             std::string name = string_format( "print %s:%d", str, pid );
             const char *comm = trace_events.comm_from_pid( pid );
@@ -346,7 +346,7 @@ void GraphRows::init( TraceEvents &trace_events )
                 name += string_format( " (%.*s)", len, comm );
             }
 
-            bool hidden = !s_ini().GetInt( name.c_str(), 0.0f, "$row_sizes$" );
+            bool hidden = !s_ini().GetInt( name.c_str(), hidden_def ? 0.0f : 1.0f, "$row_sizes$" );
 
             push_row( name, type, plocs->size(), hidden );
         };
@@ -357,9 +357,9 @@ void GraphRows::init( TraceEvents &trace_events )
                 continue;
 
             if ( item.second.pid )
-                add_print_row_lambda( "pid", item.second.pid );
+                add_print_row_lambda( "pid", item.second.pid, false );
             else
-                add_print_row_lambda( "tgid", item.second.tgid );
+                add_print_row_lambda( "tgid", item.second.tgid, true );
         }
     }
 
