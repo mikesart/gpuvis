@@ -41,24 +41,57 @@
 #include "gpuvis_utils.h"
 #include "gpuvis.h"
 
+static const struct
+{
+    const char *leftstr;
+    const char *rightstr;
+} s_pairs[] =
+{
+    { "[Compositor Client] Submit Left", "[Compositor Client] Submit End" },
+    { "[Compositor Client] Submit Right", "[Compositor Client] Submit End" },
+    { "[Compositor Client] PostPresentHandoff Begin", "[Compositor Client] PostPresentHandoff End" },
+    { "[Compositor] Before wait query", "[Compositor] After wait query" },
+    { "[Compositor] Begin Present(wait)", "[Compositor] End Present" },
+    { "[Compositor] Before flush", "[Compositor] After flush" },
+    { "[Compositor] Sleep - begin: 6", "[Compositor] Sleep - end" },
+    { "[Compositor] Begin Running Start", "[Compositor] End Running Start" },
+    { "[Compositor] Mirror Begin Present", "[Compositor] Mirror End Present" },
+};
+
+static void init_ftrace_pairs( std::vector< TraceEvents::ftrace_pair_t > &ftrace_pairs )
+{
+    for ( size_t i = 0; i < ARRAY_SIZE( s_pairs ); i++ )
+    {
+        TraceEvents::ftrace_pair_t pair;
+
+        pair.leftstr = s_pairs[ i ].leftstr;
+        pair.rightstr = s_pairs[ i ].rightstr;
+
+        pair.lefthashval = fnv_hashstr32( pair.leftstr.c_str() );
+        pair.righthashval = fnv_hashstr32( pair.rightstr.c_str() );
+
+        ftrace_pairs.push_back( pair );
+    }
+
+    // Sort ftrace print event IDs based on ts start locations
+    auto cmp = [&]( const TraceEvents::ftrace_pair_t &lx, const TraceEvents::ftrace_pair_t &rx )
+    {
+        return ( lx.lefthashval < rx.lefthashval );
+    };
+    std::sort( ftrace_pairs.begin(), ftrace_pairs.end(), cmp );
+}
+
 /*
-[Compositor Client] Received Idx ###
-[Compositor Client] WaitGetPoses Begin ThreadId=####
-[Compositor Client] WaitGetPoses End ThreadId=####
+  [Compositor Client] Received Idx ###
+  [Compositor Client] WaitGetPoses Begin ThreadId=####
+  [Compositor Client] WaitGetPoses End ThreadId=####
 
-[Compositor] Detected dropped frames: ###
-[Compositor] frameTimeout( ### ms )
-[Compositor] NewFrame idx=####
-[Compositor] Predicting( ##.###### ms )
-[Compositor] Re-predicting( ##.###### ms )
-[Compositor] TimeSinceLastVSync: #.######(#####)
-
-[Compositor Client] PostPresentHandoff Begin
-[Compositor Client] PostPresentHandoff End
-
-[Compositor Client] Submit End
-[Compositor Client] Submit Left
-[Compositor Client] Submit Right
+  [Compositor] Detected dropped frames: ###
+  [Compositor] frameTimeout( ### ms )
+  [Compositor] NewFrame idx=####
+  [Compositor] Predicting( ##.###### ms )
+  [Compositor] Re-predicting( ##.###### ms )
+  [Compositor] TimeSinceLastVSync: #.######(#####)
 */
 static const char *s_buf_prefixes[] =
 {
@@ -68,7 +101,6 @@ static const char *s_buf_prefixes[] =
     "[Compositor] Predicting( ",
     "[Compositor] Re-predicting( ",
     "[Compositor Client] PostPresentHandoff ",
-    "[Compositor Client] Submit ",
     "[Compositor] Present() ",
 };
 
@@ -218,14 +250,18 @@ ftrace_row_info_t *TraceEvents::get_ftrace_row_info( const char *row_name )
 // Called by TraceEvents::new_event_cb() when adding new events to m_events array
 void TraceEvents::new_event_ftrace_print( trace_event_t &event )
 {
-    bufvar_t bufvar;
     int pid = event.pid;
     int64_t ts_offset = 0;
+    bool do_find_buf_var = true;
+    bufvar_t bufvar = bufvar_Max;
     char newbuf[ TRACE_BUF_SIZE ];
     trace_event_t *add_event = &event;
     const char *orig_buf = get_event_field_val( event, "buf" );
     const char *buf = orig_buf;
     const char *ts_offset_str = strncasestr( buf, "offset=", 7 );
+
+    if ( m_ftrace.ftrace_pairs.empty() )
+        init_ftrace_pairs( m_ftrace.ftrace_pairs );
 
     // Default color for ctx events without sibling
     event.color = 0xffff00ff;
@@ -240,8 +276,52 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
 
         buf = trim_ftrace_print_buf( newbuf, buf, ts_offset_str, 7 );
     }
+    else
+    {
+        // Hash the buf string
+        uint32_t hashval = fnv_hashstr32( buf );
+        uint64_t key = ( ( uint64_t )event.pid << 32 );
 
-    const char *var = find_buf_var( buf, &bufvar );
+        // Try to find this hash+pid in the pairs_ctx map
+        uint32_t *event0id = m_ftrace.pairs_ctx.get_val( key | hashval );
+
+        if ( event0id )
+        {
+            // Found hash+pid in duration map. Value is start event id.
+            trace_event_t &event0 = m_events[ *event0id ];
+
+            event0.id_start = event.id;
+            event0.duration = event.ts - event0.ts;
+            event0.color_index = hashval;
+            event.color_index = hashval;
+
+            m_ftrace.pairs_ctx.erase_key( key | hashval  );
+            m_ftrace.print_ts_max = std::max< int64_t >( m_ftrace.print_ts_max, event0.duration );
+
+            // Don't add event (we added event0 already)
+            add_event = NULL;
+            do_find_buf_var = false;
+        }
+        else
+        {
+            ftrace_pair_t x = { hashval };
+            auto cmp = [&]( const ftrace_pair_t &lx, const ftrace_pair_t &rx )
+            {
+                return ( lx.lefthashval < rx.lefthashval );
+            };
+            auto it = std::lower_bound( m_ftrace.ftrace_pairs.begin(), m_ftrace.ftrace_pairs.end(), x, cmp );
+
+            // Try to find this starting hashval in our ftrace_pairs array
+            if ( ( it != m_ftrace.ftrace_pairs.end() ) && ( it->lefthashval == hashval ) )
+            {
+                // Found - add right hashval or'd with pid pointing to this event id
+                m_ftrace.pairs_ctx.m_map[ key | it->righthashval ] = event.id;
+                do_find_buf_var = false;
+            }
+        }
+    }
+
+    const char *var = do_find_buf_var ? find_buf_var( buf, &bufvar ) : NULL;
 
     if ( bufvar <= bufvar_end_gctx )
     {

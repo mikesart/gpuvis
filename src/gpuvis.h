@@ -508,6 +508,14 @@ public:
         TraceLocations req_locs;
     } m_i915;
 
+    struct ftrace_pair_t
+    {
+        uint32_t lefthashval;   // hashval of leftstr
+        uint32_t righthashval;  // hashval of rightstr;
+        std::string leftstr;    // "[Compositor] Before wait query", etc
+        std::string rightstr;   // "[Compositor] After wait query", etc
+    };
+
     struct
     {
         // ftrace print event IDs sorted by timestamp
@@ -528,6 +536,12 @@ public:
         // Map of ftrace print begin/end ctx to event ids
         util_umap< uint64_t, uint32_t > begin_ctx;
         util_umap< uint64_t, uint32_t > end_ctx;
+
+        // map of ftrace buf '( lefthashval << 32 ) + event.pid' to ftrace start event id
+        util_umap< uint64_t, uint32_t > pairs_ctx;
+
+        // Array of ftrace pairs sorted on lefthashval
+        std::vector< ftrace_pair_t > ftrace_pairs;
     } m_ftrace;
 
     struct vblank_info_t
