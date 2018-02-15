@@ -1462,6 +1462,27 @@ uint32_t TraceEvents::ts_to_ftrace_print_info_idx( const std::vector< uint32_t >
     return first;
 }
 
+static uint32_t get_graph_row_id( const trace_event_t &event,
+                                  ftrace_row_info_t *ftrace_row_info,
+                                  const print_info_t *print_info  )
+{
+    if ( ftrace_row_info->pid < 0 )
+        return event.graph_row_id;
+
+    if ( ftrace_row_info->tgid )
+    {
+        if ( ftrace_row_info->tgid != print_info->tgid )
+            return ( uint32_t )-1;
+
+        return print_info->graph_row_id_tgid;
+    }
+
+    if ( ftrace_row_info->pid != event.pid )
+        return ( uint32_t )-1;
+
+    return print_info->graph_row_id_pid;
+}
+
 uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 {
     imgui_push_smallfont();
@@ -1515,24 +1536,9 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         else if ( gi.graph_only_filtered && event.is_filtered_out )
             continue;
 
-        if ( ftrace_row_info->pid < 0 )
-        {
-            row_id = event.graph_row_id;
-        }
-        else if ( ftrace_row_info->tgid )
-        {
-            if ( ftrace_row_info->tgid != print_info->tgid )
-                continue;
-            row_id = print_info->graph_row_id_tgid;
-        }
-        else
-        {
-            if ( ftrace_row_info->pid != event.pid )
-                continue;
-            row_id = print_info->graph_row_id_pid;
-        }
-
-        max_row_id = std::max< uint32_t >( max_row_id, row_id );
+        row_id = get_graph_row_id( event, ftrace_row_info, print_info );
+        if ( row_id != ( uint32_t )-1 )
+            max_row_id = std::max< uint32_t >( max_row_id, row_id );
     }
 
     uint32_t row_count = std::min< uint32_t >( max_row_id + 1, ftrace_row_info->rows );
@@ -1540,7 +1546,8 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     ImU32 baralpha = s_clrs().get( col_Graph_PrintBarAlpha ) & IM_COL32_A_MASK;
 
     // Get height of each bar.
-    float h = std::max< float>( 2.0f, gi.rc.h / row_count );
+    float h = Clamp< float>( gi.rc.h / row_count, 2.0f, gi.text_h * 1.2f );
+    float dy = gi.rc.h - row_count * h;
 
     event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
 
@@ -1557,28 +1564,15 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         else if ( gi.graph_only_filtered && event.is_filtered_out )
             continue;
 
-        if ( ftrace_row_info->pid < 0 )
-        {
-            row_id = event.graph_row_id;
-        }
-        else if ( ftrace_row_info->tgid )
-        {
-            if ( ftrace_row_info->tgid != print_info->tgid )
-                continue;
-            row_id = print_info->graph_row_id_tgid;
-        }
-        else
-        {
-            if ( ftrace_row_info->pid != event.pid )
-                continue;
-            row_id = print_info->graph_row_id_pid;
-        }
-
         if ( event_renderer.is_event_filtered( event.id ) )
             continue;
 
+        row_id = get_graph_row_id( event, ftrace_row_info, print_info );
+        if ( row_id == ( uint32_t )-1 )
+            continue;
+
         float x = gi.ts_to_screenx( print_info->ts );
-        float y = gi.rc.y + ( row_count - row_id - 1 ) * h;
+        float y = gi.rc.y + ( row_count - row_id - 1 ) * h + dy;
 
         if ( timeline_labels )
         {
