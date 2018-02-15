@@ -1099,7 +1099,6 @@ public:
 
     FontInfo m_font_main;
     FontInfo m_font_small;
-    FontInfo m_font_big;
 
     ImGuiTextFilter m_filter;
     size_t m_log_size = ( size_t )-1;

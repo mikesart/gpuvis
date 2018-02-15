@@ -141,7 +141,6 @@ ImU32 imgui_col_complement( ImU32 col );
 void imgui_text_bg( const ImVec4& bgcolor, const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
 
 void imgui_push_smallfont();
-void imgui_push_bigfont();
 void imgui_pop_font();
 
 bool imgui_collapsingheader( const char *label, bool *has_focus, ImGuiTreeNodeFlags flags = 0 );

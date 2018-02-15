@@ -1519,9 +1519,6 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     int64_t ts_offset = std::max< int64_t >( ts_duration_max, ts_text_max );
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
 
-    //$ TODO mikesart: quick hack to resize ftrace print rows.
-    // Waiting for feedback from Pierre-Loup, and will tweak, cleanup, etc
-
     uint32_t max_row_id = 1;
     for ( size_t idx = m_trace_events.ts_to_ftrace_print_info_idx( locs, gi.ts0 - ts_offset );
           idx < locs.size();

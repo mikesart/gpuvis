@@ -627,14 +627,6 @@ void imgui_push_smallfont()
     ImGui::PushFont( atlas->Fonts[ index ] );
 }
 
-void imgui_push_bigfont()
-{
-    ImFontAtlas *atlas = ImGui::GetIO().Fonts;
-    int index = ( atlas->Fonts.Size > 2 ) ? 2 : 0;
-
-    ImGui::PushFont( atlas->Fonts[ index ] );
-}
-
 void imgui_pop_font()
 {
     ImGui::PopFont();
