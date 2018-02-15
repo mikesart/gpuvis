@@ -912,6 +912,7 @@ enum : uint32_t
     OPT_TimelineEvents,
     OPT_TimelineRenderUserSpace,
     OPT_PrintTimelineLabels,
+    OPT_PrintRenderPrefixes,
     OPT_GraphOnlyFiltered,
     OPT_Graph_HideEmptyFilteredRows,
     OPT_ShowEventList,

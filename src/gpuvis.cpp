@@ -270,6 +270,7 @@ void Opts::init()
     init_opt_bool( OPT_TimelineEvents, "Show gfx timeline events", "timeline_gfx_events", true );
     init_opt_bool( OPT_TimelineRenderUserSpace, "Show gfx timeline userspace", "timeline_gfx_userspace", false );
     init_opt_bool( OPT_PrintTimelineLabels, "Show print timeline labels", "print_timeline_gfx_labels", true );
+    init_opt_bool( OPT_PrintRenderPrefixes, "Show print prefixes (like [Compositor])", "print_render_prefixes", false );
     init_opt_bool( OPT_GraphOnlyFiltered, "Graph only filtered events", "graph_only_filtered", true );
     init_opt_bool( OPT_Graph_HideEmptyFilteredRows, "Hide empty filtered comm rows", "hide_empty_filtered_rows", true );
     init_opt_bool( OPT_ShowEventList, "Toggle showing event list", "show_event_list", true );

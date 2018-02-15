@@ -1400,8 +1400,18 @@ void row_draw_info_t::render_text( graph_info_t &gi, float w, float h )
     // Center text vertically in middle of rectangle
     m_y = m_y + ( h / 2.0f ) - ( tsize.y / 2.0f ) - imgui_scale( 2.0f );
 
+    const char *buf = m_print_info->buf;
+
+    if ( !s_opts().getb( OPT_PrintRenderPrefixes ) )
+    {
+        if ( !strncasecmp( buf, "[Compositor] ", 13 ) )
+            buf += 13;
+        else if ( !strncasecmp( buf, "[Compositor Client] ", 20 ) )
+            buf += 20;
+    }
+
     imgui_push_cliprect( { m_x, m_y, w, tsize.y + imgui_scale( 1.0f ) } );
-    imgui_draw_text( m_x, m_y, m_event->color, m_print_info->buf );
+    imgui_draw_text( m_x, m_y, m_event->color, buf );
     imgui_pop_cliprect();
 }
 
