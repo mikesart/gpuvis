@@ -1494,9 +1494,11 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     // Get height of each bar.
     float h = std::max< float>( 2.0f, gi.rc.h / row_count );
 
+#if 0
     // If height is less than half text height, turn off labels.
     if ( h < ( gi.text_h / 2.0f ) )
         timeline_labels = false;
+#endif
 
     int64_t ts_duration_max = m_trace_events.m_ftrace.print_ts_max;
     int64_t ts_text_max = timeline_labels ? gi.dx_to_ts( m_trace_events.m_ftrace.text_size_max ) : 0;
@@ -1958,9 +1960,11 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
     bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
             !ImGui::GetIO().KeyAlt;
 
+#if 0
     // If height is less than half text height, turn off labels.
     if ( row_h < ( gi.text_h / 2.0f ) )
         timeline_labels = false;
+#endif
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -2050,9 +2054,11 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
             !ImGui::GetIO().KeyAlt;
 
+#if 0
     // If height is less than half text height, turn off labels.
     if ( row_h < ( gi.text_h / 2.0f ) )
         timeline_labels = false;
+#endif
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
