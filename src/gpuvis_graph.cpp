@@ -1483,27 +1483,64 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     if ( !ftrace_row_info )
         ftrace_row_info = m_trace_events.get_ftrace_row_info_pid( -1 );
 
-    uint32_t row_count = ftrace_row_info->rows;
-    std::vector< row_draw_info_t > row_draw_info( row_count );
-    ImU32 baralpha = s_clrs().get( col_Graph_PrintBarAlpha ) & IM_COL32_A_MASK;
-
-    // Check if we're drawing timeline labels
-    bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
-            !ImGui::GetIO().KeyAlt;
-
-    // Get height of each bar.
-    float h = std::max< float>( 2.0f, gi.rc.h / row_count );
-
 #if 0
     // If height is less than half text height, turn off labels.
     if ( h < ( gi.text_h / 2.0f ) )
         timeline_labels = false;
 #endif
 
+    // Check if we're drawing timeline labels
+    bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
+            !ImGui::GetIO().KeyAlt;
+
     int64_t ts_duration_max = m_trace_events.m_ftrace.print_ts_max;
     int64_t ts_text_max = timeline_labels ? gi.dx_to_ts( m_trace_events.m_ftrace.text_size_max ) : 0;
     int64_t ts_offset = std::max< int64_t >( ts_duration_max, ts_text_max );
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
+
+    //$ TODO mikesart: quick hack to resize ftrace print rows.
+    // Waiting for feedback from Pierre-Loup, and will tweak, cleanup, etc
+
+    uint32_t max_row_id = 1;
+    for ( size_t idx = m_trace_events.ts_to_ftrace_print_info_idx( locs, gi.ts0 - ts_offset );
+          idx < locs.size();
+          idx++ )
+    {
+        uint32_t row_id;
+        const trace_event_t &event = get_event( locs[ idx ] );
+        const print_info_t *print_info = m_trace_events.get_print_info( event.id );
+
+        if ( print_info->ts > gi.ts1 )
+            break;
+        else if ( gi.graph_only_filtered && event.is_filtered_out )
+            continue;
+
+        if ( ftrace_row_info->pid < 0 )
+        {
+            row_id = event.graph_row_id;
+        }
+        else if ( ftrace_row_info->tgid )
+        {
+            if ( ftrace_row_info->tgid != print_info->tgid )
+                continue;
+            row_id = print_info->graph_row_id_tgid;
+        }
+        else
+        {
+            if ( ftrace_row_info->pid != event.pid )
+                continue;
+            row_id = print_info->graph_row_id_pid;
+        }
+
+        max_row_id = std::max< uint32_t >( max_row_id, row_id );
+    }
+
+    uint32_t row_count = std::min< uint32_t >( max_row_id + 1, ftrace_row_info->rows );
+    std::vector< row_draw_info_t > row_draw_info( row_count );
+    ImU32 baralpha = s_clrs().get( col_Graph_PrintBarAlpha ) & IM_COL32_A_MASK;
+
+    // Get height of each bar.
+    float h = std::max< float>( 2.0f, gi.rc.h / row_count );
 
     event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
 
