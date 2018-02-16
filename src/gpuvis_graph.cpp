@@ -43,8 +43,19 @@
 #include "gpuvis.h"
 
 /*
-  - change text color or add text shadow to increase contrast so it can be read
-   against the background of the rectangle consistently
+  - add code to show both events when there is a really short duration? 
+
+  - For the sched_switch row, it works great, but it doesn't seem to link 
+  the switch pairs together (both on hover and visually) the same way that 
+  sched_switch events are shown in other rows, so regaining that custom 
+  visualization would be good so that you could see where the CPU went 
+  without having to find the second event. It would be cool if 
+  context-switching was visualized like the gpu HW row, where different 
+  tasks are color-coded with a unique color.
+    So I guess a special "CPU HW" row that showed you a timeline for every 
+  core with the same color codes as GPU HW would be what I'm talking 
+  about. This way having both CPU and GPU hw rows at the top would give 
+  you a quick at-a-glance view of the whole system.
  */
 
 class event_renderer_t
