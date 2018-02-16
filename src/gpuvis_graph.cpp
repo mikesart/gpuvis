@@ -1620,7 +1620,16 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
         // Check if we're mouse hovering this event
         if ( gi.mouse_over && ( gi.mouse_pos.y >= y ) && ( gi.mouse_pos.y <= y + h ) )
-            gi.add_mouse_hovered_event( x, event );
+        {
+            if ( gi.add_mouse_hovered_event( x, event ) &&
+                 is_valid_id( event.id_start ) )
+            {
+                const trace_event_t &event0 = get_event( event.id_start );
+                float x_end = gi.ts_to_screenx( event0.ts );
+
+                gi.add_mouse_hovered_event( x_end, event0, true );
+            }
+        }
     }
 
     if ( is_valid_id( hovinfo.eventid ) )
@@ -1630,6 +1639,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 
         // Draw hovered selection rectangle
         imgui_drawrect( hovinfo.rc, imgui_col_complement( event.color ) );
+
         // Add this event to mouse hovered list
         gi.add_mouse_hovered_event( x, event, true );
 
