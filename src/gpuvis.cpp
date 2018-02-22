@@ -4416,8 +4416,6 @@ int main( int argc, char **argv )
 
     SDL_Window *window = NULL;
     SDL_GLContext glcontext = NULL;
-    SDL_Cursor *cursor_sizens = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENS );
-    SDL_Cursor *cursor_default = SDL_GetDefaultCursor();
 
     // Initialize logging system
     logf_init();
@@ -4467,22 +4465,13 @@ int main( int argc, char **argv )
     app.load_fonts();
 
     // Main loop
-    bool done = false;
-    ImGuiMouseCursor mouse_cursor = ImGuiMouseCursor_Arrow;
-    while ( !done )
+    for (;;)
     {
         SDL_Event event;
+        bool done = false;
 
         // Clear keyboard actions.
         s_actions().clear();
-
-        if ( mouse_cursor != ImGui::GetMouseCursor() )
-        {
-            mouse_cursor = ImGui::GetMouseCursor();
-
-            SDL_SetCursor( ( mouse_cursor == ImGuiMouseCursor_ResizeNS ) ?
-                               cursor_sizens : cursor_default );
-        }
 
         while ( SDL_PollEvent( &event ) )
         {
@@ -4525,7 +4514,8 @@ int main( int argc, char **argv )
         // Update app font settings, scale, etc
         app.update();
 
-        done |= app.m_quit;
+        if ( done || app.m_quit )
+            break;
     }
 
     // Shut down app
@@ -4545,8 +4535,6 @@ int main( int argc, char **argv )
 
     ImGui_ImplSdlGL3_Shutdown();
     ImGui::DestroyContext();
-
-    SDL_FreeCursor( cursor_sizens );
 
     SDL_GL_DeleteContext( glcontext );
     SDL_DestroyWindow( window );
