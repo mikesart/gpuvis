@@ -4397,6 +4397,7 @@ static void imgui_render( SDL_Window *window )
     glClear( GL_COLOR_BUFFER_BIT );
 
     ImGui::Render();
+    ImGui_ImplSdlGL3_RenderDrawData(ImGui::GetDrawData());
 
     SDL_GL_SwapWindow( window );
 }
