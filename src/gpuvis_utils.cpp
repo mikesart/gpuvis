@@ -1490,6 +1490,7 @@ void Actions::init()
 
     m_actionmap.push_back( { action_graph_zoom_row, KMOD_CTRL | KMOD_SHIFT, SDLK_z, "Toggle hovered graph row timeline fullscreen" } );
     m_actionmap.push_back( { action_graph_zoom_mouse, KMOD_NONE, SDLK_z, "Toggle hovered graph location zoom to 3ms / restore pre-zoom" } );
+    m_actionmap.push_back( { action_graph_hide_row, 0, SDLK_h, "Hide hovered graph row" } );
 
     m_actionmap.push_back( { action_toggle_show_eventlist, KMOD_NONE, SDLK_F11, "Toggle showing event list" } );
 

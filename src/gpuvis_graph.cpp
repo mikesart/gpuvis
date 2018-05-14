@@ -2757,6 +2757,15 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
         }
     }
 
+    if ( gi.mouse_over &&
+         !m_graph.mouse_over_row_name.empty() &&
+         s_actions().get( action_graph_hide_row ) )
+    {
+        const std::string &row_name = m_graph.mouse_over_row_name;
+
+        m_graph.rows.show_row( row_name, GraphRows::HIDE_ROW );
+    }
+
     if ( m_graph.has_focus || m_eventlist.has_focus )
     {
         bool gotoA = s_actions().get( action_graph_goto_markerA );
@@ -3330,7 +3339,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         optid = get_comm_option_id( row_name.c_str(), m_graph.mouse_over_row_type );
         label = string_format( "Hide row '%s'", row_name_bright.c_str() );
 
-        if ( ImGui::MenuItem( label.c_str() ) )
+        if ( ImGui::MenuItem( label.c_str(), s_actions().hotkey_str( action_graph_hide_row ).c_str() ) )
             m_graph.rows.show_row( row_name, GraphRows::HIDE_ROW );
 
         label = string_format( "Hide row '%s' and below", row_name_bright.c_str() );

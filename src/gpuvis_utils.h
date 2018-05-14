@@ -427,6 +427,7 @@ enum action_t
 
     action_graph_zoom_row,
     action_graph_zoom_mouse,
+    action_graph_hide_row,
 
     action_graph_set_markerA,
     action_graph_set_markerB,
