@@ -1520,8 +1520,10 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
     uint32_t cpus = m_trace_events.m_trace_info.cpus;
     float row_h = gi.rc.h / cpus;
 
-    bool alt_down = ImGui::GetIO().KeyAlt;
-    if ( !alt_down )
+    bool ctrl_down = ImGui::GetIO().KeyCtrl;
+    bool shift_down = ImGui::GetIO().KeyShift;
+
+    if ( !ctrl_down )
         m_graph.cpu_timeline_color = 0;
 
     for ( size_t idx = vec_find_eventid( *plocs, gi.eventstart );
@@ -1537,7 +1539,10 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
         if ( x0 > gi.rc.x + gi.rc.w )
             continue;
 
-        if ( alt_down && m_graph.cpu_timeline_color && ( sched_switch.color != m_graph.cpu_timeline_color ) )
+        if ( shift_down && ( sched_switch.flags & TRACE_FLAG_SCHED_SWITCH_SYSTEM_EVENT ) )
+            continue;
+
+        if ( ctrl_down && m_graph.cpu_timeline_color && ( sched_switch.color != m_graph.cpu_timeline_color ) )
             continue;
 
         imgui_drawrect_filled( x0, y, x1 - x0, row_h - imgui_scale( 1.0f ), sched_switch.color );
@@ -1549,7 +1554,7 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
 
             imgui_drawrect( x0, y, x1 - x0, row_h, s_clrs().get( col_Graph_BarSelRect ) );
 
-            if ( alt_down )
+            if ( ctrl_down )
                 m_graph.cpu_timeline_color = sched_switch.color;
         }
     }

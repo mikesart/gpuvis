@@ -161,7 +161,8 @@ enum trace_flag_type_t {
     TRACE_FLAG_FENCE_SIGNALED               = 0x02000, // *fence_signaled
     TRACE_FLAG_SCHED_SWITCH                 = 0x04000, // sched_switch
     TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING    = 0x08000, // TASK_RUNNING
-    TRACE_FLAG_AUTOGEN_COLOR                = 0x10000,
+    TRACE_FLAG_SCHED_SWITCH_SYSTEM_EVENT    = 0x10000,
+    TRACE_FLAG_AUTOGEN_COLOR                = 0x20000,
 };
 
 struct trace_event_t

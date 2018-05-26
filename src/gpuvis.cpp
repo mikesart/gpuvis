@@ -1465,9 +1465,26 @@ void TraceEvents::update_tgid_colors()
     {
         for ( uint32_t idx : *plocs )
         {
+            uint32_t hashval;
+            size_t len = ( size_t )-1;
             trace_event_t &sched_switch = m_events[ idx ];
             const char *prev_comm = get_event_field_val( sched_switch, "prev_comm" );
-            uint32_t hashval = fnv_hashstr32( prev_comm );
+
+            if ( !strncmp( prev_comm,      "swapper/", 8 ) )
+                len = 8;
+            else if ( !strncmp( prev_comm, "kworker/", 8 ) )
+                len = 8;
+            else if ( !strncmp( prev_comm, "watchdog/", 9 ) )
+                len = 9;
+            else if ( !strncmp( prev_comm, "ksoftirqd/", 10 ) )
+                len = 10;
+            else if ( !strncmp( prev_comm, "migration/", 10 ) )
+                len = 10;
+
+            if ( len != ( size_t )-1 )
+                sched_switch.flags |= TRACE_FLAG_SCHED_SWITCH_SYSTEM_EVENT;
+
+            hashval = fnv_hashstr32( prev_comm, len );
 
             sched_switch.flags |= TRACE_FLAG_AUTOGEN_COLOR;
             sched_switch.color = imgui_col_from_hashval( hashval, label_sat, label_alpha );
