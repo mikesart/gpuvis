@@ -490,6 +490,7 @@ static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t r
         return optid;
 
     if ( row_type == LOC_TYPE_Print ||
+         row_type == LOC_TYPE_CpuGraph ||
          row_type == LOC_TYPE_Plot ||
          row_type == LOC_TYPE_AMDTimeline ||
          row_type == LOC_TYPE_i915RequestWait ||
@@ -498,7 +499,11 @@ static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t r
         int defval = 4;
         int minval = 4;
 
-        if ( row_type == LOC_TYPE_Print )
+        if ( row_type == LOC_TYPE_CpuGraph )
+        {
+            defval = 6;
+        }
+        else if ( row_type == LOC_TYPE_Print )
         {
             defval = 10;
         }
@@ -525,6 +530,7 @@ RenderGraphRowCallback graph_info_t::get_render_cb( loc_type_t row_type )
 {
     switch ( row_type )
     {
+    case LOC_TYPE_CpuGraph:        return std::bind( &TraceWin::graph_render_cpus_timeline, &win, _1 );
     case LOC_TYPE_Print:           return std::bind( &TraceWin::graph_render_print_timeline, &win, _1 );
     case LOC_TYPE_Plot:            return std::bind( &TraceWin::graph_render_plot, &win, _1 );
     case LOC_TYPE_AMDTimeline:     return std::bind( &TraceWin::graph_render_amd_timeline, &win, _1 );
@@ -1502,6 +1508,41 @@ static uint32_t get_graph_row_id( const trace_event_t &event,
         return ( uint32_t )-1;
 
     return print_info->graph_row_id_pid;
+}
+
+uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
+{
+    uint32_t count = 0;
+    const std::vector< uint32_t > *plocs = gi.prinfo_cur->plocs;
+
+    uint32_t cpus = m_trace_events.m_trace_info.cpus;
+    float row_h = gi.rc.h / cpus;
+
+    for ( size_t idx = vec_find_eventid( *plocs, gi.eventstart );
+          idx < plocs->size();
+          idx++ )
+    {
+        const trace_event_t &sched_switch = get_event( plocs->at( idx ) );
+        float y = gi.rc.y + sched_switch.cpu * row_h;
+        float x0 = gi.ts_to_screenx( sched_switch.ts - sched_switch.duration );
+        float x1 = gi.ts_to_screenx( sched_switch.ts );
+
+        // Bail if we're off the right side of our graph
+        if ( x0 > gi.rc.x + gi.rc.w )
+            break;
+
+        imgui_drawrect_filled( x0, y, x1 - x0, row_h - imgui_scale( 1.0f ), sched_switch.color );
+        count++;
+
+        if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
+        {
+            gi.sched_switch_bars.push_back( sched_switch.id );
+
+            imgui_drawrect( x0, y, x1 - x0, row_h, s_clrs().get( col_Graph_BarSelRect ) );
+        }
+    }
+
+    return count;
 }
 
 uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
@@ -3645,10 +3686,8 @@ static std::string task_state_to_str( int state )
         _XTAG( TASK_TRACED ),
         _XTAG( EXIT_DEAD ),
         _XTAG( EXIT_ZOMBIE ),
-        _XTAG( TASK_DEAD ),
-        _XTAG( TASK_WAKEKILL ),
-        _XTAG( TASK_WAKING ),
         _XTAG( TASK_PARKED ),
+        _XTAG( TASK_DEAD ),
 #undef _XTAG
     };
 
@@ -3771,20 +3810,18 @@ void TraceWin::graph_mouse_tooltip_sched_switch( std::string &ttip, graph_info_t
     for ( uint32_t id : gi.sched_switch_bars )
     {
         trace_event_t &event = get_event( id );
+        const char *prev_comm = get_event_field_val( event, "prev_comm" );
 
-        const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
-
-        if ( prev_pid_str )
+        if ( prev_comm )
         {
-            int prev_pid = atoi( prev_pid_str );
-            int task_state = atoi( get_event_field_val( event, "prev_state" ) ) & ( TASK_STATE_MAX - 1 );
+            int prev_state = atoi( get_event_field_val( event, "prev_state" ) );
+            int task_state = prev_state & ( TASK_REPORT_MAX - 1 );
             const std::string task_state_str = task_state_to_str( task_state );
-            const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
             std::string timestr = ts_to_timestr( event.duration, 4 );
 
-            ttip += string_format( "\n%s%u%s sched_switch %s (%s) %s",
+            ttip += string_format( "\n%s%u%s sched_switch %s CPU:%d (%s) %s",
                                    gi.clr_bright, event.id, gi.clr_def,
-                                   prev_comm, timestr.c_str(),
+                                   prev_comm, event.cpu, timestr.c_str(),
                                    task_state_str.c_str() );
         }
     }

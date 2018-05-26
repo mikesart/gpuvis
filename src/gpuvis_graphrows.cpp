@@ -329,6 +329,11 @@ void GraphRows::init( TraceEvents &trace_events )
         }
     }
 
+    if ( ( plocs = trace_events.get_locs( "cpu graph", &type ) ) )
+    {
+        push_row( "cpu graph", type, plocs->size(), false );
+    }
+
     if ( ( plocs = trace_events.get_locs( "print", &type ) ) )
     {
         push_row( "print", type, plocs->size(), true );

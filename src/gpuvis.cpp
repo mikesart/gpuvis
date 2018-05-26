@@ -1459,6 +1459,20 @@ void TraceEvents::update_tgid_colors()
                                                    commstr, s_textclrs().str( TClr_Def ) );
         tgid_info.commstr = commstr;
     }
+
+    const std::vector< uint32_t > *plocs = m_sched_switch_cpu_locs.get_locations_u32( 0 );
+    if ( plocs )
+    {
+        for ( uint32_t idx : *plocs )
+        {
+            trace_event_t &sched_switch = m_events[ idx ];
+            const char *prev_comm = get_event_field_val( sched_switch, "prev_comm" );
+            uint32_t hashval = fnv_hashstr32( prev_comm );
+
+            sched_switch.flags |= TRACE_FLAG_AUTOGEN_COLOR;
+            sched_switch.color = imgui_col_from_hashval( hashval, label_sat, label_alpha );
+        }
+    }
 }
 
 const char *TraceEvents::comm_from_pid( int pid, const char *def )
@@ -1576,14 +1590,18 @@ void TraceEvents::init_sched_switch_event( trace_event_t &event )
             // TASK_INTERRUPTABLE (1): Sleeping but can be woken up
             // TASK_UNINTERRUPTABLE (2): Sleeping but can't be woken up by a signal
             // TASK_STOPPED (4): Stopped process by job control signal or ptrace
+            // TASK_TRACED (8): Task is being monitored by other process (such as debugger)
             // TASK_ZOMBIE (32): Finished but waiting for parent to call wait() to cleanup
             int prev_state = atoi( get_event_field_val( event, "prev_state" ) );
-            int task_state = prev_state & ( TASK_STATE_MAX - 1 );
+            int task_state = prev_state & ( TASK_REPORT_MAX - 1 );
 
             if ( task_state == 0 )
                 event.flags |= TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING;
 
             event.duration = event.ts - event_prev.ts;
+
+            // Add this event to the sched switch CPU timeline locs array
+            m_sched_switch_cpu_locs.add_location_u32( 0, event.id );
         }
 
         m_sched_switch_prev_locs.add_location_u32( prev_pid, event.id );
@@ -2340,7 +2358,12 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
     if ( errstr )
         errstr->clear();
 
-    if ( get_ftrace_row_info( name ) )
+    if ( !strcmp( name, "cpu graph" ) )
+    {
+        type = LOC_TYPE_CpuGraph;
+        plocs = m_sched_switch_cpu_locs.get_locations_u32( 0 );
+    }
+    else if ( get_ftrace_row_info( name ) )
     {
         type = LOC_TYPE_Print;
         plocs = &m_ftrace.print_locs;

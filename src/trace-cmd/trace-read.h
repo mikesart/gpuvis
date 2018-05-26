@@ -27,24 +27,32 @@
 #define TRACE_BUF_SIZE     1024
 #endif
 
-// Mask for sched_switch prev_state field
-//   From include/linux/sched.h
+// R Running
+// S Sleeping in an interruptible wait
+// D Waiting in uninterruptible disk sleep
+// T Stopped (on a signal) or (before Linux 2.6.33) trace stopped
+// t Tracing stop (Linux 2.6.33 onward)
+// X Dead (from Linux 2.6.0 onward)
+// Z Zombie
+// P Parked (Linux 3.9 to 3.13 only)
+
+// Bits for sched_switch prev_state field:
+//   From task_index_to_char() in include/linux/sched.h
 
 /* Used in tsk->state: */
-#define TASK_RUNNING            0
-#define TASK_INTERRUPTIBLE      1
-#define TASK_UNINTERRUPTIBLE    2
-#define TASK_STOPPED            4
-#define TASK_TRACED             8
+#define TASK_RUNNING            0x0000 // R
+#define TASK_INTERRUPTIBLE      0x0001 // S
+#define TASK_UNINTERRUPTIBLE    0x0002 // D
+#define TASK_STOPPED            0x0004 // T
+#define TASK_TRACED             0x0008 // t
 /* Used in tsk->exit_state: */
-#define EXIT_DEAD               16
-#define EXIT_ZOMBIE             32
+#define EXIT_DEAD               0x0010 // X
+#define EXIT_ZOMBIE             0x0020 // Z
 /* Used in tsk->state again: */
-#define TASK_DEAD               64
-#define TASK_WAKEKILL           128
-#define TASK_WAKING             256
-#define TASK_PARKED             512
-#define TASK_STATE_MAX          1024
+#define TASK_PARKED             0x0040 // P
+#define TASK_DEAD               0x0080 // I
+
+#define TASK_REPORT_MAX         0x0100 // (0x7f + 1) << 1
 
 #define INVALID_ID ( ( uint32_t )-1 )
 

@@ -35,6 +35,7 @@ enum loc_type_t
     LOC_TYPE_Comm,
     LOC_TYPE_Tdopexpr,
     LOC_TYPE_Print,
+    LOC_TYPE_CpuGraph,
     LOC_TYPE_Plot,
     LOC_TYPE_AMDTimeline,
     LOC_TYPE_AMDTimeline_hw,
@@ -486,6 +487,8 @@ public:
     TraceLocations m_sched_switch_prev_locs;
     TraceLocations m_sched_switch_next_locs;
 
+    TraceLocations m_sched_switch_cpu_locs;
+
     // plot name to GraphPlot
     util_umap< uint32_t, GraphPlot > m_graph_plots;
 
@@ -682,6 +685,8 @@ protected:
     uint32_t graph_render_amdhw_timeline( graph_info_t &gi );
     // Render ftrace print row
     uint32_t graph_render_print_timeline( graph_info_t &gi );
+    // Render cpus print row
+    uint32_t graph_render_cpus_timeline( graph_info_t &gi );
     // Render plot row
     uint32_t graph_render_plot( graph_info_t &gi );
     // Render regular trace events
