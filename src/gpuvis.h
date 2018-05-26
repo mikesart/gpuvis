@@ -888,6 +888,8 @@ public:
         ImVec2 mouse_capture_last;
         mouse_captured_t mouse_captured = MOUSE_NOT_CAPTURED;
 
+        ImU32 cpu_timeline_color = 0;
+
         const int64_t s_min_length = 100;
         const int64_t s_max_length = 7500 * NSECS_PER_MSEC;
 
