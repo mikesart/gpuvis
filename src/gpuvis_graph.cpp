@@ -1554,6 +1554,28 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
         }
     }
 
+    imgui_push_smallfont();
+
+    ImU32 color = s_clrs().get( col_Graph_BarText );
+    ImDrawList *DrawList = ImGui::GetWindowDrawList();
+
+    for ( uint32_t i = 0; i < cpus; i++ )
+    {
+        char label[ 16 ];
+        ImVec2 textsize;
+        float x = gi.rc.x;
+        float y = gi.rc.y + i * row_h;
+
+        snprintf( label, sizeof( label ), "%d", i );
+        textsize = ImGui::CalcTextSize( label );
+
+        imgui_draw_text( x + imgui_scale( 2.0f ), y + imgui_scale( 1.0f ), color, label, true );
+        imgui_draw_text( x + gi.rc.w - textsize.x - imgui_scale( 2.0f ), y + imgui_scale( 1.0f ), color, label, true );
+
+        DrawList->AddLine( ImVec2( x, y + row_h ), ImVec2( x + gi.rc.w, y + row_h ), color );
+    }
+
+    imgui_pop_font();
     return count;
 }
 
