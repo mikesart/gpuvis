@@ -1531,7 +1531,7 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
 
         // Bail if we're off the right side of our graph
         if ( x0 > gi.rc.x + gi.rc.w )
-            break;
+            continue;
 
         imgui_drawrect_filled( x0, y, x1 - x0, row_h - imgui_scale( 1.0f ), sched_switch.color );
         count++;
