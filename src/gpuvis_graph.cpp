@@ -1519,9 +1519,9 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
 
     uint32_t cpus = m_trace_events.m_trace_info.cpus;
     float row_h = gi.rc.h / cpus;
-
     bool ctrl_down = ImGui::GetIO().KeyCtrl;
     bool shift_down = ImGui::GetIO().KeyShift;
+    bool sched_switch_bars_empty = gi.sched_switch_bars.empty();
 
     if ( !ctrl_down )
         m_graph.cpu_timeline_color = 0;
@@ -1530,6 +1530,7 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
           idx < plocs->size();
           idx++ )
     {
+        bool drawrect = false;
         const trace_event_t &sched_switch = get_event( plocs->at( idx ) );
         float y = gi.rc.y + sched_switch.cpu * row_h;
         float x0 = gi.ts_to_screenx( sched_switch.ts - sched_switch.duration );
@@ -1550,13 +1551,19 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
 
         if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
         {
+            drawrect = true;
             gi.sched_switch_bars.push_back( sched_switch.id );
-
-            imgui_drawrect( x0, y, x1 - x0, row_h, s_clrs().get( col_Graph_BarSelRect ) );
 
             if ( ctrl_down )
                 m_graph.cpu_timeline_color = sched_switch.color;
         }
+        else if ( !sched_switch_bars_empty && ( gi.sched_switch_bars[ 0 ] == sched_switch.id ) )
+        {
+            drawrect = true;
+        }
+
+        if ( drawrect )
+            imgui_drawrect( x0, y, x1 - x0, row_h, s_clrs().get( col_Graph_BarSelRect ) );
     }
 
     imgui_push_smallfont();
@@ -2048,6 +2055,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
                 s_clrs().get( col_Graph_TaskRunning ),
                 s_clrs().get( col_Graph_TaskSleeping )
             };
+            bool sched_switch_bars_empty = gi.sched_switch_bars.empty();
 
             for ( size_t idx = vec_find_eventid( *plocs, gi.eventstart );
                   idx < plocs->size();
@@ -2059,6 +2067,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 
                 if ( sched_switch.has_duration() )
                 {
+                    bool drawrect = false;
                     float x0 = gi.ts_to_screenx( sched_switch.ts - sched_switch.duration );
                     float x1 = gi.ts_to_screenx( sched_switch.ts );
                     int running = !!( sched_switch.flags & TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING );
@@ -2071,10 +2080,16 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 
                     if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
                     {
+                        drawrect = true;
                         gi.sched_switch_bars.push_back( sched_switch.id );
-
-                        imgui_drawrect( x0, y, x1 - x0, row_h, s_clrs().get( col_Graph_BarSelRect ) );
                     }
+                    else if ( !sched_switch_bars_empty && ( gi.sched_switch_bars[ 0 ] == sched_switch.id ) )
+                    {
+                        drawrect = true;
+                    }
+
+                    if ( drawrect )
+                        imgui_drawrect( x0, y, x1 - x0, row_h, s_clrs().get( col_Graph_BarSelRect ) );
                 }
             }
         }
