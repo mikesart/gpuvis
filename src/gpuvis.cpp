@@ -899,6 +899,30 @@ static void imgui_setnextwindowsize( float w, float h, float x = -1.0f, float y 
                               ImGuiCond_FirstUseEver );
 }
 
+static void render_help_entry( const char *hotkey, const char *desc )
+{
+    const char *colon = strchr( desc, ':' );
+
+    ImGui::Text( "%s", s_textclrs().bright_str( hotkey ).c_str() );
+    ImGui::NextColumn();
+
+    if ( colon )
+    {
+        int len = ( int )( colon - desc );
+        const char *clr_def = s_textclrs().str( TClr_Def );
+        const char *clr_brightcomp = s_textclrs().str( TClr_BrightComp );
+
+        ImGui::Text( "%s%.*s%s:%s", clr_brightcomp, len, desc, clr_def, colon + 1 );
+    }
+    else
+    {
+        ImGui::Text( "%s", desc );
+    }
+    ImGui::NextColumn();
+
+    ImGui::Separator();
+}
+
 void MainApp::render()
 {
     if ( m_trace_win && m_trace_win->m_open )
@@ -1019,39 +1043,33 @@ void MainApp::render()
                 const char *desc;
             } s_help[] =
             {
-                { "Ctrl+click drag", "Select graph area" },
-                { "Shift+click drag", "Zoom selected graph area" },
-                { "Mousewheel", "Zoom graph in / out" },
-                { "Alt down", "Hide graph labels" },
+                { "Ctrl+click drag", "Graph: Select area" },
+                { "Shift+click drag", "Graph: Zoom selected area" },
+                { "Mousewheel", "Graph: Zoom in / out" },
+                { "Alt down", "Graph: Hide labels" },
             };
+            int graph_entry_count = 0;
 
             if ( imgui_begin_columns( "gpuvis_help", { "Hotkey", "Description" } ) )
                 ImGui::SetColumnWidth( 0, imgui_scale( 170.0f ) );
-
-            for ( size_t i = 0; i < ARRAY_SIZE( s_help ); i++ )
-            {
-                ImGui::Text( "%s", s_textclrs().bright_str( s_help[ i ].hotkey ).c_str() );
-                ImGui::NextColumn();
-
-                ImGui::Text( "%s", s_help[ i ].desc );
-                ImGui::NextColumn();
-
-                ImGui::Separator();
-            }
 
             for ( const Actions::actionmap_t &map : s_actions().m_actionmap )
             {
                 if ( map.desc )
                 {
-                    std::string hotkey = s_actions().hotkey_str( map.action );
+                    bool is_graph_section = !strncmp( map.desc, "Graph: ", 7 );
+                    const std::string hotkey = s_actions().hotkey_str( map.action );
 
-                    ImGui::Text( "%s", s_textclrs().bright_str( hotkey ).c_str() );
-                    ImGui::NextColumn();
+                    if ( is_graph_section && !graph_entry_count )
+                    {
+                        // If this is the first "Graph: " entry, sneak the mouse actions in
+                        for ( size_t i = 0; i < ARRAY_SIZE( s_help ); i++ )
+                            render_help_entry( s_help[ i ].hotkey, s_help[ i ].desc );
+                    }
 
-                    ImGui::Text( "%s", map.desc );
-                    ImGui::NextColumn();
+                    render_help_entry( hotkey.c_str(), map.desc );
 
-                    ImGui::Separator();
+                    graph_entry_count += is_graph_section;
                 }
             }
 

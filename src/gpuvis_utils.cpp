@@ -1479,66 +1479,67 @@ void Actions::init()
     clear();
 
     m_actionmap.push_back( { action_help, KMOD_NONE, SDLK_F1, "Help dialog" } );
-    m_actionmap.push_back( { action_open, KMOD_CTRL | KMOD_SHIFT, SDLK_o, "Open Trace File dialog" } );
+    m_actionmap.push_back( { action_quit, KMOD_CTRL, SDLK_q, "Quit GpuVis" } );
+    m_actionmap.push_back( { action_save_screenshot, KMOD_NONE, SDLK_F12, "Capture screenshot" } );
+
     m_actionmap.push_back( { action_menu_file, KMOD_ALT, SDLK_f, "File Menu" } );
     m_actionmap.push_back( { action_menu_options, KMOD_ALT, SDLK_o, "Options Menu" } );
-    m_actionmap.push_back( { action_quit, KMOD_CTRL, SDLK_q, "Quit GpuVis" } );
+
+    m_actionmap.push_back( { action_open, KMOD_CTRL | KMOD_SHIFT, SDLK_o, "Open Trace File dialog" } );
     m_actionmap.push_back( { action_trace_info, KMOD_CTRL | KMOD_SHIFT, SDLK_i, "Display trace information" } );
 
     m_actionmap.push_back( { action_focus_graph, KMOD_CTRL | KMOD_SHIFT, SDLK_g, "Set focus to events graph" } );
     m_actionmap.push_back( { action_focus_eventlist, KMOD_CTRL | KMOD_SHIFT, SDLK_e, "Set focus to event list" } );
 
-    m_actionmap.push_back( { action_graph_zoom_row, KMOD_CTRL | KMOD_SHIFT, SDLK_z, "Toggle hovered graph row timeline fullscreen" } );
-    m_actionmap.push_back( { action_graph_zoom_mouse, KMOD_NONE, SDLK_z, "Toggle hovered graph location zoom to 3ms / restore pre-zoom" } );
-    m_actionmap.push_back( { action_graph_hide_row, 0, SDLK_h, "Hide hovered graph row" } );
+    m_actionmap.push_back( { action_toggle_show_eventlist, KMOD_NONE, SDLK_F11, "Toggle showing event list" } );
 
     m_actionmap.push_back( { action_cpugraph_hide_systemevents, KMOD_CTRL | KMOD_SHIFT, SDLK_h, "CPU Graph: Toggle hiding sched_switch 'system' events" } );
     m_actionmap.push_back( { action_cpugraph_show_hovered_process, KMOD_CTRL | KMOD_SHIFT, SDLK_s, "CPU Graph: Toggle showing only hovered process events" } );
 
-    m_actionmap.push_back( { action_toggle_show_eventlist, KMOD_NONE, SDLK_F11, "Toggle showing event list" } );
+    m_actionmap.push_back( { action_graph_zoom_row, KMOD_CTRL | KMOD_SHIFT, SDLK_z, "Graph: Toggle hovered row timeline fullscreen" } );
+    m_actionmap.push_back( { action_graph_zoom_mouse, KMOD_NONE, SDLK_z, "Graph: Toggle hovered location zoom to 3ms / restore pre-zoom" } );
+    m_actionmap.push_back( { action_graph_hide_row, 0, SDLK_h, "Graph: Hide hovered row" } );
 
-    m_actionmap.push_back( { action_save_screenshot, KMOD_NONE, SDLK_F12, "Capture screenshot" } );
+    m_actionmap.push_back( { action_toggle_vblank0, KMOD_CTRL | KMOD_SHIFT, SDLK_m, "Graph: Toggle showing vblank 0 markers" } );
+    m_actionmap.push_back( { action_toggle_vblank1, KMOD_CTRL | KMOD_SHIFT, SDLK_n, "Graph: Toggle showing vblank 1 markers" } );
+    m_actionmap.push_back( { action_toggle_framemarkers, KMOD_CTRL | KMOD_SHIFT, SDLK_f, "Graph: Toggle showing Frame Markers" } );
+    m_actionmap.push_back( { action_toggle_frame_filters, KMOD_CTRL | KMOD_SHIFT, SDLK_r, "Graph: Toggle Frame Filters" } );
 
-    m_actionmap.push_back( { action_toggle_vblank0, KMOD_CTRL | KMOD_SHIFT, SDLK_m, "Toggle showing vblank 0 markers" } );
-    m_actionmap.push_back( { action_toggle_vblank1, KMOD_CTRL | KMOD_SHIFT, SDLK_n, "Toggle showing vblank 1 markers" } );
-    m_actionmap.push_back( { action_toggle_framemarkers, KMOD_CTRL | KMOD_SHIFT, SDLK_f, "Toggle showing Frame Markers" } );
-    m_actionmap.push_back( { action_toggle_frame_filters, KMOD_CTRL | KMOD_SHIFT, SDLK_r, "Toggle Frame Filters" } );
+    m_actionmap.push_back( { action_frame_marker_prev_fit, KMOD_CTRL | KMOD_REPEAT, SDLK_LEFT, "Graph: Show and fit previous frame marker frame" } );
+    m_actionmap.push_back( { action_frame_marker_next_fit, KMOD_CTRL | KMOD_REPEAT, SDLK_RIGHT, "Graph: Show and fit next frame marker frame" } );
+    m_actionmap.push_back( { action_frame_marker_prev, KMOD_CTRL | KMOD_SHIFT | KMOD_REPEAT, SDLK_LEFT, "Graph: Show previous frame marker frame" } );
+    m_actionmap.push_back( { action_frame_marker_next, KMOD_CTRL| KMOD_SHIFT | KMOD_REPEAT, SDLK_RIGHT, "Graph: Show next frame marker frame" } );
 
-    m_actionmap.push_back( { action_frame_marker_prev_fit, KMOD_CTRL | KMOD_REPEAT, SDLK_LEFT, "Show and fit previous frame marker frame in graph" } );
-    m_actionmap.push_back( { action_frame_marker_next_fit, KMOD_CTRL | KMOD_REPEAT, SDLK_RIGHT, "Show and fit next frame marker frame in graph" } );
-    m_actionmap.push_back( { action_frame_marker_prev, KMOD_CTRL | KMOD_SHIFT | KMOD_REPEAT, SDLK_LEFT, "Show previous frame marker frame in graph" } );
-    m_actionmap.push_back( { action_frame_marker_next, KMOD_CTRL| KMOD_SHIFT | KMOD_REPEAT, SDLK_RIGHT, "Show next frame marker frame in graph" } );
+    m_actionmap.push_back( { action_graph_set_markerA, KMOD_CTRL | KMOD_SHIFT, SDLK_a, "Graph: Set marker A" } );
+    m_actionmap.push_back( { action_graph_set_markerB, KMOD_CTRL | KMOD_SHIFT, SDLK_b, "Graph: Set marker B" } );
+    m_actionmap.push_back( { action_graph_goto_markerA, KMOD_CTRL, SDLK_a, "Graph: Goto marker A" } );
+    m_actionmap.push_back( { action_graph_goto_markerB, KMOD_CTRL, SDLK_b, "Graph: Goto marker B" } );
 
-    m_actionmap.push_back( { action_graph_set_markerA, KMOD_CTRL | KMOD_SHIFT, SDLK_a, "Set graph marker A" } );
-    m_actionmap.push_back( { action_graph_set_markerB, KMOD_CTRL | KMOD_SHIFT, SDLK_b, "Set graph marker B" } );
-    m_actionmap.push_back( { action_graph_goto_markerA, KMOD_CTRL, SDLK_a, "Goto graph marker A" } );
-    m_actionmap.push_back( { action_graph_goto_markerB, KMOD_CTRL, SDLK_b, "Goto graph marker B" } );
+    m_actionmap.push_back( { action_graph_save_location1, KMOD_CTRL | KMOD_SHIFT, SDLK_1, "Graph: Save location 1" } );
+    m_actionmap.push_back( { action_graph_save_location2, KMOD_CTRL | KMOD_SHIFT, SDLK_2, "Graph: Save location 2" } );
+    m_actionmap.push_back( { action_graph_save_location3, KMOD_CTRL | KMOD_SHIFT, SDLK_3, "Graph: Save location 3" } );
+    m_actionmap.push_back( { action_graph_save_location4, KMOD_CTRL | KMOD_SHIFT, SDLK_4, "Graph: Save location 4" } );
+    m_actionmap.push_back( { action_graph_save_location5, KMOD_CTRL | KMOD_SHIFT, SDLK_5, "Graph: Save location 5" } );
 
-    m_actionmap.push_back( { action_graph_save_location1, KMOD_CTRL | KMOD_SHIFT, SDLK_1, "Save graph location 1" } );
-    m_actionmap.push_back( { action_graph_save_location2, KMOD_CTRL | KMOD_SHIFT, SDLK_2, "Save graph location 2" } );
-    m_actionmap.push_back( { action_graph_save_location3, KMOD_CTRL | KMOD_SHIFT, SDLK_3, "Save graph location 3" } );
-    m_actionmap.push_back( { action_graph_save_location4, KMOD_CTRL | KMOD_SHIFT, SDLK_4, "Save graph location 4" } );
-    m_actionmap.push_back( { action_graph_save_location5, KMOD_CTRL | KMOD_SHIFT, SDLK_5, "Save graph location 5" } );
+    m_actionmap.push_back( { action_graph_restore_location1, KMOD_CTRL, SDLK_1, "Graph: Restore location 1" } );
+    m_actionmap.push_back( { action_graph_restore_location2, KMOD_CTRL, SDLK_2, "Graph: Restore location 2" } );
+    m_actionmap.push_back( { action_graph_restore_location3, KMOD_CTRL, SDLK_3, "Graph: Restore location 3" } );
+    m_actionmap.push_back( { action_graph_restore_location4, KMOD_CTRL, SDLK_4, "Graph: Restore location 4" } );
+    m_actionmap.push_back( { action_graph_restore_location5, KMOD_CTRL, SDLK_5, "Graph: Restore location 5" } );
 
-    m_actionmap.push_back( { action_graph_restore_location1, KMOD_CTRL, SDLK_1, "Restore graph location 1" } );
-    m_actionmap.push_back( { action_graph_restore_location2, KMOD_CTRL, SDLK_2, "Restore graph location 2" } );
-    m_actionmap.push_back( { action_graph_restore_location3, KMOD_CTRL, SDLK_3, "Restore graph location 3" } );
-    m_actionmap.push_back( { action_graph_restore_location4, KMOD_CTRL, SDLK_4, "Restore graph location 4" } );
-    m_actionmap.push_back( { action_graph_restore_location5, KMOD_CTRL, SDLK_5, "Restore graph location 5" } );
+    m_actionmap.push_back( { action_graph_pin_tooltip, KMOD_CTRL, SDLK_p, "Graph: Pin current graph tooltip" } );
 
-    m_actionmap.push_back( { action_graph_pin_tooltip, KMOD_CTRL, SDLK_p, "Pin current graph tooltip" } );
+    m_actionmap.push_back( { action_scroll_up, KMOD_REPEAT, SDLK_UP, "Graph: Scroll / event list up" } );
+    m_actionmap.push_back( { action_scroll_down, KMOD_REPEAT, SDLK_DOWN, "Graph: Scroll / event list down" } );
 
-    m_actionmap.push_back( { action_scroll_up, KMOD_REPEAT, SDLK_UP, "Scroll graph / event list up" } );
-    m_actionmap.push_back( { action_scroll_down, KMOD_REPEAT, SDLK_DOWN, "Scroll graph / event list down" } );
+    m_actionmap.push_back( { action_scroll_left, KMOD_REPEAT, SDLK_LEFT, "Graph: Scroll / event list left" } );
+    m_actionmap.push_back( { action_scroll_right, KMOD_REPEAT, SDLK_RIGHT, "Graph: Scroll  event list right" } );
 
-    m_actionmap.push_back( { action_scroll_left, KMOD_REPEAT, SDLK_LEFT, "Scroll graph / event list left" } );
-    m_actionmap.push_back( { action_scroll_right, KMOD_REPEAT, SDLK_RIGHT, "Scroll graph / event list right" } );
+    m_actionmap.push_back( { action_scroll_pageup, KMOD_REPEAT, SDLK_PAGEUP, "Graph: Page / event list up" } );
+    m_actionmap.push_back( { action_scroll_pagedown, KMOD_REPEAT, SDLK_PAGEDOWN, "Graph: Page / event list down" } );
 
-    m_actionmap.push_back( { action_scroll_pageup, KMOD_REPEAT, SDLK_PAGEUP, "Page graph / event list up" } );
-    m_actionmap.push_back( { action_scroll_pagedown, KMOD_REPEAT, SDLK_PAGEDOWN, "Page graph / event list down" } );
-
-    m_actionmap.push_back( { action_scroll_home, KMOD_NONE, SDLK_HOME, "Scroll graph / event list to start" } );
-    m_actionmap.push_back( { action_scroll_end, KMOD_NONE, SDLK_END, "Scroll graph / event list to end" } );
+    m_actionmap.push_back( { action_scroll_home, KMOD_NONE, SDLK_HOME, "Graph: Scroll / event list to start" } );
+    m_actionmap.push_back( { action_scroll_end, KMOD_NONE, SDLK_END, "Graph: Scroll / event list to end" } );
 
     m_actionmap.push_back( { action_escape, KMOD_NONE, SDLK_ESCAPE, NULL } );
     m_actionmap.push_back( { action_return, KMOD_NONE, SDLK_RETURN, NULL } );
