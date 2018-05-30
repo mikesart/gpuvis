@@ -1518,7 +1518,7 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
     const std::vector< uint32_t > *plocs = gi.prinfo_cur->plocs;
 
     uint32_t cpus = m_trace_events.m_trace_info.cpus;
-    float row_h = gi.rc.h / cpus;
+    float row_h = floor( gi.rc.h / cpus );
     bool ctrl_down = ImGui::GetIO().KeyCtrl;
     bool shift_down = ImGui::GetIO().KeyShift;
     bool sched_switch_bars_empty = gi.sched_switch_bars.empty();
@@ -1546,7 +1546,7 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
         if ( ctrl_down && m_graph.cpu_timeline_color && ( sched_switch.color != m_graph.cpu_timeline_color ) )
             continue;
 
-        imgui_drawrect_filled( x0, y, x1 - x0, row_h - imgui_scale( 1.0f ), sched_switch.color );
+        imgui_drawrect_filled( x0, y + imgui_scale( 2.0f ), x1 - x0, row_h - imgui_scale( 3.0f ), sched_switch.color );
         count++;
 
         if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
@@ -1563,13 +1563,20 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
         }
 
         if ( drawrect )
-            imgui_drawrect( x0, y, x1 - x0, row_h, s_clrs().get( col_Graph_BarSelRect ) );
+        {
+            imgui_drawrect( x0, y + imgui_scale( 1.0f ),
+                            x1 - x0, row_h - imgui_scale( 1.0f ),
+                            s_clrs().get( col_Graph_BarSelRect ) );
+        }
     }
 
     imgui_push_smallfont();
 
-    ImU32 color = s_clrs().get( col_Graph_BarText );
+    ImU32 color = s_clrs().get( col_Graph_BarText, 0x30 );
     ImDrawList *DrawList = ImGui::GetWindowDrawList();
+
+    // Draw border around the cpu graph rows
+    DrawList->AddLine( ImVec2( gi.rc.x, gi.rc.y ), ImVec2( gi.rc.x + gi.rc.w, gi.rc.y ), color );
 
     for ( uint32_t i = 0; i < cpus; i++ )
     {
@@ -1581,6 +1588,7 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
         snprintf( label, sizeof( label ), "%d", i );
         textsize = ImGui::CalcTextSize( label );
 
+        // Draw labels on the left and right of each row
         imgui_draw_text( x + imgui_scale( 2.0f ), y + imgui_scale( 1.0f ), color, label, true );
         imgui_draw_text( x + gi.rc.w - textsize.x - imgui_scale( 2.0f ), y + imgui_scale( 1.0f ), color, label, true );
 
