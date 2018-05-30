@@ -202,11 +202,6 @@ const char *noc_file_dialog_open(int flags,
 
 #elif defined( NOC_FILE_DIALOG_OSX )
 
-const char *noc_file_init()
-{
-    return NULL;
-}
-
 // moved to noc_file_dialog_osx.mm
 
 #else

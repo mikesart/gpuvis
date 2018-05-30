@@ -4,6 +4,11 @@
 
 #include <AppKit/AppKit.h>
 
+const char *noc_file_init()
+{
+    return NULL;
+}
+
 const char *noc_file_dialog_open(int flags,
                                  const char *filters,
                                  const char *default_path,

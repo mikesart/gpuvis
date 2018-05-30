@@ -53,6 +53,7 @@ static const struct
     { "[Compositor] Before wait query", "[Compositor] After wait query" },
     { "[Compositor] Begin Present(wait)", "[Compositor] End Present" },
     { "[Compositor] Before flush", "[Compositor] After flush" },
+    { "[Compositor] Sleep - begin: 0", "[Compositor] Sleep - end" },
     { "[Compositor] Sleep - begin: 6", "[Compositor] Sleep - end" },
     { "[Compositor] Begin Running Start", "[Compositor] End Running Start" },
     { "[Compositor] Mirror Begin Present", "[Compositor] Mirror End Present" },
