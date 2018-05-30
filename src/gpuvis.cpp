@@ -1490,6 +1490,7 @@ void TraceEvents::update_tgid_colors()
             size_t len = ( size_t )-1;
             trace_event_t &sched_switch = m_events[ idx ];
             const char *prev_comm = get_event_field_val( sched_switch, "prev_comm" );
+            const char *prev_pid = get_event_field_val( sched_switch, "prev_pid" );
 
             if ( !strncmp( prev_comm,      "swapper/", 8 ) )
                 len = 8;
@@ -1508,7 +1509,9 @@ void TraceEvents::update_tgid_colors()
                 alpha = 0.3f;
             }
 
+            // Hash comm and pid to get color
             hashval = fnv_hashstr32( prev_comm, len );
+            hashval = fnv_32_str( prev_pid, hashval, ( size_t )-1 );
 
             sched_switch.flags |= TRACE_FLAG_AUTOGEN_COLOR;
             sched_switch.color = imgui_col_from_hashval( hashval, label_sat, alpha );
@@ -1640,6 +1643,9 @@ void TraceEvents::init_sched_switch_event( trace_event_t &event )
                 event.flags |= TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING;
 
             event.duration = event.ts - event_prev.ts;
+
+            m_sched_switch_time_total += event.duration;
+            m_sched_switch_time_pid.m_map[ prev_pid ] += event.duration;
 
             // Add this event to the sched switch CPU timeline locs array
             m_sched_switch_cpu_locs.add_location_u32( 0, event.id );

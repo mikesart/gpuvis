@@ -213,6 +213,7 @@ private:
 };
 
 extern "C" uint32_t fnv_hashstr32( const char *str, size_t len = ( size_t )-1 );
+extern "C" uint32_t fnv_32_str( const char *str, uint32_t hval, size_t len );
 
 size_t get_file_size( const char *filename );
 const char *get_path_filename( const char *filename );

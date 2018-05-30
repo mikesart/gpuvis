@@ -3902,16 +3902,26 @@ void TraceWin::graph_mouse_tooltip_sched_switch( std::string &ttip, graph_info_t
 
         if ( prev_comm )
         {
+            int prev_pid = atoi( get_event_field_val( event, "prev_pid" ) );
             int prev_state = atoi( get_event_field_val( event, "prev_state" ) );
             int task_state = prev_state & ( TASK_REPORT_MAX - 1 );
             const std::string task_state_str = task_state_to_str( task_state );
             std::string timestr = ts_to_timestr( event.duration, 4 );
 
-            ttip += string_format( "\n%s%u%s sched_switch %s%s%s CPU:%d (%s) %s",
+            ttip += string_format( "\n%s%u%s sched_switch %s%s-%d%s %sCpu:%d%s (%s) %s",
                                    gi.clr_bright, event.id, gi.clr_def,
-                                   gi.clr_brightcomp, prev_comm, gi.clr_def,
-                                   event.cpu, timestr.c_str(),
+                                   gi.clr_brightcomp, prev_comm, prev_pid, gi.clr_def,
+                                   gi.clr_bright, event.cpu, gi.clr_def,
+                                   timestr.c_str(),
                                    task_state_str.c_str() );
+
+            int64_t *val = m_trace_events.m_sched_switch_time_pid.get_val( prev_pid );
+
+            if ( val )
+            {
+                ttip += string_format( " (Time Pct:%.2f%%)", 
+                                       ( *val * 100.0 / m_trace_events.m_sched_switch_time_total ) );
+            }
         }
     }
 }

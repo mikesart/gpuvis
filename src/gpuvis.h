@@ -488,6 +488,8 @@ public:
     TraceLocations m_sched_switch_next_locs;
 
     TraceLocations m_sched_switch_cpu_locs;
+    util_umap< int, int64_t > m_sched_switch_time_pid;
+    int64_t m_sched_switch_time_total = 0;
 
     // plot name to GraphPlot
     util_umap< uint32_t, GraphPlot > m_graph_plots;
