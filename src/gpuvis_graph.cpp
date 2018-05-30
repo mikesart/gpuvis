@@ -1576,9 +1576,6 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
         {
             drawrect = true;
             gi.sched_switch_bars.push_back( sched_switch.id );
-
-            if ( set_cpu_timeline_color )
-                m_graph.cpu_timeline_color = sched_switch.color;
         }
         else if ( !sched_switch_bars_empty && ( gi.sched_switch_bars[ 0 ] == sched_switch.id ) )
         {
@@ -1587,6 +1584,9 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
 
         if ( drawrect )
         {
+            if ( set_cpu_timeline_color )
+                m_graph.cpu_timeline_color = sched_switch.color;
+
             imgui_drawrect( x0, y + imgui_scale( 1.0f ),
                             x1 - x0, row_h - imgui_scale( 1.0f ),
                             s_clrs().get( col_Graph_BarSelRect ) );
