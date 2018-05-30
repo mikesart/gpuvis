@@ -1027,6 +1027,8 @@ void MainApp::render()
         {
             render_save_filename();
             ImGui::EndPopup();
+
+            m_show_help = false;
         }
 
         if ( m_show_help && !ImGui::IsPopupOpen( "GpuVis Help" ) )
@@ -4384,7 +4386,7 @@ void MainApp::handle_hotkeys()
     if ( s_actions().get( action_toggle_show_eventlist ) )
         s_opts().setb( OPT_ShowEventList, !s_opts().getb( OPT_ShowEventList ) );
 
-    if ( !m_show_help && s_actions().get( action_save_screenshot ) )
+    if (  s_actions().get( action_save_screenshot ) )
     {
         ImGuiIO& io = ImGui::GetIO();
         int w = ( int )io.DisplaySize.x;
