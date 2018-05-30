@@ -429,6 +429,9 @@ enum action_t
     action_graph_zoom_mouse,
     action_graph_hide_row,
 
+    action_cpugraph_hide_systemevents,
+    action_cpugraph_show_hovered_process,
+
     action_graph_set_markerA,
     action_graph_set_markerB,
     action_graph_goto_markerA,

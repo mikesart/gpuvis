@@ -1519,12 +1519,15 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
 
     uint32_t cpus = m_trace_events.m_trace_info.cpus;
     float row_h = floor( gi.rc.h / cpus );
-    bool ctrl_down = ImGui::GetIO().KeyCtrl;
-    bool shift_down = ImGui::GetIO().KeyShift;
+    bool set_cpu_timeline_color = false;
     bool sched_switch_bars_empty = gi.sched_switch_bars.empty();
+    bool hide_system_events = m_graph.cpu_hide_system_events;
 
-    if ( !ctrl_down )
+    if ( s_actions().get( action_cpugraph_show_hovered_process ) )
+    {
+        set_cpu_timeline_color = !m_graph.cpu_timeline_color;
         m_graph.cpu_timeline_color = 0;
+    }
 
     for ( size_t idx = vec_find_eventid( *plocs, gi.eventstart );
           idx < plocs->size();
@@ -1540,10 +1543,10 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
         if ( x0 > gi.rc.x + gi.rc.w )
             continue;
 
-        if ( shift_down && ( sched_switch.flags & TRACE_FLAG_SCHED_SWITCH_SYSTEM_EVENT ) )
+        if ( hide_system_events && ( sched_switch.flags & TRACE_FLAG_SCHED_SWITCH_SYSTEM_EVENT ) )
             continue;
 
-        if ( ctrl_down && m_graph.cpu_timeline_color && ( sched_switch.color != m_graph.cpu_timeline_color ) )
+        if ( m_graph.cpu_timeline_color && ( sched_switch.color != m_graph.cpu_timeline_color ) )
             continue;
 
         imgui_drawrect_filled( x0, y + imgui_scale( 2.0f ), x1 - x0, row_h - imgui_scale( 3.0f ), sched_switch.color );
@@ -1554,7 +1557,7 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
             drawrect = true;
             gi.sched_switch_bars.push_back( sched_switch.id );
 
-            if ( ctrl_down )
+            if ( set_cpu_timeline_color )
                 m_graph.cpu_timeline_color = sched_switch.color;
         }
         else if ( !sched_switch_bars_empty && ( gi.sched_switch_bars[ 0 ] == sched_switch.id ) )
@@ -2836,6 +2839,11 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             m_graph.zoom_row_name.clear();
         else if ( is_graph_row_zoomable() )
             zoom_graph_row();
+    }
+
+    if ( s_actions().get( action_cpugraph_hide_systemevents ) )
+    {
+        m_graph.cpu_hide_system_events = !m_graph.cpu_hide_system_events;
     }
 
     if ( gi.mouse_over &&

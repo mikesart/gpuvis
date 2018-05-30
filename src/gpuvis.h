@@ -889,6 +889,7 @@ public:
         mouse_captured_t mouse_captured = MOUSE_NOT_CAPTURED;
 
         ImU32 cpu_timeline_color = 0;
+        bool cpu_hide_system_events = false;
 
         const int64_t s_min_length = 100;
         const int64_t s_max_length = 7500 * NSECS_PER_MSEC;
