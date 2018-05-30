@@ -1514,14 +1514,22 @@ static uint32_t get_graph_row_id( const trace_event_t &event,
 
 uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
 {
+    imgui_push_smallfont();
+
     uint32_t count = 0;
     const std::vector< uint32_t > *plocs = gi.prinfo_cur->plocs;
 
+    bool set_cpu_timeline_color = false;
     uint32_t cpus = m_trace_events.m_trace_info.cpus;
     float row_h = floor( gi.rc.h / cpus );
-    bool set_cpu_timeline_color = false;
+    ImU32 color_text = s_clrs().get( col_Graph_BarText );
     bool sched_switch_bars_empty = gi.sched_switch_bars.empty();
     bool hide_system_events = m_graph.cpu_hide_system_events;
+    bool alt_down = ImGui::GetIO().KeyAlt;
+
+    // TASK_COMM_LEN is 16 in Linux, but try to show if there is
+    // room for ~12 characters.
+    const ImVec2 text_size = ImGui::CalcTextSize( "0123456789ab" );
 
     if ( s_actions().get( action_cpugraph_show_hovered_process ) )
     {
@@ -1552,6 +1560,16 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
         imgui_drawrect_filled( x0, y + imgui_scale( 2.0f ), x1 - x0, row_h - imgui_scale( 3.0f ), sched_switch.color );
         count++;
 
+        if ( !alt_down && ( x1 - x0 > text_size.x ) )
+        {
+            float y_text = y + ( row_h - text_size.y ) / 2 - imgui_scale( 1.0f );
+            const char *prev_comm = get_event_field_val( sched_switch, "prev_comm" );
+
+            imgui_push_cliprect( { x0, y_text, x1 - x0, text_size.y } );
+            imgui_draw_text( x0 + imgui_scale( 1.0f ), y_text, color_text, prev_comm );
+            imgui_pop_cliprect();
+        }
+
         if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
         {
             drawrect = true;
@@ -1572,8 +1590,6 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
                             s_clrs().get( col_Graph_BarSelRect ) );
         }
     }
-
-    imgui_push_smallfont();
 
     ImU32 color = s_clrs().get( col_Graph_BarText, 0x30 );
     ImDrawList *DrawList = ImGui::GetWindowDrawList();
