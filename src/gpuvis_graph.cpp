@@ -220,6 +220,7 @@ public:
     size_t show_row_id = ( size_t )-1;
 
     const char *clr_bright = nullptr;
+    const char *clr_brightcomp = nullptr;
     const char *clr_def = nullptr;
 
     uint32_t selected_eventid = INVALID_ID;
@@ -730,6 +731,7 @@ void graph_info_t::init()
     }
 
     clr_bright = s_textclrs().str( TClr_Bright );
+    clr_brightcomp = s_textclrs().str( TClr_BrightComp );
     clr_def = s_textclrs().str( TClr_Def );
 
     // Get mouse position
@@ -3905,9 +3907,10 @@ void TraceWin::graph_mouse_tooltip_sched_switch( std::string &ttip, graph_info_t
             const std::string task_state_str = task_state_to_str( task_state );
             std::string timestr = ts_to_timestr( event.duration, 4 );
 
-            ttip += string_format( "\n%s%u%s sched_switch %s CPU:%d (%s) %s",
+            ttip += string_format( "\n%s%u%s sched_switch %s%s%s CPU:%d (%s) %s",
                                    gi.clr_bright, event.id, gi.clr_def,
-                                   prev_comm, event.cpu, timestr.c_str(),
+                                   gi.clr_brightcomp, prev_comm, gi.clr_def,
+                                   event.cpu, timestr.c_str(),
                                    task_state_str.c_str() );
         }
     }
