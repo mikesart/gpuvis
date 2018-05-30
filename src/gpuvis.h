@@ -350,8 +350,8 @@ struct print_info_t
 struct ftrace_row_info_t
 {
     // pid=-1: rows+count for all ftrace print events
-    // tgid=# & pid=0: rows+count for tgid
-    // tgid=0 & pid=#: rows+count for pid
+    // tgid=# && pid=0: rows+count for tgid
+    // tgid=0 && pid=#: rows+count for pid
     int pid = 0;
     int tgid = 0;
     uint32_t rows = 0;

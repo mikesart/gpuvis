@@ -1511,7 +1511,15 @@ void TraceEvents::update_tgid_colors()
 
             // Hash comm and pid to get color
             hashval = fnv_hashstr32( prev_comm, len );
-            hashval = fnv_32_str( prev_pid, hashval, ( size_t )-1 );
+
+            // If this is a system event, just use the prev_comm entry
+            if ( !( sched_switch.flags & TRACE_FLAG_SCHED_SWITCH_SYSTEM_EVENT ) )
+            {
+                // Hash pid twice since some pids are only different by one char
+                // and that gives us very close color values.
+                hashval = fnv_32_str( prev_pid, hashval, ( size_t )-1 );
+                hashval = fnv_32_str( prev_pid, hashval, ( size_t )-1 );
+            }
 
             sched_switch.flags |= TRACE_FLAG_AUTOGEN_COLOR;
             sched_switch.color = imgui_col_from_hashval( hashval, label_sat, alpha );
@@ -2706,7 +2714,7 @@ void TraceWin::trace_render_info()
         int tree_tgid = -1;
         bool display_event = true;
 
-        if ( imgui_begin_columns( "row_info", { "Row Name", "Events" } ) )
+        if ( imgui_begin_columns( "row_info", { "Row Name", "Events", "sched_switch %" } ) )
             ImGui::SetColumnWidth( 0, imgui_scale( 250.0f ) );
 
         for ( const GraphRows::graph_rows_info_t &info : m_graph.rows.m_graph_rows_list )
@@ -2742,6 +2750,7 @@ void TraceWin::trace_render_info()
                                                  ( count > 1 ) ? "s" : "" );
                 ImGui::NextColumn();
                 ImGui::NextColumn();
+                ImGui::NextColumn();
             }
 
             if ( display_event )
@@ -2763,6 +2772,22 @@ void TraceWin::trace_render_info()
                     {
                         ImGui::SameLine();
                         ImGui::Text( "(minval:%.2f maxval:%.2f)", plot->m_minval, plot->m_maxval );
+                    }
+                }
+                ImGui::NextColumn();
+
+                // Check if this is a comm entry, and we have sched_switch total time
+                if ( ( info.type == LOC_TYPE_Comm ) && m_trace_events.m_sched_switch_time_total )
+                {
+                    const char *pidstr = strrchr( row_name, '-' );
+
+                    if ( pidstr)
+                    {
+                        // See if we have a total sched_switch count for this pid
+                        int64_t *val = m_trace_events.m_sched_switch_time_pid.get_val( atoi( pidstr + 1 ) );
+
+                        if ( val )
+                            ImGui::Text( "%.2f%%", *val * 100.0 / m_trace_events.m_sched_switch_time_total );
                     }
                 }
                 ImGui::NextColumn();

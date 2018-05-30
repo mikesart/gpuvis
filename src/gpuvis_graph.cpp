@@ -3916,10 +3916,9 @@ void TraceWin::graph_mouse_tooltip_sched_switch( std::string &ttip, graph_info_t
                                    task_state_str.c_str() );
 
             int64_t *val = m_trace_events.m_sched_switch_time_pid.get_val( prev_pid );
-
             if ( val )
             {
-                ttip += string_format( " (Time Pct:%.2f%%)", 
+                ttip += string_format( " (Time Pct:%.2f%%)",
                                        ( *val * 100.0 / m_trace_events.m_sched_switch_time_total ) );
             }
         }
