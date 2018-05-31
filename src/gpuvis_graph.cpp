@@ -1576,6 +1576,10 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
         {
             drawrect = true;
             gi.sched_switch_bars.push_back( sched_switch.id );
+
+            if ( set_cpu_timeline_color )
+                m_graph.cpu_timeline_color = sched_switch.color;
+
         }
         else if ( !sched_switch_bars_empty && ( gi.sched_switch_bars[ 0 ] == sched_switch.id ) )
         {
@@ -1584,9 +1588,6 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
 
         if ( drawrect )
         {
-            if ( set_cpu_timeline_color )
-                m_graph.cpu_timeline_color = sched_switch.color;
-
             imgui_drawrect( x0, y + imgui_scale( 1.0f ),
                             x1 - x0, row_h - imgui_scale( 1.0f ),
                             s_clrs().get( col_Graph_BarSelRect ) );
@@ -2038,9 +2039,16 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
 
 uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 {
+    bool set_cpu_timeline_color = false;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.rc.y + 4, gi.rc.w, gi.rc.h - 8 );
     bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
+
+    if ( s_actions().get( action_cpugraph_show_hovered_process ) )
+    {
+        set_cpu_timeline_color = !m_graph.cpu_timeline_color;
+        m_graph.cpu_timeline_color = 0;
+    }
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -2111,6 +2119,9 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
                     {
                         drawrect = true;
                         gi.sched_switch_bars.push_back( sched_switch.id );
+
+                        if ( set_cpu_timeline_color )
+                            m_graph.cpu_timeline_color = sched_switch.color;
                     }
                     else if ( !sched_switch_bars_empty && ( gi.sched_switch_bars[ 0 ] == sched_switch.id ) )
                     {
@@ -2850,6 +2861,9 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
 
     if ( s_actions().get( action_toggle_frame_filters ) )
         m_row_filters_enabled = !m_row_filters_enabled;
+
+    if ( s_actions().get( action_cpugraph_show_hovered_process ) )
+        m_graph.cpu_timeline_color = 0;
 
     if ( s_actions().get( action_graph_zoom_row ) )
     {
