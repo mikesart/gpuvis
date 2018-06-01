@@ -1521,7 +1521,6 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
     uint32_t count = 0;
     const std::vector< uint32_t > *plocs = gi.prinfo_cur->plocs;
 
-    bool set_cpu_timeline_color = false;
     uint32_t cpus = m_trace_events.m_trace_info.cpus;
     float row_h = floor( gi.rc.h / cpus );
     ImU32 color_text = s_clrs().get( col_Graph_BarText );
@@ -1532,12 +1531,6 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
     // TASK_COMM_LEN is 16 in Linux, but try to show if there is
     // room for ~12 characters.
     const ImVec2 text_size = ImGui::CalcTextSize( "0123456789ab" );
-
-    if ( s_actions().get( action_cpugraph_show_hovered_process ) )
-    {
-        set_cpu_timeline_color = !m_graph.cpu_timeline_color;
-        m_graph.cpu_timeline_color = 0;
-    }
 
     for ( size_t idx = vec_find_eventid( *plocs, gi.eventstart );
           idx < plocs->size();
@@ -1556,8 +1549,12 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
         if ( hide_system_events && ( sched_switch.flags & TRACE_FLAG_SCHED_SWITCH_SYSTEM_EVENT ) )
             continue;
 
-        if ( m_graph.cpu_timeline_color && ( sched_switch.color != m_graph.cpu_timeline_color ) )
+        // If we've got pids we should be filtering on, check if this is in the hash table.
+        if ( !m_graph.cpu_timeline_pids.empty() &&
+             ( m_graph.cpu_timeline_pids.find( sched_switch.pid ) == m_graph.cpu_timeline_pids.end() ) )
+        {
             continue;
+        }
 
         imgui_drawrect_filled( x0, y + imgui_scale( 2.0f ), x1 - x0, row_h - imgui_scale( 3.0f ), sched_switch.color );
         count++;
@@ -1577,9 +1574,6 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
         {
             drawrect = true;
             gi.sched_switch_bars.push_back( sched_switch.id );
-
-            if ( set_cpu_timeline_color )
-                m_graph.cpu_timeline_color = sched_switch.color;
         }
         else if ( !sched_switch_bars_empty && ( gi.sched_switch_bars[ 0 ] == sched_switch.id ) )
         {
@@ -2039,16 +2033,9 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
 
 uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 {
-    bool set_cpu_timeline_color = false;
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.rc.y + 4, gi.rc.w, gi.rc.h - 8 );
     bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );
-
-    if ( s_actions().get( action_cpugraph_show_hovered_process ) )
-    {
-        set_cpu_timeline_color = !m_graph.cpu_timeline_color;
-        m_graph.cpu_timeline_color = 0;
-    }
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -2119,9 +2106,6 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
                     {
                         drawrect = true;
                         gi.sched_switch_bars.push_back( sched_switch.id );
-
-                        if ( set_cpu_timeline_color )
-                            m_graph.cpu_timeline_color = sched_switch.color;
                     }
                     else if ( !sched_switch_bars_empty && ( gi.sched_switch_bars[ 0 ] == sched_switch.id ) )
                     {
@@ -2862,8 +2846,36 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
     if ( s_actions().get( action_toggle_frame_filters ) )
         m_row_filters_enabled = !m_row_filters_enabled;
 
-    if ( s_actions().get( action_cpugraph_show_hovered_process ) )
-        m_graph.cpu_timeline_color = 0;
+    bool show_hovered_pid = s_actions().get( action_cpugraph_show_hovered_pid );
+    bool show_hovered_tgid = s_actions().get( action_cpugraph_show_hovered_tgid );
+
+    if ( show_hovered_pid || show_hovered_tgid )
+    {
+        if ( !m_graph.cpu_timeline_pids.empty() )
+        {
+            // If we're already filtering some stuff, just clear it.
+            m_graph.cpu_timeline_pids.clear();
+        }
+        else if ( !gi.sched_switch_bars.empty() )
+        {
+            int event_id = gi.sched_switch_bars[ 0 ];
+            const trace_event_t &event = get_event( event_id );
+            int prev_pid = event.pid;
+
+            m_graph.cpu_timeline_pids.insert( prev_pid );
+
+            if ( show_hovered_tgid )
+            {
+                const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( prev_pid );
+
+                if ( tgid_info )
+                {
+                    for ( int pid : tgid_info->pids )
+                        m_graph.cpu_timeline_pids.insert( pid );
+                }
+            }
+        }
+    }
 
     if ( s_actions().get( action_graph_zoom_row ) )
     {
@@ -3916,7 +3928,7 @@ void TraceWin::graph_mouse_tooltip_sched_switch( std::string &ttip, graph_info_t
 
         if ( prev_comm )
         {
-            int prev_pid = atoi( get_event_field_val( event, "prev_pid" ) );
+            int prev_pid = event.pid;
             int prev_state = atoi( get_event_field_val( event, "prev_state" ) );
             int task_state = prev_state & ( TASK_REPORT_MAX - 1 );
             const std::string task_state_str = task_state_to_str( task_state );
@@ -4082,11 +4094,11 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
         }
         else if ( event.is_sched_switch() )
         {
-            const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
-            int prev_pid = atoi( prev_pid_str );
+            int prev_pid = event.pid;
 
             if ( prev_pid )
             {
+                const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
                 const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
 
                 ttip += string_format( " %s", prev_comm );

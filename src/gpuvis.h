@@ -890,7 +890,7 @@ public:
         ImVec2 mouse_capture_last;
         mouse_captured_t mouse_captured = MOUSE_NOT_CAPTURED;
 
-        ImU32 cpu_timeline_color = 0;
+        std::unordered_set< int > cpu_timeline_pids;
         bool cpu_hide_system_events = false;
 
         const int64_t s_min_length = 100;

@@ -430,7 +430,8 @@ enum action_t
     action_graph_hide_row,
 
     action_cpugraph_hide_systemevents,
-    action_cpugraph_show_hovered_process,
+    action_cpugraph_show_hovered_pid,
+    action_cpugraph_show_hovered_tgid,
 
     action_graph_set_markerA,
     action_graph_set_markerB,
