@@ -468,7 +468,7 @@ public:
 
     // Map of tdop expression string hashval to array of event locations.
     TraceLocations m_tdopexpr_locs;
-    std::set< uint32_t > m_failed_commands;
+    std::unordered_set< uint32_t > m_failed_commands;
 
     // Map of comm hashval to array of event locations.
     TraceLocations m_comm_locs;

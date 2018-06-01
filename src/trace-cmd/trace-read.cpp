@@ -29,9 +29,9 @@
 #include <forward_list>
 #include <csetjmp>
 #include <unordered_map>
+#include <unordered_set>
 #include <algorithm>
 #include <future>
-#include <set>
 
 #ifdef WIN32
 #include <io.h>

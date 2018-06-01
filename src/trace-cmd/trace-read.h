@@ -27,6 +27,9 @@
 #define TRACE_BUF_SIZE     1024
 #endif
 
+// About process states:
+//   https://www.ibm.com/developerworks/linux/library/l-task-killable/
+
 // R Running
 // S Sleeping in an interruptible wait
 // D Waiting in uninterruptible disk sleep

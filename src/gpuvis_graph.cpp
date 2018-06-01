@@ -24,12 +24,12 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <set>
 #include <array>
 #include <vector>
 #include <algorithm>
 #include <functional>
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
 
 #include <SDL.h>
@@ -1562,6 +1562,7 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
         imgui_drawrect_filled( x0, y + imgui_scale( 2.0f ), x1 - x0, row_h - imgui_scale( 3.0f ), sched_switch.color );
         count++;
 
+        // If alt key isn't down and there is room for ~12 characters, render comm name
         if ( !alt_down && ( x1 - x0 > text_size.x ) )
         {
             float y_text = y + ( row_h - text_size.y ) / 2 - imgui_scale( 1.0f );
@@ -1579,7 +1580,6 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
 
             if ( set_cpu_timeline_color )
                 m_graph.cpu_timeline_color = sched_switch.color;
-
         }
         else if ( !sched_switch_bars_empty && ( gi.sched_switch_bars[ 0 ] == sched_switch.id ) )
         {
@@ -2098,12 +2098,12 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
                   idx < plocs->size();
                   idx++ )
             {
-                float row_h = gi.text_h;
-                float y = gi.rc.y + ( gi.rc.h - row_h ) / 2;
                 const trace_event_t &sched_switch = get_event( plocs->at( idx ) );
 
                 if ( sched_switch.has_duration() )
                 {
+                    float row_h = gi.text_h;
+                    float y = gi.rc.y + ( gi.rc.h - row_h ) / 2;
                     bool drawrect = false;
                     float x0 = gi.ts_to_screenx( sched_switch.ts - sched_switch.duration );
                     float x1 = gi.ts_to_screenx( sched_switch.ts );
