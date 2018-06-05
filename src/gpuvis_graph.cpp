@@ -4094,14 +4094,14 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
         }
         else if ( event.is_sched_switch() )
         {
-            int prev_pid = event.pid;
+            const char *prev_comm_str = get_event_field_val( event, "prev_comm" );
 
-            if ( prev_pid )
+            if ( prev_comm_str[ 0 ] )
             {
-                const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
-                const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_pid_str );
+                int prev_pid = event.pid;
+                const char *prev_comm = m_trace_events.comm_from_pid( prev_pid, prev_comm_str );
 
-                ttip += string_format( " %s", prev_comm );
+                ttip += string_format( " %s-%d", prev_comm, prev_pid );
             }
         }
 
