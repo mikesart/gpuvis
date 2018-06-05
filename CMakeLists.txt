@@ -37,6 +37,21 @@ endif()
 
 ucm_set_runtime( STATIC )
 
+# https://codingnest.com/basic-cmake/#fnref6
+#  also: CMAKE_CXX_COMPILER_VERSION
+## if ( CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|GNU" )
+##     message("foo")
+##     # target_compile_options( vector-test PRIVATE -Wall -Wextra -Wunreachable-code -Wpedantic)
+## endif()
+## if ( CMAKE_CXX_COMPILER_ID MATCHES "Clang" )
+##     message("foo2")
+##     # target_compile_options( vector-test PRIVATE -Wweak-vtables -Wexit-time-destructors -Wglobal-constructors -Wmissing-noreturn )
+## endif()
+## if ( CMAKE_CXX_COMPILER_ID MATCHES "MSVC" )
+##     message("foo3")
+##     # target_compile_options( vector-test PRIVATE /W4 /w44265 /w44061 /w44062 )
+## endif()
+
 ucm_add_flags( -O0 -DDEBUG CONFIG Debug )
 ucm_add_flags( -O2 -DNDEBUG CONFIG Release )
 
