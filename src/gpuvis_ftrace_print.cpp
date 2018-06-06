@@ -68,8 +68,8 @@ static void init_ftrace_pairs( std::vector< TraceEvents::ftrace_pair_t > &ftrace
         pair.leftstr = s_pairs[ i ].leftstr;
         pair.rightstr = s_pairs[ i ].rightstr;
 
-        pair.lefthashval = hashstr32( pair.leftstr.c_str() );
-        pair.righthashval = hashstr32( pair.rightstr.c_str() );
+        pair.lefthashval = hashstr32( pair.leftstr );
+        pair.righthashval = hashstr32( pair.rightstr );
 
         ftrace_pairs.push_back( pair );
     }

@@ -259,7 +259,7 @@ public:
     RowFilters( util_umap< uint32_t, row_filter_t > &graph_row_filters, const std::string &row_name ) :
         m_graph_row_filters( graph_row_filters )
     {
-        m_rowname_hash = hashstr32( row_name.c_str() );
+        m_rowname_hash = hashstr32( row_name );
         m_row_filters = m_graph_row_filters.get_val( m_rowname_hash );
     }
     ~RowFilters() {}

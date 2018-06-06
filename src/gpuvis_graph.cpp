@@ -375,7 +375,7 @@ event_renderer_t::event_renderer_t( graph_info_t &gi, float y_in, float w_in, fl
 
     start( -1.0f, 0 );
 
-    uint32_t hashval = hashstr32( gi.prinfo_cur->row_name.c_str() );
+    uint32_t hashval = hashstr32( gi.prinfo_cur->row_name );
     m_row_filters = gi.win.m_graph_row_filters.get_val( hashval );
     if ( m_row_filters && m_row_filters->filters.empty() )
         m_row_filters = NULL;
@@ -2130,7 +2130,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
     ImU32 barcolor = s_clrs().get( col_Graph_Bari915ReqWait );
     ImU32 textcolor = s_clrs().get( col_Graph_BarText );
 
-    uint32_t hashval = hashstr32( gi.prinfo_cur->row_name.c_str() );
+    uint32_t hashval = hashstr32( gi.prinfo_cur->row_name );
     uint32_t row_count = m_trace_events.m_row_count.m_map[ hashval ];
     float row_h = std::max< float >( 2.0f, gi.rc.h / row_count );
 
@@ -2224,7 +2224,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
 
-    uint32_t hashval = hashstr32( gi.prinfo_cur->row_name.c_str() );
+    uint32_t hashval = hashstr32( gi.prinfo_cur->row_name );
     uint32_t row_count = m_trace_events.m_row_count.m_map[ hashval ];
     float row_h = std::max< float >( 2.0f, gi.rc.h / row_count );
 
@@ -3824,7 +3824,7 @@ static std::string task_state_to_str( int state )
 void TraceWin::graph_mouse_tooltip_rowinfo( std::string &ttip, graph_info_t &gi, int64_t mouse_ts )
 {
     const std::string &row_name = m_graph.mouse_over_row_name;
-    uint32_t hashval = hashstr32( row_name.c_str() );
+    uint32_t hashval = hashstr32( row_name );
     row_filter_t *row_filters = m_graph_row_filters.get_val( hashval );
 
     if ( !row_name.empty() )

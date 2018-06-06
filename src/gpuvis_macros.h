@@ -213,6 +213,7 @@ private:
 };
 
 uint32_t hashstr32( const char *str, size_t len = ( size_t )-1, uint32_t hval = 0xB0F57EE3 );
+uint32_t hashstr32( const std::string &str, uint32_t hval = 0xB0F57EE3 );
 
 size_t get_file_size( const char *filename );
 const char *get_path_filename( const char *filename );

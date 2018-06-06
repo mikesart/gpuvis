@@ -1770,7 +1770,7 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
             trace_seq_terminate( &seq );
 
             trace_event.fields[ trace_event.numfields ].key = format_name;
-            trace_event.fields[ trace_event.numfields ].value = strpool.getstr( seq.buffer );
+            trace_event.fields[ trace_event.numfields ].value = strpool.getstr( seq.buffer, seq.len );
             trace_event.numfields++;
         }
 

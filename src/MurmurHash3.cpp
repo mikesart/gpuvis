@@ -7,8 +7,9 @@
 // compile and run any of them on any platform, but your performance with the
 // non-native version will be less than optimal.
 
-#include "MurmurHash3.h"
 #include <string.h>
+#include <string>
+#include "MurmurHash3.h"
 
 //-----------------------------------------------------------------------------
 // Platform-specific functions and macros
@@ -29,6 +30,9 @@
 // Other compilers
 
 #else	// defined(_MSC_VER)
+
+// Disable: "warning: this statement may fall through [-Wimplicit-fallthrough=]"
+#pragma GCC diagnostic warning "-Wimplicit-fallthrough=0"
 
 #define	FORCE_INLINE inline __attribute__((always_inline))
 
@@ -115,9 +119,9 @@ uint32_t MurmurHash3_x86_32 ( const void * key, int len,
     k1 *= c1;
     k1 = ROTL32(k1,15);
     k1 *= c2;
-    
+
     h1 ^= k1;
-    h1 = ROTL32(h1,13); 
+    h1 = ROTL32(h1,13);
     h1 = h1*5+0xe6546b64;
   }
 
@@ -144,7 +148,7 @@ uint32_t MurmurHash3_x86_32 ( const void * key, int len,
   h1 = fmix32(h1);
 
   return h1;
-} 
+}
 
 //-----------------------------------------------------------------------------
 
@@ -159,9 +163,9 @@ void MurmurHash3_x86_128 ( const void * key, const int len,
   uint32_t h3 = seed;
   uint32_t h4 = seed;
 
-  const uint32_t c1 = 0x239b961b; 
+  const uint32_t c1 = 0x239b961b;
   const uint32_t c2 = 0xab0e9789;
-  const uint32_t c3 = 0x38b34ae5; 
+  const uint32_t c3 = 0x38b34ae5;
   const uint32_t c4 = 0xa1e38b93;
 
   //----------
@@ -338,6 +342,11 @@ uint32_t hashstr32( const char *str, size_t len, uint32_t hval )
         len = strlen( str );
 
     return MurmurHash3_x86_32( str, ( int )len, hval );
+}
+
+uint32_t hashstr32( const std::string &str, uint32_t hval )
+{
+    return MurmurHash3_x86_32( str.c_str(), ( int )str.length(), hval );
 }
 
 //-----------------------------------------------------------------------------
