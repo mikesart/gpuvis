@@ -68,8 +68,8 @@ static void init_ftrace_pairs( std::vector< TraceEvents::ftrace_pair_t > &ftrace
         pair.leftstr = s_pairs[ i ].leftstr;
         pair.rightstr = s_pairs[ i ].rightstr;
 
-        pair.lefthashval = fnv_hashstr32( pair.leftstr.c_str() );
-        pair.righthashval = fnv_hashstr32( pair.rightstr.c_str() );
+        pair.lefthashval = hashstr32( pair.leftstr.c_str() );
+        pair.righthashval = hashstr32( pair.rightstr.c_str() );
 
         ftrace_pairs.push_back( pair );
     }
@@ -280,7 +280,7 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
     else
     {
         // Hash the buf string
-        uint32_t hashval = fnv_hashstr32( buf );
+        uint32_t hashval = hashstr32( buf );
         uint64_t key = ( ( uint64_t )event.pid << 32 );
 
         // Try to find this hash+pid in the pairs_ctx map
@@ -332,7 +332,7 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
         buf = trim_ftrace_print_buf( newbuf, buf, var, s_buf_vars[ bufvar ].len );
 
         // Set color index to hash of new string
-        event.color_index = fnv_hashstr32( buf );
+        event.color_index = hashstr32( buf );
 
         if ( bufvar == bufvar_duration )
         {
@@ -380,7 +380,7 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
     }
     else if ( bufvar < bufvar_Max )
     {
-        event.color_index = fnv_hashstr32( buf );
+        event.color_index = hashstr32( buf );
     }
 
     if ( buf == newbuf )

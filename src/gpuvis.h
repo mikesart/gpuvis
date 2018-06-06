@@ -80,12 +80,12 @@ public:
 
     void add_location_str( const char *name, uint32_t loc )
     {
-        add_location_u32( fnv_hashstr32( name ), loc );
+        add_location_u32( hashstr32( name ), loc );
     }
 
     std::vector< uint32_t > *get_locations_str( const char *name )
     {
-        return get_locations_u32( fnv_hashstr32( name ) );
+        return get_locations_u32( hashstr32( name ) );
     }
 
 public:
@@ -259,7 +259,7 @@ public:
     RowFilters( util_umap< uint32_t, row_filter_t > &graph_row_filters, const std::string &row_name ) :
         m_graph_row_filters( graph_row_filters )
     {
-        m_rowname_hash = fnv_hashstr32( row_name.c_str() );
+        m_rowname_hash = hashstr32( row_name.c_str() );
         m_row_filters = m_graph_row_filters.get_val( m_rowname_hash );
     }
     ~RowFilters() {}
@@ -404,11 +404,11 @@ public:
 
     GraphPlot *get_plot_ptr( const char *plot_name )
     {
-        return m_graph_plots.get_val( fnv_hashstr32( plot_name ) );
+        return m_graph_plots.get_val( hashstr32( plot_name ) );
     }
     GraphPlot &get_plot( const char *plot_name )
     {
-        return m_graph_plots.m_map[ fnv_hashstr32( plot_name ) ];
+        return m_graph_plots.m_map[ hashstr32( plot_name ) ];
     }
 
     // Return "foorbarapp-1234" comm string for specified pid

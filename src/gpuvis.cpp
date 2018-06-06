@@ -114,7 +114,7 @@ Actions &s_actions()
  */
 const char *StrPool::getstr( const char *str, size_t len )
 {
-    uint32_t hashval = fnv_hashstr32( str, len );
+    uint32_t hashval = hashstr32( str, len );
     const std::string *ret = m_pool.get_val( hashval );
 
     if ( !ret )
@@ -141,7 +141,7 @@ const char *StrPool::getstrf( const char *fmt, ... )
 
 uint32_t StrPool::getu32( const char *str, size_t len )
 {
-    uint32_t hashval = fnv_hashstr32( str, len );
+    uint32_t hashval = hashstr32( str, len );
     const std::string *ret = m_pool.get_val( hashval );
 
     if ( !ret )
@@ -1307,7 +1307,7 @@ const char *filter_get_keyval_func( trace_info_t *trace_info, const trace_event_
 const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name, std::string *err )
 {
     std::vector< uint32_t > *plocs;
-    uint32_t hashval = fnv_hashstr32( name );
+    uint32_t hashval = hashstr32( name );
 
     if ( err )
         err->clear();
@@ -1450,7 +1450,7 @@ void TraceEvents::update_fence_signaled_timeline_colors()
             if ( fence_signaled.is_fence_signaled() &&
                  is_valid_id( fence_signaled.id_start ) )
             {
-                uint32_t hashval = fnv_hashstr32( fence_signaled.user_comm );
+                uint32_t hashval = hashstr32( fence_signaled.user_comm );
 
                 // Mark this event as autogen'd color so it doesn't get overwritten
                 fence_signaled.flags |= TRACE_FLAG_AUTOGEN_COLOR;
@@ -1510,16 +1510,11 @@ void TraceEvents::update_tgid_colors()
             }
 
             // Hash comm and pid to get color
-            hashval = fnv_hashstr32( prev_comm, len );
+            hashval = hashstr32( prev_comm, len );
 
             // If this is a system event, just use the prev_comm entry
             if ( !( sched_switch.flags & TRACE_FLAG_SCHED_SWITCH_SYSTEM_EVENT ) )
-            {
-                // Hash pid twice since some pids are only different by one char
-                // and that gives us very close color values.
-                hashval = fnv_32_str( prev_pid, hashval, ( size_t )-1 );
-                hashval = fnv_32_str( prev_pid, hashval, ( size_t )-1 );
-            }
+                hashval = hashstr32( prev_pid, ( size_t )-1, hashval );
 
             sched_switch.flags |= TRACE_FLAG_AUTOGEN_COLOR;
             sched_switch.color = imgui_col_from_hashval( hashval, label_sat, alpha );
@@ -1697,7 +1692,7 @@ void TraceEvents::init_sched_process_fork( trace_event_t &event )
         if ( !tgid_info->tgid )
         {
             tgid_info->tgid = tgid;
-            tgid_info->hashval += fnv_hashstr32( tgid_comm );
+            tgid_info->hashval += hashstr32( tgid_comm );
         }
         tgid_info->add_pid( tgid );
         tgid_info->add_pid( pid );
@@ -2203,7 +2198,7 @@ void TraceEvents::calculate_amd_event_durations()
 
                 last_fence_signaled_ts = fence_signaled.ts;
 
-                uint32_t hashval = fnv_hashstr32( fence_signaled.user_comm );
+                uint32_t hashval = hashstr32( fence_signaled.user_comm );
 
                 // Mark this event as autogen'd color so it doesn't get overwritten
                 fence_signaled.flags |= TRACE_FLAG_AUTOGEN_COLOR;
@@ -2454,7 +2449,7 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
         if ( ( len > 3 ) && !strcmp( name + len - 3, " hw" ) )
         {
             // Check for "gfx hw", "comp_1.1.1 hw", etc.
-            uint32_t hashval = fnv_hashstr32( name, len - 3 );
+            uint32_t hashval = hashstr32( name, len - 3 );
 
             type = LOC_TYPE_AMDTimeline_hw;
             plocs = m_amd_timeline_locs.get_locations_u32( hashval );

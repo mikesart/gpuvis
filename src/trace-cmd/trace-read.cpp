@@ -1913,7 +1913,7 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
             if ( !tgid_info->tgid )
             {
                 tgid_info->tgid = tgid;
-                tgid_info->hashval += fnv_hashstr32( comm );
+                tgid_info->hashval += hashstr32( comm );
             }
             tgid_info->add_pid( pid );
 

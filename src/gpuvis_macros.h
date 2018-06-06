@@ -212,8 +212,7 @@ private:
     uint8_t *m_bits = nullptr;
 };
 
-extern "C" uint32_t fnv_hashstr32( const char *str, size_t len = ( size_t )-1 );
-extern "C" uint32_t fnv_32_str( const char *str, uint32_t hval, size_t len );
+uint32_t hashstr32( const char *str, size_t len = ( size_t )-1, uint32_t hval = 0xB0F57EE3 );
 
 size_t get_file_size( const char *filename );
 const char *get_path_filename( const char *filename );
