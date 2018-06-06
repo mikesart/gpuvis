@@ -98,6 +98,19 @@ trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
 	int len;
 	int ret;
 
+    // Optimization: about 30% of several traces appear to have constant "%s" fmts.
+    if (fmt[0] == '%' && fmt[1] == 's' && fmt[2] == '\0')
+    {
+        const char *str;
+
+        va_start(ap, fmt);
+        str = va_arg(ap, const char *);
+        trace_seq_puts(s, str);
+        va_end(ap);
+
+        return 1;
+    }
+
  try_again:
 	len = (s->buffer_size - 1) - s->len;
 
