@@ -1630,6 +1630,122 @@ const std::string Actions::hotkey_str( action_t action )
     return "";
 }
 
+char *StrAlloc::allocmem( size_t len )
+{
+    char *ptr;
+
+    if ( len >= 512 )
+    {
+        ptr = ( char * )malloc( len );
+
+        m_chunks.push_back( ptr );
+        return ptr;
+    }
+
+    if ( !m_ptr || ( len > m_avail ) )
+    {
+        m_avail = 64 * 1024;
+        m_ptr = ( char * )malloc( m_avail );
+
+        m_chunks.push_back( m_ptr );
+    }
+
+    ptr = m_ptr;
+    m_avail -= len;
+    m_ptr += len;
+
+    m_totsize += len;
+    return ptr;
+}
+
+char *StrAlloc::dupestr( const char *str, size_t len )
+{
+    char *ptr = allocmem( len + 1 );
+
+    strcpy( ptr, str );
+    return ptr;
+}
+
+StrAlloc::~StrAlloc()
+{
+    for ( char *ptr : m_chunks )
+        free( ptr );
+    m_chunks.clear();
+
+    m_ptr = nullptr;
+    m_avail = 0;
+}
+
+/*
+ * StrPool
+ */
+const char *StrPool::getstr( const char *str, size_t len )
+{
+    if ( len == ( size_t )-1 )
+        len = strlen( str );
+
+    uint32_t hashval = hashstr32( str, len );
+    const char **ret = m_pool.get_val( hashval );
+
+    if ( !ret )
+    {
+        char *str2 = m_alloc.dupestr( str, len );
+
+        ret = m_pool.get_val( hashval, str2 );
+    }
+
+    return *ret;
+}
+
+const char *StrPool::getstrf( const char *fmt, ... )
+{
+    va_list args;
+    char buf[ 512 ];
+
+    va_start( args, fmt );
+    vsnprintf_safe( buf, fmt, args );
+    va_end( args );
+
+    return getstr( buf );
+}
+
+uint32_t StrPool::getu32( const char *str, size_t len )
+{
+    if ( len == ( size_t )-1 )
+        len = strlen( str );
+
+    uint32_t hashval = hashstr32( str, len );
+    const char **ret = m_pool.get_val( hashval );
+
+    if ( !ret )
+    {
+        char *str2 = m_alloc.dupestr( str, len );
+
+        m_pool.get_val( hashval, str2 );
+    }
+
+    return hashval;
+}
+
+uint32_t StrPool::getu32f( const char *fmt, ... )
+{
+    va_list args;
+    char buf[ 512 ];
+
+    va_start( args, fmt );
+    vsnprintf_safe( buf, fmt, args );
+    va_end( args );
+
+    return getu32( buf );
+}
+
+const char *StrPool::findstr( uint32_t hashval )
+{
+    const char **str = m_pool.get_val( hashval );
+
+    return str ? *str : NULL;
+}
+
 #if defined( WIN32 )
 
 #include <shlwapi.h>

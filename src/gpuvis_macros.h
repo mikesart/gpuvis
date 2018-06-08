@@ -169,6 +169,22 @@ public:
     map_t m_map;
 };
 
+class StrAlloc
+{
+public:
+    StrAlloc() {}
+    ~StrAlloc();
+
+    char *allocmem( size_t len );
+    char *dupestr( const char *str, size_t len );
+
+public:
+    char *m_ptr = nullptr;
+    size_t m_avail = 0;
+    size_t m_totsize = 0;
+    std::vector< char * > m_chunks;
+};
+
 class StrPool
 {
 public:
@@ -183,7 +199,8 @@ public:
     uint32_t getu32f( const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
 
 public:
-    util_umap< uint32_t, std::string > m_pool;
+    StrAlloc m_alloc;
+    util_umap< uint32_t, const char * > m_pool;
 };
 
 class BitVec

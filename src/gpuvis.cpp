@@ -110,70 +110,6 @@ Actions &s_actions()
 }
 
 /*
- * StrPool
- */
-const char *StrPool::getstr( const char *str, size_t len )
-{
-    uint32_t hashval = hashstr32( str, len );
-    const std::string *ret = m_pool.get_val( hashval );
-
-    if ( !ret )
-    {
-        if ( len == ( size_t )-1 )
-            len = strlen( str );
-        ret = m_pool.get_val( hashval, std::string( str, len ) );
-    }
-
-    return ret->c_str();
-}
-
-const char *StrPool::getstrf( const char *fmt, ... )
-{
-    va_list args;
-    char buf[ 512 ];
-
-    va_start( args, fmt );
-    vsnprintf_safe( buf, fmt, args );
-    va_end( args );
-
-    return getstr( buf );
-}
-
-uint32_t StrPool::getu32( const char *str, size_t len )
-{
-    uint32_t hashval = hashstr32( str, len );
-    const std::string *ret = m_pool.get_val( hashval );
-
-    if ( !ret )
-    {
-        if ( len == ( size_t )-1 )
-            len = strlen( str );
-        m_pool.get_val( hashval, std::string( str, len ) );
-    }
-
-    return hashval;
-}
-
-uint32_t StrPool::getu32f( const char *fmt, ... )
-{
-    va_list args;
-    char buf[ 512 ];
-
-    va_start( args, fmt );
-    vsnprintf_safe( buf, fmt, args );
-    va_end( args );
-
-    return getu32( buf );
-}
-
-const char *StrPool::findstr( uint32_t hashval )
-{
-    std::string *str = m_pool.get_val( hashval );
-
-    return str ? str->c_str() : NULL;
-}
-
-/*
  * TraceLocationsRingCtxSeq
  */
 uint64_t TraceLocationsRingCtxSeq::db_key( const char *ringstr, uint32_t seqno, const char *ctxstr )
@@ -723,7 +659,9 @@ int SDLCALL MainApp::thread_func( void *data )
     trace_events.init();
 
     float time_init = util_time_to_ms( t0, util_get_time() ) - time_load;
-    logf( "Events read: %lu (Load:%.2fms Init:%.2fms)", trace_events.m_events.size(), time_load, time_init );
+    logf( "Events read: %lu (Load:%.2fms Init:%.2fms) (string chunks:%lu size:%lu)",
+          trace_events.m_events.size(), time_load, time_init,
+          trace_events.m_strpool.m_alloc.m_chunks.size(), trace_events.m_strpool.m_alloc.m_totsize );
 
     // 0 means events have all all been loaded
     SDL_AtomicSet( &trace_events.m_eventsloaded, 0 );
@@ -1698,8 +1636,8 @@ void TraceEvents::init_sched_process_fork( trace_event_t &event )
         tgid_info->add_pid( pid );
 
         // Add to our pid --> comm map
-        m_trace_info.pid_comm_map.get_val( tgid, m_strpool.getstr( tgid_comm ) );
-        m_trace_info.pid_comm_map.get_val( pid, m_strpool.getstr( child_comm ) );
+        m_trace_info.pid_comm_map.get_val( tgid, tgid_comm );
+        m_trace_info.pid_comm_map.get_val( pid, child_comm );
 
         // tgid --> tgid, pid --> tgid
         m_trace_info.pid_tgid_map.get_val( tgid, tgid );
@@ -1903,7 +1841,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
         const char *pid_comm = get_event_field_val( event, "comm", NULL );
 
         if ( pid_comm )
-            m_trace_info.pid_comm_map.set_val( event.pid, m_strpool.getstr( pid_comm ) );
+            m_trace_info.pid_comm_map.set_val( event.pid, pid_comm );
     }
 #if 0
     // Disabled for now. Need to figure out how to prevent sudo, bash, etc from becoming the parent. Ie:
