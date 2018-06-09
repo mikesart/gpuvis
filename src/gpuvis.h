@@ -380,8 +380,9 @@ public:
     const std::vector< uint32_t > *get_comm_locs( const char *name );
     // "gfx", "sdma0", etc.
     const std::vector< uint32_t > *get_timeline_locs( const char *name );
-    // Pass a string like "gfx_249_91446"
-    const std::vector< uint32_t > *get_gfxcontext_locs( const char *name );
+    // Hash a string like "gfx_249_91446"
+    uint32_t get_event_gfxcontext_hash( const trace_event_t &event );
+    const std::vector< uint32_t > *get_gfxcontext_locs( uint32_t gfxcontext_hash );
     // Return vec of locations for sched_switch events.
     enum switch_t { SCHED_SWITCH_PREV, SCHED_SWITCH_NEXT };
     const std::vector< uint32_t > *get_sched_switch_locs( int pid, switch_t switch_type );
@@ -425,8 +426,6 @@ public:
     const tgid_info_t *tgid_from_commstr( const char *comm );
 
     void set_event_color( const std::string &eventname, ImU32 color );
-
-    const char *get_event_gfxcontext_str( const trace_event_t &event );
 
     std::string get_ftrace_ctx_str( const trace_event_t &event );
 

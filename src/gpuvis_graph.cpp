@@ -756,8 +756,8 @@ void graph_info_t::init()
     if ( is_valid_id( hovered_eventid ) && events[ hovered_eventid ].is_timeline() )
     {
         // Find the fence signaled event for this timeline
-        const char *gfxcontext = win.m_trace_events.get_event_gfxcontext_str( events[ hovered_eventid ] );
-        const std::vector< uint32_t > *plocs = win.m_trace_events.get_gfxcontext_locs( gfxcontext );
+        uint32_t gfxcontext_hash = win.m_trace_events.get_event_gfxcontext_hash( events[ hovered_eventid ] );
+        const std::vector< uint32_t > *plocs = win.m_trace_events.get_gfxcontext_locs( gfxcontext_hash );
 
         // Mark it as hovered so it'll have a selection rectangle
         hovered_fence_signaled = plocs->back();
@@ -3957,8 +3957,8 @@ void TraceWin::graph_mouse_tooltip_hovered_amd_fence_signaled( std::string &ttip
         return;
 
     const trace_event_t &event_hov = get_event( gi.hovered_fence_signaled );
-    const char *gfxcontext = m_trace_events.get_event_gfxcontext_str( event_hov );
-    const std::vector< uint32_t > *plocs = m_trace_events.get_gfxcontext_locs( gfxcontext );
+    uint32_t gfxcontext_hash = m_trace_events.get_event_gfxcontext_hash( event_hov );
+    const std::vector< uint32_t > *plocs = m_trace_events.get_gfxcontext_locs( gfxcontext_hash );
 
     ttip += string_format( "\n\n%s",
                                m_trace_events.tgidcomm_from_commstr( event_hov.user_comm ) );
@@ -3978,7 +3978,7 @@ void TraceWin::graph_mouse_tooltip_hovered_amd_fence_signaled( std::string &ttip
                                    s_textclrs().mstr( timestr, event_hov.color ).c_str() );
     }
 
-    plocs = m_trace_events.m_gfxcontext_msg_locs.get_locations_str( gfxcontext );
+    plocs = m_trace_events.m_gfxcontext_msg_locs.get_locations_u32( gfxcontext_hash );
     if ( plocs )
     {
         ttip += "\n";

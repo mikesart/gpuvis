@@ -1316,9 +1316,9 @@ const std::vector< uint32_t > *TraceEvents::get_timeline_locs( const char *name 
 }
 
 // Pass a string like "gfx_249_91446"
-const std::vector< uint32_t > *TraceEvents::get_gfxcontext_locs( const char *name )
+const std::vector< uint32_t > *TraceEvents::get_gfxcontext_locs( uint32_t gfxcontext_hash )
 {
-    return m_gfxcontext_locs.get_locations_str( name );
+    return m_gfxcontext_locs.get_locations_u32( gfxcontext_hash );
 }
 
 uint32_t row_pos_t::get_row( int64_t min_ts, int64_t max_ts )
@@ -1527,7 +1527,7 @@ const tgid_info_t *TraceEvents::tgid_from_commstr( const char *comm )
     return NULL;
 }
 
-const char *TraceEvents::get_event_gfxcontext_str( const trace_event_t &event )
+uint32_t TraceEvents::get_event_gfxcontext_hash( const trace_event_t &event )
 {
     if ( event.seqno )
     {
@@ -1536,11 +1536,14 @@ const char *TraceEvents::get_event_gfxcontext_str( const trace_event_t &event )
 
         if ( timeline && context )
         {
-            return m_strpool.getstrf( "%s_%s_%u", timeline, context, event.seqno );
+            char buf[ 128 ];
+
+            snprintf_safe( buf, "%s_%s_%u", timeline, context, event.seqno );
+            return hashstr32( buf );
         }
     }
 
-    return "";
+    return 0;
 }
 
 std::string TraceEvents::get_ftrace_ctx_str( const trace_event_t &event )
@@ -1647,17 +1650,17 @@ void TraceEvents::init_sched_process_fork( trace_event_t &event )
 
 void TraceEvents::init_amd_timeline_event( trace_event_t &event )
 {
-    const char *gfxcontext = get_event_gfxcontext_str( event );
+    uint32_t gfxcontext_hash = get_event_gfxcontext_hash( event );
     const char *timeline = get_event_field_val( event, "timeline" );
 
     // Add this event under the "gfx", "sdma0", etc timeline map
     m_amd_timeline_locs.add_location_str( timeline, event.id );
 
     // Add this event under our "gfx_ctx_seq" or "sdma0_ctx_seq", etc. map
-    m_gfxcontext_locs.add_location_str( gfxcontext, event.id );
+    m_gfxcontext_locs.add_location_u32( gfxcontext_hash, event.id );
 
     // Grab the event locations for this event context
-    const std::vector< uint32_t > *plocs = get_gfxcontext_locs( gfxcontext );
+    const std::vector< uint32_t > *plocs = get_gfxcontext_locs( gfxcontext_hash );
     if ( plocs->size() > 1 )
     {
         // First event.
@@ -1870,10 +1873,10 @@ void TraceEvents::init_new_event( trace_event_t &event )
     if ( !strcmp( event.name, "amdgpu_job_msg" ) )
     {
         const char *msg = get_event_field_val( event, "msg", NULL );
-        const char *gfxcontext = get_event_gfxcontext_str( event );
+        uint32_t gfxcontext_hash = get_event_gfxcontext_hash( event );
 
-        if ( msg && msg[ 0 ] && gfxcontext[ 0 ] )
-            m_gfxcontext_msg_locs.add_location_str( gfxcontext, event.id );
+        if ( msg && msg[ 0 ] && gfxcontext_hash )
+            m_gfxcontext_msg_locs.add_location_u32( gfxcontext_hash, event.id );
     }
 
     // 1+ means loading events
