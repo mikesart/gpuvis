@@ -86,7 +86,7 @@ static void expand_buffer(struct trace_seq *s)
 // Formats value in reverse and returns a pointer to the beginning.
 static char *format_decimal(char buf[BUFFER_SIZE], unsigned long long value)
 {
-    char *ptr = buf + BUFFER_SIZE - 1;
+    char *ptr = buf + BUFFER_SIZE;
     static const char DIGITS[] =
             "0001020304050607080910111213141516171819"
             "2021222324252627282930313233343536373839"
