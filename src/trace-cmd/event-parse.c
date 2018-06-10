@@ -4877,7 +4877,7 @@ void pevent_print_field(struct trace_seq *s, void *data,
 		}
 		if (field->flags & FIELD_IS_STRING &&
 		    is_printable_array((char *)data + offset, len)) {
-			trace_seq_printf(s, "%s", (char *)data + offset);
+            trace_seq_puts(s, (char *)data + offset);
 		} else {
 			trace_seq_puts(s, "ARRAY[");
 			for (i = 0; i < len; i++) {

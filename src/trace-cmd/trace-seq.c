@@ -94,6 +94,8 @@ static char *format_decimal(char buf[BUFFER_SIZE], unsigned long long value)
             "6061626364656667686970717273747576777879"
             "8081828384858687888990919293949596979899";
 
+    *--ptr = 0;
+
     while (value >= 100)
     {
         // Integer division is slow so do it for a group of two digits instead
@@ -182,8 +184,6 @@ trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
 	int len;
 	int ret;
 
-    // Optimization:
-    //  ~30% of several traces appear to have constant "%s" fmts.
     if (fmt[ 0 ] == '%' && fmt[ 1 ] == 's' && fmt[ 2 ] == '\0')
     {
         const char *str;
