@@ -141,6 +141,26 @@ static char *format_signed(char buf[BUFFER_SIZE], long long value)
     return str;
 }
 
+int trace_seq_put_sval(struct trace_seq *s, long long val)
+{
+    const char *str;
+    char buf[BUFFER_SIZE];
+
+    str = format_signed(buf, val);
+    trace_seq_puts(s, str);
+    return 1;
+}
+
+int trace_seq_put_uval(struct trace_seq *s, unsigned long long val)
+{
+    const char *str;
+    char buf[BUFFER_SIZE];
+
+    str = format_decimal(buf, val);
+    trace_seq_puts(s, str);
+    return 1;
+}
+
 /**
  * trace_seq_printf - sequence printing of trace information
  * @s: trace sequence descriptor
@@ -164,45 +184,16 @@ trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
 
     // Optimization:
     //  ~30% of several traces appear to have constant "%s" fmts.
-    //  ~69.9% have %d or %lld
-    if (fmt[ 0 ] == '%')
+    if (fmt[ 0 ] == '%' && fmt[ 1 ] == 's' && fmt[ 2 ] == '\0')
     {
         const char *str;
-        char buf[BUFFER_SIZE];
 
-        if (fmt[ 1 ] == 's' && fmt[ 2 ] == '\0')
-        {
-            va_start(ap, fmt);
-            str = va_arg(ap, const char *);
-            va_end(ap);
+        va_start(ap, fmt);
+        str = va_arg(ap, const char *);
+        va_end(ap);
 
-            trace_seq_puts(s, str);
-            return 1;
-        }
-        else if (fmt[ 1 ] == 'd' && fmt[ 2 ] == '\0')
-        {
-            int num;
-
-            va_start(ap, fmt);
-            num = va_arg(ap, int);
-            va_end(ap);
-
-            str = format_signed(buf, num);
-            trace_seq_puts(s, str);
-            return 1;
-        }
-        else if (fmt[ 1 ] == 'l' && fmt[ 2 ] == 'l' && fmt[ 3 ] == 'd' && fmt[ 4 ] == '\0')
-        {
-            long long num;
-
-            va_start(ap, fmt);
-            num = va_arg(ap, long long);
-            va_end(ap);
-
-            str = format_signed(buf, num);
-            trace_seq_puts(s, str);
-            return 1;
-        }
+        trace_seq_puts(s, str);
+        return 1;
     }
 
  try_again:

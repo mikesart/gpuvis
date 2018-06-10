@@ -4904,7 +4904,7 @@ void pevent_print_field(struct trace_seq *s, void *data,
 				if (field->flags & FIELD_IS_LONG)
 					trace_seq_printf(s, "0x%x", (int)val);
 				else
-					trace_seq_printf(s, "%d", (int)val);
+                    trace_seq_put_sval(s, val); // "%d"
 				break;
 			case 2:
 				trace_seq_printf(s, "%2d", (short)val);
@@ -4913,13 +4913,13 @@ void pevent_print_field(struct trace_seq *s, void *data,
 				trace_seq_printf(s, "%1d", (char)val);
 				break;
 			default:
-				trace_seq_printf(s, "%lld", val);
+                trace_seq_put_sval(s, val); // "%lld"
 			}
 		} else {
 			if (field->flags & FIELD_IS_LONG)
 				trace_seq_printf(s, "0x%llx", val);
 			else
-				trace_seq_printf(s, "%llu", val);
+                trace_seq_put_uval(s, val); // "%llu"
 		}
 	}
 }
