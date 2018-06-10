@@ -67,3 +67,7 @@ ya_getopt is 2-clause BSD-style licensed: [ya_getopt](https://github.com/kubo/ya
 noc_file_dialog.h is MIT licensed: [noc](https://github.com/guillaumechereau/noc)
 
 ucm cmake macros are MIT licensed: [ucm](https://github.com/onqtam/ucm)
+
+SMHasher is MIT licensed: [SMHasher](https://github.com/aappleby/smhasher)
+
+{fmt} is 2-clause BSD licensed small, safe and fast formatting library: [fmt](http://fmtlib.net/latest/index.html)
