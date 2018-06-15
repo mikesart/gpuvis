@@ -43,7 +43,7 @@
 #include <GL/glx.h>
 #include <GL/glxext.h>
 
-#define GPUVIS_IMPLEMENTATION
+#define GPUVIS_TRACE_IMPLEMENTATION
 #include "gpuvis_trace_utils.h"
 
 #ifndef GLX_MESA_swap_control
@@ -734,7 +734,7 @@ handle_event( Display *dpy, Window win, XEvent *event )
             else if ( buffer[ 0 ] == 'c' || buffer[ 0 ] == 'C' )
             {
                 printf( "gpuvis_trigger_capture_and_keep_tracing: %d\n",
-                        gpuvis_trigger_capture_and_keep_tracing() );
+                        gpuvis_trigger_capture_and_keep_tracing( NULL, 0 ) );
             }
         }
         return DRAW;

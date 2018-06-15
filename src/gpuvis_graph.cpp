@@ -547,6 +547,8 @@ RenderGraphRowCallback graph_info_t::get_render_cb( loc_type_t row_type )
 
 void graph_info_t::init_rows( const std::vector< GraphRows::graph_rows_info_t > &graph_rows )
 {
+    GPUVIS_TRACE_BLOCK( __func__ );
+
     uint32_t id = 0;
 
     imgui_push_smallfont();
@@ -1516,6 +1518,8 @@ static uint32_t get_graph_row_id( const trace_event_t &event,
 
 uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
 {
+    GPUVIS_TRACE_BLOCK( __func__ );
+
     imgui_push_smallfont();
 
     uint32_t count = 0;
@@ -1617,6 +1621,8 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
 
 uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
 {
+    GPUVIS_TRACE_BLOCK( __func__ );
+
     imgui_push_smallfont();
 
     // Recalc colors and sizes if font/colors have changed
@@ -1629,6 +1635,8 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         float dist = FLT_MAX;
         uint32_t eventid = INVALID_ID;
         rect_t rc;
+        float x0;
+        float x1;
     } hovinfo;
 
     const char *row_name = gi.prinfo_cur->row_name.c_str();
@@ -1687,8 +1695,9 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         uint32_t row_id;
         const trace_event_t &event = get_event( locs[ idx ] );
         const print_info_t *print_info = m_trace_events.get_print_info( event.id );
+        int64_t event_start_ts = print_info->ts;
 
-        if ( print_info->ts > gi.ts1 )
+        if ( event_start_ts > gi.ts1 )
             break;
         else if ( gi.graph_only_filtered && event.is_filtered_out )
             continue;
@@ -1700,7 +1709,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         if ( row_id == ( uint32_t )-1 )
             continue;
 
-        float x = gi.ts_to_screenx( print_info->ts );
+        float x = gi.ts_to_screenx( event_start_ts );
         float y = gi.rc.y + ( row_count - row_id - 1 ) * h + dy;
 
         if ( timeline_labels )
@@ -1711,7 +1720,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         if ( event.has_duration() )
         {
             float offy = h * .10f;
-            float x1 = gi.ts_to_screenx( print_info->ts + event.duration );
+            float x1 = gi.ts_to_screenx( event_start_ts + event.duration );
             rect_t rc = { x, y + offy, x1 - x, h - offy * 2 };
             ImU32 color = baralpha | ( event.color & ~IM_COL32_A_MASK );
 
@@ -1732,6 +1741,8 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
                     hovinfo.eventid = event.id;
                     hovinfo.dist = dist;
                     hovinfo.rc = rc;
+                    hovinfo.x0 = x;
+                    hovinfo.x1 = x1;
                 }
             }
         }
@@ -1746,10 +1757,10 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
             if ( gi.add_mouse_hovered_event( x, event ) &&
                  is_valid_id( event.id_start ) )
             {
-                const trace_event_t &event0 = get_event( event.id_start );
-                float x_end = gi.ts_to_screenx( event0.ts );
+                const trace_event_t &event1 = get_event( event.id_start );
+                float x1 = gi.ts_to_screenx( event_start_ts + event.duration );
 
-                gi.add_mouse_hovered_event( x_end, event0, true );
+                gi.add_mouse_hovered_event( x1, event1, true );
             }
         }
     }
@@ -1757,21 +1768,19 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
     if ( is_valid_id( hovinfo.eventid ) )
     {
         const trace_event_t &event = get_event( hovinfo.eventid );
-        float x = gi.ts_to_screenx( event.ts );
 
         // Draw hovered selection rectangle
         imgui_drawrect( hovinfo.rc, imgui_col_complement( event.color ) );
 
         // Add this event to mouse hovered list
-        gi.add_mouse_hovered_event( x, event, true );
+        gi.add_mouse_hovered_event( hovinfo.x0, event, true );
 
         // If this is a begin_ctx event, add the end_ctx event to the hovered list
         if ( is_valid_id( event.id_start ) )
         {
-            const trace_event_t &event_end = get_event( event.id_start );
-            float x_end = gi.ts_to_screenx( event_end.ts );
+            const trace_event_t &event1 = get_event( event.id_start );
 
-            gi.add_mouse_hovered_event( x_end, event_end, true );
+            gi.add_mouse_hovered_event( hovinfo.x1, event1, true );
         }
     }
 
@@ -3174,6 +3183,8 @@ void TraceWin::graph_render_zoomed_rows( graph_info_t &gi )
 
 void TraceWin::graph_render()
 {
+    GPUVIS_TRACE_BLOCK( __func__ );
+
     graph_info_t gi( *this );
 
     // Initialize our row size, location, etc information based on our graph row list

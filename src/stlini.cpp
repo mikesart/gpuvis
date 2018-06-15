@@ -290,6 +290,8 @@ void CIniFile::Close()
 {
     if ( !m_filename.empty() )
     {
+        GPUVIS_TRACE_BLOCK( __func__ );
+
         Save();
         m_filename.clear();
         m_inifile.clear();

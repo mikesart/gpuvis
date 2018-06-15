@@ -24,6 +24,10 @@
 #ifndef _GPUVIS_MACROS_H_
 #define _GPUVIS_MACROS_H_
 
+// Disable gpuvis ftrace tracing by default
+#define GPUVIS_TRACE_UTILS_DISABLE
+#include "../sample/gpuvis_trace_utils.h"
+
 #if defined( __APPLE__ )
 // https://android.googlesource.com/platform/system/core/+/master/base/include/android-base/macros.h
 #ifndef TEMP_FAILURE_RETRY

@@ -337,6 +337,12 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
         if ( bufvar == bufvar_duration )
         {
             event.duration = ( int64_t )( atof( var ) * NSECS_PER_MSEC );
+
+            if ( event.duration < 0 )
+            {
+                ts_offset += event.duration;
+                event.duration = -event.duration;
+            }
         }
         else
         {
@@ -368,7 +374,14 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
 
                 event0.id_start = event1.id;
                 event0.duration = event1.ts - event0.ts;
-                event0.color_index = event.color_index;
+
+                // Handle the case where a begin_ctx has no text, or vice versa
+                if ( buf[ 0 ] )
+                    event0.color_index = event.color_index;
+                else if ( event.id == *begin_eventid )
+                    event0.color_index = event1.color_index;
+                else
+                    event0.color_index = event0.color_index;
 
                 // Erase all knowledge of this ctx so it can be reused
                 m_ftrace.begin_ctx.erase_key( event.seqno );
@@ -415,11 +428,9 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
         print_info.buf = buf;
         print_info.size = ImVec2( 0, 0 );
 
-        if ( add_event->duration < 0 )
-        {
-            print_info.ts += add_event->duration;
-            add_event->duration = -add_event->duration;
-        }
+        // If we have no text, try using the connected event's text
+        if ( !buf[ 0 ] && is_valid_id( add_event->id_start ) )
+            print_info.buf = get_event_field_val( m_events[ add_event->id ], "buf" );
 
         // Add cached print info for this event
         m_ftrace.print_info.get_val( add_event->id, print_info );
@@ -472,8 +483,8 @@ void TraceEvents::calculate_event_print_info()
         trace_event_t &event = m_events[ idx ];
         print_info_t *print_info = m_ftrace.print_info.get_val( event.id );
         int64_t min_ts = print_info->ts;
-        uint32_t duration = ( event.has_duration() ? event.duration : 0 );
-        int64_t max_ts = min_ts + std::max< int64_t >( duration, 1 * NSECS_PER_MSEC );
+        uint32_t duration = event.has_duration() ? event.duration : ( 1 * NSECS_PER_MSEC );
+        int64_t max_ts = min_ts + duration;
 
         // Global print row id
         event.graph_row_id = row_pos.get_row( min_ts, max_ts );

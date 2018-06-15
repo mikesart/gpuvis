@@ -15,7 +15,7 @@ fi
 EVENTS=
 
 # https://github.com/mikesart/gpuvis/wiki/TechDocs-Linux-Scheduler
-# EVENTS+=" -e sched:sched_switch"
+EVENTS+=" -e sched:sched_switch"
 EVENTS+=" -e sched:sched_process_fork"
 EVENTS+=" -e sched:sched_process_exec"
 EVENTS+=" -e sched:sched_process_exit"

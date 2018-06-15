@@ -1845,6 +1845,8 @@ static int64_t getf64( const char *str, const char *var )
 
 int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb )
 {
+    GPUVIS_TRACE_BLOCK( __func__ );
+
     tracecmd_input_t *handle;
     std::vector< file_info_t * > file_list;
     // Latest ts value where a cpu data starts

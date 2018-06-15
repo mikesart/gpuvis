@@ -1,5 +1,7 @@
 #!/bin/bash
 
+### sudo mount -t tracefs nodev /sys/kernel/tracing
+
 set -eu
 
 ESC="$(printf '\033')"

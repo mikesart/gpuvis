@@ -41,6 +41,7 @@
 #include "imgui/imgui_internal.h"   // BeginColumns(), EndColumns(), PushColumnClipRect()
 #include "imgui/imgui_impl_sdl_gl3.h"
 
+#define GPUVIS_TRACE_IMPLEMENTATION
 #include "gpuvis_macros.h"
 
 #include "tdopexpr.h"
@@ -502,6 +503,8 @@ static std::string unzip_first_file( const char *zipfile )
 
 bool MainApp::load_file( const char *filename )
 {
+    GPUVIS_TRACE_BLOCK( string_format( "%s: %s", __func__, filename ).c_str() );
+
     std::string tmpfile;
     const char *ext = strrchr( filename, '.' );
 
@@ -636,32 +639,42 @@ int SDLCALL MainApp::thread_func( void *data )
     TraceEvents &trace_events = loading_info->win->m_trace_events;
     const char *filename = loading_info->filename.c_str();
 
-    logf( "Reading trace file %s...", filename );
-
-    trace_events.m_trace_info.trim_trace = s_opts().getb( OPT_TrimTrace );
-
-    EventCallback trace_cb = std::bind( &TraceEvents::new_event_cb, &trace_events, _1 );
-    int ret = read_trace_file( filename, trace_events.m_strpool,
-                               trace_events.m_trace_info, trace_cb );
-    if ( ret < 0 )
     {
-        logf( "[Error] read_trace_file(%s) failed.", filename );
+        GPUVIS_TRACE_BLOCK( "read_trace_file" );
 
-        // -1 means loading error
-        SDL_AtomicSet( &trace_events.m_eventsloaded, -1 );
-        s_app().set_state( State_Idle );
-        return -1;
+        logf( "Reading trace file %s...", filename );
+
+        trace_events.m_trace_info.trim_trace = s_opts().getb( OPT_TrimTrace );
+
+        EventCallback trace_cb = std::bind( &TraceEvents::new_event_cb, &trace_events, _1 );
+        int ret = read_trace_file( filename, trace_events.m_strpool,
+                                   trace_events.m_trace_info, trace_cb );
+        if ( ret < 0 )
+        {
+            logf( "[Error] read_trace_file(%s) failed.", filename );
+
+            // -1 means loading error
+            SDL_AtomicSet( &trace_events.m_eventsloaded, -1 );
+            s_app().set_state( State_Idle );
+            return -1;
+        }
     }
 
-    float time_load = util_time_to_ms( t0, util_get_time() );
+    {
+        GPUVIS_TRACE_BLOCK( "trace_init" );
 
-    // Call TraceEvents::init() to initialize all events, etc.
-    trace_events.init();
+        float time_load = util_time_to_ms( t0, util_get_time() );
 
-    float time_init = util_time_to_ms( t0, util_get_time() ) - time_load;
-    logf( "Events read: %lu (Load:%.2fms Init:%.2fms) (string chunks:%lu size:%lu)",
-          trace_events.m_events.size(), time_load, time_init,
-          trace_events.m_strpool.m_alloc.m_chunks.size(), trace_events.m_strpool.m_alloc.m_totsize );
+        //$ TODO mikesart: Anything we can parallelize here?
+
+        // Call TraceEvents::init() to initialize all events, etc.
+        trace_events.init();
+
+        float time_init = util_time_to_ms( t0, util_get_time() ) - time_load;
+        logf( "Events read: %lu (Load:%.2fms Init:%.2fms) (string chunks:%lu size:%lu)",
+              trace_events.m_events.size(), time_load, time_init,
+              trace_events.m_strpool.m_alloc.m_chunks.size(), trace_events.m_strpool.m_alloc.m_totsize );
+    }
 
     // 0 means events have all all been loaded
     SDL_AtomicSet( &trace_events.m_eventsloaded, 0 );
@@ -727,6 +740,8 @@ SDL_Window *MainApp::create_window( const char *title )
 
 void MainApp::shutdown( SDL_Window *window )
 {
+    GPUVIS_TRACE_BLOCK( __func__ );
+
     if ( window )
     {
         // Write main window position / size to ini file.
@@ -1947,9 +1962,13 @@ void TraceEvents::init()
 
     s_opts().set_crtc_max( m_crtc_max );
 
-    // Initialize events...
-    for ( trace_event_t &event : m_events )
-        init_new_event( event );
+    {
+        // Initialize events...
+        GPUVIS_TRACE_BLOCK( string_format( "init_new_events: %lu events", m_events.size() ).c_str() );
+
+        for ( trace_event_t &event : m_events )
+            init_new_event( event );
+    }
 
     // Figure out median vblank intervals
     calculate_vblank_info();
@@ -2550,6 +2569,8 @@ TraceWin::~TraceWin()
 
 void TraceWin::render()
 {
+    GPUVIS_TRACE_BLOCK( __func__ );
+
     uint32_t count = 0;
     TraceEvents::tracestatus_t status = m_trace_events.get_load_status( &count );
 
@@ -3293,6 +3314,8 @@ void TraceWin::eventlist_render_options()
 
 void TraceWin::eventlist_render()
 {
+    GPUVIS_TRACE_BLOCK( __func__ );
+
     size_t event_count;
     std::vector< uint32_t > *filtered_events = NULL;
 
@@ -4391,13 +4414,16 @@ void MainApp::parse_cmdline( int argc, char **argv )
     static struct option long_opts[] =
     {
         { "scale", ya_required_argument, 0, 0 },
+#if !defined( GPUVIS_TRACE_UTILS_DISABLE )
+        { "trace", ya_no_argument, 0, 0 },
+#endif
         { 0, 0, 0, 0 }
     };
 
     int c;
     int opt_ind = 0;
     while ( ( c = ya_getopt_long( argc, argv, "i:",
-                               long_opts, &opt_ind ) ) != -1 )
+                                  long_opts, &opt_ind ) ) != -1 )
     {
         switch ( c )
         {
@@ -4439,6 +4465,31 @@ static void imgui_render( SDL_Window *window )
 
 int main( int argc, char **argv )
 {
+#if !defined( GPUVIS_TRACE_UTILS_DISABLE )
+    int tracing = -1;
+
+    for ( int i = 1; i < argc; i++ )
+    {
+        if ( !strcasecmp( argv[ i ], "--trace" ) )
+        {
+            if ( gpuvis_trace_init() == -1 )
+            {
+                printf( "WARNING: gpuvis_trace_init() failed.\n" );
+            }
+            else
+            {
+                printf( "Tracing enabled. Tracefs dir: %s\n", gpuvis_get_tracefs_dir() );
+
+                gpuvis_start_tracing();
+
+                tracing = gpuvis_tracing_on();
+                printf( "gpuvis_tracing_on: %d\n", tracing );
+            }
+            break;
+        }
+    }
+#endif
+
     // Initialize SDL
     if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_TIMER ) )
     {
@@ -4574,6 +4625,18 @@ int main( int argc, char **argv )
     SDL_GL_DeleteContext( glcontext );
     SDL_DestroyWindow( window );
     SDL_Quit();
+
+#if !defined( GPUVIS_TRACE_UTILS_DISABLE )
+    if ( tracing == 1 )
+    {
+        char filename[ PATH_MAX ];
+        int ret = gpuvis_trigger_capture_and_keep_tracing( filename, sizeof( filename ) );
+
+        printf( "Tracing wrote '%s': %d\n", filename, ret );
+    }
+
+    gpuvis_trace_shutdown();
+#endif
 
     return 0;
 }
