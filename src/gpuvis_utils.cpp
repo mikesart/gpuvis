@@ -1662,7 +1662,8 @@ char *StrAlloc::dupestr( const char *str, size_t len )
 {
     char *ptr = allocmem( len + 1 );
 
-    strcpy( ptr, str );
+    memcpy( ptr, str, len );
+    ptr[ len ] = 0;
     return ptr;
 }
 
