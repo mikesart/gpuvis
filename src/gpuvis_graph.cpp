@@ -1711,7 +1711,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         if ( event.has_duration() )
         {
             float offy = h * .10f;
-            float x1 = gi.ts_to_screenx( event.ts + event.duration );
+            float x1 = gi.ts_to_screenx( print_info->ts + event.duration );
             rect_t rc = { x, y + offy, x1 - x, h - offy * 2 };
             ImU32 color = baralpha | ( event.color & ~IM_COL32_A_MASK );
 
