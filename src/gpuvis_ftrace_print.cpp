@@ -483,7 +483,7 @@ void TraceEvents::calculate_event_print_info()
         trace_event_t &event = m_events[ idx ];
         print_info_t *print_info = m_ftrace.print_info.get_val( event.id );
         int64_t min_ts = print_info->ts;
-        uint32_t duration = event.has_duration() ? event.duration : ( 1 * NSECS_PER_MSEC );
+        int64_t duration = event.has_duration() ? event.duration : ( 1 * NSECS_PER_MSEC );
         int64_t max_ts = min_ts + duration;
 
         // Global print row id
