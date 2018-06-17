@@ -665,8 +665,6 @@ int SDLCALL MainApp::thread_func( void *data )
 
         float time_load = util_time_to_ms( t0, util_get_time() );
 
-        //$ TODO mikesart: Anything we can parallelize here?
-
         // Call TraceEvents::init() to initialize all events, etc.
         trace_events.init();
 

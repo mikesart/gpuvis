@@ -261,7 +261,6 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
     trace_event_t *add_event = &event;
     const char *orig_buf = get_event_field_val( event, "buf" );
     const char *buf = orig_buf;
-    const char *ts_offset_str = strncasestr( buf, "offset=", 7 );
 
     if ( m_ftrace.ftrace_pairs.empty() )
         init_ftrace_pairs( m_ftrace.ftrace_pairs );
@@ -272,14 +271,25 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
     event.color_index = 0;
     event.seqno = UINT32_MAX;
 
+    const char *tid_offset_str = strncasestr( buf, "tid=", 4 );
+    if ( tid_offset_str )
+    {
+        tid_offset_str += 4;
+        event.pid = atoi( tid_offset_str );
+
+        buf = trim_ftrace_print_buf( newbuf, buf, tid_offset_str, 4 );
+    }
+
+    const char *ts_offset_str = strncasestr( buf, "offset=", 7 );
     if ( ts_offset_str )
     {
         ts_offset_str += 7;
-        ts_offset = ( int64_t )( atof( ts_offset_str ) * NSECS_PER_MSEC );
+        ts_offset = atoll( ts_offset_str );
 
         buf = trim_ftrace_print_buf( newbuf, buf, ts_offset_str, 7 );
     }
-    else
+
+    if ( !tid_offset_str && !ts_offset_str )
     {
         // Hash the buf string
         uint32_t hashval = hashstr32( buf );
@@ -330,27 +340,21 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
     {
         // This is a duration or ctx print event...
 
+        if ( bufvar == bufvar_lduration )
+            event.duration = atoll( var );
+        else if ( bufvar == bufvar_duration )
+            event.duration = ( int64_t )( atof( var ) * NSECS_PER_MSEC );
+        else
+            event.seqno = strtoul( var, 0, 10 );
+
         // Remove "duration=XXX", etc from buf
         buf = trim_ftrace_print_buf( newbuf, buf, var, s_buf_vars[ bufvar ].len );
 
         // Set color index to hash of new string
         event.color_index = hashstr32( buf );
 
-        if ( bufvar == bufvar_lduration )
+        if ( bufvar == bufvar_lduration || bufvar == bufvar_duration )
         {
-            event.duration = atoll( var );
-
-            if ( event.duration < 0 )
-            {
-                ts_offset += event.duration;
-                event.duration = -event.duration;
-            }
-        }
-        else
-        if ( bufvar == bufvar_duration )
-        {
-            event.duration = ( int64_t )( atof( var ) * NSECS_PER_MSEC );
-
             if ( event.duration < 0 )
             {
                 ts_offset += event.duration;
@@ -360,8 +364,6 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
         else
         {
             uint64_t key = 0;
-
-            event.seqno = strtoul( var, 0, 10 );
 
             if ( ( bufvar == bufvar_begin_ctx ) || ( bufvar == bufvar_end_ctx ) )
                 key = ( uint64_t )pid << 32;

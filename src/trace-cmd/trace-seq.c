@@ -29,6 +29,8 @@
 
 #include "event-parse.h"
 
+#include "../gpuvis_macros.h"
+
 /**
  * trace_seq_init - initialize the trace_seq structure
  * @s: a pointer to the trace_seq structure to initialize
@@ -180,6 +182,11 @@ int trace_seq_put_uval(struct trace_seq *s, unsigned long long val)
 int
 trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
 {
+    // static int s_ctx = 1;
+    // gpuvis_trace_begin_ctx_printf( ++s_ctx, "%s", __func__ );
+
+    GPUVIS_COUNT_HOT_FUNC_CALLS();
+
 	va_list ap;
 	int len;
 	int ret;
@@ -193,6 +200,8 @@ trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
         va_end(ap);
 
         trace_seq_puts(s, str);
+
+        // gpuvis_trace_end_ctx_printf( s_ctx, "%s", __func__ );
         return 1;
     }
 
@@ -210,6 +219,7 @@ trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
 
 	s->len += ret;
 
+    // gpuvis_trace_end_ctx_printf( s_ctx, "%s", __func__ );
 	return 1;
 }
 

@@ -61,14 +61,6 @@
 #define TRACE_BUF_SIZE     1024
 #endif
 
-inline uint64_t gpuvis_gettime_u64()
-{
-    struct timespec ts;
-
-    clock_gettime( CLOCK_MONOTONIC, &ts );
-    return ( ( uint64_t )ts.tv_sec * 1000000000L) + ts.tv_nsec;
-}
-
 // Try to open tracefs trace_marker file for writing. Returns -1 on error.
 GPUVIS_EXTERN int gpuvis_trace_init();
 // Close tracefs trace_marker file.
@@ -106,12 +98,23 @@ GPUVIS_EXTERN const char *gpuvis_get_tracefs_dir();
 // Get tracefs file path in buf. Ie: /sys/kernel/tracing/trace_marker. Returns NULL on error.
 GPUVIS_EXTERN const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file );
 
+GPUVIS_EXTERN void gpuvis_count_hot_func_calls( const char *func );
+#define GPUVIS_COUNT_HOT_FUNC_CALLS() gpuvis_count_hot_func_calls( __func__ );
+
+inline uint64_t gpuvis_gettime_u64()
+{
+    struct timespec ts;
+
+    clock_gettime( CLOCK_MONOTONIC, &ts );
+    return ( ( uint64_t )ts.tv_sec * 1000000000LL) + ts.tv_nsec;
+}
+
 #ifdef __cplusplus
 
 class GpuvisTraceBlock
 {
 public:
-    GpuvisTraceBlock( const std::string &str ) : m_str( str )
+    GpuvisTraceBlock( const char *str ) : m_str( str )
     {
         m_t0 = gpuvis_gettime_u64();
     }
@@ -119,12 +122,15 @@ public:
     ~GpuvisTraceBlock()
     {
         uint64_t dt = gpuvis_gettime_u64() - m_t0;
-        gpuvis_trace_printf( "%s (lduration=-%ld)", m_str.c_str(), dt );
+
+        if ( dt > 11000 )
+            dt -= 11000;
+        gpuvis_trace_printf( "%s (lduration=-%lu)", m_str, dt );
     }
 
 public:
     uint64_t m_t0;
-    const std::string m_str;
+    const char *m_str;
 };
 
 class GpuvisTraceBlockf
@@ -144,7 +150,10 @@ public:
     ~GpuvisTraceBlockf()
     {
         uint64_t dt = gpuvis_gettime_u64() - m_t0;
-        gpuvis_trace_printf( "%s (lduration=-%ld)", m_buf, dt );
+
+        if ( dt > 11000 )
+            dt -= 11000;
+        gpuvis_trace_printf( "%s (lduration=-%lu)", m_buf, dt );
     }
 
 public:
@@ -186,6 +195,8 @@ static inline int gpuvis_tracing_on() { return -1; }
 static inline int gpuvis_get_tracefs_dir() { return 0; }
 static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file ) { return NULL; }
 
+#define GPUVIS_COUNT_HOT_FUNC_CALLS()
+
 #ifdef __cplusplus
 #define GPUVIS_TRACE_BLOCK( _str )
 #define GPUVIS_TRACE_BLOCKF( _fmt, ...  )
@@ -200,6 +211,7 @@ static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen,
 //     IMPLEMENTATION SECTION
 //
 
+#define _GNU_SOURCE 1
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -208,6 +220,9 @@ static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen,
 #include <fcntl.h>
 #include <sys/vfs.h>
 #include <linux/magic.h>
+#include <sys/syscall.h>
+
+#include <unordered_map>
 
 #ifndef TRACEFS_MAGIC
 #define TRACEFS_MAGIC      0x74726163
@@ -219,6 +234,19 @@ static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen,
 static int g_trace_fd = -2;
 static int g_tracefs_dir_inited = 0;
 static char g_tracefs_dir[ PATH_MAX ];
+
+struct funcinfo_t
+{
+    uint64_t tfirst = 0;
+    uint64_t tlast = 0;
+    uint32_t count = 0;
+};
+static std::unordered_map< pid_t, std::unordered_map< const char *, funcinfo_t > > g_hotfuncs;
+
+static pid_t gpuvis_gettid()
+{
+    return ( pid_t )syscall( SYS_gettid );
+}
 
 static int exec_tracecmd( const char *cmd )
 {
@@ -273,8 +301,66 @@ GPUVIS_EXTERN int gpuvis_trace_init()
     return g_trace_fd;
 }
 
+static void flush_hot_func_calls()
+{
+    if ( g_hotfuncs.empty() )
+        return;
+
+    uint64_t t0 = gpuvis_gettime_u64();
+
+    for ( auto &x : g_hotfuncs )
+    {
+        for ( auto &y : x.second )
+        {
+            if ( y.second.count )
+            {
+                pid_t tid = x.first;
+                const char *func = y.first;
+                uint64_t offset = t0 - y.second.tfirst;
+                uint64_t duration = y.second.tlast - y.second.tfirst;
+
+                gpuvis_trace_printf( "%s_ (%u calls) (lduration=%lu tid=%d offset=-%lu)\n",
+                                     func, y.second.count, duration, tid, offset );
+            }
+        }
+    }
+
+    g_hotfuncs.clear();
+}
+
+GPUVIS_EXTERN void gpuvis_count_hot_func_calls( const char *func )
+{
+    uint64_t t0 = gpuvis_gettime_u64();
+    pid_t tid = gpuvis_gettid();
+    auto &x = g_hotfuncs[ tid ];
+    auto &y = x[ func ];
+
+    if ( !y.count )
+    {
+        y.count = 1;
+        y.tfirst = t0;
+        y.tlast = t0 + 1;
+    }
+    else if ( t0 - y.tlast >= 3 * 1000000 ) // 3ms
+    {
+        gpuvis_trace_printf( "%s (%u calls) (lduration=%lu offset=-%lu)\n",
+                             func, y.count, y.tlast - y.tfirst, t0 - y.tfirst );
+
+        y.count = 1;
+        y.tfirst = t0;
+        y.tlast = t0 + 1;
+    }
+    else
+    {
+        y.tlast = t0;
+        y.count++;
+    }
+}
+
 GPUVIS_EXTERN void gpuvis_trace_shutdown()
 {
+    flush_hot_func_calls();
+
     if ( g_trace_fd >= 0 )
         close( g_trace_fd );
     g_trace_fd = -2;
@@ -438,6 +524,8 @@ GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing( char *filename, size_
     if ( filename )
         filename[ 0 ] = 0;
 
+    flush_hot_func_calls();
+
     if ( gpuvis_tracing_on() )
     {
         char datetime[ 128 ];
@@ -481,6 +569,8 @@ GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing( char *filename, size_
 
 GPUVIS_EXTERN int gpuvis_stop_tracing()
 {
+    flush_hot_func_calls();
+
     int ret = exec_tracecmd( "trace-cmd reset 2>&1");
 
     // Try freeing any snapshot buffers as well
