@@ -503,7 +503,7 @@ static std::string unzip_first_file( const char *zipfile )
 
 bool MainApp::load_file( const char *filename )
 {
-    GPUVIS_TRACE_BLOCK( string_format( "%s: %s", __func__, filename ).c_str() );
+    GPUVIS_TRACE_BLOCKF( "%s: %s", __func__, filename );
 
     std::string tmpfile;
     const char *ext = strrchr( filename, '.' );
@@ -640,7 +640,7 @@ int SDLCALL MainApp::thread_func( void *data )
     const char *filename = loading_info->filename.c_str();
 
     {
-        GPUVIS_TRACE_BLOCK( "read_trace_file" );
+        GPUVIS_TRACE_BLOCKF( "read_trace_file: %s", filename );
 
         logf( "Reading trace file %s...", filename );
 
@@ -671,9 +671,16 @@ int SDLCALL MainApp::thread_func( void *data )
         trace_events.init();
 
         float time_init = util_time_to_ms( t0, util_get_time() ) - time_load;
-        logf( "Events read: %lu (Load:%.2fms Init:%.2fms) (string chunks:%lu size:%lu)",
-              trace_events.m_events.size(), time_load, time_init,
-              trace_events.m_strpool.m_alloc.m_chunks.size(), trace_events.m_strpool.m_alloc.m_totsize );
+
+        const std::string str = string_format(
+                    "Events read: %lu (Load:%.2fms Init:%.2fms) (string chunks:%lu size:%lu)",
+                    trace_events.m_events.size(), time_load, time_init,
+                    trace_events.m_strpool.m_alloc.m_chunks.size(), trace_events.m_strpool.m_alloc.m_totsize );
+        logf( "%s", str.c_str() );
+
+#if !defined( GPUVIS_TRACE_UTILS_DISABLE )
+        printf( "%s\n", str.c_str() );
+#endif
     }
 
     // 0 means events have all all been loaded
@@ -1964,7 +1971,7 @@ void TraceEvents::init()
 
     {
         // Initialize events...
-        GPUVIS_TRACE_BLOCK( string_format( "init_new_events: %lu events", m_events.size() ).c_str() );
+        GPUVIS_TRACE_BLOCKF( "init_new_events: %lu events", m_events.size() );
 
         for ( trace_event_t &event : m_events )
             init_new_event( event );

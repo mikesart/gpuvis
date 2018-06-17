@@ -108,6 +108,7 @@ static const char *s_buf_prefixes[] =
 // ftrace print event information
 enum bufvar_t
 {
+    bufvar_lduration,
     bufvar_duration,
     bufvar_begin_ctx,
     bufvar_end_ctx,
@@ -126,6 +127,7 @@ static struct
     size_t len;
 } s_buf_vars[] =
 {
+    { "lduration=", 10 },
     { "duration=", 9 },
     { "begin_ctx=", 10 },
     { "end_ctx=", 8 },
@@ -334,6 +336,17 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
         // Set color index to hash of new string
         event.color_index = hashstr32( buf );
 
+        if ( bufvar == bufvar_lduration )
+        {
+            event.duration = atoll( var );
+
+            if ( event.duration < 0 )
+            {
+                ts_offset += event.duration;
+                event.duration = -event.duration;
+            }
+        }
+        else
         if ( bufvar == bufvar_duration )
         {
             event.duration = ( int64_t )( atof( var ) * NSECS_PER_MSEC );

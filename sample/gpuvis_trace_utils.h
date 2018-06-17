@@ -47,11 +47,27 @@
 
 #if !defined( GPUVIS_TRACE_UTILS_DISABLE )
 
+#include <time.h>
+#include <stdint.h>
+
 #ifdef __cplusplus
   #define GPUVIS_EXTERN   extern "C"
 #else
   #define GPUVIS_EXTERN   extern
 #endif
+
+// From kernel/trace/trace.h
+#ifndef TRACE_BUF_SIZE
+#define TRACE_BUF_SIZE     1024
+#endif
+
+inline uint64_t gpuvis_gettime_u64()
+{
+    struct timespec ts;
+
+    clock_gettime( CLOCK_MONOTONIC, &ts );
+    return ( ( uint64_t )ts.tv_sec * 1000000000L) + ts.tv_nsec;
+}
 
 // Try to open tracefs trace_marker file for writing. Returns -1 on error.
 GPUVIS_EXTERN int gpuvis_trace_init();
@@ -95,46 +111,45 @@ GPUVIS_EXTERN const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen,
 class GpuvisTraceBlock
 {
 public:
-    GpuvisTraceBlock( const char *str )
+    GpuvisTraceBlock( const std::string &str ) : m_str( str )
     {
-        m_ctx = __sync_fetch_and_add( &s_ctx, 1 );
-
-        gpuvis_trace_begin_ctx_printf( m_ctx, "%s", str );
+        m_t0 = gpuvis_gettime_u64();
     }
 
     ~GpuvisTraceBlock()
     {
-        gpuvis_trace_end_ctx_printf( m_ctx, "%s", "" );
+        uint64_t dt = gpuvis_gettime_u64() - m_t0;
+        gpuvis_trace_printf( "%s (lduration=-%ld)", m_str.c_str(), dt );
     }
 
 public:
-    unsigned int m_ctx;
-    static unsigned int s_ctx;
+    uint64_t m_t0;
+    const std::string m_str;
 };
 
 class GpuvisTraceBlockf
 {
 public:
-    GpuvisTraceBlockf( const char *fmt, ... )
+    GpuvisTraceBlockf( const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 2, 3 )
     {
         va_list args;
-        char buf[ 1024 ];
-
-        m_ctx = __sync_fetch_and_add( &GpuvisTraceBlock::s_ctx, 1 );
 
         va_start( args, fmt );
-        vsnprintf( buf, sizeof( buf ), fmt, args );
-        gpuvis_trace_begin_ctx_printf( m_ctx, "%s", buf );
+        vsnprintf( m_buf, sizeof( m_buf ), fmt, args );
         va_end( args );
+
+        m_t0 = gpuvis_gettime_u64();
     }
 
     ~GpuvisTraceBlockf()
     {
-        gpuvis_trace_end_ctx_printf( m_ctx, "%s", "" );
+        uint64_t dt = gpuvis_gettime_u64() - m_t0;
+        gpuvis_trace_printf( "%s (lduration=-%ld)", m_buf, dt );
     }
 
 public:
-    unsigned int m_ctx;
+    uint64_t m_t0;
+    char m_buf[ TRACE_BUF_SIZE ];
 };
 
 #define LNAME3( _name, _line ) _name ## _line
@@ -194,15 +209,8 @@ static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen,
 #include <sys/vfs.h>
 #include <linux/magic.h>
 
-unsigned int GpuvisTraceBlock::s_ctx = 0;
-
 #ifndef TRACEFS_MAGIC
 #define TRACEFS_MAGIC      0x74726163
-#endif
-
-// From kernel/trace/trace.h
-#ifndef TRACE_BUF_SIZE
-#define TRACE_BUF_SIZE     1024
 #endif
 
 #define GPUVIS_STR( x ) #x
