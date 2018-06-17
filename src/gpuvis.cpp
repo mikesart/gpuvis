@@ -4485,7 +4485,7 @@ int main( int argc, char **argv )
             {
                 printf( "Tracing enabled. Tracefs dir: %s\n", gpuvis_get_tracefs_dir() );
 
-                gpuvis_start_tracing();
+                gpuvis_start_tracing( 0 );
 
                 tracing = gpuvis_tracing_on();
                 printf( "gpuvis_tracing_on: %d\n", tracing );

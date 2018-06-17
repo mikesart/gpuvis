@@ -796,7 +796,7 @@ int main( int argc, char *argv[] )
 
     printf( "gpuvis_trace_init: %d\n", gpuvis_trace_init() );
     printf( "gpuvis_tracing_on: %d\n", gpuvis_tracing_on() );
-    printf( "gpuvis_start_tracing: %d\n", gpuvis_start_tracing() );
+    printf( "gpuvis_start_tracing( 8192 ): %d\n", gpuvis_start_tracing( 8192 ) );
     printf( "gpuvis_tracing_on: %d\n", gpuvis_tracing_on() );
 
     for ( i = 1; i < argc; i++ )

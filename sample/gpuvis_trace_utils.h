@@ -83,7 +83,7 @@ GPUVIS_EXTERN int gpuvis_trace_end_ctx_printf( unsigned int ctx, const char *fmt
 GPUVIS_EXTERN int gpuvis_trace_end_ctx_vprintf( unsigned int ctx, const char *fmt, va_list ap ) GPUVIS_ATTR_PRINTF( 2, 0 );
 
 // Execute "trace-cmd start -b 2000 -D -i -e sched:sched_switch -e ..."
-GPUVIS_EXTERN int gpuvis_start_tracing();
+GPUVIS_EXTERN int gpuvis_start_tracing( unsigned int kbuffersize );
 // Execute "trace-cmd extract"
 GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing( char *filename, size_t size );
 // Execute "trace-cmd reset"
@@ -123,6 +123,9 @@ public:
     {
         uint64_t dt = gpuvis_gettime_u64() - m_t0;
 
+        // The cpu clock_gettime() functions seems to vary compared to the
+        // ftrace event timestamps. If we don't reduce the duration here,
+        // blocks oftentimes won't stack correctly when they're drawn.
         if ( dt > 11000 )
             dt -= 11000;
         gpuvis_trace_printf( "%s (lduration=-%lu)", m_str, dt );
@@ -186,7 +189,7 @@ static inline int gpuvis_trace_begin_ctx_vprintf( unsigned int ctx, const char *
 static inline int gpuvis_trace_end_ctx_printf( unsigned int ctx, const char *fmt, ... ) { return 0; }
 static inline int gpuvis_trace_end_ctx_vprintf( unsigned int ctx, const char *fmt, va_list ap ) { return 0; }
 
-static inline int gpuvis_start_tracing() { return 0; }
+static inline int gpuvis_start_tracing( unsigned int kbuffersize ) { return 0; }
 static inline int gpuvis_trigger_capture_and_keep_tracing( char *filename, size_t size ) { return 0; }
 static inline int gpuvis_stop_tracing() { return 0; }
 
@@ -485,34 +488,40 @@ GPUVIS_EXTERN int gpuvis_trace_end_ctx_vprintf( unsigned int ctx, const char *fm
     return trace_printf_impl( keystr, fmt, ap );
 }
 
-GPUVIS_EXTERN int gpuvis_start_tracing()
+GPUVIS_EXTERN int gpuvis_start_tracing( unsigned int kbuffersize )
 {
-    const char cmd[] =
-            "trace-cmd start -b 8000 -D -i "
-            // https://github.com/mikesart/gpuvis/wiki/TechDocs-Linux-Scheduler
-            " -e sched:sched_switch"
-            " -e sched:sched_process_fork"
-            " -e sched:sched_process_exec"
-            " -e sched:sched_process_exit"
-            " -e drm:drm_vblank_event"
-            " -e drm:drm_vblank_event_queued"
-            " -e drm:drm_vblank_event_delivered"
-            // https://github.com/mikesart/gpuvis/wiki/TechDocs-AMDGpu
-            " -e amdgpu:amdgpu_vm_flush"
-            " -e amdgpu:amdgpu_cs_ioctl"
-            " -e amdgpu:amdgpu_sched_run_job"
-            " -e *fence:*fence_signaled"
-            // https://github.com/mikesart/gpuvis/wiki/TechDocs-Intel
-            " -e i915:i915_flip_request"
-            " -e i915:i915_flip_complete"
-            " -e i915:intel_gpu_freq_change"
-            " -e i915:i915_gem_request_add"
-            " -e i915:i915_gem_request_submit"  // Require CONFIG_DRM_I915_LOW_LEVEL_TRACEPOINTS
-            " -e i915:i915_gem_request_in"      // Kconfig option to be enabled.
-            " -e i915:i915_gem_request_out"     //
-            " -e i915:intel_engine_notify"
-            " -e i915:i915_gem_request_wait_begin"
-            " -e i915:i915_gem_request_wait_end 2>&1";
+    static const char fmt[] =
+        "trace-cmd start -b %u -D -i "
+        // https://github.com/mikesart/gpuvis/wiki/TechDocs-Linux-Scheduler
+        " -e sched:sched_switch"
+        " -e sched:sched_process_fork"
+        " -e sched:sched_process_exec"
+        " -e sched:sched_process_exit"
+        " -e drm:drm_vblank_event"
+        " -e drm:drm_vblank_event_queued"
+        " -e drm:drm_vblank_event_delivered"
+        // https://github.com/mikesart/gpuvis/wiki/TechDocs-AMDGpu
+        " -e amdgpu:amdgpu_vm_flush"
+        " -e amdgpu:amdgpu_cs_ioctl"
+        " -e amdgpu:amdgpu_sched_run_job"
+        " -e *fence:*fence_signaled"
+        // https://github.com/mikesart/gpuvis/wiki/TechDocs-Intel
+        " -e i915:i915_flip_request"
+        " -e i915:i915_flip_complete"
+        " -e i915:intel_gpu_freq_change"
+        " -e i915:i915_gem_request_add"
+        " -e i915:i915_gem_request_submit"  // Require CONFIG_DRM_I915_LOW_LEVEL_TRACEPOINTS
+        " -e i915:i915_gem_request_in"      // Kconfig option to be enabled.
+        " -e i915:i915_gem_request_out"     //
+        " -e i915:intel_engine_notify"
+        " -e i915:i915_gem_request_wait_begin"
+        " -e i915:i915_gem_request_wait_end 2>&1";
+    char cmd[ 8192 ];
+
+    if ( !kbuffersize )
+        kbuffersize = 8 * 1024;
+
+    snprintf( cmd, sizeof( cmd ), fmt, kbuffersize );
 
     return exec_tracecmd( cmd );
 }
