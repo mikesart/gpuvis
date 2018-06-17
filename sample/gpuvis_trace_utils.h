@@ -112,10 +112,36 @@ public:
     static unsigned int s_ctx;
 };
 
+class GpuvisTraceBlockf
+{
+public:
+    GpuvisTraceBlockf( const char *fmt, ... )
+    {
+        va_list args;
+        char buf[ 1024 ];
+
+        m_ctx = __sync_fetch_and_add( &GpuvisTraceBlock::s_ctx, 1 );
+
+        va_start( args, fmt );
+        vsnprintf( buf, sizeof( buf ), fmt, args );
+        gpuvis_trace_begin_ctx_printf( m_ctx, "%s", buf );
+        va_end( args );
+    }
+
+    ~GpuvisTraceBlockf()
+    {
+        gpuvis_trace_end_ctx_printf( m_ctx, "%s", "" );
+    }
+
+public:
+    unsigned int m_ctx;
+};
+
 #define LNAME3( _name, _line ) _name ## _line
 #define LNAME2( _name, _line ) LNAME3( _name, _line )
 #define LNAME( _name ) LNAME2( _name, __LINE__ )
 #define GPUVIS_TRACE_BLOCK( _str ) GpuvisTraceBlock LNAME( gpuvistimeblock )( _str )
+#define GPUVIS_TRACE_BLOCKF( _fmt, ...  ) GpuvisTraceBlockf LNAME( gpuvistimeblock )( _fmt, __VA_ARGS__ )
 
 #endif // __cplusplus
 
@@ -147,6 +173,7 @@ static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen,
 
 #ifdef __cplusplus
 #define GPUVIS_TRACE_BLOCK( _str )
+#define GPUVIS_TRACE_BLOCKF( _fmt, ...  )
 #endif
 
 #endif // !GPUVIS_TRACE_UTILS_DISABLE
