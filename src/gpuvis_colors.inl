@@ -27,6 +27,7 @@ _XTAG( col_ClearColor, IM_COL32( 114, 144, 154, 255 ), "Window background clear 
 
 _XTAG( col_VBlank0, 0xd9ff00db, "VBlank crtc0" )
 _XTAG( col_VBlank1, 0x80fff300, "VBlank crtc1" )
+_XTAG( col_VBlank2, 0x8015cece, "VBlank crtc2" )
 _XTAG( col_FtracePrintText, 0xffcca014, "Ftrace print text color" )
 _XTAG( col_BrightText, 0xffcca014, "Gpuvis bright text color" )
 

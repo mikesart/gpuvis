@@ -2506,8 +2506,8 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
 
             if ( s_opts().getcrtc( event.crtc ) )
             {
-                // drm_vblank_event0: blue, drm_vblank_event1: red
-                colors_t col = ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0;
+                // Handle drm_vblank_event0 .. drm_vblank_event2
+                uint32_t col = Clamp< uint32_t >( col_VBlank0 + event.crtc, col_VBlank0, col_VBlank2 );
                 float x = gi.ts_to_screenx( event.ts );
 
                 imgui_drawrect_filled( x, gi.rc.y, imgui_scale( 1.0f ), gi.rc.h,

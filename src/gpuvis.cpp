@@ -376,9 +376,9 @@ bool Opts::render_imgui_opt( option_id_t optid, float w )
         bool val = !!opt.valf;
         std::string desc = opt.desc;
 
-        if ( ( optid == OPT_RenderCrtc0 ) || ( optid == OPT_RenderCrtc1 ) )
+        if ( ( optid >= OPT_RenderCrtc0 ) && ( optid <= OPT_RenderCrtc2 ) )
         {
-            // Quick hack to color the vblank string.
+            // Quick hack to color the vblank string: col_VBlank0 .. col_VBlank2
             const char *vblankstr = " vblank ";
             ImU32 color = col_VBlank0 + ( optid - OPT_RenderCrtc0 );
             std::string str = s_textclrs().mstr( vblankstr, s_clrs().get( color ) );
@@ -3475,7 +3475,11 @@ void TraceWin::eventlist_render()
                     markerbuf = s_textclrs().mstr( "(A)", ( ImColor )color ) + markerbuf;
                 }
                 if ( event.is_vblank() )
-                    color = s_clrs().getv4( ( event.crtc > 0 ) ? col_VBlank1 : col_VBlank0 );
+                {
+                    uint32_t idx = Clamp< uint32_t >( col_VBlank0 + event.crtc, col_VBlank0, col_VBlank2 );
+
+                    color = s_clrs().getv4( idx );
+                }
 
                 ImGui::PushStyleColor( ImGuiCol_Text, color );
 
