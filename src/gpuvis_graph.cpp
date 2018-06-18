@@ -1523,7 +1523,6 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
     imgui_push_smallfont();
 
     uint32_t count = 0;
-    const std::vector< uint32_t > *plocs = gi.prinfo_cur->plocs;
 
     uint32_t cpus = m_trace_events.m_trace_info.cpus;
     float row_h = floor( gi.rc.h / cpus );
@@ -1536,60 +1535,80 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
     // room for ~12 characters.
     const ImVec2 text_size = ImGui::CalcTextSize( "0123456789ab" );
 
-    for ( size_t idx = vec_find_eventid( *plocs, gi.eventstart );
-          idx < plocs->size();
-          idx++ )
+    for ( const auto &cpu_locs : m_trace_events.m_sched_switch_cpu_locs.m_locs.m_map )
     {
-        bool drawrect = false;
-        const trace_event_t &sched_switch = get_event( plocs->at( idx ) );
-        float y = gi.rc.y + sched_switch.cpu * row_h;
-        float x0 = gi.ts_to_screenx( sched_switch.ts - sched_switch.duration );
-        float x1 = gi.ts_to_screenx( sched_switch.ts );
+        const std::vector< uint32_t > &locs = cpu_locs.second;
+        uint32_t cpu = get_event( locs[ 0 ] ).cpu;
+        float y = gi.rc.y + cpu * row_h;
 
-        // Bail if we're off the right side of our graph
-        if ( x0 > gi.rc.x + gi.rc.w )
-            continue;
+        event_renderer_t event_renderer( gi, y + imgui_scale( 2.0f ), gi.rc.w, row_h - imgui_scale( 3.0f ) );
 
-        if ( hide_system_events && ( sched_switch.flags & TRACE_FLAG_SCHED_SWITCH_SYSTEM_EVENT ) )
-            continue;
-
-        // If we've got pids we should be filtering on, check if this is in the hash table.
-        if ( !m_graph.cpu_timeline_pids.empty() &&
-             ( m_graph.cpu_timeline_pids.find( sched_switch.pid ) == m_graph.cpu_timeline_pids.end() ) )
+        for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
+              idx < locs.size();
+              idx++ )
         {
-            continue;
+            const trace_event_t &sched_switch = get_event( locs[ idx ] );
+            float x0 = gi.ts_to_screenx( sched_switch.ts - sched_switch.duration );
+            float x1 = gi.ts_to_screenx( sched_switch.ts );
+
+            // Bail if we're off the right side of our graph
+            if ( x0 > gi.rc.x + gi.rc.w )
+                break;
+
+            if ( hide_system_events && ( sched_switch.flags & TRACE_FLAG_SCHED_SWITCH_SYSTEM_EVENT ) )
+                continue;
+
+            // If we've got pids we should be filtering on, check if this is in the hash table.
+            if ( !m_graph.cpu_timeline_pids.empty() &&
+                 ( m_graph.cpu_timeline_pids.find( sched_switch.pid ) == m_graph.cpu_timeline_pids.end() ) )
+            {
+                continue;
+            }
+
+            count++;
+            if ( ( x1 - x0 ) < imgui_scale( 3.0f ) )
+            {
+                event_renderer.add_event( sched_switch.id, x0, sched_switch.color );
+            }
+            else
+            {
+                bool drawrect = false;
+
+                event_renderer.done();
+
+                imgui_drawrect_filled( x0, y + imgui_scale( 2.0f ), x1 - x0, row_h - imgui_scale( 3.0f ), sched_switch.color );
+
+                // If alt key isn't down and there is room for ~12 characters, render comm name
+                if ( !alt_down && ( x1 - x0 > text_size.x ) )
+                {
+                    float y_text = y + ( row_h - text_size.y ) / 2 - imgui_scale( 1.0f );
+                    const char *prev_comm = get_event_field_val( sched_switch, "prev_comm" );
+
+                    imgui_push_cliprect( { x0, y_text, x1 - x0, text_size.y } );
+                    imgui_draw_text( x0 + imgui_scale( 1.0f ), y_text, color_text, prev_comm );
+                    imgui_pop_cliprect();
+                }
+
+                if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
+                {
+                    drawrect = true;
+                    gi.sched_switch_bars.push_back( sched_switch.id );
+                }
+                else if ( !sched_switch_bars_empty && ( gi.sched_switch_bars[ 0 ] == sched_switch.id ) )
+                {
+                    drawrect = true;
+                }
+
+                if ( drawrect )
+                {
+                    imgui_drawrect( x0, y + imgui_scale( 1.0f ),
+                                    x1 - x0, row_h - imgui_scale( 1.0f ),
+                                    s_clrs().get( col_Graph_BarSelRect ) );
+                }
+            }
         }
 
-        imgui_drawrect_filled( x0, y + imgui_scale( 2.0f ), x1 - x0, row_h - imgui_scale( 3.0f ), sched_switch.color );
-        count++;
-
-        // If alt key isn't down and there is room for ~12 characters, render comm name
-        if ( !alt_down && ( x1 - x0 > text_size.x ) )
-        {
-            float y_text = y + ( row_h - text_size.y ) / 2 - imgui_scale( 1.0f );
-            const char *prev_comm = get_event_field_val( sched_switch, "prev_comm" );
-
-            imgui_push_cliprect( { x0, y_text, x1 - x0, text_size.y } );
-            imgui_draw_text( x0 + imgui_scale( 1.0f ), y_text, color_text, prev_comm );
-            imgui_pop_cliprect();
-        }
-
-        if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
-        {
-            drawrect = true;
-            gi.sched_switch_bars.push_back( sched_switch.id );
-        }
-        else if ( !sched_switch_bars_empty && ( gi.sched_switch_bars[ 0 ] == sched_switch.id ) )
-        {
-            drawrect = true;
-        }
-
-        if ( drawrect )
-        {
-            imgui_drawrect( x0, y + imgui_scale( 1.0f ),
-                            x1 - x0, row_h - imgui_scale( 1.0f ),
-                            s_clrs().get( col_Graph_BarSelRect ) );
-        }
+        event_renderer.done();
     }
 
     ImU32 color = s_clrs().get( col_Graph_BarText, 0x30 );

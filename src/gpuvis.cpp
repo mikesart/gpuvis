@@ -1438,10 +1438,11 @@ void TraceEvents::update_tgid_colors()
         tgid_info.commstr = commstr;
     }
 
-    const std::vector< uint32_t > *plocs = m_sched_switch_cpu_locs.get_locations_u32( 0 );
-    if ( plocs )
+    for ( const auto &cpu_locs : m_sched_switch_cpu_locs.m_locs.m_map )
     {
-        for ( uint32_t idx : *plocs )
+        const std::vector< uint32_t > &locs = cpu_locs.second;
+
+        for ( uint32_t idx : locs )
         {
             uint32_t hashval;
             float alpha = label_alpha;
@@ -1616,7 +1617,7 @@ void TraceEvents::init_sched_switch_event( trace_event_t &event )
             m_sched_switch_time_pid.m_map[ prev_pid ] += event.duration;
 
             // Add this event to the sched switch CPU timeline locs array
-            m_sched_switch_cpu_locs.add_location_u32( 0, event.id );
+            m_sched_switch_cpu_locs.add_location_u32( event.cpu, event.id );
         }
 
         m_sched_switch_prev_locs.add_location_u32( prev_pid, event.id );
@@ -2380,7 +2381,14 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
     if ( !strcmp( name, "cpu graph" ) )
     {
         type = LOC_TYPE_CpuGraph;
-        plocs = m_sched_switch_cpu_locs.get_locations_u32( 0 );
+
+        // Let's try to find the first cpu with some events and give them that
+        for ( uint32_t cpu = 0; cpu < m_trace_info.cpus; cpu++ )
+        {
+            plocs = m_sched_switch_cpu_locs.get_locations_u32( cpu );
+            if ( plocs )
+                break;
+        }
     }
     else if ( get_ftrace_row_info( name ) )
     {
