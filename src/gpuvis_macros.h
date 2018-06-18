@@ -246,6 +246,8 @@ bool copy_file( const char *filename, const char *newfilename );
 std::string string_format( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
 std::string string_formatv( const char *fmt, va_list ap ) ATTRIBUTE_PRINTF( 1, 0 );
 
+std::string string_strftime();
+
 void string_replace_char( std::string &s, const char search, const char replace );
 void string_replace_str( std::string &s, const std::string &search, const std::string &replace );
 

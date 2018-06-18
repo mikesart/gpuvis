@@ -236,6 +236,18 @@ std::string string_format( const char *fmt, ... )
     return str;
 }
 
+std::string string_strftime()
+{
+    char buf[ 512 ];
+    time_t t = time( NULL );
+    struct tm *tmp = localtime( &t );
+
+    strftime( buf, sizeof( buf ), "%Y-%m-%d_%H-%M-%S", tmp );
+    buf[ sizeof( buf ) - 1 ] = 0;
+
+    return std::string( buf );
+}
+
 void string_replace_char( std::string &s, const char search, const char replace )
 {
     size_t pos = 0;
