@@ -1541,6 +1541,12 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
         uint32_t cpu = get_event( locs[ 0 ] ).cpu;
         float y = gi.rc.y + cpu * row_h;
 
+        // Skip row if it's above or below visible window
+        if ( y > gi.rcwin.y + gi.rcwin.h )
+            continue;
+        if ( y + row_h < gi.rcwin.y )
+            continue;
+
         event_renderer_t event_renderer( gi, y + imgui_scale( 2.0f ), gi.rc.w, row_h - imgui_scale( 3.0f ) );
 
         for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
