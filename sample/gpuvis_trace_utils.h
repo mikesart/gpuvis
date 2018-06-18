@@ -174,7 +174,7 @@ public:
 
 #else
 
-static inline int gpuvis_trace_init() { return 0; }
+static inline int gpuvis_trace_init() { return -1; }
 static inline void gpuvis_trace_shutdown() {}
 
 static inline int gpuvis_trace_printf( const char *fmt, ... ) { return 0; }
@@ -195,7 +195,7 @@ static inline int gpuvis_stop_tracing() { return 0; }
 
 static inline int gpuvis_tracing_on() { return -1; }
 
-static inline int gpuvis_get_tracefs_dir() { return 0; }
+static inline const char *gpuvis_get_tracefs_dir() { return ""; }
 static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file ) { return NULL; }
 
 #define GPUVIS_COUNT_HOT_FUNC_CALLS()
