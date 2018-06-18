@@ -333,9 +333,10 @@ static void flush_hot_func_calls()
 
 GPUVIS_EXTERN void gpuvis_count_hot_func_calls( const char *func )
 {
+    static __thread pid_t s_tid = gpuvis_gettid();
+
     uint64_t t0 = gpuvis_gettime_u64();
-    pid_t tid = gpuvis_gettid();
-    auto &x = g_hotfuncs[ tid ];
+    auto &x = g_hotfuncs[ s_tid ];
     auto &y = x[ func ];
 
     if ( !y.count )
