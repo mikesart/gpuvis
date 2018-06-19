@@ -351,7 +351,13 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
         buf = trim_ftrace_print_buf( newbuf, buf, var, s_buf_vars[ bufvar ].len );
 
         // Set color index to hash of new string
-        event.color_index = hashstr32( buf );
+        // If the string is something like "sort_name_components: 17343", then only
+        //  use the "set_name_components: " portion for the hash so they all get
+        //  the same color.
+        const char *colon = strchr( buf, ':' );
+        size_t len = colon ? ( colon - buf ) : strlen( buf );
+
+        event.color_index = hashstr32( buf, len );
 
         if ( bufvar == bufvar_lduration || bufvar == bufvar_duration )
         {

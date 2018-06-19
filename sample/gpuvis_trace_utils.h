@@ -62,9 +62,9 @@
 #endif
 
 // Try to open tracefs trace_marker file for writing. Returns -1 on error.
-GPUVIS_EXTERN int gpuvis_trace_init();
+GPUVIS_EXTERN int gpuvis_trace_init( void );
 // Close tracefs trace_marker file.
-GPUVIS_EXTERN void gpuvis_trace_shutdown();
+GPUVIS_EXTERN void gpuvis_trace_shutdown( void );
 
 // Write user event to tracefs trace_marker.
 GPUVIS_EXTERN int gpuvis_trace_printf( const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 1, 2 );
@@ -87,21 +87,21 @@ GPUVIS_EXTERN int gpuvis_start_tracing( unsigned int kbuffersize );
 // Execute "trace-cmd extract"
 GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing( char *filename, size_t size );
 // Execute "trace-cmd reset"
-GPUVIS_EXTERN int gpuvis_stop_tracing();
+GPUVIS_EXTERN int gpuvis_stop_tracing( void );
 
 // -1: tracing not setup, 0: tracing disabled, 1: tracing enabled.
-GPUVIS_EXTERN int gpuvis_tracing_on();
+GPUVIS_EXTERN int gpuvis_tracing_on( void );
 
 // Get tracefs directory. Ie: /sys/kernel/tracing. Returns "" on error.
-GPUVIS_EXTERN const char *gpuvis_get_tracefs_dir();
+GPUVIS_EXTERN const char *gpuvis_get_tracefs_dir( void );
 
 // Get tracefs file path in buf. Ie: /sys/kernel/tracing/trace_marker. Returns NULL on error.
 GPUVIS_EXTERN const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file );
 
-GPUVIS_EXTERN void gpuvis_count_hot_func_calls( const char *func );
-#define GPUVIS_COUNT_HOT_FUNC_CALLS() gpuvis_count_hot_func_calls( __func__ );
+// Internal function used by GPUVIS_COUNT_HOT_FUNC_CALLS macro
+GPUVIS_EXTERN void gpuvis_count_hot_func_calls_internal_( const char *func );
 
-inline uint64_t gpuvis_gettime_u64()
+inline uint64_t gpuvis_gettime_u64( void )
 {
     struct timespec ts;
 
@@ -167,10 +167,13 @@ public:
 #define LNAME3( _name, _line ) _name ## _line
 #define LNAME2( _name, _line ) LNAME3( _name, _line )
 #define LNAME( _name ) LNAME2( _name, __LINE__ )
-#define GPUVIS_TRACE_BLOCK( _str ) GpuvisTraceBlock LNAME( gpuvistimeblock )( _str )
+
+#define GPUVIS_TRACE_BLOCK( _conststr ) GpuvisTraceBlock LNAME( gpuvistimeblock )( _conststr )
 #define GPUVIS_TRACE_BLOCKF( _fmt, ...  ) GpuvisTraceBlockf LNAME( gpuvistimeblock )( _fmt, __VA_ARGS__ )
 
 #endif // __cplusplus
+
+#define GPUVIS_COUNT_HOT_FUNC_CALLS() gpuvis_count_hot_func_calls_internal_( __func__ );
 
 #else
 
@@ -198,12 +201,12 @@ static inline int gpuvis_tracing_on() { return -1; }
 static inline const char *gpuvis_get_tracefs_dir() { return ""; }
 static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file ) { return NULL; }
 
-#define GPUVIS_COUNT_HOT_FUNC_CALLS()
-
 #ifdef __cplusplus
-#define GPUVIS_TRACE_BLOCK( _str )
+#define GPUVIS_TRACE_BLOCK( _conststr )
 #define GPUVIS_TRACE_BLOCKF( _fmt, ...  )
 #endif
+
+#define GPUVIS_COUNT_HOT_FUNC_CALLS()
 
 #endif // !GPUVIS_TRACE_UTILS_DISABLE
 
@@ -226,6 +229,13 @@ static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen,
 #include <sys/syscall.h>
 
 #include <unordered_map>
+
+#undef GPUVIS_EXTERN
+#ifdef __cplusplus
+#define GPUVIS_EXTERN extern "C"
+#else
+#define GPUVIS_EXTERN
+#endif
 
 #ifndef TRACEFS_MAGIC
 #define TRACEFS_MAGIC      0x74726163
@@ -322,7 +332,7 @@ static void flush_hot_func_calls()
                 uint64_t offset = t0 - y.second.tfirst;
                 uint64_t duration = y.second.tlast - y.second.tfirst;
 
-                gpuvis_trace_printf( "%s_ (%u calls) (lduration=%lu tid=%d offset=-%lu)\n",
+                gpuvis_trace_printf( "%s calls:%u (lduration=%lu tid=%d offset=-%lu)\n",
                                      func, y.second.count, duration, tid, offset );
             }
         }
@@ -331,7 +341,7 @@ static void flush_hot_func_calls()
     g_hotfuncs.clear();
 }
 
-GPUVIS_EXTERN void gpuvis_count_hot_func_calls( const char *func )
+GPUVIS_EXTERN void gpuvis_count_hot_func_calls_internal_( const char *func )
 {
     static __thread pid_t s_tid = gpuvis_gettid();
 
@@ -347,7 +357,7 @@ GPUVIS_EXTERN void gpuvis_count_hot_func_calls( const char *func )
     }
     else if ( t0 - y.tlast >= 3 * 1000000 ) // 3ms
     {
-        gpuvis_trace_printf( "%s (%u calls) (lduration=%lu offset=-%lu)\n",
+        gpuvis_trace_printf( "%s calls:%u (lduration=%lu offset=-%lu)\n",
                              func, y.count, y.tlast - y.tfirst, t0 - y.tfirst );
 
         y.count = 1;
@@ -520,7 +530,7 @@ GPUVIS_EXTERN int gpuvis_start_tracing( unsigned int kbuffersize )
     char cmd[ 8192 ];
 
     if ( !kbuffersize )
-        kbuffersize = 8 * 1024;
+        kbuffersize = 16 * 1024;
 
     snprintf( cmd, sizeof( cmd ), fmt, kbuffersize );
 
