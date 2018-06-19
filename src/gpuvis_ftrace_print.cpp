@@ -421,6 +421,17 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
     {
         event_field_t *field = get_event_field( event, "buf" );
 
+        if ( add_event &&
+             add_event->has_duration() &&
+             ( add_event->duration >= 1 * NSECS_PER_MSEC ) )
+        {
+            size_t len = strlen( newbuf );
+            double val = event.duration * ( 1.0 / NSECS_PER_MSEC );
+
+            snprintf( newbuf + len, sizeof( newbuf ) - len, " [%.*lf ms]", 2, val );
+            newbuf[ sizeof( newbuf ) - 1 ] = 0;
+        }
+
         buf = m_strpool.getstr( newbuf );
         field->value = buf;
 #if 0
