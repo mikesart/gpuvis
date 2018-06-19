@@ -426,7 +426,7 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
              ( add_event->duration >= 1 * NSECS_PER_MSEC ) )
         {
             size_t len = strlen( newbuf );
-            double val = event.duration * ( 1.0 / NSECS_PER_MSEC );
+            double val = add_event->duration * ( 1.0 / NSECS_PER_MSEC );
 
             snprintf( newbuf + len, sizeof( newbuf ) - len, " [%.*lf ms]", 2, val );
             newbuf[ sizeof( newbuf ) - 1 ] = 0;
