@@ -893,7 +893,7 @@ public:
         bool cpu_hide_system_events = false;
 
         const int64_t s_min_length = 100;
-        const int64_t s_max_length = 7500 * NSECS_PER_MSEC;
+        const int64_t s_max_length = 10000 * NSECS_PER_MSEC;
 
         float scroll_pos = -1.0f;
         float scroll_x = -1.0f;
