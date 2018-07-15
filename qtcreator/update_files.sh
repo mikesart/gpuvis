@@ -29,7 +29,9 @@ for i in ${DIRS[@]}; do
     find ${i} -type f -iregex '.*\.\(c\|cxx\|cpp\|h\|lpp\|ypp\|sh\|inl\|txt\)$' -or -iname Makefile >> ${PROJNAME}.files
 done
 
-find /usr/include/SDL2 -iname "*.h" >> ${PROJNAME}.files
+if [ -d /usr/include/SDL2 ]; then
+    find /usr/include/SDL2 -iname "*.h" >> ${PROJNAME}.files
+fi
 
 fgrep -i --color=never ".h" *.files  | xargs -I{} readlink -f {} | xargs -I{} dirname {} | sort | uniq > ${PROJNAME}.includes
 
