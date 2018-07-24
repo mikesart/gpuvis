@@ -56,7 +56,7 @@ class BuildData:
             else:
                 self.buildtargets = [ self.host_system ]
 
-    def BuildEnvLinux(self, buildname, target, flavor):
+    def BuildEnvLinux(self, buildname, target, flavor, values):
         env = Environment( platform = Platform( 'posix' ) )
 
         self.vars.Update( env )
@@ -117,8 +117,28 @@ class BuildData:
 
         return env
 
-    def BuildEnvWindows(self, buildname, target, flavor):
-        env = Environment( platform = Platform( 'win32' ) )
+    def BuildEnvWindows(self, buildname, target, flavor, values):
+        # MSVC_VERSION values:
+        # 14.0
+        # 14.0Exp # Express version
+        # 12.0
+        # 12.0Exp
+        # 11.0
+        # 11.0Exp
+        # 10.0
+        # 10.0Exp
+        # 9.0
+        # 9.0Exp
+        # 8.0
+        # 8.0Exp
+        # 7.1
+        # 7.0
+        # 6.0
+        msvcver = None
+        if 'MSVC_VERSION' in values:
+            msvcver = values['MSVC_VERSION']
+
+        env = Environment( platform = Platform( 'win32' ), MSVC_VERSION = msvcver )
 
         self.vars.Update( env )
 
@@ -152,16 +172,16 @@ class BuildData:
 
         return env
 
-    def GetEnv(self, target, flavor):
+    def GetEnv(self, target, flavor, values):
         # Check cache for this environment
         buildname = target + '-' + flavor
         if buildname in self.envscache:
             return self.envscache[ buildname ].Clone()
 
         if target == 'Lnx32' or target == 'Lnx64':
-            env = self.BuildEnvLinux( buildname, target, flavor )
+            env = self.BuildEnvLinux( buildname, target, flavor, values )
         elif target == 'Win32' or target == 'Win64':
-            env = self.BuildEnvWindows( buildname, target, flavor )
+            env = self.BuildEnvWindows( buildname, target, flavor, values )
         else:
             print( "ERROR: target %s not defined..." % target )
             Exit( 2 )
