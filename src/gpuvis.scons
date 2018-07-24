@@ -1,8 +1,10 @@
 #!python
 
+import os
+
 Import( 'env' )
 
-if env[ 'buildtarget' ] == 'Linux-x86_64' or env[ 'buildtarget' ] == 'Linux-i386':
+if env[ 'buildtarget' ] == 'Lnx64' or env[ 'buildtarget' ] == 'Lnx32':
     env.Append( LIBS = [ 'm', 'dl', 'pthread' ] )
     env.Append( CXXFLAGS = [ '-fno-rtti', '-Woverloaded-virtual' ] )
 
@@ -15,6 +17,16 @@ if env[ 'buildtarget' ] == 'Linux-x86_64' or env[ 'buildtarget' ] == 'Linux-i386
     if env[ 'gtk3' ]:
         env.Append( CPPDEFINES = [ 'USE_GTK3' ] )
         env.ParseConfig( 'pkg-config --cflags --libs gtk+-3.0' )
+
+elif env[ 'buildtarget' ] == 'Win32' or env[ 'buildtarget' ] == 'Win64':
+    env.Append( CPPFLAGS = [ '/GR-', '/EHsc', '/MT' ] )
+    env.Append( CPPFLAGS = [ '/wd4996', '/wd4244', '/wd4090', '/wd4018', '/wd4267' ] )
+
+    sdl2dir = os.environ['SDL2DIR']
+    env.Append( CPPPATH = [ sdl2dir + "/include" ] )
+    env.Append( LIBPATH = [ sdl2dir + "/lib/x64" ] )
+
+    env.Append( LIBS = [ 'shlwapi', 'opengl32', 'comctl32', 'comdlg32', 'SDL2' ] )
 
 sources = [
     'gpuvis.cpp',

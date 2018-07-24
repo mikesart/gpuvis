@@ -34,7 +34,6 @@ class BuildData:
             self.vars.Add( BoolVariable('asan', 'Build with address sanitizer', 0) )
             self.vars.Add( BoolVariable('gprof', 'Build with google gperftools libprofiler', 0) )
 
-        # TODO: Add targets option: targets=Linux-i386,Win64,Win32,...
         # TODO: Add spew about which option (asan, gprof, etc) is on
 
         self.buildflavors = []
@@ -51,11 +50,11 @@ class BuildData:
 
         if not self.buildtargets:
             if self.host_system == 'Linux':
-                # Linux-x86_64 or Linux-i386
-                self.buildtargets = [ 'Linux-' + self.platform_machine ]
+                self.buildtargets = [ 'Lnx64' ]
+            elif self.host_system == 'Windows':
+                self.buildtargets = [ 'Win64' ]
             else:
                 self.buildtargets = [ self.host_system ]
-
 
     def BuildEnvLinux(self, buildname, target, flavor):
         env = Environment( platform = Platform( 'posix' ) )
@@ -74,7 +73,7 @@ class BuildData:
         env['buildtarget'] = target
         env['buildflavor'] = flavor
 
-        if target == 'Linux-i386':
+        if target == 'Lnx32':
             env.Append( CCFLAGS = '-m32' )
 
         warnings = [
@@ -118,14 +117,51 @@ class BuildData:
 
         return env
 
+    def BuildEnvWindows(self, buildname, target, flavor):
+        env = Environment( platform = Platform( 'win32' ) )
+
+        self.vars.Update( env )
+
+        Help( self.vars.GenerateHelpText( env ) )
+
+        unknown = self.vars.UnknownVariables()
+        if unknown:
+            print( self.vars.GenerateHelpText(env) )
+            print( "ERROR: Unknown variables:", unknown.keys() )
+            Exit( 1 )
+
+        env['buildname'] = buildname
+        env['buildtarget'] = target
+        env['buildflavor'] = flavor
+
+        env.Append( CPPDEFINES = [ 'WIN32', '_WINDOWS', '_CRT_SECURE_NO_WARNINGS' ] )
+
+        env.Append( CPPFLAGS = [ '/W3' ] )
+        # /Zi: debug info goes into a PDB file
+        # /FS: force to use MSPDBSRV.EXE (serializes access to .pdb files for multi-core builds)
+        env.Append( CCFLAGS = [ '/Zi', '/FS' ] )
+        # /DEBUG : linker to create a .pdb file which WinDbg and Visual Studio will use to resolve symbols if you want to debug a release-mode image.
+        env.Append( LINKFLAGS = [ '/DEBUG' ] )
+
+        if flavor == 'debug':
+            env.Append( CCFLAGS = [ '/Od' ] )
+            env.Append( CPPDEFINES = [ '/DDEBUG' ] )
+        else:
+            env.Append( CCFLAGS = [ '/O2', '/Ob1' ] )
+            env.Append( CPPDEFINES = [ '/DNDEBUG' ] )
+
+        return env
+
     def GetEnv(self, target, flavor):
         # Check cache for this environment
         buildname = target + '-' + flavor
         if buildname in self.envscache:
             return self.envscache[ buildname ].Clone()
 
-        if target == 'Linux-x86_64' or target == 'Linux-i386':
+        if target == 'Lnx32' or target == 'Lnx64':
             env = self.BuildEnvLinux( buildname, target, flavor )
+        elif target == 'Win32' or target == 'Win64':
+            env = self.BuildEnvWindows( buildname, target, flavor )
         else:
             print( "ERROR: target %s not defined..." % target )
             Exit( 2 )
