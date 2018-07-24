@@ -1,0 +1,44 @@
+#!python
+
+Import( 'env' )
+
+if env[ 'buildtarget' ] == 'Linux-x86_64' or env[ 'buildtarget' ] == 'Linux-i386':
+    env.Append( LIBS = [ 'm', 'dl', 'pthread' ] )
+    env.Append( CXXFLAGS = [ '-fno-rtti', '-Woverloaded-virtual' ] )
+
+    env.ParseConfig( 'sdl2-config --cflags --libs' )
+
+    if env[ 'freetype' ]:
+        env.Append( CPPDEFINES = [ 'USE_FREETYPE' ] )
+        env.ParseConfig( 'pkg-config --cflags --libs freetype2' )
+
+    if env[ 'gtk3' ]:
+        env.Append( CPPDEFINES = [ 'USE_GTK3' ] )
+        env.ParseConfig( 'pkg-config --cflags --libs gtk+-3.0' )
+
+sources = [
+    'gpuvis.cpp',
+    'gpuvis_graph.cpp',
+    'gpuvis_framemarkers.cpp',
+    'gpuvis_plots.cpp',
+    'gpuvis_graphrows.cpp',
+    'gpuvis_ftrace_print.cpp',
+    'gpuvis_utils.cpp',
+    'tdopexpr.cpp',
+    'ya_getopt.c',
+    'MurmurHash3.cpp',
+    'miniz.c',
+    'stlini.cpp',
+    'imgui/imgui_impl_sdl_gl3.cpp',
+    'imgui/imgui.cpp',
+    'imgui/imgui_demo.cpp',
+    'imgui/imgui_draw.cpp',
+    'imgui/imgui_freetype.cpp',
+    'GL/gl3w.c',
+    'trace-cmd/event-parse.c',
+    'trace-cmd/trace-seq.c',
+    'trace-cmd/kbuffer-parse.c',
+    'trace-cmd/trace-read.cpp'
+    ]
+
+env.Program( 'gpuvis', source = sources )

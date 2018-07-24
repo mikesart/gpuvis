@@ -26,8 +26,9 @@ echo "${DEFINES}" > ${PROJNAME}.config
 for i in ${DIRS[@]}; do
     echo Checking ${i}
 
-    find ${i} -type f -iregex '.*\.\(c\|cxx\|cpp\|h\|lpp\|ypp\|sh\|inl\|txt\)$' -or -iname Makefile >> ${PROJNAME}.files
+    find ${i} -type f -iregex '.*\.\(c\|cxx\|cpp\|h\|lpp\|ypp\|sh\|inl\|txt\|scons\|py\)$' -or -iname Makefile -or -iname SConstruct >> ${PROJNAME}.files
 done
+
 
 if [ -d /usr/include/SDL2 ]; then
     find /usr/include/SDL2 -iname "*.h" >> ${PROJNAME}.files
