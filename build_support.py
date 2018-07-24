@@ -118,22 +118,6 @@ class BuildData:
         return env
 
     def BuildEnvWindows(self, buildname, target, flavor, values):
-        # MSVC_VERSION values:
-        # 14.0
-        # 14.0Exp # Express version
-        # 12.0
-        # 12.0Exp
-        # 11.0
-        # 11.0Exp
-        # 10.0
-        # 10.0Exp
-        # 9.0
-        # 9.0Exp
-        # 8.0
-        # 8.0Exp
-        # 7.1
-        # 7.0
-        # 6.0
         msvcver = None
         if 'MSVC_VERSION' in values:
             msvcver = values['MSVC_VERSION']
@@ -159,7 +143,8 @@ class BuildData:
         env.Append( CPPFLAGS = [ '/W3' ] )
         # /Zi: debug info goes into a PDB file
         # /FS: force to use MSPDBSRV.EXE (serializes access to .pdb files for multi-core builds)
-        env.Append( CCFLAGS = [ '/Zi', '/FS' ] )
+        #### TODO Need to figure out .pdb building, valid flags for msvc versions, etc
+        #### env.Append( CCFLAGS = [ '/Zi', '/FS' ] )
         # /DEBUG : linker to create a .pdb file which WinDbg and Visual Studio will use to resolve symbols if you want to debug a release-mode image.
         env.Append( LINKFLAGS = [ '/DEBUG' ] )
 
