@@ -141,12 +141,6 @@ class BuildData:
         env.Append( CPPDEFINES = [ 'WIN32', '_WINDOWS', '_CRT_SECURE_NO_WARNINGS' ] )
 
         env.Append( CPPFLAGS = [ '/W3' ] )
-        # /Zi: debug info goes into a PDB file
-        # /FS: force to use MSPDBSRV.EXE (serializes access to .pdb files for multi-core builds)
-        #### TODO Need to figure out .pdb building, valid flags for msvc versions, etc
-        #### env.Append( CCFLAGS = [ '/Zi', '/FS' ] )
-        # /DEBUG : linker to create a .pdb file which WinDbg and Visual Studio will use to resolve symbols if you want to debug a release-mode image.
-        env.Append( LINKFLAGS = [ '/DEBUG' ] )
 
         if flavor == 'debug':
             env.Append( CCFLAGS = [ '/Od' ] )
