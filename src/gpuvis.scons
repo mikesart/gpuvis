@@ -4,6 +4,17 @@ import os
 
 Import( 'env' )
 
+if env[ 'buildtarget' ] == 'Darwin':
+    env.Append( CXXFLAGS = [ '-std=c++11', '-stdlib=libc++' ] )
+    env.Append( LINKFLAGS = [ '-stdlib=libc++' ] )
+
+    env.Append( LINKFLAGS = [
+        '-framework', 'System',
+        '-framework', 'Cocoa',
+        ] )
+
+    env.ParseConfig( 'sdl2-config --cflags --libs' )
+
 if env[ 'buildtarget' ] == 'Lnx64' or env[ 'buildtarget' ] == 'Lnx32':
     env.Append( LIBS = [ 'm', 'dl', 'pthread' ] )
     env.Append( CXXFLAGS = [ '-fno-rtti', '-Woverloaded-virtual' ] )
@@ -52,6 +63,9 @@ sources = [
     'trace-cmd/kbuffer-parse.c',
     'trace-cmd/trace-read.cpp'
     ]
+
+if env[ 'buildtarget' ] == 'Darwin':
+    sources += [ 'noc_file_dialog_osx.mm' ]
 
 env[ 'PDB' ] = 'gpuvis.pdb'
 env.Program( 'gpuvis', source = sources )

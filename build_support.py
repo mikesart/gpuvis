@@ -30,7 +30,7 @@ class BuildData:
         self.vars.Add( BoolVariable('verbose', 'Show command lines', 0) )
         self.vars.Add( BoolVariable('debug', 'Build debug version', 0) )
         self.vars.Add( BoolVariable('release', 'Build release version', 0) )
-        if self.host_system == 'Linux':
+        if self.host_system == 'Linux' or self.host_system == 'Darwin':
             self.vars.Add( BoolVariable('asan', 'Build with address sanitizer', 0) )
             self.vars.Add( BoolVariable('gprof', 'Build with google gperftools libprofiler', 0) )
 
@@ -55,6 +55,74 @@ class BuildData:
                 self.buildtargets = [ 'Win64' ]
             else:
                 self.buildtargets = [ self.host_system ]
+
+    def BuildEnvDarwin(self, buildname, target, flavor, values):
+        env = Environment( platform = Platform( 'darwin' ) )
+
+        self.vars.Update( env )
+
+        Help( self.vars.GenerateHelpText( env ) )
+
+        unknown = self.vars.UnknownVariables()
+        if unknown:
+            print( self.vars.GenerateHelpText(env) )
+            print( "ERROR: Unknown variables:", unknown.keys() )
+            Exit( 1 )
+
+        env['buildname'] = buildname
+        env['buildtarget'] = target
+        env['buildflavor'] = flavor
+
+        env.Append( CPPDEFINES = [ '_MACOSX' ] )
+
+        # -msse -msse2 -msse3 -mssse3
+        env.Append( CCFLAGS = Split( '-msse -arch x86_64' ) )
+
+        env.Append( CCFLAGS = [
+            '-ggdb',
+            '-mdynamic-no-pic',
+            '-fno-omit-frame-pointer',
+            '-fno-strict-aliasing',
+            '-fvisibility=hidden',
+            '-fpascal-strings',
+            '-fasm-blocks',
+            '-fno-common',
+            '-fno-exceptions',
+            '-mmacosx-version-min=10.7',
+            ] )
+
+        warnings = [
+            # '-Wshorten-64-to-32',
+            '-Wno-deprecated-declarations',
+            '-Wall',
+            '-Wextra',
+            '-Wpedantic',
+            '-Wmissing-include-dirs',
+            '-Wformat=2',
+            '-Wshadow',
+            '-Wno-unused-parameter',
+            '-Wno-missing-field-initializers' ]
+        env.Append( CCFLAGS = warnings )
+
+        if env['asan']:
+            ASAN_FLAGS = [
+                '-fno-omit-frame-pointer',
+                '-fno-optimize-sibling-calls',
+                '-fsanitize=address', # fast memory error detector (heap, stack, global buffer overflow, and use-after free)
+                '-fsanitize=undefined', # fast undefined behavior detector
+                '-fsanitize=float-divide-by-zero', # detect floating-point division by zero;
+                '-fsanitize=bounds', # enable instrumentation of array bounds and detect out-of-bounds accesses;
+                '-fsanitize=object-size', # enable object size checkin
+                ]
+            env.Append( CCFLAGS = ASAN_FLAGS )
+            env.Append( LINKFLAGS = ASAN_FLAGS )
+
+        if flavor == 'debug':
+            env.MergeFlags( '-O0 -DDEBUG' )
+        else:
+            env.MergeFlags( '-O2 -DNDEBUG' )
+
+        return env
 
     def BuildEnvLinux(self, buildname, target, flavor, values):
         env = Environment( platform = Platform( 'posix' ) )
@@ -161,6 +229,8 @@ class BuildData:
             env = self.BuildEnvLinux( buildname, target, flavor, values )
         elif target == 'Win32' or target == 'Win64':
             env = self.BuildEnvWindows( buildname, target, flavor, values )
+        elif target == 'Darwin':
+            env = self.BuildEnvDarwin( buildname, target, flavor, values )
         else:
             print( "ERROR: target %s not defined..." % target )
             Exit( 2 )
