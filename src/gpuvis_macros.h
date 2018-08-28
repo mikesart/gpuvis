@@ -21,8 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef _GPUVIS_MACROS_H_
-#define _GPUVIS_MACROS_H_
+#ifndef GPUVIS_MACROS_H_
+#define GPUVIS_MACROS_H_
 
 // Disable gpuvis ftrace tracing by default
 #define GPUVIS_TRACE_UTILS_DISABLE
@@ -376,4 +376,4 @@ char *strcat_safe( char ( &dest )[ T ], const char *src )
 
 #endif // __cplusplus
 
-#endif // _GPUVIS_MACROS_H_
+#endif // GPUVIS_MACROS_H_
