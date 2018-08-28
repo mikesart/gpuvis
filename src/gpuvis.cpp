@@ -29,7 +29,6 @@
 #include <unordered_set>
 #include <functional>
 #include <sys/stat.h>
-
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 
@@ -2597,7 +2596,12 @@ void TraceWin::render()
     uint32_t count = 0;
     TraceEvents::tracestatus_t status = m_trace_events.get_load_status( &count );
 
-    ImGui::Begin( m_title.c_str(), &m_open, ImGuiWindowFlags_MenuBar );
+    ImGui::Begin( m_title.c_str(), &m_open,
+                  ImGuiWindowFlags_MenuBar |
+                  ImGuiWindowFlags_NoResize |
+                  ImGuiWindowFlags_NoCollapse |
+                  ImGuiWindowFlags_NoTitleBar |
+                  ImGuiWindowFlags_NoBringToFrontOnFocus );
 
     s_app().render_menu( "menu_tracewin" );
 
