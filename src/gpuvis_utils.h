@@ -22,8 +22,8 @@
  * THE SOFTWARE.
  */
 
-#ifndef _GPUVIS_UTILS_H
-#define _GPUVIS_UTILS_H
+#ifndef GPUVIS_UTILS_H_
+#define GPUVIS_UTILS_H_
 
 #include <future>
 
@@ -504,4 +504,4 @@ public:
     bool m_actions[ action_max ];
 };
 
-#endif // _GPUVIS_UTILS_H
+#endif // GPUVIS_UTILS_H_

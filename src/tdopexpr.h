@@ -21,8 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef __TDOPEXPR_H__
-#define __TDOPEXPR_H__
+#ifndef TDOPEXPR_H_
+#define TDOPEXPR_H_
 
 typedef std::function< const char * ( const char *name, size_t len ) > tdop_get_key_func;
 typedef std::function< const char * ( const char *name, char ( &buf )[ 64 ] ) > tdop_get_keyval_func;
@@ -31,4 +31,4 @@ class TdopExpr *tdopexpr_compile( const char *expression, tdop_get_key_func &get
 const char *tdopexpr_exec( class TdopExpr *tdop_expr, tdop_get_keyval_func &get_keyval_func );
 void tdopexpr_delete( class TdopExpr *tdop_expr );
 
-#endif
+#endif // TDOPEXPR_H_
