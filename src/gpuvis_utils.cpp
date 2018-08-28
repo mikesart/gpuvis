@@ -114,6 +114,8 @@ void logf_init()
 {
     g_main_tid = SDL_ThreadID();
     g_mutex = SDL_CreateMutex();
+    if ( !g_mutex )
+        logf( "[Error] SDL_CreateMutex() failed." );
 }
 
 void logf_shutdown()
