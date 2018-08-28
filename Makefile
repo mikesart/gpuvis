@@ -43,7 +43,7 @@ endif
 
 CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 $(SDL2FLAGS) $(GTK3FLAGS) -I/usr/include/freetype2
 CFLAGS += -DUSE_FREETYPE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
-CXXFLAGS = -fno-rtti -Woverloaded-virtual
+CXXFLAGS = -fno-rtti -Woverloaded-virtual -Wno-class-memaccess
 LDFLAGS = -march=native -gdwarf-4 -g2 -Wl,--build-id=sha1
 LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lfreetype -lstdc++ $(SDL2LIBS)
 
@@ -84,6 +84,9 @@ ifeq ($(PROF), 1)
 	CFLAGS += -DGPROFILER
 	LDFLAGS += -Wl,--no-as-needed -lprofiler
 endif
+
+# Useful GCC address sanitizer checks not enabled by default
+# https://kristerw.blogspot.com/2018/06/useful-gcc-address-sanitizer-checks-not.html
 
 ifeq ($(ASAN), 1)
 	# https://gcc.gnu.org/gcc-5/changes.html

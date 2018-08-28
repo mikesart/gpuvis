@@ -82,7 +82,10 @@ static char *g_noc_file_dialog_ret = NULL;
 
 #if defined( NOC_FILE_DIALOG_GTK )
 
+GCC_DIAG_PUSH_OFF( parentheses )
 #include <gtk/gtk.h>
+GCC_DIAG_POP()
+
 #include "hook_gtk3.h"
 
 const char *noc_file_init()
