@@ -942,6 +942,7 @@ enum : uint32_t
     OPT_GraphHeightZoomed,
     OPT_EventListRowCount,
     OPT_Scale,
+    OPT_Gamma,
     OPT_UseFreetype,
     OPT_TrimTrace,
     OPT_ShowFps,

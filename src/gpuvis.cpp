@@ -221,6 +221,7 @@ void Opts::init()
     init_opt( OPT_GraphHeightZoomed, "Zoomed Graph Size: %.1f", "graph_height_zoomed", 0, 0, 1, OPT_Float | OPT_Hidden );
     init_opt( OPT_EventListRowCount, "Event List Size: %.0f", "eventlist_rows", 0, 0, 100, OPT_Int | OPT_Hidden );
     init_opt( OPT_Scale, "Font Scale: %.1f", "scale", 2.0f, 0.25f, 6.0f, OPT_Float | OPT_Hidden );
+    init_opt( OPT_Gamma, "Font Gamma: %.1f", "gamma", 1.4f, 1.0f, 4.0f, OPT_Float | OPT_Hidden );
     init_opt_bool( OPT_TrimTrace, "Trim Trace to align CPU buffers", "trim_trace_to_cpu_buffers", true, OPT_Hidden );
     init_opt_bool( OPT_UseFreetype, "Use Freetype", "use_freetype", true, OPT_Hidden );
 
@@ -3820,11 +3821,14 @@ void MainApp::render_font_options()
         changed |= s_opts().render_imgui_opt( OPT_UseFreetype );
 #endif
         changed |= s_opts().render_imgui_opt( OPT_Scale );
+        changed |= s_opts().render_imgui_opt( OPT_Gamma );
 
         if ( ImGui::Button( "Reset to Defaults" ) )
         {
             m_font_main.m_reset = true;
             m_font_small.m_reset = true;
+
+            s_opts().setf( OPT_Gamma, 1.4f );
             changed = true;
         }
 
@@ -4489,7 +4493,7 @@ static void imgui_render( SDL_Window *window )
     glClear( GL_COLOR_BUFFER_BIT );
 
     ImGui::Render();
-    ImGui_ImplSdlGL3_RenderDrawData(ImGui::GetDrawData());
+    ImGui_ImplSdlGL3_RenderDrawData(ImGui::GetDrawData(), s_opts().getf( OPT_Gamma ) );
 
     SDL_GL_SwapWindow( window );
 }

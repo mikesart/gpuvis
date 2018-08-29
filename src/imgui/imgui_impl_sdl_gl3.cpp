@@ -50,13 +50,14 @@ static SDL_Cursor*  g_MouseCursors[ImGuiMouseCursor_COUNT] = { 0 };
 static GLuint       g_FontTexture = 0;
 static int          g_ShaderHandle = 0, g_VertHandle = 0, g_FragHandle = 0;
 static int          g_AttribLocationTex = 0, g_AttribLocationProjMtx = 0;
+static int          g_AttribLocationGamma = 0;
 static int          g_AttribLocationPosition = 0, g_AttribLocationUV = 0, g_AttribLocationColor = 0;
 static unsigned int g_VboHandle = 0,g_ElementsHandle = 0;
 
 // This is the main rendering function that you have to implement and provide to ImGui (via setting up 'RenderDrawListsFn' in the ImGuiIO structure)
 // Note that this implementation is little overcomplicated because we are saving/setting up/restoring every OpenGL state explicitly, in order to be able to run within any OpenGL engine that doesn't do so. 
 // If text or lines are blurry when integrating ImGui in your engine: in your Render function, try translating your projection matrix by (0.5f,0.5f) or (0.375f,0.375f)
-void ImGui_ImplSdlGL3_RenderDrawData(ImDrawData* draw_data)
+void ImGui_ImplSdlGL3_RenderDrawData(ImDrawData* draw_data, float Gamma)
 {
     // Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
     ImGuiIO& io = ImGui::GetIO();
@@ -109,6 +110,7 @@ void ImGui_ImplSdlGL3_RenderDrawData(ImDrawData* draw_data)
     };
     glUseProgram(g_ShaderHandle);
     glUniform1i(g_AttribLocationTex, 0);
+    glUniform1f(g_AttribLocationGamma, Gamma);
     glUniformMatrix4fv(g_AttribLocationProjMtx, 1, GL_FALSE, &ortho_projection[0][0]);
     glBindSampler(0, 0); // Rely on combined texture/sampler state.
 
@@ -319,12 +321,14 @@ bool ImGui_ImplSdlGL3_CreateDeviceObjects(bool *use_freetype)
     const GLchar* fragment_shader =
         "#version 150\n"
         "uniform sampler2D Texture;\n"
+        "uniform float Gamma;\n"
         "in vec2 Frag_UV;\n"
         "in vec4 Frag_Color;\n"
         "out vec4 Out_Color;\n"
         "void main()\n"
         "{\n"
-        "	Out_Color = Frag_Color * texture( Texture, Frag_UV.st);\n"
+        "   float a = texture( Texture, Frag_UV.st ).a;\n"
+        "   Out_Color = vec4( Frag_Color.rgb, Frag_Color.a * pow( a, 1.0/Gamma ) );\n"
         "}\n";
 
     g_ShaderHandle = glCreateProgram();
@@ -339,6 +343,7 @@ bool ImGui_ImplSdlGL3_CreateDeviceObjects(bool *use_freetype)
     glLinkProgram(g_ShaderHandle);
 
     g_AttribLocationTex = glGetUniformLocation(g_ShaderHandle, "Texture");
+    g_AttribLocationGamma = glGetUniformLocation(g_ShaderHandle, "Gamma");
     g_AttribLocationProjMtx = glGetUniformLocation(g_ShaderHandle, "ProjMtx");
     g_AttribLocationPosition = glGetAttribLocation(g_ShaderHandle, "Position");
     g_AttribLocationUV = glGetAttribLocation(g_ShaderHandle, "UV");
