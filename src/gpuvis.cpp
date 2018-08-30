@@ -740,6 +740,29 @@ static void sdl_setwindow_icon( SDL_Window *window )
     SDL_SetWindowIcon( window, surface );
 }
 
+#ifdef WIN32
+typedef HRESULT WINAPI setdpitype( int v );
+
+static void SetHighDPI()
+{
+    HMODULE h = LoadLibrary( "Shcore.dll" );
+
+    if ( h )
+    {
+        setdpitype *sd = ( setdpitype * )GetProcAddress( h, "SetProcessDpiAwareness" );
+        if ( sd )
+        {
+            // Call: SetProcessDpiAwareness( PROCESS_SYSTEM_DPI_AWARE );
+            sd( 2 );
+        }
+    }
+}
+#else
+static void SetHighDPI()
+{
+}
+#endif
+
 SDL_Window *MainApp::create_window( const char *title )
 {
     int x, y, w, h;
@@ -747,7 +770,8 @@ SDL_Window *MainApp::create_window( const char *title )
 
     get_window_pos( x, y, w, h );
 
-    window = SDL_CreateWindow( title, x, y, w, h, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE );
+    window = SDL_CreateWindow( title, x, y, w, h,
+		SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     sdl_setwindow_icon( window );
 
     return window;
@@ -4524,6 +4548,8 @@ int main( int argc, char **argv )
         }
     }
 #endif
+
+    SetHighDPI();
 
     // Initialize SDL
     if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_TIMER ) )
