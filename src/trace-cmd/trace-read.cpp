@@ -1431,7 +1431,11 @@ static tracecmd_input_t *tracecmd_alloc( const char *file )
 {
     int fd;
 
+#if defined( WIN32 )
+    fd = TEMP_FAILURE_RETRY( open( file, O_RDONLY | O_BINARY ) );
+#else
     fd = TEMP_FAILURE_RETRY( open( file, O_RDONLY ) );
+#endif
     if ( fd < 0 )
     {
         logf( "%s: open(\"%s\") failed: %d\n", __func__, file, errno );
