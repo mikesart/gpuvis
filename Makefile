@@ -41,11 +41,19 @@ ifneq ($(COMPILER),clang)
   WARNINGS += -Wsuggest-attribute=format -Wimplicit-fallthrough=2
 endif
 
+# Investigate: Improving C++ Builds with Split DWARF
+#  http://www.productive-cpp.com/improving-cpp-builds-with-split-dwarf/
+
 CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 $(SDL2FLAGS) $(GTK3FLAGS) -I/usr/include/freetype2
 CFLAGS += -DUSE_FREETYPE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
 CXXFLAGS = -fno-rtti -Woverloaded-virtual -Wno-class-memaccess
 LDFLAGS = -march=native -gdwarf-4 -g2 -Wl,--build-id=sha1
 LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lfreetype -lstdc++ $(SDL2LIBS)
+
+ifneq ("$(wildcard /usr/bin/ld.gold)","")
+  $(info Using gold linker...)
+  LDFLAGS += -fuse-ld=gold -Wl,--gdb-index
+endif
 
 # https://gcc.gnu.org/onlinedocs/libstdc++/manual/profile_mode.html#manual.ext.profile_mode.intro
 # To resolve addresses from libstdcxx-profile.conf.out: addr2line -C -f -e _debug/gpuvis 0x42cc6a 0x43630a 0x46654d
