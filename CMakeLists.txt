@@ -35,6 +35,9 @@ if ( USE_FREETYPE )
     ucm_add_flags( -DUSE_FREETYPE )
 endif()
 
+# https://github.com/mikesart/gpuvis/issues/17
+# From Pierre-Loup: Static is better for our usecase, since we do ad-hoc builds
+#   that we distribute in SteamVR.
 ucm_set_runtime( STATIC )
 
 # https://codingnest.com/basic-cmake/#fnref6
