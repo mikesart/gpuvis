@@ -66,7 +66,8 @@ static const char *hook_gtk3_init()
         g_libgtk = dlopen( "libgtk-3.so", RTLD_NOW | RTLD_GLOBAL );
     if ( !g_libgtk )
     {
-        asprintf( &g_errstr, "dlopen( libgtk-3.so ) failed: %s\n", dlerror() );
+        if (-1 == asprintf( &g_errstr, "dlopen( libgtk-3.so ) failed: %s\n", dlerror() ))
+          g_errstr = NULL;
         return g_errstr;
     }
 
@@ -94,7 +95,8 @@ static const char *hook_gtk3_init()
     // Error out and free library if any dlsym calls failed
     if ( fail_func )
     {
-        asprintf( &g_errstr, "dlsym( %s ) failed: %s\n", fail_func, dlerror() );
+        if (-1 == asprintf( &g_errstr, "dlsym( %s ) failed: %s\n", fail_func, dlerror() ))
+          g_errstr = NULL;
 
         dlclose( g_libgtk );
         g_libgtk = NULL;
