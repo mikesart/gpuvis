@@ -1,7 +1,5 @@
 #!/bin/bash
 
-### sudo mount -t tracefs nodev /sys/kernel/tracing
-
 set -eu
 
 ESC="$(printf '\033')"
@@ -35,7 +33,9 @@ function spewTraceStatus() {
 
 ROOT_CMDS=
 
-# trace-cmd mounts tracefs on /sys/kernel/tracing
+# note: trace-cmd mounts tracefs on /sys/kernel/tracing IFF it's not already mounted elsewhere;
+# these scripts assume it's always /sys/kernel/tracing so we explicitly try to mount it
+# there (it's safe to have it mounted in multiple places)
 # from /proc/mounts:
 #   nodev /sys/kernel/tracing tracefs rw,relatime 0 0
 TRACEFS="/sys/kernel/tracing"
@@ -55,13 +55,7 @@ fi
 
 if [ -u "${TRACECMD}" ] && [ "$(stat -c %U ${TRACECMD})" == "root" ] ; then
     # trace-cmd owner and setuid set
-
-    # Check if tracefs dir is mounted
-    if ! egrep -q " ${TRACEFS} .*tracefs" /proc/mounts; then
-        # Run 'trace-cmd stat' to mount tracefs
-        echo Mounting ${TRACEFS}...
-        ${TRACECMD} stat > /dev/null 2>&1
-    fi
+    :
 else
     # trace-cmd owner or setuid not set
     ROOT_CMDS+="# Make sure root owns trace-cmd\n"
@@ -69,16 +63,19 @@ else
 
     ROOT_CMDS+="# Add setuid bit to trace-cmd binary\n"
     ROOT_CMDS+="chmod u+s ${TRACECMD}\n\n"
+fi
 
-    ROOT_CMDS+="# Launch trace-cmd to mount tracefs directory\n"
-    ROOT_CMDS+="${TRACECMD} stat > /dev/null 2>&1\n\n"
+# Check if tracefs dir is mounted
+if ! egrep -q " ${TRACEFS} .*tracefs" /proc/mounts; then
+    ROOT_CMDS+="# Mounting ${TRACEFS}...\n"
+    ROOT_CMDS+="mount -t tracefs nodev ${TRACEFS}\n\n"
 fi
 
 if [ -w "${TRACEFS}/trace_marker" ]; then
-    # trace_marker writable
+    # trace_marker exists and is writable
     :
 else
-    # trace_marker not writable
+    # trace_marker not writable or tracefs still to be mounted
     ROOT_CMDS+="# Add tracefs execute/search permissions\n"
     ROOT_CMDS+="chmod 0755 \"${TRACEFS}\"\n\n"
 
