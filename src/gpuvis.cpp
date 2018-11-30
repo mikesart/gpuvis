@@ -116,6 +116,15 @@ uint64_t TraceLocationsRingCtxSeq::db_key( const char *ringstr, uint32_t seqno, 
 {
     uint32_t ctx = strtoul( ctxstr, NULL, 10 );
     uint32_t ring = strtoul( ringstr, NULL, 10 );
+    const char *instancestr = strchr( ringstr, ':' );
+
+    // Ring could be "engine=0:0" with uabi_class:instance in new i915 events
+    if (instancestr)
+    {
+        uint32_t instance = strtoul( instancestr + 1, NULL, 10 );
+
+        ring |= (instance << 16);
+    }
 
     // ring | ctx      | seqno
     //  0xe | 1fffffff | ffffffff
@@ -126,15 +135,25 @@ uint64_t TraceLocationsRingCtxSeq::db_key( const trace_event_t &event )
 {
     if ( event.seqno )
     {
-        const char *ringstr = get_event_field_val( event, "ring", NULL );
         const char *ctxstr = get_event_field_val( event, "ctx", NULL );
 
         // i915:intel_engine_notify has only ring & seqno, so default ctx to "0"
         if ( !ctxstr && !strcmp( event.name, "intel_engine_notify" ) )
             ctxstr = "0";
 
-        if ( ringstr && ctxstr )
+        if ( ctxstr )
+        {
+            const char *ringstr = get_event_field_val( event, "ring", NULL );
+
+            if ( !ringstr )
+            {
+                ringstr = get_event_field_val( event, "engine", NULL );
+                if ( !ringstr )
+                    ringstr = "0";
+            }
+
             return db_key( ringstr, event.seqno, ctxstr );
+        }
     }
 
     return 0;
@@ -1759,6 +1778,13 @@ void TraceEvents::init_i915_event( trace_event_t &event )
             trace_event_t &event_begin = m_events[ plocs->back() ];
             const char *ring = get_event_field_val( event, "ring", NULL );
 
+            if ( !ring )
+            {
+                ring = get_event_field_val( event, "engine", NULL );
+                if ( !ring )
+                    ring = "0";
+            }
+
             event_begin.duration = event.ts - event_begin.ts;
             event.duration = event_begin.duration;
 
@@ -2214,24 +2240,50 @@ void TraceEvents::calculate_amd_event_durations()
     }
 }
 
+// Old:
+//  i915_gem_request_add        dev=%u, ring=%u, ctx=%u, seqno=%u, global=%u
+//  i915_gem_request_submit     dev=%u, ring=%u, ctx=%u, seqno=%u, global=%u
+//  i915_gem_request_in         dev=%u, ring=%u, ctx=%u, seqno=%u, global=%u, port=%u
+//  i915_gem_request_out        dev=%u, ring=%u, ctx=%u, seqno=%u, global=%u, port=%u
+//  i915_gem_request_wait_begin dev=%u, ring=%u, ctx=%u, seqno=%u, global=%u, blocking=%u, flags=0x%x
+//  i915_gem_request_wait_end   ring=%u, ctx=%u, seqno=%u, global=%u
+//  i915_gem_request_queue      dev=%u, ring=%u, ctx=%u, seqno=%u, flags=0x%x
+//  intel_engine_notify         dev=%u, ring=%u, seqno=$u, waiters=%u
+
+// New (in v4.17):
+//  engine is "uabi_class:instance" u16 pairs:
+//    class: i915_ENGINE_CLASS_RENDER, _COPY, _VIDEO, _VIDEO_ENHANCE
+//  i915_request_add            dev=0, engine=0:0, hw_id=9, ctx=30, seqno=2032, global=0
+//  i915_request_submit         dev=0, engine=0:0, hw_id=9, ctx=30, seqno=6, global=0
+//  i915_request_in             dev=0, engine=0:0, hw_id=9, ctx=30, seqno=3, prio=0, global=708, port=0
+//  i915_request_out            dev=0, engine=0:0, hw_id=9, ctx=30, seqno=10552, global=12182, completed?=1
+//  i915_request_wait_begin     dev=0, engine=0:0, hw_id=9, ctx=30, seqno=120, global=894, blocking=0, flags=0x1
+//  i915_request_wait_end       dev=0, engine=0:0, hw_id=9, ctx=30, seqno=105, global=875
+//  i915_request_queue:         dev=0, engine=0:0, hw_id=9, ctx=30, seqno=26, flags=0x0
+//  intel_engine_notify         dev=0, engine=0:0, seqno=11923, waiters=1
+
 i915_type_t get_i915_reqtype( const trace_event_t &event )
 {
-    if ( !strcmp( event.name, "i915_gem_request_queue" ) )
-        return i915_req_Queue;
-    else if ( !strcmp( event.name, "i915_gem_request_add" ) )
-        return i915_req_Add;
-    else if ( !strcmp( event.name, "i915_gem_request_submit" ) )
-        return i915_req_Submit;
-    else if ( !strcmp( event.name, "i915_gem_request_in" ) )
-        return i915_req_In;
-    else if ( !strcmp( event.name, "i915_gem_request_out" ) )
-        return i915_req_Out;
-    else if ( !strcmp( event.name, "intel_engine_notify" ) )
+    if ( !strcmp( event.name, "intel_engine_notify" ) )
         return i915_req_Notify;
-    else if ( !strcmp( event.name, "i915_gem_request_wait_begin" ) )
-        return i915_reqwait_begin;
-    else if ( !strcmp( event.name, "i915_gem_request_wait_end" ) )
-        return i915_reqwait_end;
+
+    if ( !strncmp( event.name, "i915_", 5 ) )
+    {
+        if ( strstr( event.name, "_request_queue" ) )
+            return i915_req_Queue;
+        else if ( strstr( event.name, "_request_add" ) )
+            return i915_req_Add;
+        else if ( strstr( event.name, "_request_submit" ) )
+            return i915_req_Submit;
+        else if ( strstr( event.name, "_request_in" ) )
+            return i915_req_In;
+        else if ( strstr( event.name, "_request_out" ) )
+            return i915_req_Out;
+        else if ( strstr( event.name, "_request_wait_begin" ) )
+            return i915_reqwait_begin;
+        else if ( strstr( event.name, "_request_wait_end" ) )
+            return i915_reqwait_end;
+    }
 
     return i915_req_Max;
 }
@@ -2291,6 +2343,10 @@ void TraceEvents::calculate_i915_req_event_durations()
 
                 if ( !ring[ 0 ] )
                     ring = get_event_field_val( event, "ring" );
+                if ( !ring[ 0 ] )
+                    ring = get_event_field_val( event, "engine" );
+                if ( !ring[ 0 ] )
+                    ring = "0";
             }
         }
 
