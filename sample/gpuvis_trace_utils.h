@@ -228,8 +228,6 @@ static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen,
 #include <linux/magic.h>
 #include <sys/syscall.h>
 
-#include <unordered_map>
-
 #undef GPUVIS_EXTERN
 #ifdef __cplusplus
 #define GPUVIS_EXTERN extern "C"
@@ -248,6 +246,9 @@ static int g_trace_fd = -2;
 static int g_tracefs_dir_inited = 0;
 static char g_tracefs_dir[ PATH_MAX ];
 
+#ifdef __cplusplus
+#include <unordered_map>
+
 struct funcinfo_t
 {
     uint64_t tfirst = 0;
@@ -255,6 +256,7 @@ struct funcinfo_t
     uint32_t count = 0;
 };
 static std::unordered_map< pid_t, std::unordered_map< const char *, funcinfo_t > > g_hotfuncs;
+#endif // __cplusplus
 
 static pid_t gpuvis_gettid()
 {
@@ -314,6 +316,12 @@ GPUVIS_EXTERN int gpuvis_trace_init()
     return g_trace_fd;
 }
 
+#if !defined( __cplusplus )
+static void flush_hot_func_calls()
+{
+    //$ TODO: hot func calls for C
+}
+#else
 static void flush_hot_func_calls()
 {
     if ( g_hotfuncs.empty() )
@@ -370,6 +378,7 @@ GPUVIS_EXTERN void gpuvis_count_hot_func_calls_internal_( const char *func )
         y.count++;
     }
 }
+#endif // __cplusplus
 
 GPUVIS_EXTERN void gpuvis_trace_shutdown()
 {
