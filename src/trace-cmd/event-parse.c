@@ -906,6 +906,7 @@ static void free_arg(struct print_arg *arg)
 		free_flag_sym(arg->symbol.symbols);
 		break;
 	case PRINT_HEX:
+	case PRINT_HEX_STR:
 		free_arg(arg->hex.field);
 		free_arg(arg->hex.size);
 		break;
@@ -2710,10 +2711,11 @@ out_free:
 }
 
 static enum event_type
-process_hex(struct event_format *event, struct print_arg *arg, char **tok)
+process_hex_common(struct event_format *event, struct print_arg *arg,
+		   char **tok, enum print_arg_type type)
 {
 	memset(arg, 0, sizeof(*arg));
-	arg->type = PRINT_HEX;
+	arg->type = type;
 
 	if (alloc_and_process_delim(event, ",", &arg->hex.field))
 		goto out;
@@ -2729,6 +2731,19 @@ free_field:
 out:
 	*tok = NULL;
 	return EVENT_ERROR;
+}
+
+static enum event_type
+process_hex(struct event_format *event, struct print_arg *arg, char **tok)
+{
+	return process_hex_common(event, arg, tok, PRINT_HEX);
+}
+
+static enum event_type
+process_hex_str(struct event_format *event, struct print_arg *arg,
+		char **tok)
+{
+	return process_hex_common(event, arg, tok, PRINT_HEX_STR);
 }
 
 static enum event_type
@@ -3089,6 +3104,10 @@ process_function(struct event_format *event, struct print_arg *arg,
 	if (strcmp(token, "__print_hex") == 0) {
 		free_token(token);
 		return process_hex(event, arg, tok);
+	}
+	if (strcmp(token, "__print_hex_str") == 0) {
+		free_token(token);
+		return process_hex_str(event, arg, tok);
 	}
 	if (strcmp(token, "__print_array") == 0) {
 		free_token(token);
@@ -3632,6 +3651,7 @@ eval_num_arg(void *data, int size, struct event_format *event, struct print_arg 
 	case PRINT_SYMBOL:
 	case PRINT_INT_ARRAY:
 	case PRINT_HEX:
+	case PRINT_HEX_STR:
 		break;
 	case PRINT_TYPE:
 		val = eval_num_arg(data, size, event, arg->typecast.item);
@@ -4047,6 +4067,7 @@ void print_str_arg(struct trace_seq *s, void *data, int size,
 		}
 		break;
 	case PRINT_HEX:
+	case PRINT_HEX_STR:
 		if (arg->hex.field->type == PRINT_DYNAMIC_ARRAY) {
 			unsigned long offset;
 			offset = pevent_read_number(pevent,
@@ -4066,7 +4087,7 @@ void print_str_arg(struct trace_seq *s, void *data, int size,
 		}
 		len = eval_num_arg(data, size, event, arg->hex.size);
 		for (i = 0; i < len; i++) {
-			if (i)
+			if (i && arg->type == PRINT_HEX)
 				trace_seq_putc(s, ' ');
 			trace_seq_printf(s, "%02x", hex[i]);
 		}
@@ -4366,6 +4387,26 @@ static struct print_arg *make_bprint_args(char *fmt, void *data, int size, struc
 				goto process_again;
 			case 'p':
 				ls = 1;
+				if (isalnum(ptr[1])) {
+					ptr++;
+					/* Check for special pointers */
+					switch (*ptr) {
+					case 's':
+					case 'S':
+					case 'f':
+					case 'F':
+						break;
+					default:
+						/*
+						 * Older kernels do not process
+						 * dereferenced pointers.
+						 * Only process if the pointer
+						 * value is a printable.
+						 */
+						if (isprint(*(char *)bptr))
+							goto process_string;
+					}
+				}
 				/* fall through */
 			case 'd':
 			case 'u':
@@ -4418,6 +4459,7 @@ static struct print_arg *make_bprint_args(char *fmt, void *data, int size, struc
 
 				break;
 			case 's':
+ process_string:
 				arg = alloc_arg();
 				if (!arg) {
 					do_warning_event(event, "%s(%d): not enough memory!",
@@ -5866,6 +5908,13 @@ static void print_args(struct print_arg *args)
 		break;
 	case PRINT_HEX:
 		printf("__print_hex(");
+		print_args(args->hex.field);
+		printf(", ");
+		print_args(args->hex.size);
+		printf(")");
+		break;
+	case PRINT_HEX_STR:
+		printf("__print_hex_str(");
 		print_args(args->hex.field);
 		printf(", ");
 		print_args(args->hex.size);
