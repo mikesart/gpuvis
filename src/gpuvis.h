@@ -1086,6 +1086,9 @@ public:
         // State_Idle, Loading, Loaded, CancelLoading
         SDL_atomic_t state = { 0 };
 
+        uint64_t tracestart = 0;
+        uint64_t tracelen = 0;
+
         std::string filename;
         TraceWin *win = nullptr;
         SDL_Thread *thread = nullptr;

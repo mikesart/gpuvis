@@ -1970,6 +1970,9 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
         }
     }
 
+    // Scoot to tracestart time if it was set
+    trim_ts = std::max< unsigned long long >( trim_ts, trace_info.min_file_ts + trace_info.m_tracestart );
+
     trace_data_t trace_data( cb, trace_info, strpool );
 
     for ( ;; )
@@ -2005,6 +2008,10 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
             {
                 cpu_info.events++;
                 ret = trace_enum_events( trace_data, last_file_info->handle, last_record );
+
+                // Bail if user specified read length and we hit it
+                if ( trace_info.m_tracelen && ( last_record->ts - trim_ts > trace_info.m_tracelen ) )
+                    last_record = NULL;
             }
 
             free_record( last_file_info->handle, last_file_info->record );

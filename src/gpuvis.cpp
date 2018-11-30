@@ -675,6 +675,11 @@ int SDLCALL MainApp::thread_func( void *data )
 
         trace_events.m_trace_info.trim_trace = s_opts().getb( OPT_TrimTrace );
 
+        trace_events.m_trace_info.m_tracestart = loading_info->tracestart;
+        trace_events.m_trace_info.m_tracelen = loading_info->tracelen;
+        loading_info->tracestart = 0;
+        loading_info->tracelen = 0;
+
         EventCallback trace_cb = std::bind( &TraceEvents::new_event_cb, &trace_events, _1 );
         int ret = read_trace_file( filename, trace_events.m_strpool,
                                    trace_events.m_trace_info, trace_cb );
@@ -4529,6 +4534,8 @@ void MainApp::parse_cmdline( int argc, char **argv )
     static struct option long_opts[] =
     {
         { "scale", ya_required_argument, 0, 0 },
+        { "tracestart", ya_required_argument, 0, 0 },
+        { "tracelen", ya_required_argument, 0, 0 },
 #if !defined( GPUVIS_TRACE_UTILS_DISABLE )
         { "trace", ya_no_argument, 0, 0 },
 #endif
@@ -4545,6 +4552,10 @@ void MainApp::parse_cmdline( int argc, char **argv )
         case 0:
             if ( !strcasecmp( "scale", long_opts[ opt_ind ].name ) )
                 s_opts().setf( OPT_Scale, atof( ya_optarg ) );
+            else if ( !strcasecmp( "tracestart", long_opts[ opt_ind ].name ) )
+                m_loading_info.tracestart = timestr_to_ts( ya_optarg );
+            else if ( !strcasecmp( "tracelen", long_opts[ opt_ind ].name ) )
+                m_loading_info.tracelen = timestr_to_ts( ya_optarg );
             break;
         case 'i':
             m_loading_info.inputfiles.clear();

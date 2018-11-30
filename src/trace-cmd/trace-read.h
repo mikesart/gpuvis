@@ -133,6 +133,10 @@ struct trace_info_t
     bool trim_trace = false;
     int64_t trimmed_ts = 0;
 
+    // Manual load trimming
+    uint64_t m_tracestart = 0;
+    uint64_t m_tracelen = 0;
+
     // Map tgid to vector of child pids and color
     util_umap< int, tgid_info_t > tgid_pids;
     // Map pid to tgid
