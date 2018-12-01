@@ -47,6 +47,18 @@ EVENTS+=" -e i915:intel_engine_notify"
 EVENTS+=" -e i915:i915_gem_request_wait_begin"
 EVENTS+=" -e i915:i915_gem_request_wait_end"
 
+EVENTS+=" -e i915:i915_request_add"
+EVENTS+=" -e i915:i915_request_submit"
+EVENTS+=" -e i915:i915_request_in"
+EVENTS+=" -e i915:i915_request_out"
+EVENTS+=" -e i915:i915_request_queue"
+EVENTS+=" -e i915:i915_request_wait_begin"
+EVENTS+=" -e i915:i915_request_wait_end"
+EVENTS+=" -e i915:i915_request_retire"
+EVENTS+=" -e i915:i915_request_execute"
+
+EVENTS+=" -e i915_pipe_update_vblank_evaded"
+
 CMD="trace-cmd reset"
 echo $CMD
 $CMD
