@@ -101,10 +101,12 @@ public:
 
     bool add_location( const trace_event_t &event );
     std::vector< uint32_t > *get_locations( const trace_event_t &event );
-    std::vector< uint32_t > *get_locations( const char *ringstr, uint32_t seqno, const char *ctxstr );
+    std::vector< uint32_t > *get_locations( uint32_t ringno, uint32_t seqno, const char *ctxstr );
 
     uint64_t db_key( const trace_event_t &event );
-    uint64_t db_key( const char *ringstr, uint32_t seqno, const char *ctxstr );
+    uint64_t db_key( uint32_t ringno, uint32_t seqno, const char *ctxstr );
+
+    static uint32_t get_i915_ringno( const trace_event_t &event, bool *is_class_instance = nullptr );
 
 public:
     // Map of db_key to array of event locations.

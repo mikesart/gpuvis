@@ -310,22 +310,20 @@ void GraphRows::init( TraceEvents &trace_events )
 
     // Intel gpu events
     {
-        for ( uint32_t ring = 0; ring < 9; ring++ )
+        for ( auto &req_locs : trace_events.m_i915.req_locs.m_locs.m_map )
         {
-            char buf[ 32 ];
+            std::vector< uint32_t > &locs = req_locs.second;
+            const char *name = trace_events.m_strpool.findstr( req_locs.first );
 
-            snprintf_safe( buf, "i915_req ring%u", ring );
-            if ( ( plocs = trace_events.get_locs( buf, &type ) ) )
-                push_row( buf, type, plocs->size() );
+            push_row( name, LOC_TYPE_i915Request, locs.size() );
         }
 
-        for ( uint32_t ring = 0; ring < 9; ring++ )
+        for ( auto &req_locs : trace_events.m_i915.reqwait_end_locs.m_locs.m_map )
         {
-            char buf[ 32 ];
+            std::vector< uint32_t > &locs = req_locs.second;
+            const char *name = trace_events.m_strpool.findstr( req_locs.first );
 
-            snprintf_safe( buf, "i915_reqwait ring%u", ring );
-            if ( ( plocs = trace_events.get_locs( buf, &type ) ) )
-                push_row( buf, type, plocs->size() );
+            push_row( name, LOC_TYPE_i915RequestWait, locs.size() );
         }
     }
 

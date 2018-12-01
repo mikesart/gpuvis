@@ -635,12 +635,12 @@ void graph_info_t::init_rows( const std::vector< GraphRows::graph_rows_info_t > 
         {
             prinfo_zoom_hw = find_row( ( row_name + " hw" ).c_str() );
 
-            if ( !prinfo_zoom_hw && !strncmp( row_name.c_str(), "i915_req ring", 13 ) )
+            if ( !prinfo_zoom_hw && !strncmp( row_name.c_str(), "i915_req ", 9 ) )
             {
                 char buf[ 128 ];
 
                 // We are zooming i915_req row, show the i915_reqwait row as well
-                snprintf_safe( buf, "i915_reqwait ring%s", row_name.c_str() + 13 );
+                snprintf_safe( buf, "i915_reqwait %s", row_name.c_str() + 9 );
                 prinfo_zoom_hw = find_row( buf );
             }
         }
@@ -887,11 +887,11 @@ void graph_info_t::set_selected_i915_ringctxseq( const trace_event_t &event )
 {
     if ( !i915.selected_seqno )
     {
-        const char *ringstr = get_event_field_val( event, "ring", "0" );
         const char *ctxstr = get_event_field_val( event, "ctx", "0" );
+        uint32_t ringno = TraceLocationsRingCtxSeq::get_i915_ringno( event );
 
         i915.selected_seqno = event.seqno;
-        i915.selected_ringno = strtoul( ringstr, NULL, 10 );
+        i915.selected_ringno = ringno;
         i915.selected_ctx = strtoul( ctxstr, NULL, 10 );
     }
 }
@@ -900,12 +900,11 @@ bool graph_info_t::is_i915_ringctxseq_selected( const trace_event_t &event )
 {
     if ( i915.selected_seqno == event.seqno )
     {
-        const char *ringstr = get_event_field_val( event, "ring", "0" );
         const char *ctxstr = get_event_field_val( event, "ctx", "0" );
-        uint32_t ring = strtoul( ringstr, NULL, 10 );
         uint32_t ctx = strtoul( ctxstr, NULL, 10 );
+        uint32_t ringno = TraceLocationsRingCtxSeq::get_i915_ringno( event );
 
-        return ( ( i915.selected_ringno == ring ) && ( i915.selected_ctx == ctx ) );
+        return ( ( i915.selected_ringno == ringno ) && ( i915.selected_ctx == ctx ) );
     }
 
     return false;
@@ -4097,14 +4096,16 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
             if ( global && atoi( global ) )
                 ttip += string_format( " gkey:[%s%s%s]", gi.clr_bright, global, gi.clr_def );
 
-            if ( ( event.color_index >= col_Graph_Bari915SubmitDelay ) &&
+            if ( ( event.color_index >= col_Graph_Bari915Queue ) &&
                  ( event.color_index <= col_Graph_Bari915CtxCompleteDelay ) )
             {
                 char buf[ 6 ];
                 const char *str;
                 ImU32 color = s_clrs().get( event.color_index );
 
-                if ( event.color_index == col_Graph_Bari915SubmitDelay )
+                if ( event.color_index == col_Graph_Bari915Queue )
+                    str = " queue: ";
+                else if ( event.color_index == col_Graph_Bari915SubmitDelay )
                     str = " submit-delay: ";
                 else if ( event.color_index == col_Graph_Bari915ExecuteDelay )
                     str = " execute-delay: ";

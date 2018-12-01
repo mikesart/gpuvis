@@ -112,23 +112,80 @@ Actions &s_actions()
 /*
  * TraceLocationsRingCtxSeq
  */
-uint64_t TraceLocationsRingCtxSeq::db_key( const char *ringstr, uint32_t seqno, const char *ctxstr )
+
+static const char *get_i915_engine_str( char ( &buf )[ 64 ], uint32_t classno )
 {
-    uint32_t ctx = strtoul( ctxstr, NULL, 10 );
-    uint32_t ring = strtoul( ringstr, NULL, 10 );
-    const char *instancestr = strchr( ringstr, ':' );
-
-    // Ring could be "engine=0:0" with uabi_class:instance in new i915 events
-    if (instancestr)
+    switch( classno & 0xf )
     {
-        uint32_t instance = strtoul( instancestr + 1, NULL, 10 );
-
-        ring |= (instance << 16);
+    case 0: return "render"; //   I915_ENGINE_CLASS_RENDER        = 0,
+    case 1: return "copy";   //   I915_ENGINE_CLASS_COPY          = 1,
+    case 2: return "vid";    //   I915_ENGINE_CLASS_VIDEO         = 2,
+    case 3: return "videnh"; //   I915_ENGINE_CLASS_VIDEO_ENHANCE = 3,
     }
 
-    // ring | ctx      | seqno
-    //  0xe | 1fffffff | ffffffff
-    return ( ( uint64_t )ring << 61 ) | ( ( uint64_t )ctx << 32 ) | seqno;
+    snprintf_safe( buf, "engine%u:", classno & 0xf );
+    return buf;
+}
+
+uint32_t TraceLocationsRingCtxSeq::get_i915_ringno( const trace_event_t &event, bool *is_class_instance )
+{
+    if ( is_class_instance )
+        *is_class_instance = false;
+
+    if ( event.seqno )
+    {
+        const char *ringstr = get_event_field_val( event, "ring", NULL );
+
+        if ( ringstr )
+        {
+            // Return old i915_gem_ event: ring=%u
+            return strtoul( ringstr, NULL, 10 );
+        }
+        else
+        {
+            // Check new i915 event: engine=%u16:%u16 (class:instance)
+            const char *classstr = get_event_field_val( event, "class", NULL );
+            const char *instancestr = get_event_field_val( event, "instance", NULL );
+
+            if ( classstr && instancestr )
+            {
+                uint32_t classno = strtoul( classstr, NULL, 10 );
+                uint32_t instanceno = strtoul( instancestr, NULL, 10 );
+
+                if ( is_class_instance )
+                    *is_class_instance = true;
+
+                // engine_class from Mesa:
+                //   I915_ENGINE_CLASS_RENDER        = 0,
+                //   I915_ENGINE_CLASS_COPY          = 1,
+                //   I915_ENGINE_CLASS_VIDEO         = 2,
+                //   I915_ENGINE_CLASS_VIDEO_ENHANCE = 3,
+                assert( classno <= 0xf );
+                return ( instanceno << 4 ) | classno;
+            }
+        }
+    }
+
+    return ( uint32_t )-1;
+}
+
+uint64_t TraceLocationsRingCtxSeq::db_key( uint32_t ringno, uint32_t seqno, const char *ctxstr )
+{
+    if ( ringno != ( uint32_t )-1 )
+    {
+        uint64_t ctx = strtoul( ctxstr, NULL, 10 );
+
+        // Try to create unique 64-bit key from ring/seq/ctx.
+        assert( ctx <= 0xffff );
+        assert( ringno <= 0xffff );
+        assert( seqno <= 0xffffffff );
+
+        //    ring | ctx  |    seqno
+        //  0xffff | ffff | ffffffff
+        return ( ( uint64_t )ringno << 48 ) | ( ( uint64_t )ctx << 32 ) | seqno;
+    }
+
+    return 0;
 }
 
 uint64_t TraceLocationsRingCtxSeq::db_key( const trace_event_t &event )
@@ -143,16 +200,7 @@ uint64_t TraceLocationsRingCtxSeq::db_key( const trace_event_t &event )
 
         if ( ctxstr )
         {
-            const char *ringstr = get_event_field_val( event, "ring", NULL );
-
-            if ( !ringstr )
-            {
-                ringstr = get_event_field_val( event, "engine", NULL );
-                if ( !ringstr )
-                    ringstr = "0";
-            }
-
-            return db_key( ringstr, event.seqno, ctxstr );
+            return db_key( get_i915_ringno( event ), event.seqno, ctxstr );
         }
     }
 
@@ -181,9 +229,9 @@ std::vector< uint32_t > *TraceLocationsRingCtxSeq::get_locations( const trace_ev
     return m_locs.get_val( key );
 }
 
-std::vector< uint32_t > *TraceLocationsRingCtxSeq::get_locations( const char *ringstr, uint32_t seqno, const char *ctxstr )
+std::vector< uint32_t > *TraceLocationsRingCtxSeq::get_locations( uint32_t ringno, uint32_t seqno, const char *ctxstr )
 {
-    uint64_t key = db_key( ringstr, seqno, ctxstr );
+    uint64_t key = db_key( ringno, seqno, ctxstr );
 
     return m_locs.get_val( key );
 }
@@ -261,9 +309,7 @@ void Opts::init()
     add_opt_graph_rowsize( "gfx", 8 );
 
     // Default sizes for these rows are in get_comm_option_id() in gpuvis_graph.cpp...
-    //   add_opt_graph_rowsize( "print", 10 );
-    //   add_opt_graph_rowsize( "i915_req ring0", 8 );
-    //   add_opt_graph_rowsize( "i915_reqwait ring0", 2, 2 );
+    //   "print", "i915_req", "i915_reqwait", ...
 
     // Create all the entries for the compute shader rows
     // for ( uint32_t val = 0; ; val++ )
@@ -1780,34 +1826,33 @@ void TraceEvents::init_i915_event( trace_event_t &event )
 
         if ( plocs )
         {
+            bool ringno_is_class_instance;
+            uint32_t ringno = TraceLocationsRingCtxSeq::get_i915_ringno( event, &ringno_is_class_instance );
             trace_event_t &event_begin = m_events[ plocs->back() ];
-            const char *ring = get_event_field_val( event, "ring", NULL );
-
-            if ( !ring )
-            {
-                ring = get_event_field_val( event, "engine", NULL );
-                if ( !ring )
-                    ring = "0";
-            }
 
             event_begin.duration = event.ts - event_begin.ts;
             event.duration = event_begin.duration;
 
-            if ( ring )
+            if ( ringno != ( uint32_t )-1 )
             {
-                char buf[ 128 ];
-                uint32_t ringno = strtoul( ring, NULL, 10 );
+                char buf[ 64 ];
+                uint32_t hashval;
 
                 event.graph_row_id = ( uint32_t )-1;
                 event.id_start = event_begin.id;
 
-                snprintf_safe( buf, "i915_reqwait ring%u", ringno );
-                m_i915.reqwait_end_locs.add_location_str( buf, event.id );
+                if ( ringno_is_class_instance )
+                    hashval = m_strpool.getu32f( "i915_reqwait %s%u", get_i915_engine_str( buf, ringno ), ringno >> 4 );
+                else
+                    hashval = m_strpool.getu32f( "i915_reqwait ring%u", ringno );
+
+                m_i915.reqwait_end_locs.add_location_u32( hashval, event.id );
             }
         }
     }
-    else if ( event_type <= i915_req_Notify )
+    else if ( event_type < i915_req_Max )
     {
+        // Queue, Add, Submit, In, Notify, Out
         m_i915.gem_req_locs.add_location( event );
     }
 }
@@ -2256,8 +2301,8 @@ void TraceEvents::calculate_amd_event_durations()
 //  intel_engine_notify         dev=%u, ring=%u, seqno=$u, waiters=%u
 
 // New (in v4.17):
-//  engine is "uabi_class:instance" u16 pairs:
-//    class: i915_ENGINE_CLASS_RENDER, _COPY, _VIDEO, _VIDEO_ENHANCE
+//  engine is "uabi_class:instance" u16 pairs stored as 'class':'instance' in ftrace file.
+//    class: I915_ENGINE_CLASS_RENDER, _COPY, _VIDEO, _VIDEO_ENHANCE
 //  i915_request_add            dev=0, engine=0:0, hw_id=9, ctx=30, seqno=2032, global=0
 //  i915_request_submit         dev=0, engine=0:0, hw_id=9, ctx=30, seqno=6, global=0
 //  i915_request_in             dev=0, engine=0:0, hw_id=9, ctx=30, seqno=3, prio=0, global=708, port=0
@@ -2266,6 +2311,18 @@ void TraceEvents::calculate_amd_event_durations()
 //  i915_request_wait_end       dev=0, engine=0:0, hw_id=9, ctx=30, seqno=105, global=875
 //  i915_request_queue:         dev=0, engine=0:0, hw_id=9, ctx=30, seqno=26, flags=0x0
 //  intel_engine_notify         dev=0, engine=0:0, seqno=11923, waiters=1
+
+// Notes from tursulin_ on #intel-gfx (Thanks Tvrtko!):
+//   'completed' you can detect preemption with
+//     if not 'completed' you know the same requests will be re-appearing at some later stage to run some more
+//   'waiters' means if anyone is actually listening for this event
+//   'blocking' you probably don't care about
+//   'priority' is obviously context priority which scheduler uses to determine who runs first
+//     for instance page flips get elevated priority so any request which contains data dependencies associated with that page flip will get priority bumped
+//     (and so can trigger preemption on other stuff)
+//   oh and btw, if you start "parsing" preemption, once you have a completed=0 notification the global seqno next time might be different
+//   so you use ctx and seqno fields to track request lifetime and global seqno for execution timeline
+//   ctx+seqno+engine for uniqueness
 
 i915_type_t get_i915_reqtype( const trace_event_t &event )
 {
@@ -2333,7 +2390,8 @@ void TraceEvents::calculate_i915_req_event_durations()
     // Our map should have events with the same ring/ctx/seqno
     for ( auto &req_locs : m_i915.gem_req_locs.m_locs.m_map )
     {
-        const char *ring = "";
+        uint32_t ringno = ( uint32_t )-1;
+        bool ringno_is_class_instance = false;
         trace_event_t *events[ i915_req_Max ] = { NULL };
         std::vector< uint32_t > &locs = req_locs.second;
 
@@ -2342,20 +2400,18 @@ void TraceEvents::calculate_i915_req_event_durations()
             trace_event_t &event = m_events[ index ];
             i915_type_t event_type = get_i915_reqtype( event );
 
-            if ( event_type <= i915_req_Out )
-            {
-                events[ event_type ] = &event;
+            // i915_reqwait_begin/end handled elsewhere...
+            assert( event_type <= i915_req_Out );
 
-                if ( !ring[ 0 ] )
-                    ring = get_event_field_val( event, "ring" );
-                if ( !ring[ 0 ] )
-                    ring = get_event_field_val( event, "engine" );
-                if ( !ring[ 0 ] )
-                    ring = "0";
+            events[ event_type ] = &event;
+
+            if ( ringno == ( uint32_t )-1 )
+            {
+                ringno = TraceLocationsRingCtxSeq::get_i915_ringno( event, &ringno_is_class_instance );
             }
         }
 
-        // Notify shouldn't be set yet. It only has a ring and global seqno.
+        // Notify shouldn't be set yet. It only has a ring and global seqno, no ctx.
         // If we have request_in, search for the corresponding notify.
         if ( !events[ i915_req_Notify ] && events[ i915_req_In ] )
         {
@@ -2368,7 +2424,7 @@ void TraceEvents::calculate_i915_req_event_durations()
             {
                 uint32_t global_seqno = strtoul( globalstr, NULL, 10 );
                 const std::vector< uint32_t > *plocs =
-                        m_i915.gem_req_locs.get_locations( ring, global_seqno, "0" );
+                        m_i915.gem_req_locs.get_locations( ringno, global_seqno, "0" );
 
                 // We found event(s) that match our ring and global seqno.
                 if ( plocs )
@@ -2396,6 +2452,7 @@ void TraceEvents::calculate_i915_req_event_durations()
             }
         }
 
+        // queue: req_queue -> req_add
         bool set_duration = intel_set_duration( events[ i915_req_Queue ], events[ i915_req_Add ], col_Graph_Bari915Queue );
 
         // submit-delay: req_add -> req_submit
@@ -2415,8 +2472,13 @@ void TraceEvents::calculate_i915_req_event_durations()
 
         if ( set_duration )
         {
-            uint32_t ringno = strtoul( ring, NULL, 10 );
-            uint32_t hashval = m_strpool.getu32f( "i915_req ring%u", ringno );
+            char buf[ 64 ];
+            uint32_t hashval;
+
+            if ( ringno_is_class_instance )
+                hashval = m_strpool.getu32f( "i915_req %s%u", get_i915_engine_str( buf, ringno ), ringno >> 4 );
+            else
+                hashval = m_strpool.getu32f( "i915_req ring%u", ringno );
 
             for ( uint32_t i = 0; i < i915_req_Max; i++ )
             {
@@ -2490,12 +2552,12 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
         type = LOC_TYPE_Print;
         plocs = &m_ftrace.print_locs;
     }
-    else if ( !strncmp( name, "i915_reqwait ring", 17 ) )
+    else if ( !strncmp( name, "i915_reqwait ", 13 ) )
     {
         type = LOC_TYPE_i915RequestWait;
         plocs = m_i915.reqwait_end_locs.get_locations_str( name );
     }
-    else if ( !strncmp( name, "i915_req ring", 13 ) )
+    else if ( !strncmp( name, "i915_req ", 9 ) )
     {
         type = LOC_TYPE_i915Request;
         plocs = m_i915.req_locs.get_locations_str( name );
