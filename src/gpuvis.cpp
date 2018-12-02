@@ -4287,7 +4287,7 @@ void MainApp::render_color_picker()
     {
         changed |= render_color_picker_colors( m_colorpicker, m_colorpicker_color );
     }
-    else if ( !m_colorpicker_event.empty() )
+    else if ( !m_colorpicker_event.empty() && win )
     {
         changed |= render_color_picker_event_colors( m_colorpicker,
                 win, m_colorpicker_event );
@@ -4309,7 +4309,7 @@ void MainApp::render_color_picker()
 
             s_textclrs().update_colors();
         }
-        else if ( !m_colorpicker_event.empty() )
+        else if ( !m_colorpicker_event.empty() && win )
         {
             win->m_trace_events.set_event_color( m_colorpicker_event, m_colorpicker.m_color );
         }
