@@ -57,7 +57,7 @@ EVENTS+=" -e i915:i915_request_wait_end"
 EVENTS+=" -e i915:i915_request_retire"
 EVENTS+=" -e i915:i915_request_execute"
 
-EVENTS+=" -e i915_pipe_update_vblank_evaded"
+EVENTS+=" -e i915:i915_pipe_update_vblank_evaded"
 
 CMD="trace-cmd reset"
 echo $CMD
