@@ -2486,6 +2486,7 @@ void TraceEvents::calculate_i915_req_event_durations()
         {
             char buf[ 64 ];
             uint32_t hashval;
+            int pid = events[ i915_req_Queue ] ? events[ i915_req_Queue ]->pid : 0;
 
             if ( ringno_is_class_instance )
                 hashval = m_strpool.getu32f( "i915_req %s%u", get_i915_engine_str( buf, ringno ), ringno >> 4 );
@@ -2496,6 +2497,10 @@ void TraceEvents::calculate_i915_req_event_durations()
             {
                 if ( events[ i ] )
                 {
+                    // Switch the kernel pids in this group to match the i915_request_queue event (ioctl from user space).
+                    if ( pid && !events[ i ]->pid )
+                        events[ i ]->pid = pid;
+
                     events[ i ]->graph_row_id = ( uint32_t )-1;
                     m_i915.req_locs.add_location_u32( hashval, events[ i ]->id );
                 }

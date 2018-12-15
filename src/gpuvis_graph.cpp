@@ -2191,6 +2191,9 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
         if ( ( x0 > gi.rc.x + gi.rc.w ) || ( x1 < gi.rc.x ) )
             continue;
 
+        if ( event_renderer.is_event_filtered( event.id ) )
+            continue;
+
         y = gi.rc.y + ( event.graph_row_id % row_count ) * row_h;
 
         event_renderer.set_y( y, row_h );
@@ -2305,6 +2308,9 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
         float x0 = has_duration ? gi.ts_to_screenx( event.ts - event.duration ) : x1;
 
         if ( ( x0 > gi.rc.x + gi.rc.w ) || ( x1 < gi.rc.x ) )
+            continue;
+
+        if ( event_renderer.is_event_filtered( event.id ) )
             continue;
 
         y = gi.rc.y + event.graph_row_id * row_h;
@@ -3823,7 +3829,7 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
     if ( ImGui::BeginMenu( "Row Filters") )
     {
         const char *enablelabel = m_row_filters_enabled ?
-                    "Disable All Row Filters" : "Enable All Row Filters";
+                    "Disable Row Filters" : "Enable Row Filters";
         const std::string shortcut = s_actions().hotkey_str( action_toggle_frame_filters );
 
         if ( ImGui::MenuItem( "Create Row Filter..." ) )
