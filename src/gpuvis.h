@@ -512,6 +512,9 @@ public:
         TraceLocationsRingCtxSeq gem_req_locs;
         // Intel request events key'd on: "i915_req ring%u",ring
         TraceLocations req_locs;
+
+        // i915_request_queue events key'd on ring/ctx/seqno
+        TraceLocationsRingCtxSeq req_queue_locs;
     } m_i915;
 
     struct ftrace_pair_t

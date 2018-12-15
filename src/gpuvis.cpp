@@ -1858,6 +1858,9 @@ void TraceEvents::init_i915_event( trace_event_t &event )
     {
         // Queue, Add, Submit, In, Notify, Out
         m_i915.gem_req_locs.add_location( event );
+
+        if ( event_type == i915_req_Queue )
+            m_i915.req_queue_locs.add_location( event );
     }
 }
 

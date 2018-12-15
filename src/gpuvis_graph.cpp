@@ -2202,12 +2202,25 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 
         if ( timeline_labels && ( x1 - x0 >= imgui_scale( 16.0f ) ) )
         {
+            const char *label = "";
             const char *ctxstr = get_event_field_val( event, "ctx", "0" );
             float ty = y + ( row_h / 2.0f ) - ( gi.text_h / 2.0f ) - imgui_scale( 2.0f );
 
+            // Find the i915_request_queue event for this ring/ctx/seqno
+            const std::vector< uint32_t > *plocs = m_trace_events.m_i915.req_queue_locs.get_locations( event );
+            if ( plocs )
+            {
+                const trace_event_t &e = get_event( plocs->back() );
+                const tgid_info_t *tgid_info = m_trace_events.tgid_from_commstr( e.user_comm );
+
+                // Use commstr from i915_request_queue since it's from interrupt handler and
+                //   should have tid of user-space thread
+                label = tgid_info->commstr;
+            }
+
             imgui_push_cliprect( { x0, ty, x1 - x0, gi.text_h } );
             imgui_draw_textf( x0 + imgui_scale( 1.0f ), ty,
-                             textcolor, "%s-%u", ctxstr, event.seqno );
+                             textcolor, "%s-%u %s", ctxstr, event.seqno, label );
             imgui_pop_cliprect();
         }
 
