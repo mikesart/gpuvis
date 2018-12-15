@@ -94,7 +94,7 @@ $CMD
 if [ -x "${GPUVISBIN}" ]; then
   CMD="${GPUVISBIN} ${TRACEFILE}"
 else
-  CMD="trace-cmd report -l -g ${TRACEFILE} | less"
+  CMD="trace-cmd report -l ${TRACEFILE} | less"
 fi
 
 echo
