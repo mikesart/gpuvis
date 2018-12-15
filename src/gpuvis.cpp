@@ -2784,9 +2784,6 @@ void TraceWin::render()
                 m_eventlist.goto_eventid = ts_to_eventid( m_graph.start_ts + m_graph.length_ts / 2 );
             }
 
-            // Update pinned tooltips
-            m_ttip.tipwins.update( m_graph.mouse_captured != MOUSE_NOT_CAPTURED );
-
             if ( !s_opts().getb( OPT_ShowEventList ) ||
                  imgui_collapsingheader( "Event Graph", &m_graph.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
             {
@@ -2802,7 +2799,7 @@ void TraceWin::render()
                 eventlist_handle_hotkeys();
             }
 
-            // Render any pinned tooltips
+            // Render pinned tooltips
             m_ttip.tipwins.set_tooltip( "Pinned Tooltip", &m_ttip.visible, m_ttip.str.c_str() );
 
             // graph/eventlist didn't handle this action, so just toggle ttip visibility.
