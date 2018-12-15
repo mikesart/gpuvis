@@ -2252,7 +2252,6 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
 
 uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
 {
-    const trace_event_t *pevent_sel = NULL;
     ImU32 textcolor = s_clrs().get( col_Graph_BarText );
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
@@ -2262,14 +2261,25 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     float row_h = std::max< float >( 2.0f, gi.rc.h / row_count );
 
     // Check if we're drawing timeline labels
-    bool timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
+    bool render_timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
             !ImGui::GetIO().KeyAlt;
 
 #if 0
     // If height is less than half text height, turn off labels.
     if ( row_h < ( gi.text_h / 2.0f ) )
-        timeline_labels = false;
+        render_timeline_labels = false;
 #endif
+
+    struct barinfo_t
+    {
+        float x0;
+        float x1;
+        float y;
+        uint64_t ctx;
+        uint32_t seqno;
+        uint32_t first_event_id;
+    };
+    util_umap< uint64_t, barinfo_t > rendered_bars;
 
     for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
           idx < locs.size();
@@ -2294,56 +2304,105 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
 
         if ( has_duration )
         {
-            bool do_selrect = false;
+            const trace_event_t &event0 = get_event( event.id_start );
             const trace_event_t *pevent = !strcmp( event.name, "intel_engine_notify" ) ?
-                        &get_event( event.id_start ) : &event;
+                        &event0 : &event;
 
             // Draw bar
             imgui_drawrect_filled( x0, y, x1 - x0, row_h, s_clrs().get( event.color_index ) );
 
-            if ( timeline_labels && ( x1 - x0 >= imgui_scale( 16.0f ) ) )
-            {
-                const char *ctxstr = get_event_field_val( *pevent, "ctx", "0" );
-                float ty = y + ( row_h / 2.0f ) - ( gi.text_h / 2.0f ) - imgui_scale( 2.0f );
-
-                imgui_push_cliprect( { x0, ty, x1 - x0, gi.text_h } );
-                imgui_draw_textf( x0 + imgui_scale( 1.0f ), ty,
-                                  textcolor, "%s-%u", ctxstr, pevent->seqno );
-                imgui_pop_cliprect();
-            }
-
             if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
+                gi.set_selected_i915_ringctxseq( *pevent );
+
+            // Add bar information: ctx, seqno, and size
+            const char *ctxstr = get_event_field_val( *pevent, "ctx", "0" );
+            uint64_t ctx = strtoull( ctxstr, NULL, 10 );
+            uint64_t key = ( ctx << 32 ) | pevent->seqno;
+            barinfo_t *barinfo = rendered_bars.get_val( key );
+
+            if ( !barinfo )
+                barinfo = rendered_bars.get_val( key, { x0, x1, y, ctx, pevent->seqno, pevent->id } );
+            else
+                barinfo->x1 = x1;
+        }
+    }
+
+    for ( const auto &bar : rendered_bars.m_map )
+    {
+        const barinfo_t &barinfo = bar.second;
+        float y = barinfo.y;
+        float x0 = barinfo.x0;
+        float x1 = barinfo.x1;
+        const char *label = "";
+
+        // We added info for the first event we saw... get all events associated with this one
+        const trace_event_t &event1 = get_event( barinfo.first_event_id );
+        const std::vector< uint32_t > *plocs = m_trace_events.m_i915.gem_req_locs.get_locations( event1 );
+
+        // Check if mouse is in this rect
+        bool do_selrect = !!gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } );
+
+        if ( plocs )
+        {
+            // Go through all events with this ctx + seqno
+            for ( uint32_t idx : *plocs )
             {
-                const std::vector< uint32_t > *plocs;
+                const trace_event_t &event = get_event( idx );
+                i915_type_t event_type = get_i915_reqtype( event );
 
-                plocs = m_trace_events.m_i915.gem_req_locs.get_locations( *pevent );
-                if ( plocs )
+                if ( event_type == i915_req_Queue )
                 {
-                    for ( uint32_t i : *plocs )
-                    {
-                        const trace_event_t &e = get_event( i );
+                    const tgid_info_t *tgid_info = m_trace_events.tgid_from_commstr( event.user_comm );
 
-                        gi.add_mouse_hovered_event( gi.ts_to_screenx( e.ts ), e, true );
-                    }
+                    // Use commstr from i915_request_queue since it's from interrupt handler and
+                    //   should have tid of user-space thread
+                    label = tgid_info->commstr;
                 }
 
-                do_selrect = true;
+                if ( do_selrect || gi.is_i915_ringctxseq_selected( event ) )
+                {
+                    gi.add_mouse_hovered_event( gi.ts_to_screenx( event.ts ), event, true );
+                    do_selrect = true;
+                }
             }
 
-            if ( do_selrect || gi.is_i915_ringctxseq_selected( *pevent ) )
+            if ( do_selrect )
             {
-                pevent_sel = pevent;
+                plocs = m_trace_events.m_i915.reqwait_begin_locs.get_locations( event1 );
 
-                imgui_drawrect( x0, y, x1 - x0, row_h, s_clrs().get( col_Graph_BarSelRect ) );
+                if ( plocs )
+                {
+                    for ( uint32_t idx : *plocs )
+                    {
+                        const trace_event_t &event = get_event( idx );
+
+                        // Add i915_request_wait_begin
+                        gi.add_mouse_hovered_event( gi.ts_to_screenx( event.ts ), event, true );
+                        // Add i915_request_wait_end
+                        gi.add_mouse_hovered_event( gi.ts_to_screenx( event.ts ), get_event( event.id_start ), true );
+                    }
+                }
             }
+        }
+
+        if ( render_timeline_labels && ( x1 - x0 >= imgui_scale( 16.0f ) ) )
+        {
+            float ty = y + ( row_h / 2.0f ) - ( gi.text_h / 2.0f ) - imgui_scale( 2.0f );
+
+            imgui_push_cliprect( { x0, ty, x1 - x0, gi.text_h } );
+            imgui_draw_textf( x0 + imgui_scale( 1.0f ), ty, textcolor,
+                              "%lu-%u %s", barinfo.ctx, barinfo.seqno, label );
+            imgui_pop_cliprect();
+        }
+
+        if ( do_selrect )
+        {
+            imgui_drawrect( x0, y, x1 - x0, row_h, s_clrs().get( col_Graph_BarSelRect ) );
         }
     }
 
     event_renderer.done();
     event_renderer.draw_event_markers();
-
-    if ( pevent_sel )
-        gi.set_selected_i915_ringctxseq( *pevent_sel );
 
     return event_renderer.m_num_events;
 }

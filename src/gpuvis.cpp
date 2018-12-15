@@ -1839,7 +1839,11 @@ void TraceEvents::init_i915_event( trace_event_t &event )
                 uint32_t hashval;
 
                 event.graph_row_id = ( uint32_t )-1;
+
+                // Point i915_request_wait_end to i915_request_wait_begin
                 event.id_start = event_begin.id;
+                // Point i915_request_wait_begin to i915_request_wait_end
+                event_begin.id_start = event.id;
 
                 if ( ringno_is_class_instance )
                     hashval = m_strpool.getu32f( "i915_reqwait %s%u", get_i915_engine_str( buf, ringno ), ringno >> 4 );
@@ -2304,13 +2308,18 @@ void TraceEvents::calculate_amd_event_durations()
 //  engine is "uabi_class:instance" u16 pairs stored as 'class':'instance' in ftrace file.
 //    class: I915_ENGINE_CLASS_RENDER, _COPY, _VIDEO, _VIDEO_ENHANCE
 //  i915_request_add            dev=0, engine=0:0, hw_id=9, ctx=30, seqno=2032, global=0
-//  i915_request_submit         dev=0, engine=0:0, hw_id=9, ctx=30, seqno=6, global=0
-//  i915_request_in             dev=0, engine=0:0, hw_id=9, ctx=30, seqno=3, prio=0, global=708, port=0
-//  i915_request_out            dev=0, engine=0:0, hw_id=9, ctx=30, seqno=10552, global=12182, completed?=1
+//  i915_request_submit**       dev=0, engine=0:0, hw_id=9, ctx=30, seqno=6, global=0
+//  i915_request_in**           dev=0, engine=0:0, hw_id=9, ctx=30, seqno=3, prio=0, global=708, port=0
+//  i915_request_out**          dev=0, engine=0:0, hw_id=9, ctx=30, seqno=10552, global=12182, completed?=1
 //  i915_request_wait_begin     dev=0, engine=0:0, hw_id=9, ctx=30, seqno=120, global=894, blocking=0, flags=0x1
 //  i915_request_wait_end       dev=0, engine=0:0, hw_id=9, ctx=30, seqno=105, global=875
-//  i915_request_queue:         dev=0, engine=0:0, hw_id=9, ctx=30, seqno=26, flags=0x0
+//  i915_request_queue          dev=0, engine=0:0, hw_id=9, ctx=30, seqno=26, flags=0x0
 //  intel_engine_notify         dev=0, engine=0:0, seqno=11923, waiters=1
+
+// [**] Tracepoints only available w/ CONFIG_DRM_I915_LOW_LEVEL_TRACEPOINTS Kconfig enabled.
+
+// Svetlana:
+//  i915_request_queue: interrupt handler (should have tid of user space thread)
 
 // Notes from tursulin_ on #intel-gfx (Thanks Tvrtko!):
 //   'completed' you can detect preemption with
