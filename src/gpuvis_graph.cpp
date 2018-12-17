@@ -3006,7 +3006,7 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
 
                 if ( tgid_info )
                 {
-                    m_graph.cpu_filter_tgid = m_graph.cpu_filter_pid;
+                    m_graph.cpu_filter_tgid = tgid_info->tgid;
 
                     for ( int pid : tgid_info->pids )
                         m_graph.cpu_timeline_pids.insert( pid );
@@ -3914,11 +3914,11 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
 
         if ( tgid_info )
         {
-            label = string_format( "Set tgid filter: %d", event.pid );
+            label = string_format( "Set tgid filter: %d", tgid_info->tgid );
             if ( ImGui::MenuItem( label.c_str(), s_actions().hotkey_str( action_graph_show_hovered_tgid ).c_str() ) )
             {
-                m_graph.cpu_filter_pid = event.pid;
-                m_graph.cpu_filter_tgid = event.pid;
+                m_graph.cpu_filter_pid = tgid_info->tgid;
+                m_graph.cpu_filter_tgid = tgid_info->tgid;
             }
         }
 
