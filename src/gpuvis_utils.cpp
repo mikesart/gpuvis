@@ -1438,9 +1438,10 @@ void Actions::init()
 
     m_actionmap.push_back( { action_toggle_show_eventlist, KMOD_NONE, SDLK_F11, "Toggle showing event list" } );
 
+    m_actionmap.push_back( { action_graph_show_hovered_pid, KMOD_CTRL | KMOD_SHIFT, SDLK_s, "Toggle showing only first hovered pid events" } );
+    m_actionmap.push_back( { action_graph_show_hovered_tgid, KMOD_CTRL | KMOD_SHIFT, SDLK_t, "Toggle showing only first hovered tgid events" } );
+
     m_actionmap.push_back( { action_cpugraph_hide_systemevents, KMOD_CTRL | KMOD_SHIFT, SDLK_h, "CPU Graph: Toggle hiding sched_switch 'system' events" } );
-    m_actionmap.push_back( { action_cpugraph_show_hovered_pid, KMOD_CTRL | KMOD_SHIFT, SDLK_s, "CPU Graph: Toggle showing only hovered pid events" } );
-    m_actionmap.push_back( { action_cpugraph_show_hovered_tgid, KMOD_CTRL | KMOD_SHIFT, SDLK_t, "CPU Graph: Toggle showing only hovered tgid events" } );
 
     m_actionmap.push_back( { action_graph_zoom_row, KMOD_CTRL | KMOD_SHIFT, SDLK_z, "Graph: Toggle hovered row timeline fullscreen" } );
     m_actionmap.push_back( { action_graph_zoom_mouse, KMOD_NONE, SDLK_z, "Graph: Toggle hovered location zoom to 3ms / restore pre-zoom" } );

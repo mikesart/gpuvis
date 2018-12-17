@@ -72,7 +72,7 @@ public:
 
     void set_y( float y_in, float h_in );
 
-    bool is_event_filtered( uint32_t event_id );
+    bool is_event_filtered( const trace_event_t &event );
 
 protected:
     void start( float x, ImU32 color );
@@ -97,6 +97,7 @@ public:
     std::vector< markers_t > m_markers;
 
     row_filter_t *m_row_filters = nullptr;
+    std::unordered_set< int > *m_cpu_timeline_pids = nullptr;
 
     graph_info_t &m_gi;
 };
@@ -375,10 +376,18 @@ event_renderer_t::event_renderer_t( graph_info_t &gi, float y_in, float w_in, fl
 
     start( -1.0f, 0 );
 
-    uint32_t hashval = hashstr32( gi.prinfo_cur->row_name );
-    m_row_filters = gi.win.m_graph_row_filters.get_val( hashval );
-    if ( m_row_filters && m_row_filters->filters.empty() )
-        m_row_filters = NULL;
+    if ( gi.win.m_row_filters_enabled )
+    {
+        uint32_t hashval = hashstr32( gi.prinfo_cur->row_name );
+
+        m_row_filters = gi.win.m_graph_row_filters.get_val( hashval );
+        if ( m_row_filters && m_row_filters->filters.empty() )
+            m_row_filters = NULL;
+    }
+
+    // Check if we're filtering specific pids
+    if ( !gi.win.m_graph.cpu_timeline_pids.empty() )
+        m_cpu_timeline_pids = &gi.win.m_graph.cpu_timeline_pids;
 }
 
 void event_renderer_t::set_y( float y_in, float h_in )
@@ -467,19 +476,24 @@ void event_renderer_t::draw()
     imgui_drawrect_filled( m_x0, m_y, width, m_h, color );
 }
 
-bool event_renderer_t::is_event_filtered( uint32_t event_id )
+bool event_renderer_t::is_event_filtered( const trace_event_t &event )
 {
     bool filtered = false;
 
-    if ( m_gi.win.m_row_filters_enabled )
+    if ( m_cpu_timeline_pids &&
+         ( m_cpu_timeline_pids->find( event.pid ) == m_cpu_timeline_pids->end() ) )
     {
-        if ( m_row_filters && m_row_filters->bitvec )
-        {
-            if ( event_id >= m_row_filters->bitvec->size() )
-                filtered = true;
-            else
-                filtered = !m_row_filters->bitvec->get( event_id );
-        }
+        // Check for globally filtered pids first...
+        filtered = true;
+    }
+    else if ( m_row_filters && m_row_filters->bitvec )
+    {
+        uint32_t event_id = event.id;
+
+        if ( event_id >= m_row_filters->bitvec->size() )
+            filtered = true;
+        else
+            filtered = !m_row_filters->bitvec->get( event_id );
     }
 
     return filtered;
@@ -1563,12 +1577,8 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
             if ( hide_system_events && ( sched_switch.flags & TRACE_FLAG_SCHED_SWITCH_SYSTEM_EVENT ) )
                 continue;
 
-            // If we've got pids we should be filtering on, check if this is in the hash table.
-            if ( !m_graph.cpu_timeline_pids.empty() &&
-                 ( m_graph.cpu_timeline_pids.find( sched_switch.pid ) == m_graph.cpu_timeline_pids.end() ) )
-            {
+            if ( event_renderer.is_event_filtered( sched_switch ) )
                 continue;
-            }
 
             count++;
             if ( ( x1 - x0 ) < imgui_scale( 3.0f ) )
@@ -1726,7 +1736,7 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         else if ( gi.graph_only_filtered && event.is_filtered_out )
             continue;
 
-        if ( event_renderer.is_event_filtered( event.id ) )
+        if ( event_renderer.is_event_filtered( event ) )
             continue;
 
         row_id = get_graph_row_id( event, ftrace_row_info, print_info );
@@ -2084,7 +2094,7 @@ uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
         else if ( hide_sched_switch && event.is_sched_switch() )
             continue;
 
-        if ( event_renderer.is_event_filtered( event.id ) )
+        if ( event_renderer.is_event_filtered( event ) )
             continue;
 
         float x = gi.ts_to_screenx( event.ts );
@@ -2191,7 +2201,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
         if ( ( x0 > gi.rc.x + gi.rc.w ) || ( x1 < gi.rc.x ) )
             continue;
 
-        if ( event_renderer.is_event_filtered( event.id ) )
+        if ( event_renderer.is_event_filtered( event ) )
             continue;
 
         y = gi.rc.y + ( event.graph_row_id % row_count ) * row_h;
@@ -2310,7 +2320,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
         if ( ( x0 > gi.rc.x + gi.rc.w ) || ( x1 < gi.rc.x ) )
             continue;
 
-        if ( event_renderer.is_event_filtered( event.id ) )
+        if ( event_renderer.is_event_filtered( event ) )
             continue;
 
         y = gi.rc.y + event.graph_row_id * row_h;
@@ -2957,30 +2967,47 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
     if ( s_actions().get( action_toggle_frame_filters ) )
         m_row_filters_enabled = !m_row_filters_enabled;
 
-    bool show_hovered_pid = s_actions().get( action_cpugraph_show_hovered_pid );
-    bool show_hovered_tgid = s_actions().get( action_cpugraph_show_hovered_tgid );
+    bool show_hovered_pid = s_actions().get( action_graph_show_hovered_pid );
+    bool show_hovered_tgid = s_actions().get( action_graph_show_hovered_tgid );
 
     if ( show_hovered_pid || show_hovered_tgid )
     {
         if ( !m_graph.cpu_timeline_pids.empty() )
         {
             // If we're already filtering some stuff, just clear it.
+            m_graph.cpu_filter_pid = 0;
+            m_graph.cpu_filter_tgid = 0;
             m_graph.cpu_timeline_pids.clear();
         }
         else if ( !gi.sched_switch_bars.empty() )
         {
+            // Hovering over cpu graph
             int event_id = gi.sched_switch_bars[ 0 ];
             const trace_event_t &event = get_event( event_id );
-            int prev_pid = event.pid;
 
-            m_graph.cpu_timeline_pids.insert( prev_pid );
+            m_graph.cpu_filter_pid = event.pid;
+        }
+        else if ( !gi.hovered_items.empty() )
+        {
+            // Hovering over graph row of some sort
+            int event_id = gi.hovered_items[ 0 ].eventid;
+            const trace_event_t &event = get_event( event_id );
+
+            m_graph.cpu_filter_pid = event.pid;
+        }
+
+        if ( m_graph.cpu_filter_pid )
+        {
+            m_graph.cpu_timeline_pids.insert( m_graph.cpu_filter_pid );
 
             if ( show_hovered_tgid )
             {
-                const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( prev_pid );
+                const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( m_graph.cpu_filter_pid );
 
                 if ( tgid_info )
                 {
+                    m_graph.cpu_filter_tgid = m_graph.cpu_filter_pid;
+
                     for ( int pid : tgid_info->pids )
                         m_graph.cpu_timeline_pids.insert( pid );
                 }
@@ -3971,6 +3998,11 @@ void TraceWin::graph_mouse_tooltip_rowinfo( std::string &ttip, graph_info_t &gi,
             ttip += "\n  " + filter;
         }
     }
+
+    if ( m_graph.cpu_filter_tgid )
+        ttip += string_format( "\nTgid filter: %d", m_graph.cpu_filter_tgid );
+    else if ( m_graph.cpu_filter_pid )
+        ttip += string_format( "\nPid filter: %d", m_graph.cpu_filter_pid );
 }
 
 void TraceWin::graph_mouse_tooltip_vblanks( std::string &ttip, graph_info_t &gi, int64_t mouse_ts )
