@@ -3891,12 +3891,55 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
         ImGui::EndMenu();
     }
 
+    if ( m_graph.cpu_filter_tgid || m_graph.cpu_filter_pid )
+    {
+        std::string label = string_format( "Clear %s Filter: %d",
+            m_graph.cpu_filter_tgid ? "tgid" : "pid", m_graph.cpu_filter_pid );
+
+        if ( ImGui::MenuItem( label.c_str(), s_actions().hotkey_str( action_graph_show_hovered_pid ).c_str() ) )
+        {
+            m_graph.cpu_filter_tgid = 0;
+            m_graph.cpu_filter_pid = 0;
+            m_graph.cpu_timeline_pids.clear();
+        }
+    }
+    else if ( is_valid_id( gi.hovered_eventid ) )
+    {
+        const trace_event_t &event = get_event( gi.hovered_eventid );
+        const tgid_info_t *tgid_info = m_trace_events.tgid_from_pid( event.pid );
+
+        std::string label = string_format( "Set pid filter: %d", event.pid );
+        if ( ImGui::MenuItem( label.c_str(), s_actions().hotkey_str( action_graph_show_hovered_pid ).c_str() ) )
+            m_graph.cpu_filter_pid = event.pid;
+
+        if ( tgid_info )
+        {
+            label = string_format( "Set tgid filter: %d", event.pid );
+            if ( ImGui::MenuItem( label.c_str(), s_actions().hotkey_str( action_graph_show_hovered_tgid ).c_str() ) )
+            {
+                m_graph.cpu_filter_pid = event.pid;
+                m_graph.cpu_filter_tgid = event.pid;
+            }
+        }
+
+        if ( m_graph.cpu_filter_pid )
+        {
+            m_graph.cpu_timeline_pids.insert( m_graph.cpu_filter_pid );
+
+            if ( m_graph.cpu_filter_tgid )
+            {
+                for ( int pid : tgid_info->pids )
+                    m_graph.cpu_timeline_pids.insert( pid );
+            }
+        }
+    }
+
     // Frame Markers
     {
         if ( is_valid_id( gi.hovered_eventid ) &&
              ImGui::MenuItem( "Set Frame Markers..." ) )
         {
-            const trace_event_t &event = m_trace_events.m_events[ gi.hovered_eventid ];
+            const trace_event_t &event = get_event( gi.hovered_eventid );
 
             m_create_filter_eventid = event.id;
         }
@@ -3988,21 +4031,30 @@ void TraceWin::graph_mouse_tooltip_rowinfo( std::string &ttip, graph_info_t &gi,
 
     if ( row_filters && !row_filters->filters.empty() )
     {
+        std::string str;
+
         if ( m_row_filters_enabled )
-            ttip += "\nRow Filters (enabled):";
+            str = "\nRow Filters (enabled):";
         else
-            ttip += "\nRow Filters (disabled):";
+            str = "\nRow Filters (disabled):";
 
         for ( const std::string &filter : row_filters->filters )
-        {
-            ttip += "\n  " + filter;
-        }
+            str += "\n  " + filter;
+
+        ttip += s_textclrs().brightcomp_str( str );
     }
 
-    if ( m_graph.cpu_filter_tgid )
-        ttip += string_format( "\nTgid filter: %d", m_graph.cpu_filter_tgid );
-    else if ( m_graph.cpu_filter_pid )
-        ttip += string_format( "\nPid filter: %d", m_graph.cpu_filter_pid );
+    if ( m_graph.cpu_filter_pid || m_graph.cpu_filter_tgid )
+    {
+        std::string str;
+
+        if ( m_graph.cpu_filter_tgid )
+            str = string_format( "\nTgid filter: %d", m_graph.cpu_filter_tgid );
+        else
+            str = string_format( "\nPid filter: %d", m_graph.cpu_filter_pid );
+
+        ttip += s_textclrs().brightcomp_str( str );
+    }
 }
 
 void TraceWin::graph_mouse_tooltip_vblanks( std::string &ttip, graph_info_t &gi, int64_t mouse_ts )

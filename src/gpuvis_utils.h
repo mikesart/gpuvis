@@ -291,6 +291,8 @@ public:
     const std::string mstr( const std::string &str_in, ImU32 color );
     const std::string bright_str( const std::string &str_in )
         {  return m_buf[ TClr_Bright ] + str_in + m_buf[ TClr_Def ]; }
+    const std::string brightcomp_str( const std::string &str_in )
+        {  return m_buf[ TClr_BrightComp ] + str_in + m_buf[ TClr_Def ]; }
 
     void update_colors();
 
