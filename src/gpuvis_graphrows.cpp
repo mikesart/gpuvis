@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Valve Software
+ * Copyright 2019 Valve Software
  *
  * All Rights Reserved.
  *

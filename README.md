@@ -14,7 +14,7 @@ Credits
 gpuvis code is [MIT](http://opensource.org/licenses/MIT) licensed.
 
 ```
-Copyright 2017 Valve Software
+Copyright 2019 Valve Software
 
 All Rights Reserved.
 
