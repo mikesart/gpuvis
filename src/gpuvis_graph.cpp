@@ -2385,7 +2385,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
 
                     // Use commstr from i915_request_queue since it's from interrupt handler and
                     //   should have tid of user-space thread
-                    label = tgid_info->commstr;
+                    label = tgid_info ? tgid_info->commstr : event.user_comm;
                 }
 
                 if ( do_selrect || gi.is_i915_ringctxseq_selected( event ) )
