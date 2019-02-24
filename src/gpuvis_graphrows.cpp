@@ -325,6 +325,14 @@ void GraphRows::init( TraceEvents &trace_events )
 
             push_row( name, LOC_TYPE_i915RequestWait, locs.size() );
         }
+
+        for ( auto &req_locs : trace_events.m_dma_fence.req_locs.m_locs.m_map )
+        {
+            std::vector< uint32_t > &locs = req_locs.second;
+            const char *name = trace_events.m_strpool.findstr( req_locs.first );
+
+            push_row( name, LOC_TYPE_dma_fence, locs.size() );
+        }
     }
 
     if ( ( plocs = trace_events.get_locs( "cpu graph", &type ) ) )

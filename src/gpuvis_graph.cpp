@@ -154,8 +154,8 @@ public:
 
     bool add_mouse_hovered_event( float x, const trace_event_t &event, bool force = false );
 
-    void set_selected_i915_ringctxseq( const trace_event_t &event );
-    bool is_i915_ringctxseq_selected( const trace_event_t &event );
+    void set_selected_i915_ringctxseq( const trace_event_t &event, bool is_dma_event );
+    bool is_i915_ringctxseq_selected( const trace_event_t &event, bool *is_dma_event = nullptr );
 
     RenderGraphRowCallback get_render_cb( loc_type_t row_type );
 
@@ -196,6 +196,7 @@ public:
         uint32_t selected_ringno = 0;
         uint32_t selected_seqno = 0;
         uint32_t selected_ctx = 0;
+        bool is_dma_event = false;
     } i915;
 
     std::vector< uint32_t > sched_switch_bars;
@@ -511,7 +512,8 @@ static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t r
          row_type == LOC_TYPE_Plot ||
          row_type == LOC_TYPE_AMDTimeline ||
          row_type == LOC_TYPE_i915RequestWait ||
-         row_type == LOC_TYPE_i915Request )
+         row_type == LOC_TYPE_i915Request ||
+         row_type == LOC_TYPE_dma_fence )
     {
         int defval = 4;
         int minval = 4;
@@ -524,7 +526,7 @@ static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t r
         {
             defval = 10;
         }
-        else if ( row_type == LOC_TYPE_i915Request )
+        else if ( row_type == LOC_TYPE_i915Request || row_type == LOC_TYPE_dma_fence )
         {
             defval = 8;
         }
@@ -554,6 +556,7 @@ RenderGraphRowCallback graph_info_t::get_render_cb( loc_type_t row_type )
     case LOC_TYPE_AMDTimeline_hw:  return std::bind( &TraceWin::graph_render_amdhw_timeline, &win, _1 );
     case LOC_TYPE_i915Request:     return std::bind( &TraceWin::graph_render_i915_req_events, &win, _1 );
     case LOC_TYPE_i915RequestWait: return std::bind( &TraceWin::graph_render_i915_reqwait_events, &win, _1 );
+    case LOC_TYPE_dma_fence:       return std::bind( &TraceWin::graph_render_dma_fence_req_events, &win, _1 );
     // LOC_TYPE_Comm or LOC_TYPE_Tdopexpr hopefully...
     default:                       return std::bind( &TraceWin::graph_render_row_events, &win, _1 );
     }
@@ -897,27 +900,34 @@ bool graph_info_t::add_mouse_hovered_event( float xin, const trace_event_t &even
     return inserted;
 }
 
-void graph_info_t::set_selected_i915_ringctxseq( const trace_event_t &event )
+void graph_info_t::set_selected_i915_ringctxseq( const trace_event_t &event, bool is_dma_event )
 {
     if ( !i915.selected_seqno )
     {
-        const char *ctxstr = get_event_field_val( event, "ctx", "0" );
+        const char *ctxstr = get_event_field_val( event, "ctx", NULL );
         uint32_t ringno = TraceLocationsRingCtxSeq::get_i915_ringno( event );
+
+        if ( !ctxstr )
+            ctxstr = get_event_field_val( event, "context", "0" );
 
         i915.selected_seqno = event.seqno;
         i915.selected_ringno = ringno;
         i915.selected_ctx = strtoul( ctxstr, NULL, 10 );
+        i915.is_dma_event = is_dma_event;
     }
 }
 
-bool graph_info_t::is_i915_ringctxseq_selected( const trace_event_t &event )
+bool graph_info_t::is_i915_ringctxseq_selected( const trace_event_t &event, bool *is_dma_event )
 {
     if ( i915.selected_seqno == event.seqno )
     {
-        const char *ctxstr = get_event_field_val( event, "ctx", "0" );
-        uint32_t ctx = strtoul( ctxstr, NULL, 10 );
+        const char *ctxstr = get_event_field_val( event, "ctx", NULL );
+        const char *contextstr = ctxstr ? ctxstr : get_event_field_val( event, "context", "0" );
+        uint32_t ctx = strtoul( contextstr, NULL, 10 );
         uint32_t ringno = TraceLocationsRingCtxSeq::get_i915_ringno( event );
 
+        if ( is_dma_event )
+            *is_dma_event = i915.is_dma_event;
         return ( ( i915.selected_ringno == ringno ) && ( i915.selected_ctx == ctx ) );
     }
 
@@ -1349,8 +1359,10 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
         maxval = std::max< float >( maxval, y );
 
         // Check if we're mouse hovering this event
-        if ( gi.mouse_over )
+        if ( gi.mouse_over && is_valid_id( data.eventid ) )
+        {
             gi.add_mouse_hovered_event( x, get_event( data.eventid ) );
+        }
 
         if ( x >= gi.rc.x + gi.rc.w )
             break;
@@ -2271,7 +2283,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
     event_renderer.draw_event_markers();
 
     if ( pevent_sel )
-        gi.set_selected_i915_ringctxseq( *pevent_sel );
+        gi.set_selected_i915_ringctxseq( *pevent_sel, false );
 
     return event_renderer.m_num_events / 2;
 }
@@ -2341,7 +2353,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
             imgui_drawrect_filled( x0, y, x1 - x0, row_h, s_clrs().get( event.color_index ) );
 
             if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
-                gi.set_selected_i915_ringctxseq( *pevent );
+                gi.set_selected_i915_ringctxseq( *pevent, false );
 
             // Add bar information: ctx, seqno, and size
             const char *ctxstr = get_event_field_val( *pevent, "ctx", "0" );
@@ -2369,6 +2381,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
         const std::vector< uint32_t > *plocs = m_trace_events.m_i915.gem_req_locs.get_locations( event1 );
 
         // Check if mouse is in this rect
+        bool is_dma_event = false;
         bool do_selrect = !!gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } );
 
         if ( plocs )
@@ -2388,14 +2401,18 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
                     label = tgid_info ? tgid_info->commstr : event.user_comm;
                 }
 
-                if ( do_selrect || gi.is_i915_ringctxseq_selected( event ) )
+                if ( do_selrect || gi.is_i915_ringctxseq_selected( event, &is_dma_event ) )
                 {
-                    gi.add_mouse_hovered_event( gi.ts_to_screenx( event.ts ), event, true );
+                    if ( !is_dma_event )
+                    {
+                        // Only add this hovered event if it's an i915 event, not a dma_event
+                        gi.add_mouse_hovered_event( gi.ts_to_screenx( event.ts ), event, true );
+                    }
                     do_selrect = true;
                 }
             }
 
-            if ( do_selrect )
+            if ( do_selrect && !is_dma_event )
             {
                 plocs = m_trace_events.m_i915.reqwait_begin_locs.get_locations( event1 );
 
@@ -2408,8 +2425,141 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
                         // Add i915_request_wait_begin
                         gi.add_mouse_hovered_event( gi.ts_to_screenx( event.ts ), event, true );
                         // Add i915_request_wait_end
-                        gi.add_mouse_hovered_event( gi.ts_to_screenx( event.ts ), get_event( event.id_start ), true );
+                        if ( is_valid_id( event.id_start ) )
+                            gi.add_mouse_hovered_event( gi.ts_to_screenx( event.ts ), get_event( event.id_start ), true );
                     }
+                }
+            }
+        }
+
+        if ( render_timeline_labels && ( x1 - x0 >= imgui_scale( 16.0f ) ) )
+        {
+            float ty = y + ( row_h / 2.0f ) - ( gi.text_h / 2.0f ) - imgui_scale( 2.0f );
+
+            imgui_push_cliprect( { x0, ty, x1 - x0, gi.text_h } );
+            imgui_draw_textf( x0 + imgui_scale( 1.0f ), ty, textcolor,
+                              "%lu-%u %s", barinfo.ctx, barinfo.seqno, label );
+            imgui_pop_cliprect();
+        }
+
+        if ( do_selrect )
+        {
+            imgui_drawrect( x0, y, x1 - x0, row_h, s_clrs().get( col_Graph_BarSelRect ) );
+        }
+    }
+
+    event_renderer.done();
+    event_renderer.draw_event_markers();
+
+    return event_renderer.m_num_events;
+}
+
+uint32_t TraceWin::graph_render_dma_fence_req_events( graph_info_t &gi )
+{
+    ImU32 textcolor = s_clrs().get( col_Graph_BarText );
+    const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
+    event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
+
+    uint32_t hashval = hashstr32( gi.prinfo_cur->row_name );
+    uint32_t row_count = m_trace_events.m_row_count.m_map[ hashval ];
+    float row_h = std::max< float >( 2.0f, gi.rc.h / row_count );
+
+    // Check if we're drawing timeline labels
+    bool render_timeline_labels = s_opts().getb( OPT_PrintTimelineLabels ) &&
+            !ImGui::GetIO().KeyAlt;
+
+    struct barinfo_t
+    {
+        float x0;
+        float x1;
+        float y;
+        uint64_t ctx;
+        uint32_t seqno;
+        uint32_t first_event_id;
+    };
+    util_umap< uint64_t, barinfo_t > rendered_bars;
+
+    for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
+          idx < locs.size();
+          idx++ )
+    {
+        float y;
+        const trace_event_t &event = get_event( locs[ idx ] );
+        bool has_duration = event.has_duration();
+        float x1 = gi.ts_to_screenx( event.ts );
+        float x0 = has_duration ? gi.ts_to_screenx( event.ts - event.duration ) : x1;
+
+        if ( ( x0 > gi.rc.x + gi.rc.w ) || ( x1 < gi.rc.x ) )
+            continue;
+
+        if ( event_renderer.is_event_filtered( event ) )
+            continue;
+
+        y = gi.rc.y + event.graph_row_id * row_h;
+
+        event_renderer.set_y( y, row_h );
+        event_renderer.add_event( event.id, x1, event.color );
+
+        if ( gi.mouse_over && ( gi.mouse_pos.y >= y ) && ( gi.mouse_pos.y <= y + row_h ) )
+            gi.add_mouse_hovered_event( x1, event );
+
+        if ( has_duration )
+        {
+            // Draw bar
+            imgui_drawrect_filled( x0, y, x1 - x0, row_h, s_clrs().get( event.color_index ) );
+
+            if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
+                gi.set_selected_i915_ringctxseq( event, true );
+
+            // Add bar information: ctx, seqno, and size
+            const char *ctxstr = get_event_field_val( event, "context", "0" );
+            uint64_t ctx = strtoull( ctxstr, NULL, 10 );
+            uint64_t key = ( ctx << 32 ) | event.seqno;
+            barinfo_t *barinfo = rendered_bars.get_val( key );
+
+            if ( !barinfo )
+                barinfo = rendered_bars.get_val( key, { x0, x1, y, ctx, event.seqno, event.id } );
+            else
+                barinfo->x1 = x1;
+        }
+    }
+
+    for ( const auto &bar : rendered_bars.m_map )
+    {
+        const barinfo_t &barinfo = bar.second;
+        float y = barinfo.y;
+        float x0 = barinfo.x0;
+        float x1 = barinfo.x1;
+        const char *label = "";
+
+        // We added info for the first event we saw... get all events associated with this one
+        const trace_event_t &event1 = get_event( barinfo.first_event_id );
+        const std::vector< uint32_t > *plocs = m_trace_events.m_dma_fence.fence_req_locs.get_locations( event1 );
+
+        // Check if mouse is in this rect
+        bool do_selrect = !!gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } );
+
+        if ( plocs )
+        {
+            // Go through all events with this ctx + seqno
+            for ( uint32_t idx : *plocs )
+            {
+                const trace_event_t &event = get_event( idx );
+                i915_type_t event_type = get_i915_reqtype( event );
+
+                if ( event_type == dma_fence_init )
+                {
+                    const tgid_info_t *tgid_info = m_trace_events.tgid_from_commstr( event.user_comm );
+
+                    // Use commstr from i915_request_queue since it's from interrupt handler and
+                    //   should have tid of user-space thread
+                    label = tgid_info ? tgid_info->commstr : event.user_comm;
+                }
+
+                if ( do_selrect || gi.is_i915_ringctxseq_selected( event ) )
+                {
+                    gi.add_mouse_hovered_event( gi.ts_to_screenx( event.ts ), event, true );
+                    do_selrect = true;
                 }
             }
         }
@@ -2888,6 +3038,7 @@ bool TraceWin::is_graph_row_zoomable()
     case LOC_TYPE_Plot:
     case LOC_TYPE_Print:
     case LOC_TYPE_i915Request:
+    case LOC_TYPE_dma_fence:
         return true;
     default:
         return false;
@@ -4237,7 +4388,7 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
         if ( event.crtc >= 0 )
             ttip += std::to_string( event.crtc );
 
-        if ( i915_type < i915_req_Max )
+        if ( ( i915_type >= i915_req_Queue ) && ( i915_type <= i915_reqwait_end ) )
         {
             const char *ctxstr = get_event_field_val( event, "ctx", NULL );
 
@@ -4275,6 +4426,53 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
                     str = " execute: ";
                 else // if ( event.color_index == col_Graph_Bari915CtxCompleteDelay )
                     str = " context-complete-delay: ";
+
+                ttip += s_textclrs().set( buf, color );
+                ttip += str;
+            }
+        }
+        else if ( ( i915_type >= dma_fence_init ) && ( i915_type <= dma_fence_context_destroy ) )
+        {
+            const char *ctxstr = ( i915_type == dma_fence_await ) ?
+                    get_event_field_val( event, "wait_context", "" ) :
+                    get_event_field_val( event, "context", "" );
+
+            //$ TODO: add hwid for dma_fence_execute_start, dma_fence_execute_end
+            //$ TODO: add wait ctx/seq for dma_fence_await
+            //$ TODO: add timeline for dma_fence_init
+
+            ttip += string_format( " key:[%s%s%s-%s%u%s]",
+                                       gi.clr_bright, ctxstr, gi.clr_def,
+                                       gi.clr_bright, event.seqno, gi.clr_def );
+
+            if ( i915_type == dma_fence_init )
+            {
+                ttip += string_format( " timeline:%s", get_event_field_val( event, "timeline" ) );
+            }
+            else if ( i915_type == dma_fence_await )
+            {
+                ttip += string_format( " signal:[%s-%s]",
+                                       get_event_field_val( event, "signal_context", "??" ),
+                                       get_event_field_val( event, "signal_seqno", "??" ) );
+            }
+            else if ( ( i915_type == dma_fence_execute_start ) || ( i915_type == dma_fence_execute_end ) )
+            {
+                ttip += string_format( " hwid:%s", get_event_field_val( event, "hwid" ) );
+            }
+
+            if ( ( event.color_index >= col_Graph_Bari915ExecuteDelay ) &&
+                 ( event.color_index <= col_Graph_Bari915CtxCompleteDelay ) )
+            {
+                char buf[ 6 ];
+                const char *str;
+                ImU32 color = s_clrs().get( event.color_index );
+
+                if ( event.color_index == col_Graph_Bari915ExecuteDelay )
+                    str = " emit: ";
+                else if ( event.color_index == col_Graph_Bari915Execute )
+                    str = " execute: ";
+                else if ( event.color_index == col_Graph_Bari915CtxCompleteDelay )
+                    str = " signal: ";
 
                 ttip += s_textclrs().set( buf, color );
                 ttip += str;

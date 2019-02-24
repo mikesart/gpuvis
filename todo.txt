@@ -1,0 +1,192 @@
+From Tvrtko:
+
+Things that I immediately wished for:
+
+* Clipboard support for copy & paste.
+* Request "splitting" mode (trace.pl -s).
+* Preemption event marking.
+* Aggregated per-engine and per-GPU busyness markers.
+* Option to colour code contexts and/or per-process. Similar to https://people.freedesktop.org/~tursulin/fs3.html.
+
+DONE
+* Helper script which runs a command and captures the trace just for its duration, like trace.pl --trace <cmd>.
+* Highlighting/filtering of requests belonging to a certain process/thread.
+
+That much for now. :)
+
+--------------------------------------------------
+
+; [Intel-gfx] [PATCH 2/2] drm/i915/tracepoints: Remove DRM_I915_LOW_LEVEL_TRACEPOINTS Kconfig option  
+https://lists.freedesktop.org/archives/intel-gfx/2018-June/thread.html
+https://lists.freedesktop.org/archives/intel-gfx/2018-August/thread.html
+
+; gpuvis
+https://devtalk.nvidia.com/default/topic/1024223/linux/implement-support-for-kernel-ftrace-gpuvis/
+https://patchwork.freedesktop.org/series/30717/
+https://warosu.org/g/thread/62578562
+
+--------------------------------------------------
+
+$ sudo cat /sys/devices/system/cpu/vulnerabilities/spectre_v2
+Mitigation: Full generic retpoline, IBPB, IBRS_FW, STIBP
+
+CONFIG_DRM_I915_LOW_LEVEL_TRACEPOINTS
+  i915_gem_request_submit
+  i915_gem_request_execute
+  i915_gem_request_in
+  i915_gem_request_out
+
+i915_request_add
+i915_request_queue
+i915_request_wait_begin
+i915_request_wait_end
+i915_request_retire
+i915_pipe_update_vblank_evaded
+intel_gpu_freq_change
+
+dead:
+  i915_flip_request
+  i915_flip_complete
+  intel_engine_notify
+
+--------------------------------------------------
+
+Intel GPA
+nvidia nsight tool
+perf numbers for Vulkan hypervisor & not
+
+modify shooter demo to start looking up ready to profile
+
+--------------------------------------------------
+
+When hovering over an event, if it has an attached duration type event, show it...
+
+--------------------------------------------------
+
+https://github.com/ocornut/imgui/issues/618#issuecomment-362902704
+
+I noticed that in many instances the vertical positioning is not the same
+between the STB and freetype rasterizer. Will need to look into it, as a
+workaround you can alter the font->DisplayOffset.y field.
+
+Note that the RasterizerMultiply field also works with the default rasterizer
+and for light-weight font can be useful.
+
+---------------------------------------------
+
+The trace.pl script in the intel-gpu-tools repo:
+
+1. the perf command line example in the comments section is wrong.
+
+2. It can't handle spaces in thread names. Ie "RenderThread 0" breaks.
+
+3. Also getting errors like this (I deleted lines off the end until it worked):
+    "Use of uninitialized value in subtraction (-) at ./trace.pl line 840, <> line 14845."
+
+4. It wants you to install npm: 245 packages of pure crap on Debian Testing.
+
+5. The html file it creates which you try to scroll and look at in your browser is complete shit.
+
+6. Tracing 'in the middle of something' doesn't always work.
+
+7. It doesn't scale well
+
+; Intel Metrics Discovery (used by VTUNE, etc)
+https://github.com/intel/metrics-discovery
+
+> It would be great if Intel would offer a simple API (straight in their
+> drivers) to read basic information from iGPUs - similar to NVAPI or AMD’s ADL"
+
+---------------------------------------------
+
+; ring buffer
+# perf record -g -e cycles -e raw_syscalls:*/call-graph=no/ \
+                  -e sched:sched_switch/call-graph=no/ \
+                  --switch-output --overwrite -a
+
+
+
+--all-cpus
+--call-graph
+--overwrite --switch-output
+
+SIGUSR2
+kill -USR2 $(pidof blah)
+
+-c == --count == event period to sample
+
+perf record -a -c 1 -e i915:intel_gpu_freq_change \
+                    -e i915:i915_request_add \
+                    -e i915:i915_request_submit \
+                    -e i915:i915_request_in \
+                    -e i915:i915_request_out \
+                    -e i915:intel_engine_notify \
+                    -e i915:i915_request_wait_begin \
+                    -e i915:i915_request_wait_end \
+                    sleep 5
+perf script >trace.log
+./trace.pl --html --gpu-timeline < trace.log > blah.html
+
+
+sudo perf stat -a -d --time 5000 -e "i915:*" -e "drm:*" -e "dma_fence:*"
+
+  i915/actual-frequency/                             [Kernel PMU event]
+  i915/bcs0-busy/                                    [Kernel PMU event]
+  i915/bcs0-sema/                                    [Kernel PMU event]
+  i915/bcs0-wait/                                    [Kernel PMU event]
+  i915/interrupts/                                   [Kernel PMU event]
+  i915/rc6-residency/                                [Kernel PMU event]
+  i915/rcs0-busy/                                    [Kernel PMU event]
+  i915/rcs0-sema/                                    [Kernel PMU event]
+  i915/rcs0-wait/                                    [Kernel PMU event]
+  i915/requested-frequency/                          [Kernel PMU event]
+  i915/vcs0-busy/                                    [Kernel PMU event]
+  i915/vcs0-sema/                                    [Kernel PMU event]
+  i915/vcs0-wait/                                    [Kernel PMU event]
+  i915/vcs1-busy/                                    [Kernel PMU event]
+  i915/vcs1-sema/                                    [Kernel PMU event]
+  i915/vcs1-wait/                                    [Kernel PMU event]
+  i915/vecs0-busy/                                   [Kernel PMU event]
+  i915/vecs0-sema/                                   [Kernel PMU event]
+  i915/vecs0-wait/                                   [Kernel PMU event]
+  i915:g4x_wm                                        [Tracepoint event]
+  i915:i915_context_create                           [Tracepoint event]
+  i915:i915_context_free                             [Tracepoint event]
+  i915:i915_gem_evict                                [Tracepoint event]
+  i915:i915_gem_evict_node                           [Tracepoint event]
+  i915:i915_gem_evict_vm                             [Tracepoint event]
+  i915:i915_gem_object_clflush                       [Tracepoint event]
+  i915:i915_gem_object_create                        [Tracepoint event]
+  i915:i915_gem_object_destroy                       [Tracepoint event]
+  i915:i915_gem_object_fault                         [Tracepoint event]
+  i915:i915_gem_object_pread                         [Tracepoint event]
+  i915:i915_gem_object_pwrite                        [Tracepoint event]
+  i915:i915_gem_ring_sync_to                         [Tracepoint event]
+  i915:i915_gem_shrink                               [Tracepoint event]
+  i915:i915_pipe_update_end                          [Tracepoint event]
+  i915:i915_pipe_update_start                        [Tracepoint event]
+  i915:i915_pipe_update_vblank_evaded                [Tracepoint event]
+  i915:i915_ppgtt_create                             [Tracepoint event]
+  i915:i915_ppgtt_release                            [Tracepoint event]
+  i915:i915_reg_rw                                   [Tracepoint event]
+  i915:i915_request_add                              [Tracepoint event]
+  i915:i915_request_execute                          [Tracepoint event]
+  i915:i915_request_in                               [Tracepoint event]
+  i915:i915_request_out                              [Tracepoint event]
+  i915:i915_request_queue                            [Tracepoint event]
+  i915:i915_request_retire                           [Tracepoint event]
+  i915:i915_request_submit                           [Tracepoint event]
+  i915:i915_request_wait_begin                       [Tracepoint event]
+  i915:i915_request_wait_end                         [Tracepoint event]
+  i915:i915_vma_bind                                 [Tracepoint event]
+  i915:i915_vma_unbind                               [Tracepoint event]
+  i915:intel_cpu_fifo_underrun                       [Tracepoint event]
+  i915:intel_disable_plane                           [Tracepoint event]
+  i915:intel_engine_notify                           [Tracepoint event]
+  i915:intel_gpu_freq_change                         [Tracepoint event]
+  i915:intel_memory_cxsr                             [Tracepoint event]
+  i915:intel_pch_fifo_underrun                       [Tracepoint event]
+  i915:intel_update_plane                            [Tracepoint event]
+  i915:vlv_fifo_size                                 [Tracepoint event]
+  i915:vlv_wm                                        [Tracepoint event]
+

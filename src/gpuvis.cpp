@@ -134,6 +134,13 @@ uint32_t TraceLocationsRingCtxSeq::get_i915_ringno( const trace_event_t &event, 
 
     if ( event.seqno )
     {
+        if ( !strncmp( event.name, "dma_fence_", 10 ) )
+        {
+            const char *hwid = get_event_field_val( event, "hwid", NULL );
+
+            return hwid ? strtoul( hwid, NULL, 10 ) : 0;
+        }
+
         const char *ringstr = get_event_field_val( event, "ring", NULL );
 
         if ( ringstr )
@@ -194,9 +201,14 @@ uint64_t TraceLocationsRingCtxSeq::db_key( const trace_event_t &event )
     {
         const char *ctxstr = get_event_field_val( event, "ctx", NULL );
 
+        if ( !ctxstr )
+            ctxstr = get_event_field_val( event, "context", NULL );
+
         // i915:intel_engine_notify has only ring & seqno, so default ctx to "0"
         if ( !ctxstr && !strcmp( event.name, "intel_engine_notify" ) )
             ctxstr = "0";
+        else if ( !ctxstr && !strcmp( event.name, "dma_fence_await" ) )
+            ctxstr = get_event_field_val( event, "wait_context", NULL );
 
         if ( ctxstr )
         {
@@ -1854,13 +1866,20 @@ void TraceEvents::init_i915_event( trace_event_t &event )
             }
         }
     }
-    else if ( event_type < i915_req_Max )
+    else if ( ( event_type >= i915_req_Queue ) && ( event_type <= i915_req_Out ) )
     {
         // Queue, Add, Submit, In, Notify, Out
         m_i915.gem_req_locs.add_location( event );
 
         if ( event_type == i915_req_Queue )
             m_i915.req_queue_locs.add_location( event );
+    }
+    else if ( ( event_type >= dma_fence_init ) && ( event_type <= dma_fence_context_destroy ) )
+    {
+        m_dma_fence.fence_req_locs.add_location( event );
+
+        if ( event_type == dma_fence_init )
+            m_dma_fence.init_locs.add_location( event );
     }
 }
 
@@ -1946,6 +1965,10 @@ void TraceEvents::init_new_event( trace_event_t &event )
 
         if ( seqno )
             m_drm_vblank_event_queued.set_val( seqno, event.id );
+    }
+    else if ( !strcmp( event.name, "dma_fence_await" ) )
+    {
+        event.seqno = strtoul( get_event_field_val( event, "wait_seqno" ), NULL, 10 );
     }
 
     // Add this event comm to our comm locations map (ie, 'thread_main-1152')
@@ -2102,6 +2125,9 @@ void TraceEvents::init()
     // Init intel event durations
     calculate_i915_req_event_durations();
     calculate_i915_reqwait_event_durations();
+
+    // Init dma_fence durations
+    calculate_dma_fence_event_durations();
 
     // Init print column information
     calculate_event_print_info();
@@ -2336,11 +2362,135 @@ void TraceEvents::calculate_amd_event_durations()
 //   so you use ctx and seqno fields to track request lifetime and global seqno for execution timeline
 //   ctx+seqno+engine for uniqueness
 
+/*
+    dma_fence notes
+
+    https://lists.freedesktop.org/archives/intel-gfx/2019-January/187076.html
+
+    RenderThread-1279  [001]   127.904586: dma_fence_init:       driver=i915 timeline=ShooterGame[1226]/2 context=31 seqno=21461
+    RenderThread-1279  [001]   127.904592: dma_fence_await:      wait_context=31, wait_seqno=21461, signal_context=32, signal_seqno=840
+    RenderThread-1279  [001]   127.904603: dma_fence_emit:       context=31, seqno=21461
+    RenderThread-1279  [001]   127.904834: dma_fence_init:       driver=i915 timeline=ShooterGame[1226]/3 context=32 seqno=841
+    RenderThread-1279  [001]   127.904837: dma_fence_await:      wait_context=32, wait_seqno=841, signal_context=25, signal_seqno=3223
+    RenderThread-1279  [001]   127.904838: dma_fence_await:      wait_context=32, wait_seqno=841, signal_context=31, signal_seqno=21461
+
+            Xorg-825   [000]   127.915463: dma_fence_signaled:   context=32, seqno=840
+
+          <idle>-0     [006]   127.935309: dma_fence_execute_start: context=31, seqno=21461, hwid=0
+
+          <idle>-0     [006]   127.957144: dma_fence_execute_end: context=31, seqno=21461, hwid=0
+
+    RenderThread-1279  [006]   127.989716: dma_fence_signaled:   context=31, seqno=21461
+
+    RenderThread-1279  [006]   127.989817: dma_fence_destroy:    context=31, seqno=21461
+
+
+
+
+
+
+
+* dma-fence represents a job along a timeline (the fence context)
+* when the job is completed it is signaled
+
+--------------------------------------
+
+The typical flow of events from user --> HW for a dma-fence would be:
+
+1. dma_fence_init:       driver=i915 timeline=ShooterGame[1226]/3 context=32 seqno=3
+
++ *      - records the dependencies between fences that must be signaled
++ *        before this fence is ready for execution; an asynchronous wait
+2. dma_fence_await:      wait_context=32, wait_seqno=3, signal_context=31, signal_seqno=4
+
++ *      - the fence is ready for execution and passed to the execution queue
++ *        (the user to HW/FW/backend transition)
+3. dma_fence_emit:       context=25, seqno=1504
+
++ *      - records the start of execution on the backend (HW) and includes
++ *        a tag to uniquely identify the backend engine so that concurrent
++ *        execution can be traced
++ *      - may only be emitted for the first fence in a context to begin
++ *        execution
+4. dma_fence_execute_start: context=31, seqno=4, hwid=0
+
++ *   5. dma_fence_execute_end (optional)
++ *     - records the corresponding completion point of backend execution
++ *     - may only be emitted for the last fence in a context to finish
++ *       execution
+5. dma_fence_execute_end: context=25, seqno=1647, hwid=0
+
++ *     - records when the fence was marked as completed and the result
++ *       propagated to the various waiters
+6. dma_fence_signaled:   context=31, seqno=398
+
+7. dma_fence_destroy:    context=31, seqno=3
+
+--------------------------------------
+
+The flow of events from HW --> user would be:
+
+  1. dma_fence_wait_begin
+  2. dma_fence_enable_signaling (optional)
+  3. dma_fence_signaled:   context=25, seqno=1646
+  4. dma_fence_wait_end:   context=31, seqno=398
+
+--------------------------------------
+
++ * For improved visualisation, dma_fence_context_create and
++ * dma_fence_context_destroy are used to couple the context id to a string.
+dma_fence_context_create: context=26, driver=i915, timeline=ShooterGame[1226]/1
+dma_fence_context_destroy: context=26
+
+--------------------------------------
+
+/home/mikesart/dev/amdgpu/repos/trace-cmd-src/tracecmd/trace-cmd report trace_dma.dat | egrep "dma_fence_context_create|dma_fence_context_destroy
+     ShooterGame-1226  [001]    88.242790: dma_fence_context_create: context=26, driver=i915, timeline=ShooterGame[1226]/1
+     ShooterGame-1226  [001]    88.246250: dma_fence_context_create: context=27, driver=i915, timeline=ShooterGame[1226]/1
+     ShooterGame-1226  [003]    88.397866: dma_fence_context_create: context=28, driver=i915, timeline=ShooterGame[1226]/1
+     ShooterGame-1226  [003]    88.405482: dma_fence_context_create: context=29, driver=i915, timeline=ShooterGame[1226]/1
+     ShooterGame-1226  [003]    88.407649: dma_fence_context_create: context=30, driver=i915, timeline=ShooterGame[1226]/1
+     ShooterGame-1226  [003]    88.408918: dma_fence_context_create: context=31, driver=i915, timeline=ShooterGame[1226]/2
+   kworker/u16:0-7     [000]    89.042311: dma_fence_context_destroy: context=26
+   kworker/u16:0-7     [000]    89.042315: dma_fence_context_destroy: context=27
+   kworker/u16:0-7     [000]    89.042320: dma_fence_context_destroy: context=28
+   kworker/u16:0-7     [000]    89.042323: dma_fence_context_destroy: context=29
+     ShooterGame-1226  [004]    89.061587: dma_fence_context_create: context=32, driver=i915, timeline=ShooterGame[1226]/3
+ */
+
 i915_type_t get_i915_reqtype( const trace_event_t &event )
 {
-    if ( !strcmp( event.name, "intel_engine_notify" ) )
-        return i915_req_Notify;
+    if ( !strncmp( event.name, "dma_fence_", 10 ) )
+    {
+        const char *name = event.name + 10;
 
+        if ( !strcmp( name, "init" ) )
+            return dma_fence_init;
+        else if ( !strcmp( name, "await" ) )
+            return dma_fence_await;
+        else if ( !strcmp( name, "emit" ) )
+            return dma_fence_emit;
+        else if ( !strcmp( name, "execute_start" ) )
+            return dma_fence_execute_start;
+        else if ( !strcmp( name, "execute_end" ) )
+            return dma_fence_execute_end;
+        else if ( !strcmp( name, "destroy" ) )
+            return dma_fence_destroy;
+        else if ( !strcmp( name, "wait_begin" ) )
+            return dma_fence_wait_begin;
+        else if ( !strcmp( name, "enable_signaling" ) )
+            return dma_fence_enable_signaling;
+        else if ( !strcmp( name, "signaled" ) )
+            return dma_fence_signaled;
+        else if ( !strcmp( name, "wait_end" ) )
+            return dma_fence_wait_end;
+        else if ( !strcmp( name, "context_create" ) )
+            return dma_fence_context_create;
+        else if ( !strcmp( name, "context_destroy" ) )
+            return dma_fence_context_destroy;
+    }
+
+    // Search for "i915_gem_request_in", "i915_request_in", etc.
     if ( !strncmp( event.name, "i915_", 5 ) )
     {
         if ( strstr( event.name, "_request_queue" ) )
@@ -2358,6 +2508,9 @@ i915_type_t get_i915_reqtype( const trace_event_t &event )
         else if ( strstr( event.name, "_request_wait_end" ) )
             return i915_reqwait_end;
     }
+
+    if ( !strcmp( event.name, "intel_engine_notify" ) )
+        return i915_req_Notify;
 
     return i915_req_Max;
 }
@@ -2543,6 +2696,88 @@ void TraceEvents::calculate_i915_req_event_durations()
     }
 }
 
+void TraceEvents::calculate_dma_fence_event_durations()
+{
+    // Our map should have events with the same ctx/seqno
+    for ( auto &req_locs : m_dma_fence.fence_req_locs.m_locs.m_map )
+    {
+        trace_event_t *events[ i915_req_Max ] = { NULL };
+        std::vector< uint32_t > &locs = req_locs.second;
+
+        for ( uint32_t index : locs )
+        {
+            trace_event_t &event = m_events[ index ];
+            i915_type_t event_type = get_i915_reqtype( event );
+
+            events[ event_type ] = &event;
+        }
+
+        bool set_duration = intel_set_duration( events[ dma_fence_emit ], events[ dma_fence_execute_start ], col_Graph_Bari915ExecuteDelay );
+        set_duration |= intel_set_duration( events[ dma_fence_execute_start ], events[ dma_fence_execute_end ], col_Graph_Bari915Execute );
+        set_duration |= intel_set_duration( events[ dma_fence_execute_end ], events[ dma_fence_signaled ], col_Graph_Bari915CtxCompleteDelay );
+
+        if ( !events[ dma_fence_execute_start ] && !events[ dma_fence_execute_end ] )
+        {
+            set_duration |= intel_set_duration( events[ dma_fence_emit ], events[ dma_fence_signaled ], col_Graph_Bari915Execute );
+        }
+
+        if ( set_duration )
+        {
+            // uint32_t hashval;
+            int pid = events[ dma_fence_init ] ? events[ dma_fence_init ]->pid : 0;
+
+            uint32_t hashval = m_strpool.getu32f( "dma_fence" );
+
+            for ( uint32_t i = 0; i < i915_req_Max; i++ )
+            {
+                //$ TODO dma_fence_init has driver, timeline, and pid
+
+                if ( events[ i ] )
+                {
+                    // Switch the kernel pids in this group to match the i915_request_queue event (ioctl from user space).
+                    if ( pid && !events[ i ]->pid )
+                        events[ i ]->pid = pid;
+
+                    events[ i ]->graph_row_id = ( uint32_t )-1;
+                    m_dma_fence.req_locs.add_location_u32( hashval, events[ i ]->id );
+                }
+            }
+        }
+    }
+
+    // Sort the events in the ring maps
+    for ( auto &req_locs : m_dma_fence.req_locs.m_locs.m_map )
+    {
+        row_pos_t row_pos;
+        std::vector< uint32_t > &locs = req_locs.second;
+        // const char *name = m_strpool.findstr( req_locs.first );
+
+        std::sort( locs.begin(), locs.end() );
+
+        for ( uint32_t idx : locs )
+        {
+            if ( m_events[ idx ].graph_row_id != ( uint32_t )-1 )
+                continue;
+
+            trace_event_t &event = m_events[ idx ];
+            const std::vector< uint32_t > *plocs;
+
+            plocs = m_dma_fence.fence_req_locs.get_locations( event );
+            if ( plocs )
+            {
+                int64_t min_ts = m_events[ plocs->front() ].ts;
+                int64_t max_ts = m_events[ plocs->back() ].ts;
+                uint32_t row = row_pos.get_row( min_ts, max_ts );
+
+                for ( uint32_t i : *plocs )
+                    m_events[ i ].graph_row_id = row;
+            }
+        }
+
+        m_row_count.m_map[ req_locs.first ] = row_pos.m_rows;
+    }
+}
+
 const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
         loc_type_t *ptype, std::string *errstr )
 {
@@ -2578,6 +2813,11 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
     {
         type = LOC_TYPE_i915Request;
         plocs = m_i915.req_locs.get_locations_str( name );
+    }
+    else if ( !strncmp( name, "dma_fence", 9 ) )
+    {
+        type = LOC_TYPE_dma_fence;
+        plocs = m_dma_fence.req_locs.get_locations_str( name );
     }
     else if ( !strncmp( name, "plot:", 5 ) )
     {

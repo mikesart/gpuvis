@@ -41,6 +41,7 @@ enum loc_type_t
     LOC_TYPE_AMDTimeline_hw,
     LOC_TYPE_i915RequestWait,
     LOC_TYPE_i915Request,
+    LOC_TYPE_dma_fence,
     LOC_TYPE_Max
 };
 
@@ -55,6 +56,24 @@ enum i915_type_t
 
     i915_reqwait_begin,
     i915_reqwait_end,
+
+    // dma-fence represents a job along a timeline (the fence context)
+    //   when the job is completed it is signaled
+    // user --> HW
+    dma_fence_init,
+    dma_fence_await,
+    dma_fence_emit,
+    dma_fence_execute_start,
+    dma_fence_execute_end,
+    dma_fence_destroy,
+    // HW --> user
+    dma_fence_wait_begin,
+    dma_fence_enable_signaling,
+    dma_fence_signaled,
+    dma_fence_wait_end,
+    // used to couple context id to string
+    dma_fence_context_create,
+    dma_fence_context_destroy,
 
     i915_req_Max
 };
@@ -392,6 +411,7 @@ public:
     void calculate_amd_event_durations();
     void calculate_i915_req_event_durations();
     void calculate_i915_reqwait_event_durations();
+    void calculate_dma_fence_event_durations();
     void calculate_event_print_info();
     void calculate_vblank_info();
 
@@ -516,6 +536,18 @@ public:
         // i915_request_queue events key'd on ring/ctx/seqno
         TraceLocationsRingCtxSeq req_queue_locs;
     } m_i915;
+
+    struct
+    {
+        // dma_fence_* events
+        TraceLocationsRingCtxSeq fence_req_locs;
+
+        // dma_fence_init loc's
+        TraceLocationsRingCtxSeq init_locs;
+
+        // Intel request events key'd on: "dma_fence"
+        TraceLocations req_locs;
+    } m_dma_fence;
 
     struct ftrace_pair_t
     {
@@ -701,6 +733,8 @@ protected:
     uint32_t graph_render_i915_reqwait_events( graph_info_t &gi );
     // Render intel i915 request_add, request_submit, request_in, request_out, intel_engine_notify
     uint32_t graph_render_i915_req_events( graph_info_t &gi );
+    // Render dma_fence_* events
+    uint32_t graph_render_dma_fence_req_events( graph_info_t &gi );
 
     // Render graph decorations
     void graph_render_time_ticks( graph_info_t &gi, float h0, float h1 );
