@@ -7,7 +7,7 @@ traces_intel/*
 sample/_release/*
 sample/_debug/*
 
-qtcreator/gpuvis.creator.user
+qtcreator/gpuvis.creator.user*
 qtcreator/gpuvis.config
 qtcreator/gpuvis.creator
 qtcreator/gpuvis.files
