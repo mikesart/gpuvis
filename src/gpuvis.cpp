@@ -4482,7 +4482,7 @@ void MainApp::open_trace_dialog()
     else
     {
         const char *file = noc_file_dialog_open( NOC_FILE_DIALOG_OPEN,
-                                 "trace-cmd files (*.dat;*.trace;*.wdat)\0*.dat;*.trace;*.wdat\0",
+                                 "trace-cmd files (*.dat;*.trace;*.wdat;*.zip)\0*.dat;*.trace;*.wdat;*.zip\0",
                                  NULL, "trace.dat" );
 
         if ( file && file[ 0 ] )
