@@ -1042,6 +1042,9 @@ public:
 class MainApp
 {
 public:
+    struct loading_info_t;
+
+public:
     MainApp() {}
     ~MainApp() {}
 
@@ -1088,11 +1091,24 @@ public:
 
     static int SDLCALL thread_func( void *data );
 
+    static int load_trace_file( loading_info_t *loading_info );
+    static int load_wdat_file( loading_info_t *loading_info );
+
 public:
+    enum trace_type_t
+    {
+        trace_type_invalid,
+        trace_type_trace,
+        trace_type_wdat
+    };
+
     struct loading_info_t
     {
         // State_Idle, Loading, Loaded, CancelLoading
         SDL_atomic_t state = { 0 };
+
+        // Which trace format are we loading
+        trace_type_t type = trace_type_invalid;
 
         uint64_t tracestart = 0;
         uint64_t tracelen = 0;
@@ -1118,6 +1134,8 @@ public:
     save_info_t m_saving_info;
 
     TraceWin *m_trace_win = nullptr;
+
+    trace_type_t m_trace_type = trace_type_invalid;
 
     FontInfo m_font_main;
     FontInfo m_font_small;
