@@ -597,6 +597,16 @@ bool MainApp::load_file( const char *filename )
             filename = tmpfile.c_str();
     }
 
+    const char *real_ext = strrchr( filename, '.' );
+    if ( real_ext && !strcmp( real_ext, ".wdat" ) )
+    {
+        m_trace_type = trace_type_wdat;
+    }
+    else if ( real_ext && ( !strcmp( real_ext, ".dat" ) || !strcmp( real_ext, ".trace" ) ) )
+    {
+        m_trace_type = trace_type_trace;
+    }
+
     size_t filesize = get_file_size( filename );
     if ( !filesize )
     {
@@ -610,6 +620,7 @@ bool MainApp::load_file( const char *filename )
     m_trace_win = new TraceWin( filename, filesize );
 
     m_loading_info.win = m_trace_win;
+    m_loading_info.type = m_trace_type;
     m_loading_info.thread = SDL_CreateThread( thread_func, "eventloader", &m_loading_info );
     if ( !m_loading_info.thread )
     {
@@ -707,6 +718,27 @@ int TraceEvents::new_event_cb( const trace_event_t &event )
     return ( s_app().get_state() == MainApp::State_CancelLoading );
 }
 
+int MainApp::load_trace_file( loading_info_t *loading_info )
+{
+    TraceEvents &trace_events = loading_info->win->m_trace_events;
+
+    trace_events.m_trace_info.trim_trace = s_opts().getb( OPT_TrimTrace );
+
+    trace_events.m_trace_info.m_tracestart = loading_info->tracestart;
+    trace_events.m_trace_info.m_tracelen = loading_info->tracelen;
+    loading_info->tracestart = 0;
+    loading_info->tracelen = 0;
+
+    EventCallback trace_cb = std::bind( &TraceEvents::new_event_cb, &trace_events, _1 );
+    return read_trace_file( loading_info->filename.c_str(), trace_events.m_strpool,
+        trace_events.m_trace_info, trace_cb );
+}
+
+int MainApp::load_wdat_file( loading_info_t *loading_info )
+{
+    return -1;
+}
+
 int SDLCALL MainApp::thread_func( void *data )
 {
     util_time_t t0 = util_get_time();
@@ -719,16 +751,20 @@ int SDLCALL MainApp::thread_func( void *data )
 
         logf( "Reading trace file %s...", filename );
 
-        trace_events.m_trace_info.trim_trace = s_opts().getb( OPT_TrimTrace );
+        int ret;
+        switch ( loading_info->type )
+        {
+        case trace_type_trace:
+            ret = load_trace_file( loading_info );
+            break;
+        case trace_type_wdat:
+            ret = load_wdat_file( loading_info );
+            break;
+        default:
+            ret = -1;
+            break;
+        }
 
-        trace_events.m_trace_info.m_tracestart = loading_info->tracestart;
-        trace_events.m_trace_info.m_tracelen = loading_info->tracelen;
-        loading_info->tracestart = 0;
-        loading_info->tracelen = 0;
-
-        EventCallback trace_cb = std::bind( &TraceEvents::new_event_cb, &trace_events, _1 );
-        int ret = read_trace_file( filename, trace_events.m_strpool,
-                                   trace_events.m_trace_info, trace_cb );
         if ( ret < 0 )
         {
             logf( "[Error] read_trace_file(%s) failed.", filename );
@@ -4446,7 +4482,7 @@ void MainApp::open_trace_dialog()
     else
     {
         const char *file = noc_file_dialog_open( NOC_FILE_DIALOG_OPEN,
-                                 "trace-cmd files (*.dat;*.trace)\0*.dat;*.trace\0",
+                                 "trace-cmd files (*.dat;*.trace;*.wdat)\0*.dat;*.trace;*.wdat\0",
                                  NULL, "trace.dat" );
 
         if ( file && file[ 0 ] )
