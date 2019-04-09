@@ -1091,8 +1091,8 @@ public:
 
     static int SDLCALL thread_func( void *data );
 
-    static int load_trace_file( loading_info_t *loading_info );
-    static int load_wdat_file( loading_info_t *loading_info );
+    static int load_trace_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb );
+    static int load_wdat_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb );
 
 public:
     enum trace_type_t

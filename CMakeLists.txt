@@ -92,6 +92,7 @@ set ( SRC_LIST
     src/gpuvis_graphrows.cpp
     src/gpuvis_ftrace_print.cpp
     src/gpuvis_utils.cpp
+	src/gpuvis_wdat.cpp
     src/tdopexpr.cpp
     src/ya_getopt.c
     src/MurmurHash3.cpp
