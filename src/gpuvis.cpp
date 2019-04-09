@@ -48,6 +48,7 @@
 
 #include "stlini.h"
 #include "gpuvis_utils.h"
+#include "gpuvis_wdat.h"
 #include "gpuvis.h"
 
 #include "miniz.h"
@@ -718,25 +719,16 @@ int TraceEvents::new_event_cb( const trace_event_t &event )
     return ( s_app().get_state() == MainApp::State_CancelLoading );
 }
 
-int MainApp::load_trace_file( loading_info_t *loading_info )
+int MainApp::load_trace_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb )
 {
-    TraceEvents &trace_events = loading_info->win->m_trace_events;
-
-    trace_events.m_trace_info.trim_trace = s_opts().getb( OPT_TrimTrace );
-
-    trace_events.m_trace_info.m_tracestart = loading_info->tracestart;
-    trace_events.m_trace_info.m_tracelen = loading_info->tracelen;
-    loading_info->tracestart = 0;
-    loading_info->tracelen = 0;
-
-    EventCallback trace_cb = std::bind( &TraceEvents::new_event_cb, &trace_events, _1 );
     return read_trace_file( loading_info->filename.c_str(), trace_events.m_strpool,
         trace_events.m_trace_info, trace_cb );
 }
 
-int MainApp::load_wdat_file( loading_info_t *loading_info )
+int MainApp::load_wdat_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb )
 {
-    return -1;
+    return read_wdat_file( loading_info->filename.c_str(), trace_events.m_strpool,
+        trace_events.m_trace_info, trace_cb );
 }
 
 int SDLCALL MainApp::thread_func( void *data )
@@ -751,14 +743,21 @@ int SDLCALL MainApp::thread_func( void *data )
 
         logf( "Reading trace file %s...", filename );
 
+        EventCallback trace_cb = std::bind( &TraceEvents::new_event_cb, &trace_events, _1 );
+        trace_events.m_trace_info.trim_trace = s_opts().getb( OPT_TrimTrace );
+        trace_events.m_trace_info.m_tracestart = loading_info->tracestart;
+        trace_events.m_trace_info.m_tracelen = loading_info->tracelen;
+        loading_info->tracestart = 0;
+        loading_info->tracelen = 0;
+
         int ret;
         switch ( loading_info->type )
         {
         case trace_type_trace:
-            ret = load_trace_file( loading_info );
+            ret = load_trace_file( loading_info, trace_events, trace_cb );
             break;
         case trace_type_wdat:
-            ret = load_wdat_file( loading_info );
+            ret = load_wdat_file( loading_info, trace_events, trace_cb );
             break;
         default:
             ret = -1;
