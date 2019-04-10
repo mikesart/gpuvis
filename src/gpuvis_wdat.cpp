@@ -196,6 +196,24 @@ public:
     }
 };
 
+class vsync_entry_t : public event_entry_t
+{
+public:
+    static const int entry_id = 3;
+
+    uint64_t adapter;
+    uint64_t display;
+    uint64_t address;
+
+    vsync_entry_t( std::unordered_map<std::string, std::string> &entry ) :
+        event_entry_t( entry )
+    {
+        WDAT_PARSE_U64( adapter );
+        WDAT_PARSE_U64( display );
+        WDAT_PARSE_U64( address );
+    }
+};
+
 /**
  * Parses the wdat information stream
  *
@@ -212,7 +230,10 @@ public:
         , mReader( file )
         , mCurrentEventId( 0 )
         , mStartTicks( 0 )
+        , mAdapterCount( 0 )
+        , mCrtcCount( 0 )
     {
+        memset( mCrtcCurrentSeq, 0, sizeof( mCrtcCurrentSeq ) );
     }
 
     int process()
@@ -234,6 +255,9 @@ public:
             case steamvr_entry_t::entry_id:
                 ret = process_steamvr_entry( steamvr_entry_t( event ) );
                 break;
+            case vsync_entry_t::entry_id:
+                ret = process_vsync_entry( vsync_entry_t( event ) );
+                break;
             default:
                 logf( "[Error] unrecognized wdat entry: %s", event["wdat_line"].c_str() );
                 ret = 0;
@@ -245,6 +269,8 @@ public:
     }
 
 private:
+    static const int kMaxCrtc = 32;
+
     const char *mFileName;
     StrPool &mStrPool;
     trace_info_t &mTraceInfo;
@@ -253,6 +279,35 @@ private:
     wdat_reader_t mReader;
     uint32_t mCurrentEventId;
     uint64_t mStartTicks;
+
+    std::unordered_map<uint64_t, int> mAdapterMap;
+    int mAdapterCount;
+
+    std::unordered_map<uint64_t, int> mCrtcMap;
+    int mCrtcCount;
+
+    uint64_t mCrtcCurrentSeq[ kMaxCrtc ];
+
+    int GetAdapterIdx( uint64_t key )
+    {
+        if ( mAdapterMap.find( key ) == mAdapterMap.end() )
+        {
+            mAdapterMap[key] = mAdapterCount++;
+        }
+
+        return mAdapterMap[key];
+    }
+
+    int GetCrtcIdx( uint64_t key )
+    {
+        if ( mCrtcMap.find( key ) == mCrtcMap.end() )
+        {
+            mCrtcMap[key] = mCrtcCount++;
+            assert( mCrtcCount < kMaxCrtc );
+        }
+
+        return mCrtcMap[key];
+    }
 
     int64_t ticks_to_relative_us( uint64_t ticks )
     {
@@ -364,13 +419,40 @@ private:
 
         return mCallback( event );
     }
+
+    // Process vsync event specific information
+    int process_vsync_entry( vsync_entry_t entry )
+    {
+        int err;
+
+        trace_event_t event;
+
+        err = process_event_entry( entry, event );
+        if ( err )
+            return err;
+
+        int crtc = GetCrtcIdx( entry.display );
+        int adapter = GetAdapterIdx( entry.adapter );
+        uint64_t seq = mCrtcCurrentSeq[crtc]++;
+
+        event.system = mStrPool.getstr( "drm" ); // For dat compatibility
+        event.name = mStrPool.getstr( "drm_vblank_event" ); // For dat compatibility
+
+        event.crtc = crtc;
+        event.numfields = 2;
+        event.fields = new event_field_t[event.numfields];
+        event.fields[0].key = mStrPool.getstr( "crtc" );
+        event.fields[0].value = mStrPool.getstrf( "%d", crtc );
+        event.fields[1].key = mStrPool.getstr( "seq" );
+        event.fields[1].value = mStrPool.getstrf( "%ull", seq );
+        event.flags = TRACE_FLAG_VBLANK;
+
+        return mCallback( event );
+    }
 };
 
 int read_wdat_file( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb )
 {
-    // Explicitly add idle thread at pid 0
-    trace_info.pid_comm_map.get_val( 0, strpool.getstr( "<idle>" ) );
-
     wdat_parser_t parser( file, strpool, trace_info, cb );
     return parser.process();
 
