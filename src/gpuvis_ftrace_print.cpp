@@ -52,11 +52,23 @@ static const struct
     { "[Compositor Client] PostPresentHandoff Begin", "[Compositor Client] PostPresentHandoff End" },
     { "[Compositor] Before wait query", "[Compositor] After wait query" },
     { "[Compositor] Begin Present(wait)", "[Compositor] End Present" },
+    { "[Compositor] Begin Present(nowait)", "[Compositor] End Present" },
     { "[Compositor] Before flush", "[Compositor] After flush" },
     { "[Compositor] Sleep - begin: 0", "[Compositor] Sleep - end" },
     { "[Compositor] Sleep - begin: 6", "[Compositor] Sleep - end" },
     { "[Compositor] Begin Running Start", "[Compositor] End Running Start" },
     { "[Compositor] Mirror Begin Present", "[Compositor] Mirror End Present" },
+    { "[Compositor] Before flush: Graphics", "[Compositor] After flush: Graphics" },
+    { "[Compositor] Before flush: Compute", "[Compositor] After flush: Compute" },
+    { "[Compositor Client] Flush (D3D11) - Begin", "[Compositor Client] Flush (D3D11) - End" },
+    { "[Compositor Client] PostPresentHandoff begin", "[Compositor Client] PostPresentHandoff end" },
+    { "[Compositor Client] Begin AcquireSync", "[Compositor Client] End AcquireSync" },
+    { "[Compositor Client] Begin ReleaseSync", "[Compositor Client] End ReleaseSync" },
+    { "[NvEnc]CalculateMotion run(begin)", "[NvEnc]CalculateMotion run(end)" },
+    { "[NvEnc]MapResource(begin)", "[NvEnc]MapResource(end)" },
+    { "[NvEnc]Lock output(begin)", "[NvEnc]Lock output(end)" },
+    { "[NewFrameHandler] Begin AcquireSync", "[NewFrameHandler] End AcquireSync" },
+    { "[NewFrameHandler] Begin ReleaseSync", "[NewFrameHandler] End ReleaseSync" },
 };
 
 static void init_ftrace_pairs( std::vector< TraceEvents::ftrace_pair_t > &ftrace_pairs )
