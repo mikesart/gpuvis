@@ -52,6 +52,11 @@
 
 #ifdef __cplusplus
   #define GPUVIS_EXTERN   extern "C"
+  #if __cplusplus>=201103L
+    #define THREAD_LOCAL thread_local
+  #else
+    #define THREAD_LOCAL __thread
+  #endif
 #else
   #define GPUVIS_EXTERN   extern
 #endif
@@ -351,7 +356,7 @@ static void flush_hot_func_calls()
 
 GPUVIS_EXTERN void gpuvis_count_hot_func_calls_internal_( const char *func )
 {
-    static __thread pid_t s_tid = gpuvis_gettid();
+    static THREAD_LOCAL pid_t s_tid = gpuvis_gettid();
 
     uint64_t t0 = gpuvis_gettime_u64();
     auto &x = g_hotfuncs[ s_tid ];
