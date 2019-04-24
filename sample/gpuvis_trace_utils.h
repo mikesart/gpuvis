@@ -106,7 +106,7 @@ GPUVIS_EXTERN const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen,
 // Internal function used by GPUVIS_COUNT_HOT_FUNC_CALLS macro
 GPUVIS_EXTERN void gpuvis_count_hot_func_calls_internal_( const char *func );
 
-inline uint64_t gpuvis_gettime_u64( void )
+static inline uint64_t gpuvis_gettime_u64( void )
 {
     struct timespec ts;
 
