@@ -22,9 +22,9 @@
  * THE SOFTWARE.
  */
 
-#ifndef GPUVIS_WDAT_H_
-#define GPUVIS_WDAT_H_
+#ifndef GPUVIS_ETL_H_
+#define GPUVIS_ETL_H_
 
-int read_wdat_file( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb );
+int read_etl_file( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb );
 
-#endif // GPUVIS_WDAT_H_
+#endif // GPUVIS_ETL_H_
