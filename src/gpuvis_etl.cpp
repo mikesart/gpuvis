@@ -46,18 +46,18 @@
 
 #include "stlini.h"
 #include "gpuvis_utils.h"
-#include "gpuvis_wdat.h"
+#include "gpuvis_etl.h"
 #include "gpuvis.h"
 
-#include "gpuvis_wdat.h"
+#include "gpuvis_etl.h"
 
  /**
-  * wdat_reader_t reads a wdat file and provides each event as a set of key/value pairs
+  * etl_reader_t reads a etl file and provides each event as a set of key/value pairs
   */
-class wdat_reader_t
+class etl_reader_t
 {
 public:
-    wdat_reader_t( const char *file ) :
+    etl_reader_t( const char *file ) :
         mFileStream( file )
     {
         mFileName = file;
@@ -106,7 +106,7 @@ public:
         }
 
         // Save the original text for error handling
-        map["wdat_line"] = entry;
+        map["etl_line"] = entry;
         
         return map;
     }
@@ -119,13 +119,13 @@ private:
 /**
  * Helper macros for x_entry_t classes
  */
-#define WDAT_PARSE_STR( name ) name = entry[#name];
-#define WDAT_PARSE_INT( name ) name = std::atoi( entry[#name].c_str() );
-#define WDAT_PARSE_U64( name ) name = std::stoull( entry[#name].c_str() );
-#define WDAT_PARSE_DBL( name ) name = std::stod( entry[#name] );
+#define ETL_PARSE_STR( name ) name = entry[#name];
+#define ETL_PARSE_INT( name ) name = std::atoi( entry[#name].c_str() );
+#define ETL_PARSE_U64( name ) name = std::stoull( entry[#name].c_str() );
+#define ETL_PARSE_DBL( name ) name = std::stod( entry[#name] );
 
 /**
- * The x_entry_t classes are helpers to interpret the wdat data as c++ types
+ * The x_entry_t classes are helpers to interpret the etl data as c++ types
  */
 class header_entry_t
 {
@@ -136,7 +136,7 @@ public:
 
     header_entry_t( std::unordered_map<std::string, std::string> &entry )
     {
-        WDAT_PARSE_INT( version );
+        ETL_PARSE_INT( version );
     }
 };
 
@@ -153,11 +153,11 @@ public:
 
     context_entry_t( std::unordered_map<std::string, std::string> &entry )
     {
-        WDAT_PARSE_STR( file );
-        WDAT_PARSE_STR( os_version );
-        WDAT_PARSE_INT( num_cpu );
-        WDAT_PARSE_U64( start_time );
-        WDAT_PARSE_U64( end_time );
+        ETL_PARSE_STR( file );
+        ETL_PARSE_STR( os_version );
+        ETL_PARSE_INT( num_cpu );
+        ETL_PARSE_U64( start_time );
+        ETL_PARSE_U64( end_time );
     }
 };
 
@@ -173,12 +173,12 @@ public:
 
     event_entry_t( std::unordered_map<std::string, std::string> &entry )
     {
-        WDAT_PARSE_U64( ts );
-        WDAT_PARSE_DBL( ts_rms );
-        WDAT_PARSE_INT( cpu );
-        WDAT_PARSE_INT( pid );
-        WDAT_PARSE_INT( tid );
-        WDAT_PARSE_STR( pname );
+        ETL_PARSE_U64( ts );
+        ETL_PARSE_DBL( ts_rms );
+        ETL_PARSE_INT( cpu );
+        ETL_PARSE_INT( pid );
+        ETL_PARSE_INT( tid );
+        ETL_PARSE_STR( pname );
     }
 };
 
@@ -192,7 +192,7 @@ public:
     steamvr_entry_t( std::unordered_map<std::string, std::string> &entry ) :
         event_entry_t( entry )
     {
-        WDAT_PARSE_STR( vrevent );
+        ETL_PARSE_STR( vrevent );
     }
 };
 
@@ -208,21 +208,21 @@ public:
     vsync_entry_t( std::unordered_map<std::string, std::string> &entry ) :
         event_entry_t( entry )
     {
-        WDAT_PARSE_U64( adapter );
-        WDAT_PARSE_U64( display );
-        WDAT_PARSE_U64( address );
+        ETL_PARSE_U64( adapter );
+        ETL_PARSE_U64( display );
+        ETL_PARSE_U64( address );
     }
 };
 
 /**
- * Parses the wdat information stream
+ * Parses the ETL information stream
  *
- * The wdat input stream is converted into a trace_info_t + a sequence of trace_event_t
+ * The ETL input stream is converted into a trace_info_t + a sequence of trace_event_t
  */
-class wdat_parser_t
+class etl_parser_t
 {
 public:
-    wdat_parser_t( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb )
+    etl_parser_t( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb )
         : mFileName( file )
         , mStrPool( strpool )
         , mTraceInfo( trace_info )
@@ -259,7 +259,7 @@ public:
                 ret = process_vsync_entry( vsync_entry_t( event ) );
                 break;
             default:
-                logf( "[Error] unrecognized wdat entry: %s", event["wdat_line"].c_str() );
+                logf( "[Error] unrecognized etl entry: %s", event["wdat_line"].c_str() );
                 ret = 0;
                 break;
             }
@@ -276,7 +276,7 @@ private:
     trace_info_t &mTraceInfo;
     EventCallback &mCallback;
 
-    wdat_reader_t mReader;
+    etl_reader_t mReader;
     uint32_t mCurrentEventId;
     uint64_t mStartTicks;
 
@@ -451,9 +451,9 @@ private:
     }
 };
 
-int read_wdat_file( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb )
+int read_etl_file( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb )
 {
-    wdat_parser_t parser( file, strpool, trace_info, cb );
+    etl_parser_t parser( file, strpool, trace_info, cb );
     return parser.process();
 
     /*

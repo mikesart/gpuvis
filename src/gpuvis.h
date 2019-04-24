@@ -1092,14 +1092,14 @@ public:
     static int SDLCALL thread_func( void *data );
 
     static int load_trace_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb );
-    static int load_wdat_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb );
+    static int load_etl_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb );
 
 public:
     enum trace_type_t
     {
         trace_type_invalid,
         trace_type_trace,
-        trace_type_wdat
+        trace_type_etl
     };
 
     struct loading_info_t

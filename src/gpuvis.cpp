@@ -48,7 +48,7 @@
 
 #include "stlini.h"
 #include "gpuvis_utils.h"
-#include "gpuvis_wdat.h"
+#include "gpuvis_etl.h"
 #include "gpuvis.h"
 
 #include "miniz.h"
@@ -599,9 +599,9 @@ bool MainApp::load_file( const char *filename )
     }
 
     const char *real_ext = strrchr( filename, '.' );
-    if ( real_ext && !strcmp( real_ext, ".wdat" ) )
+    if ( real_ext && !strcmp( real_ext, ".etl" ) )
     {
-        m_trace_type = trace_type_wdat;
+        m_trace_type = trace_type_etl;
     }
     else if ( real_ext && ( !strcmp( real_ext, ".dat" ) || !strcmp( real_ext, ".trace" ) ) )
     {
@@ -725,9 +725,9 @@ int MainApp::load_trace_file( loading_info_t *loading_info, TraceEvents &trace_e
         trace_events.m_trace_info, trace_cb );
 }
 
-int MainApp::load_wdat_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb )
+int MainApp::load_etl_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb )
 {
-    return read_wdat_file( loading_info->filename.c_str(), trace_events.m_strpool,
+    return read_etl_file( loading_info->filename.c_str(), trace_events.m_strpool,
         trace_events.m_trace_info, trace_cb );
 }
 
@@ -756,8 +756,8 @@ int SDLCALL MainApp::thread_func( void *data )
         case trace_type_trace:
             ret = load_trace_file( loading_info, trace_events, trace_cb );
             break;
-        case trace_type_wdat:
-            ret = load_wdat_file( loading_info, trace_events, trace_cb );
+        case trace_type_etl:
+            ret = load_etl_file( loading_info, trace_events, trace_cb );
             break;
         default:
             ret = -1;
@@ -4481,7 +4481,7 @@ void MainApp::open_trace_dialog()
     else
     {
         const char *file = noc_file_dialog_open( NOC_FILE_DIALOG_OPEN,
-                                 "trace-cmd files (*.dat;*.trace;*.wdat;*.zip)\0*.dat;*.trace;*.wdat;*.zip\0",
+                                 "trace-cmd files (*.dat;*.trace;*.etl;*.zip)\0*.dat;*.trace;*.etl;*.zip\0",
                                  NULL, "trace.dat" );
 
         if ( file && file[ 0 ] )
