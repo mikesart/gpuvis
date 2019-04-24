@@ -22,6 +22,19 @@
  * THE SOFTWARE.
  */
 
+// Parsing ETL files is only supported on windows
+// We heavily rely on the TDH windows library for the heavy lifting
+#ifdef _WIN32
+
+#define INITGUID
+
+#include <windows.h>
+#include <stdio.h>
+#include <wbemidl.h>
+#include <wmistr.h>
+#include <evntrace.h>
+#include <tdh.h>
+
 #include <string>
 #include <array>
 #include <vector>
@@ -46,21 +59,356 @@
 
 #include "stlini.h"
 #include "gpuvis_utils.h"
+#include "etl_utils.h"
 #include "gpuvis_etl.h"
 #include "gpuvis.h"
 
-#include "gpuvis_etl.h"
+/**
+ * Extract a data member from an ETL trace using TDH
+ *
+ * This method will extract the property at index 'prop' from pEvent
+ *
+ * If this property is an array, 'idx' will specify which array element to index
+ */
+bool tdh_extract_property( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo, int prop, int idx, int intype, void* &out )
+{
+    DWORD status = ERROR_SUCCESS;
+    USHORT ArraySize = 0;
+    PEVENT_MAP_INFO pMapInfo = nullptr;
+    PROPERTY_DATA_DESCRIPTOR DataDescriptors[2];
+    ULONG DescriptorsCount = 0;
+    DWORD PropertySize = 0;
+    PBYTE pData = nullptr;
+
+    status = GetArraySize( pEvent, pInfo, prop, &ArraySize );
+    if ( status != ERROR_SUCCESS )
+    {
+        logf( "Failed to extract property: error calculating array size\n" );
+        goto error;
+    }
+
+    //wprintf( L"%s", (LPWSTR)( (PBYTE)(pInfo)+pInfo->EventPropertyInfoArray[prop].NameOffset ) );
+
+    // We only support simple properties at the moment, no structs
+    if ( ( pInfo->EventPropertyInfoArray[prop].Flags & PropertyStruct ) == PropertyStruct ||
+         ArraySize != 1)
+    {
+        logf( "Failed to extract property: complex types unsupported\n" );
+        goto error;
+    }
+
+    ZeroMemory( &DataDescriptors, sizeof( DataDescriptors ) );
+    DataDescriptors[0].PropertyName = (ULONGLONG)( (PBYTE)(pInfo)+pInfo->EventPropertyInfoArray[prop].NameOffset );
+    DataDescriptors[0].ArrayIndex = idx;
+    DescriptorsCount = 1;
+
+    status = TdhGetPropertySize( pEvent, 0, nullptr, DescriptorsCount, &DataDescriptors[0], &PropertySize );
+    if ( status != ERROR_SUCCESS )
+    {
+        logf( "Failed to extract property: error calculating property size\n" );
+        goto error;
+    }
+
+    pData = (PBYTE)malloc( PropertySize );
+    if ( nullptr == pData )
+    {
+        logf( "Failed to extract property: error calculating property size\n" );
+        goto error;
+    }
+
+    status = TdhGetProperty( pEvent, 0, nullptr, DescriptorsCount, &DataDescriptors[0], PropertySize, pData );
+    if ( status != ERROR_SUCCESS )
+    {
+        logf( "Failed to extract property: error retriving property\n" );
+        goto error;
+    }
+
+    status = GetMapInfo( pEvent,
+        (PWCHAR)( (PBYTE)(pInfo)+pInfo->EventPropertyInfoArray[prop].nonStructType.MapNameOffset ),
+        pInfo->DecodingSource,
+        pMapInfo );
+    if ( status != ERROR_SUCCESS )
+    {
+        logf( "Failed to extract property: retriving map info\n" );
+        goto error;
+    }
+
+    // verify that the call matches our expected type
+    _TDH_IN_TYPE eInfoType = (_TDH_IN_TYPE)pInfo->EventPropertyInfoArray[prop].nonStructType.InType;
+    _TDH_IN_TYPE eRequestedType = ( _TDH_IN_TYPE)intype;
+    if ( eInfoType != eRequestedType )
+    {
+        logf( "Failed to extract property: type mismatch\n" );
+        goto error;
+    }
+
+    out = pData;
+
+    if ( pMapInfo )
+        free( pMapInfo );
+
+    return true;
+
+error:
+    if ( pData )
+        free( pData );
+    if ( pMapInfo )
+        free( pMapInfo );
+
+    return false;
+}
+
+template< typename T, int intype >
+bool tdh_extract_property_typed( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo, int prop, int idx, T &out )
+{
+    void *pData = nullptr;
+
+    if ( !tdh_extract_property( pEvent, pInfo, prop, idx, intype, pData ) || !pData )
+    {
+        goto error;
+    }
+
+    out = *( (T*)pData );
+    free( pData );
+
+    return true;
+
+error:
+    if ( pData )
+        free( pData );
+
+    return false;
+}
+
+template< int intype >
+bool tdh_extract_property_typed( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo, int prop, int idx, std::string &out )
+{
+    void *pData = nullptr;
+
+    if ( !tdh_extract_property( pEvent, pInfo, prop, idx, intype, pData ) || !pData )
+    {
+        goto error;
+    }
+
+    out = (const char *)pData;
+    free( pData );
+
+    return true;
+
+error:
+    if ( pData )
+        free( pData );
+
+    return false;
+}
+
+template< int intype >
+bool tdh_extract_property_typed( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo, int prop, int idx, std::wstring &out )
+{
+    void *pData = nullptr;
+
+    if ( !tdh_extract_property( pEvent, pInfo, prop, idx, intype, pData ) || !pData )
+    {
+        goto error;
+    }
+
+    out = (const wchar_t *)pData;
+    free( pData );
+
+    return true;
+
+error:
+    if ( pData )
+        free( pData );
+
+    return false;
+}
+
+/**
+ * Helper for simple extraction from type information
+ */
+bool tdh_extract_a( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo, int prop, int idx, std::string &out )
+{
+    return tdh_extract_property_typed<TDH_INTYPE_ANSISTRING>( pEvent, pInfo, prop, idx, out );
+}
+
+bool tdh_extract( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo, int prop, std::string &out )
+{
+    return tdh_extract_a( pEvent, pInfo, prop, 0, out );
+}
+
+bool tdh_extract_a( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo, int prop, int idx, std::wstring &out )
+{
+    return tdh_extract_property_typed<TDH_INTYPE_UNICODESTRING>( pEvent, pInfo, prop, idx, out );
+}
+
+bool tdh_extract( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo, int prop, std::wstring &out )
+{
+    return tdh_extract_a( pEvent, pInfo, prop, 0, out );
+}
+
+bool tdh_extract_a( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo, int prop, int idx, uint32_t &out )
+{
+    return tdh_extract_property_typed<uint32_t, TDH_INTYPE_UINT32>( pEvent, pInfo, prop, idx, out );
+}
+
+bool tdh_extract( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo, int prop, uint32_t &out )
+{
+    return tdh_extract_a( pEvent, pInfo, prop, 0, out );
+}
+
+bool tdh_extract_a( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo, int prop, int idx, uint64_t &out )
+{
+    return tdh_extract_property_typed<uint64_t, TDH_INTYPE_UINT64>( pEvent, pInfo, prop, idx, out );
+}
+
+bool tdh_extract( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo, int prop, uint64_t &out )
+{
+    return tdh_extract_a( pEvent, pInfo, prop, 0, out );
+}
+
+bool tdh_extract_a( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo, int prop, int idx, void* &out )
+{
+    return tdh_extract_property_typed<void*, TDH_INTYPE_POINTER>( pEvent, pInfo, prop, idx, out );
+}
+
+bool tdh_extract( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo, int prop, void* &out )
+{
+    return tdh_extract_a( pEvent, pInfo, prop, 0, out );
+}
 
  /**
-  * etl_reader_t reads a etl file and provides each event as a set of key/value pairs
-  */
+ * etl_reader_t reads a etl file and provides each event as a set of key/value pairs
+ *
+ * Refer to:
+ * https://docs.microsoft.com/en-us/windows/desktop/etw/event-trace-logfile
+ * https://docs.microsoft.com/en-us/windows/desktop/etw/using-tdhformatproperty-to-consume-event-data
+ */
 class etl_reader_t
 {
 public:
-    etl_reader_t( const char *file ) :
-        mFileStream( file )
+    struct etl_reader_cb_data_t
     {
-        mFileName = file;
+        void* ctx;
+        PEVENT_RECORD event;
+        PTRACE_EVENT_INFO info;
+    };
+
+    typedef void( *EventCallback )( etl_reader_cb_data_t *cbdata );
+
+    etl_reader_t( const char *file, EventCallback cb, void *ctx )
+        : mFileName( file )
+        , mTraceHandle( 0 )
+        , mParserCallback( cb )
+        , mParserCtx( ctx )
+    {
+    }
+
+    DWORD get_event_info( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO & pInfo )
+    {
+        DWORD status = ERROR_SUCCESS;
+        DWORD BufferSize = 0;
+
+        // Retrieve the required buffer size for the event metadata.
+
+        status = TdhGetEventInformation( pEvent, 0, nullptr, pInfo, &BufferSize );
+        if ( ERROR_INSUFFICIENT_BUFFER == status )
+        {
+            pInfo = (TRACE_EVENT_INFO*)malloc( BufferSize );
+            if ( pInfo == nullptr )
+            {
+                logf( "Failed to allocate memory for event info (size=%lu).\n", BufferSize );
+                return ERROR_OUTOFMEMORY;
+            }
+
+            // Retrieve the event metadata.
+
+            status = TdhGetEventInformation( pEvent, 0, nullptr, pInfo, &BufferSize );
+        }
+
+        if ( ERROR_SUCCESS != status )
+        {
+            logf( "TdhGetEventInformation failed with 0x%x.\n", status );
+        }
+
+        return status;
+    }
+
+    bool is_parseable_event( PTRACE_EVENT_INFO info )
+    {
+        switch ( info->DecodingSource )
+        {
+        case DecodingSourceWbem:
+        case DecodingSourceXMLFile:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    static void WINAPI process_event_cb( PEVENT_RECORD event )
+    {
+        etl_reader_t *ctx = (etl_reader_t *)event->UserContext;
+        ctx->process_event( event );
+    }
+
+    void process_event( PEVENT_RECORD event )
+    {
+        DWORD status = ERROR_SUCCESS;
+        PTRACE_EVENT_INFO info = nullptr;
+
+        status = get_event_info( event, info );
+        if ( ERROR_SUCCESS != status )
+        {
+            logf( "Failed to get event information failed with %lu\n", status );
+            return;
+        }
+
+        if ( !is_parseable_event( info ) )
+        {
+            return;
+        }
+
+        etl_reader_cb_data_t cbdata = { 0 };
+        cbdata.ctx = mParserCtx;
+        cbdata.event = event;
+        cbdata.info = info;
+        mParserCallback( &cbdata );
+
+        free( info );
+    }
+
+    int process()
+    {
+        TDHSTATUS status = ERROR_SUCCESS;
+        EVENT_TRACE_LOGFILE trace;
+        TRACE_LOGFILE_HEADER* pHeader = &trace.LogfileHeader;
+
+        ZeroMemory( &trace, sizeof( EVENT_TRACE_LOGFILE ) );
+        trace.LogFileName = (char *)mFileName;
+        trace.EventRecordCallback = (PEVENT_RECORD_CALLBACK)( process_event_cb );
+        trace.ProcessTraceMode = PROCESS_TRACE_MODE_EVENT_RECORD;
+        trace.Context = this;
+
+        mTraceHandle = OpenTrace( &trace );
+        if ( INVALID_PROCESSTRACE_HANDLE == mTraceHandle )
+        {
+            logf( "Failed to open etl trace %s: %lu\n", mFileName, GetLastError() );
+            return -1;
+        }
+
+        mIsUserTrace = pHeader->LogFileMode & EVENT_TRACE_PRIVATE_LOGGER_MODE;
+        logf( "Number of events lost:  %lu\n", pHeader->EventsLost );
+        logf( "Number of buffers lost: %lu\n", pHeader->BuffersLost );
+
+        status = ProcessTrace( &mTraceHandle, 1, 0, 0 );
+        if ( status != ERROR_SUCCESS && status != ERROR_CANCELLED )
+        {
+            logf( "Failed to process trace: %lu\n", status );
+            return -1;
+        }
+
+        return 0;
     }
 
     // return false at end of stream
@@ -82,7 +430,7 @@ public:
 
         // Eat the last space
         std::getline( stream, garbage, ' ' );
-        
+
         return true;
     }
 
@@ -90,12 +438,12 @@ public:
     {
         std::unordered_map<std::string, std::string> map = {};
 
-        if ( !mFileStream )
-            return map;
+        //if ( !mFileStream )
+        return map;
 
         std::string entry;
-        if ( !std::getline( mFileStream, entry ) )
-            return map;
+        //if ( !std::getline( mFileStream, entry ) )
+        return map;
 
         std::istringstream event( entry );
 
@@ -107,57 +455,47 @@ public:
 
         // Save the original text for error handling
         map["etl_line"] = entry;
-        
+
         return map;
     }
 
 private:
-    std::string mFileName;
-    std::ifstream mFileStream;
+    const char *mFileName;
+    TRACEHANDLE mTraceHandle;
+    bool mIsUserTrace;
+    EventCallback mParserCallback;
+    void * mParserCtx;
 };
 
 /**
- * Helper macros for x_entry_t classes
+ * Extract the i'th property into a variable by reference
  */
-#define ETL_PARSE_STR( name ) name = entry[#name];
-#define ETL_PARSE_INT( name ) name = std::atoi( entry[#name].c_str() );
-#define ETL_PARSE_U64( name ) name = std::stoull( entry[#name].c_str() );
-#define ETL_PARSE_DBL( name ) name = std::stod( entry[#name] );
+#define ETL_EXTRACT( i, ref ) tdh_extract( cbdata->event, cbdata->info, i, ref )
+
+/**
+ * Dump all properties to figure out what is needed
+ */
+#define ETL_DUMP() DumpEventMetadata( cbdata->info ); DumpProperties( cbdata->event, cbdata->info )
 
 /**
  * The x_entry_t classes are helpers to interpret the etl data as c++ types
  */
-class header_entry_t
-{
-public:
-    static const int entry_id = 0;
-
-    int version;
-
-    header_entry_t( std::unordered_map<std::string, std::string> &entry )
-    {
-        ETL_PARSE_INT( version );
-    }
-};
-
 class context_entry_t
 {
 public:
-    static const int entry_id = 1;
-
-    std::string file;
+    std::wstring file;
     std::string os_version;
-    int num_cpu;
+    uint32_t num_cpu;
     uint64_t start_time;
     uint64_t end_time;
 
-    context_entry_t( std::unordered_map<std::string, std::string> &entry )
+    context_entry_t( etl_reader_t::etl_reader_cb_data_t *cbdata )
     {
-        ETL_PARSE_STR( file );
-        ETL_PARSE_STR( os_version );
-        ETL_PARSE_INT( num_cpu );
-        ETL_PARSE_U64( start_time );
-        ETL_PARSE_U64( end_time );
+        os_version = "windows";
+        ETL_EXTRACT( 22, file );
+        ETL_EXTRACT(  3, num_cpu );
+        ETL_EXTRACT( 18, start_time );
+        ETL_EXTRACT(  4, end_time );
     }
 };
 
@@ -165,52 +503,48 @@ class event_entry_t
 {
 public:
     uint64_t ts;
-    double ts_rms;
     int cpu;
     int pid;
     int tid;
     std::string pname;
 
-    event_entry_t( std::unordered_map<std::string, std::string> &entry )
+    event_entry_t( etl_reader_t::etl_reader_cb_data_t *cbdata )
     {
-        ETL_PARSE_U64( ts );
-        ETL_PARSE_DBL( ts_rms );
-        ETL_PARSE_INT( cpu );
-        ETL_PARSE_INT( pid );
-        ETL_PARSE_INT( tid );
-        ETL_PARSE_STR( pname );
+        PTRACE_EVENT_INFO pinfo = cbdata->info;
+        EVENT_HEADER *header = &cbdata->event->EventHeader;
+        ts = header->TimeStamp.QuadPart;
+        cpu = cbdata->event->BufferContext.ProcessorNumber;
+        pid = header->ProcessId;
+        tid = header->ThreadId;
+        pname = "process"; //TODO
     }
 };
 
 class steamvr_entry_t : public event_entry_t
 {
 public:
-    static const int entry_id = 2;
-
     std::string vrevent;
 
-    steamvr_entry_t( std::unordered_map<std::string, std::string> &entry ) :
-        event_entry_t( entry )
+    steamvr_entry_t( etl_reader_t::etl_reader_cb_data_t *cbdata ) :
+        event_entry_t( cbdata )
     {
-        ETL_PARSE_STR( vrevent );
+        ETL_EXTRACT( 0, vrevent );
     }
 };
 
 class vsync_entry_t : public event_entry_t
 {
 public:
-    static const int entry_id = 3;
-
-    uint64_t adapter;
-    uint64_t display;
+    void *adapter;
+    uint32_t display;
     uint64_t address;
 
-    vsync_entry_t( std::unordered_map<std::string, std::string> &entry ) :
-        event_entry_t( entry )
+    vsync_entry_t( etl_reader_t::etl_reader_cb_data_t *cbdata ) :
+        event_entry_t( cbdata )
     {
-        ETL_PARSE_U64( adapter );
-        ETL_PARSE_U64( display );
-        ETL_PARSE_U64( address );
+        ETL_EXTRACT( 0, adapter );
+        ETL_EXTRACT( 1, display );
+        ETL_EXTRACT( 2, address );
     }
 };
 
@@ -221,13 +555,26 @@ public:
  */
 class etl_parser_t
 {
+private:
+    class __declspec( uuid( "{8F8F13B1-60EB-4B6A-A433-DE86104115AC}" ) ) kSteamVrProvider;
+    class __declspec( uuid( "{802ec45a-1e99-4b83-9920-87c98277ba9d}" ) ) kDxcProvider;
+
+    static const int kDxcVsyncTaskId = 10;
+
 public:
+    // Forward the callback to the right object
+    static void process_event_cb_proxy( etl_reader_t::etl_reader_cb_data_t *cbdata )
+    {
+        etl_parser_t *pthis = (etl_parser_t *)cbdata->ctx;
+        pthis->process_event_cb( cbdata );
+    }
+
     etl_parser_t( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb )
         : mFileName( file )
         , mStrPool( strpool )
         , mTraceInfo( trace_info )
         , mCallback( cb )
-        , mReader( file )
+        , mReader( file,  process_event_cb_proxy, this )
         , mCurrentEventId( 0 )
         , mStartTicks( 0 )
         , mAdapterCount( 0 )
@@ -238,34 +585,68 @@ public:
 
     int process()
     {
-        std::unordered_map<std::string, std::string> event;
-        for ( event = mReader.get_event(); !event.empty(); event = mReader.get_event() )
-        {
-            int event_id = std::atoi( event["id"].c_str() );
+        int err;
 
-            int ret;
-            switch ( event_id )
+        err = mReader.process();
+        if ( err )
+        {
+            return err;
+        }
+    }
+
+    int process_event_cb( etl_reader_t::etl_reader_cb_data_t *cbdata )
+    {
+        PEVENT_RECORD event = cbdata->event;
+        PTRACE_EVENT_INFO info = cbdata->info;
+        GUID *providerGuid = &event->EventHeader.ProviderId;
+        UCHAR opcode = event->EventHeader.EventDescriptor.Opcode;
+        USHORT task = event->EventHeader.EventDescriptor.Task;
+        int ret = -1;
+
+        // Trace events provide context information
+        if ( IsEqualGUID( *providerGuid, EventTraceGuid ) )
+        {    
+            switch ( opcode )
             {
-            case header_entry_t::entry_id:
-                ret = process_header_entry( header_entry_t( event ) );
-                break;
-            case context_entry_t::entry_id:
-                ret = process_context_entry( context_entry_t( event ) );
-                break;
-            case steamvr_entry_t::entry_id:
-                ret = process_steamvr_entry( steamvr_entry_t( event ) );
-                break;
-            case vsync_entry_t::entry_id:
-                ret = process_vsync_entry( vsync_entry_t( event ) );
-                break;
-            default:
-                logf( "[Error] unrecognized etl entry: %s", event["wdat_line"].c_str() );
-                ret = 0;
+            case EVENT_TRACE_TYPE_INFO:
+                ret = process_context_entry( context_entry_t( cbdata ) );
                 break;
             }
         }
+        // SteamVR is a known user provider that generates events
+        else if ( IsEqualGUID( *providerGuid, __uuidof( kSteamVrProvider ) ) )
+        {
+            switch ( opcode )
+            {
+            case EVENT_TRACE_TYPE_INFO:
+                ret = process_steamvr_entry( steamvr_entry_t( cbdata ) );
+                break;
+            }
+        }
+        // The DX driver has a lot of interesting information
+        else if ( IsEqualGUID( *providerGuid, __uuidof( kDxcProvider ) ) )
+        {
+            switch ( task )
+            {
+            case kDxcVsyncTaskId:
+                switch ( opcode )
+                {
+                case EVENT_TRACE_TYPE_INFO:
+                    ret = process_vsync_entry( vsync_entry_t( cbdata ) );
+                    break;
+                }
+                break;
+            }
+        }
+        else
+        {
+            //DumpEventMetadata( info );
+            //DumpProperties( event, info );
+            //std::string out;
+            //tdh_extract( event, info, 0, out );
+        }
 
-        return 0;
+        return ret;
     }
 
 private:
@@ -314,10 +695,9 @@ private:
         return ( ticks - mStartTicks ) * 100;
     }
 
-    int process_header_entry( header_entry_t entry )
+    std::string sfromws( std::wstring ws)
     {
-        // Only version 1 is supported at the moment
-        return entry.version == 1 ? 0 : -1;
+        return std::string( ws.begin(), ws.end() );
     }
 
     int process_context_entry( context_entry_t entry )
@@ -325,7 +705,7 @@ private:
         mStartTicks = entry.start_time;
 
         mTraceInfo.cpus = entry.num_cpu;
-        mTraceInfo.file = entry.file;
+        mTraceInfo.file = sfromws(entry.file);
         mTraceInfo.uname = entry.os_version;
         mTraceInfo.timestamp_in_us = true; // nanoseconds?
         mTraceInfo.min_file_ts = ticks_to_relative_us( entry.start_time );
@@ -432,7 +812,7 @@ private:
             return err;
 
         int crtc = GetCrtcIdx( entry.display );
-        int adapter = GetAdapterIdx( entry.adapter );
+        int adapter = GetAdapterIdx( (uint64_t)entry.adapter );
         uint64_t seq = mCrtcCurrentSeq[crtc]++;
 
         event.system = mStrPool.getstr( "drm" ); // For dat compatibility
@@ -502,3 +882,13 @@ int read_etl_file( const char *file, StrPool &strpool, trace_info_t &trace_info,
     */
     return 0;
 }
+
+#else
+
+// Stub implementation for non-windows OSs
+int read_etl_file( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb )
+{
+    return -1
+}
+#endif
+

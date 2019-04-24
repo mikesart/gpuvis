@@ -70,7 +70,7 @@ endif()
 if ( WIN32 )
     ucm_add_flags( -D_CRT_SECURE_NO_WARNINGS /wd4996 /wd4244 /wd4090 /wd4018 /wd4267 )
 
-    LINK_LIBRARIES( shlwapi opengl32 comctl32 )
+    LINK_LIBRARIES( shlwapi opengl32 comctl32 tdh )
 elseif ( UNIX AND NOT APPLE )
     find_package( PkgConfig REQUIRED )
     pkg_check_modules( GTK3 REQUIRED gtk+-3.0 )
@@ -93,6 +93,7 @@ set ( SRC_LIST
     src/gpuvis_ftrace_print.cpp
     src/gpuvis_utils.cpp
 	src/gpuvis_etl.cpp
+	src/etl_utils.cpp
     src/tdopexpr.cpp
     src/ya_getopt.c
     src/MurmurHash3.cpp
