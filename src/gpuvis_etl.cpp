@@ -548,6 +548,22 @@ public:
     }
 };
 
+class queue_packet_header_entry_t : public event_entry_t
+{
+public:
+    void *ctx;
+    uint32_t ptype;
+    uint32_t seq;
+
+    queue_packet_header_entry_t( etl_reader_t::etl_reader_cb_data_t *cbdata ) :
+        event_entry_t( cbdata )
+    {
+        ETL_EXTRACT( 0, ctx );
+        ETL_EXTRACT( 1, ptype );
+        ETL_EXTRACT( 2, seq );
+    }
+};
+
 /**
  * Parses the ETL information stream
  *
@@ -560,6 +576,7 @@ private:
     class __declspec( uuid( "{802ec45a-1e99-4b83-9920-87c98277ba9d}" ) ) kDxcProvider;
 
     static const int kDxcVsyncTaskId = 10;
+    static const int kDxcQueuePacketTaskId = 9;
 
 public:
     // Forward the callback to the right object
@@ -636,14 +653,15 @@ public:
                     break;
                 }
                 break;
+            case kDxcQueuePacketTaskId:
+                ret = process_queue_packet_entry( cbdata );
+                break;
             }
         }
         else
         {
             //DumpEventMetadata( info );
             //DumpProperties( event, info );
-            //std::string out;
-            //tdh_extract( event, info, 0, out );
         }
 
         return ret;
@@ -829,58 +847,65 @@ private:
 
         return mCallback( event );
     }
+
+    int process_queue_packet_entry( etl_reader_t::etl_reader_cb_data_t *cbdata )
+    {
+        int err = -1;
+        trace_event_t event;
+        std::string timeline = "";
+        queue_packet_header_entry_t header( cbdata );
+        UCHAR opcode = cbdata->event->EventHeader.EventDescriptor.Opcode;
+
+        switch ( header.ptype )
+        {
+        case DXGKETW_RENDER_COMMAND_BUFFER:
+        case DXGKETW_DEFERRED_COMMAND_BUFFER:
+        case DXGKETW_SYSTEM_COMMAND_BUFFER:
+            timeline = "gfx";
+            break;
+        default:
+            //ETL_DUMP();
+            return -1;
+        }
+
+        switch ( opcode )
+        {
+        case EVENT_TRACE_TYPE_START:
+            event.name = mStrPool.getstr( "amdgpu_cs_ioctl" ); // For dat compatibility
+            event.flags = TRACE_FLAG_SW_QUEUE;
+            break;
+        case EVENT_TRACE_TYPE_INFO:
+            event.name = mStrPool.getstr( "amdgpu_sched_run_job" ); // For dat compatibility
+            event.flags = TRACE_FLAG_HW_QUEUE;
+            break;
+        case EVENT_TRACE_TYPE_STOP:
+            event.name = mStrPool.getstr( "fence_signaled" ); // For dat compatibility
+            event.flags = TRACE_FLAG_FENCE_SIGNALED;
+            break;
+        }
+
+        err = process_event_entry( header, event );
+        if ( err )
+            return err;
+
+        event.system = mStrPool.getstr( "QueuePacket" );
+
+        event.numfields = 2;
+        event.fields = new event_field_t[event.numfields];
+        event.fields[0].key = mStrPool.getstr( "timeline" );
+        event.fields[0].value = mStrPool.getstr( timeline.c_str() );
+        event.fields[1].key = mStrPool.getstr( "context" );
+        event.fields[1].value = mStrPool.getstrf( "0x%xll", header.ctx );
+        event.seqno = header.seq;
+
+        return mCallback( event );
+    }
 };
 
 int read_etl_file( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb )
 {
     etl_parser_t parser( file, strpool, trace_info, cb );
     return parser.process();
-
-    /*
-    // Find the lowest ts value in the trace file
-    trace_info.min_file_ts = std::min< int64_t >( trace_info.min_file_ts, record->ts );
-
-    trace_info.cpu_info.resize( handle->cpus );
-    for ( size_t cpu = 0; cpu < (size_t)handle->cpus; cpu++ )
-    {
-        cpu_info_t &cpu_info = trace_info.cpu_info[cpu];
-        pevent_record_t *record = tracecmd_peek_data( handle, cpu );
-
-        cpu_info.file_offset = handle->cpu_data[cpu].file_offset;
-        cpu_info.file_size = handle->cpu_data[cpu].file_size;
-
-        if ( cpu < handle->cpustats.size() )
-        {
-            const char *stats = handle->cpustats[cpu].c_str();
-
-            cpu_info.entries = geti64( stats, "entries:" );
-            cpu_info.overrun = geti64( stats, "overrun:" );
-            cpu_info.commit_overrun = geti64( stats, "commit overrun:" );
-            cpu_info.bytes = geti64( stats, "bytes:" );
-            cpu_info.oldest_event_ts = getf64( stats, "oldest event ts:" );
-            cpu_info.now_ts = getf64( stats, "now ts:" );
-            cpu_info.dropped_events = geti64( stats, "dropped events:" );
-            cpu_info.read_events = geti64( stats, "read events:" );
-
-            if ( cpu_info.oldest_event_ts )
-                cpu_info.oldest_event_ts -= trace_info.min_file_ts;
-            if ( cpu_info.now_ts )
-                cpu_info.now_ts -= trace_info.min_file_ts;
-        }
-
-        if ( record )
-        {
-            cpu_info.min_ts = record->ts - trace_info.min_file_ts;
-
-            if ( cpu_info.overrun && trace_info.trim_trace )
-                trim_ts = std::max< unsigned long long >( trim_ts, record->ts );
-        }
-    }
-
-    // Scoot to tracestart time if it was set
-    trim_ts = std::max< unsigned long long >( trim_ts, trace_info.min_file_ts + trace_info.m_tracestart );
-    */
-    return 0;
 }
 
 #else
