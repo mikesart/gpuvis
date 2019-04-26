@@ -30,6 +30,19 @@
 #include <windows.h>
 #include <tdh.h>
 
+// This enum is in the MS docs that references a header called Dxetwevt.h,
+// but that header is nowhere to be found.
+typedef enum _DXGKETW_QUEUE_PACKET_TYPE {
+    DXGKETW_RENDER_COMMAND_BUFFER = 0,
+    DXGKETW_DEFERRED_COMMAND_BUFFER = 1,
+    DXGKETW_SYSTEM_COMMAND_BUFFER = 2,
+    DXGKETW_MMIOFLIP_COMMAND_BUFFER = 3,
+    DXGKETW_WAIT_COMMAND_BUFFER = 4,
+    DXGKETW_SIGNAL_COMMAND_BUFFER = 5,
+    DXGKETW_DEVICE_COMMAND_BUFFER = 6,
+    DXGKETW_SOFTWARE_COMMAND_BUFFER = 7
+} DXGKETW_QUEUE_PACKET_TYPE;
+
 DWORD DumpEventMetadataField( TRACE_EVENT_INFO* pinfo, DWORD i, USHORT indent );
 DWORD DumpEventMetadata( PTRACE_EVENT_INFO info );
 DWORD DumpEvent( PEVENT_RECORD pEvent, PTRACE_EVENT_INFO pInfo );
