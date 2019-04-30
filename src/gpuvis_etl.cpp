@@ -609,6 +609,8 @@ public:
         {
             return err;
         }
+
+         return 0;
     }
 
     int process_event_cb( etl_reader_t::etl_reader_cb_data_t *cbdata )
