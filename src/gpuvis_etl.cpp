@@ -566,6 +566,35 @@ public:
     }
 };
 
+class dma_packet_header_entry_t : public event_entry_t
+{
+public:
+    void *ctx;
+    void *qctx;
+    uint32_t ptype;
+    uint32_t submit_seq;
+    uint32_t seq;
+
+    dma_packet_header_entry_t( etl_reader_t::etl_reader_cb_data_t *cbdata ) :
+        event_entry_t( cbdata )
+    {
+        int i = 0;
+        UCHAR opcode = cbdata->event->EventHeader.EventDescriptor.Opcode;
+
+        ETL_EXTRACT( i++, ctx );
+
+        // Field only present in the start packet
+        if ( opcode == EVENT_TRACE_TYPE_START )
+            ETL_EXTRACT( i++, qctx );
+        else
+            qctx = nullptr;
+
+        ETL_EXTRACT( i++, ptype );
+        ETL_EXTRACT( i++, submit_seq );
+        ETL_EXTRACT( i++, seq );
+    }
+};
+
 /**
  * Parses the ETL information stream
  *
@@ -577,8 +606,10 @@ private:
     class __declspec( uuid( "{8F8F13B1-60EB-4B6A-A433-DE86104115AC}" ) ) kSteamVrProvider;
     class __declspec( uuid( "{802ec45a-1e99-4b83-9920-87c98277ba9d}" ) ) kDxcProvider;
 
+    // Get these from Microsoft-Windows-DxgKrnl.manifest.xml
     static const int kDxcVsyncTaskId = 10;
     static const int kDxcQueuePacketTaskId = 9;
+    static const int kDxcDmaPacketTaskId = 8;
 
 public:
     // Forward the callback to the right object
@@ -659,6 +690,9 @@ public:
                 break;
             case kDxcQueuePacketTaskId:
                 ret = process_queue_packet_entry( cbdata );
+                break;
+            case kDxcDmaPacketTaskId:
+                ret = process_dma_packet_entry( cbdata );
                 break;
             }
         }
@@ -875,17 +909,18 @@ private:
         switch ( opcode )
         {
         case EVENT_TRACE_TYPE_START:
+            // Packet was received by the scheduler
             event.name = mStrPool.getstr( "amdgpu_cs_ioctl" ); // For dat compatibility
             event.flags = TRACE_FLAG_SW_QUEUE;
             break;
         case EVENT_TRACE_TYPE_INFO:
-            event.name = mStrPool.getstr( "amdgpu_sched_run_job" ); // For dat compatibility
-            event.flags = TRACE_FLAG_HW_QUEUE;
-            break;
+            // Begin move to HW queue? Use DmaPacket/Start instead
+            return 0;
         case EVENT_TRACE_TYPE_STOP:
-            event.name = mStrPool.getstr( "fence_signaled" ); // For dat compatibility
-            event.flags = TRACE_FLAG_FENCE_SIGNALED;
-            break;
+            // Packet is no longer in use by the driver, don't care
+            return 0;
+        default:
+            return 0;
         }
 
         err = process_event_entry( header, event );
@@ -894,12 +929,57 @@ private:
 
         event.system = mStrPool.getstr( "QueuePacket" );
 
-        event.numfields = 2;
+        event.numfields = 3;
         event.fields = new event_field_t[event.numfields];
         event.fields[0].key = mStrPool.getstr( "timeline" );
         event.fields[0].value = mStrPool.getstr( timeline.c_str() );
         event.fields[1].key = mStrPool.getstr( "context" );
         event.fields[1].value = mStrPool.getstrf( "0x%xll", header.ctx );
+        event.fields[ 2 ].key = mStrPool.getstr( "seq" );
+        event.fields[ 2 ].value = mStrPool.getstrf( "%u", header.seq );
+        event.seqno = header.seq;
+
+        return mCallback( event );
+    }
+
+    int process_dma_packet_entry( etl_reader_t::etl_reader_cb_data_t *cbdata )
+    {
+        int err = -1;
+        trace_event_t event;
+        dma_packet_header_entry_t header( cbdata );
+        std::string timeline = "gfx";
+        UCHAR opcode = cbdata->event->EventHeader.EventDescriptor.Opcode;
+
+        switch ( opcode )
+        {
+        case EVENT_TRACE_TYPE_START:
+            // Submit to the HW engine
+            event.name = mStrPool.getstr( "amdgpu_sched_run_job" ); // For dat compatibility
+            event.flags = TRACE_FLAG_HW_QUEUE;
+            break;
+        case EVENT_TRACE_TYPE_INFO:
+            // Finished processing by the GPU ISR
+            event.name = mStrPool.getstr( "fence_signaled" ); // For dat compatibility
+            event.flags = TRACE_FLAG_FENCE_SIGNALED;
+            break;
+        default:
+            return 0;
+        }
+
+        err = process_event_entry( header, event );
+        if ( err )
+            return err;
+
+        event.system = mStrPool.getstr( "QueuePacket" );
+
+        event.numfields = 3;
+        event.fields = new event_field_t[ event.numfields ];
+        event.fields[ 0 ].key = mStrPool.getstr( "timeline" );
+        event.fields[ 0 ].value = mStrPool.getstr( timeline.c_str() );
+        event.fields[ 1 ].key = mStrPool.getstr( "context" );
+        event.fields[ 1 ].value = mStrPool.getstrf( "0x%xll", header.ctx );
+        event.fields[ 2 ].key = mStrPool.getstr( "seq" );
+        event.fields[ 2 ].value = mStrPool.getstrf( "%u", header.seq );
         event.seqno = header.seq;
 
         return mCallback( event );
