@@ -408,6 +408,8 @@ public:
             return -1;
         }
 
+        logf( "Loading OK\n" );
+
         return 0;
     }
 
