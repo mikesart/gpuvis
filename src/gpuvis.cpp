@@ -750,7 +750,7 @@ int SDLCALL MainApp::thread_func( void *data )
         loading_info->tracestart = 0;
         loading_info->tracelen = 0;
 
-        int ret;
+        int ret = 0;
         switch ( loading_info->type )
         {
         case trace_type_trace:
@@ -766,7 +766,7 @@ int SDLCALL MainApp::thread_func( void *data )
 
         if ( ret < 0 )
         {
-            logf( "[Error] read_trace_file(%s) failed.", filename );
+            logf( "[Error] load_trace_file(%s) failed.", filename );
 
             // -1 means loading error
             SDL_AtomicSet( &trace_events.m_eventsloaded, -1 );
