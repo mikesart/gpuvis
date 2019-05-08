@@ -29,7 +29,7 @@ VERBOSE ?= 0
 COMPILER = $(shell $(CC) -v 2>&1 | grep -q "clang version" && echo clang || echo gcc)
 
 SDL2FLAGS=$(shell sdl2-config --cflags)
-SDL2LIBS=$(shell sdl2-config --static-libs)
+SDL2LIBS=$(shell sdl2-config --libs)
 
 ifeq ($(USE_GTK3), 1)
 GTK3FLAGS=$(shell pkg-config --cflags gtk+-3.0) -DUSE_GTK3
