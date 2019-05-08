@@ -997,7 +997,7 @@ int read_etl_file( const char *file, StrPool &strpool, trace_info_t &trace_info,
 // Stub implementation for non-windows OSs
 int read_etl_file( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb )
 {
-    return -1
+    return -1;
 }
 #endif
 
