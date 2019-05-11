@@ -34,7 +34,9 @@
 #include <wmistr.h>
 #include <evntrace.h>
 #include <tdh.h>
+#endif
 
+// Include below always such that the read_etl_file stub can get compiled.
 #include <string>
 #include <array>
 #include <vector>
@@ -57,6 +59,7 @@
 #include "tdopexpr.h"
 #include "trace-cmd/trace-read.h"
 
+#ifdef _WIN32
 #include "stlini.h"
 #include "gpuvis_utils.h"
 #include "etl_utils.h"
@@ -1000,4 +1003,3 @@ int read_etl_file( const char *file, StrPool &strpool, trace_info_t &trace_info,
     return -1;
 }
 #endif
-
