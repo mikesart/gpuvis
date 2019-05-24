@@ -606,7 +606,7 @@ public:
 class etl_parser_t
 {
 private:
-    class __declspec( uuid( "{8F8F13B1-60EB-4B6A-A433-DE86104115AC}" ) ) kSteamVrProvider;
+    class __declspec( uuid( "{3baa334f-c49b-4a90-b796-f7642dac0656}" ) ) kSteamVrProvider;
     class __declspec( uuid( "{802ec45a-1e99-4b83-9920-87c98277ba9d}" ) ) kDxcProvider;
 
     // Get these from Microsoft-Windows-DxgKrnl.manifest.xml
