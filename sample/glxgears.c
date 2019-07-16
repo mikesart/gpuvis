@@ -151,6 +151,9 @@ gear( GLfloat inner_radius, GLfloat outer_radius, GLfloat width,
     GLfloat angle, da;
     GLfloat u, v, len;
 
+    GPUVIS_TRACE_BLOCKF( "build gear inner=%.2f, outer=%.2f, width=%.2f",
+            inner_radius, outer_radius, width );
+
     r0 = inner_radius;
     r1 = outer_radius - tooth_depth / 2.0;
     r2 = outer_radius + tooth_depth / 2.0;
@@ -280,6 +283,7 @@ gear( GLfloat inner_radius, GLfloat outer_radius, GLfloat width,
 static void
 draw( void )
 {
+    GPUVIS_TRACE_BLOCK( "draw" );
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
     glPushMatrix();
