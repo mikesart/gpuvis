@@ -38,17 +38,22 @@
 #define GPUVIS_TRACE_UTILS_DISABLE
 #endif
 
-// printf-style warnings for user functions.
 #if defined( __clang__ ) || defined( __GNUC__ )
+// printf-style warnings for user functions.
 #define GPUVIS_ATTR_PRINTF( _x, _y ) __attribute__( ( __format__( __printf__, _x, _y ) ) )
+#define GPUVIS_MAY_BE_UNUSED __attribute__( ( unused ) )
+#define GPUVIS_CLEANUP_FUNC( x ) __attribute__( ( __cleanup__( x ) ) )
 #else
 #define GPUVIS_ATTR_PRINTF( _x, _y )
+#define GPUVIS_MAY_BE_UNUSED
+#define GPUVIS_CLEANUP_FUNC( x )
 #endif
 
 #if !defined( GPUVIS_TRACE_UTILS_DISABLE )
 
 #include <time.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
   #define GPUVIS_EXTERN   extern "C"
@@ -106,6 +111,94 @@ GPUVIS_EXTERN const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen,
 // Internal function used by GPUVIS_COUNT_HOT_FUNC_CALLS macro
 GPUVIS_EXTERN void gpuvis_count_hot_func_calls_internal_( const char *func );
 
+struct GpuvisTraceBlock;
+static inline void gpuvis_trace_block_begin( struct GpuvisTraceBlock *block, const char *str );
+static inline void gpuvis_trace_block_end( struct GpuvisTraceBlock *block );
+
+struct GpuvisTraceBlockf;
+static inline void gpuvis_trace_blockf_vbegin( struct GpuvisTraceBlockf *block, const char *fmt, va_list ap );
+static inline void gpuvis_trace_blockf_begin( struct GpuvisTraceBlockf *block, const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 2, 3 );
+static inline void gpuvis_trace_blockf_end( struct GpuvisTraceBlockf *block );
+
+#define LNAME3( _name, _line ) _name ## _line
+#define LNAME2( _name, _line ) LNAME3( _name, _line )
+#define LNAME( _name ) LNAME2( _name, __LINE__ )
+
+struct GpuvisTraceBlock
+{
+    uint64_t m_t0;
+    const char *m_str;
+
+#ifdef __cplusplus
+    GpuvisTraceBlock( const char *str )
+    {
+        gpuvis_trace_block_begin( this, str );
+    }
+
+    ~GpuvisTraceBlock()
+    {
+        gpuvis_trace_block_end( this );
+    }
+#endif
+};
+
+struct GpuvisTraceBlockf
+{
+    uint64_t m_t0;
+    char m_buf[ TRACE_BUF_SIZE ];
+
+#ifdef __cplusplus
+    GpuvisTraceBlockf( const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 2, 3 )
+    {
+        va_list args;
+        va_start( args, fmt );
+        gpuvis_trace_blockf_vbegin( this, fmt, args );
+        va_end( args );
+    }
+
+    ~GpuvisTraceBlockf()
+    {
+        gpuvis_trace_blockf_end( this );
+    }
+#endif
+};
+
+#ifdef __cplusplus
+
+#define GPUVIS_TRACE_BLOCK( _conststr ) GpuvisTraceBlock LNAME( gpuvistimeblock )( _conststr )
+#define GPUVIS_TRACE_BLOCKF( _fmt, ...  ) GpuvisTraceBlockf LNAME( gpuvistimeblock )( _fmt, __VA_ARGS__ )
+
+#else
+
+#if defined( __clang__ ) || defined( __GNUC__ )
+
+#define GPUVIS_TRACE_BLOCKF_INIT( _unique, _fmt, ...  ) \
+    ({ \
+        struct GpuvisTraceBlockf _unique; \
+        gpuvis_trace_blockf_begin( & _unique, _fmt, __VA_ARGS__ ); \
+        _unique; \
+     })
+
+#define GPUVIS_TRACE_BLOCKF( _fmt,  ...) \
+    GPUVIS_CLEANUP_FUNC( gpuvis_trace_blockf_end ) GPUVIS_MAY_BE_UNUSED struct GpuvisTraceBlockf LNAME( gpuvistimeblock ) = \
+        GPUVIS_TRACE_BLOCKF_INIT( LNAME( gpuvistimeblock_init ), _fmt, __VA_ARGS__ )
+
+#define GPUVIS_TRACE_BLOCK( _conststr ) \
+    GPUVIS_CLEANUP_FUNC( gpuvis_trace_block_end ) GPUVIS_MAY_BE_UNUSED struct GpuvisTraceBlock LNAME( gpuvistimeblock ) = \
+        {\
+            .m_t0 = gpuvis_gettime_u64(), \
+            .m_str = _conststr \
+        }
+
+#else
+
+#define GPUVIS_TRACE_BLOCKF( _fmt,  ... )
+#define GPUVIS_TRACE_BLOCK( _conststr )
+
+#endif // __clang__ || __GNUC__
+
+#endif // __cplusplus
+
 static inline uint64_t gpuvis_gettime_u64( void )
 {
     struct timespec ts;
@@ -114,69 +207,49 @@ static inline uint64_t gpuvis_gettime_u64( void )
     return ( ( uint64_t )ts.tv_sec * 1000000000LL) + ts.tv_nsec;
 }
 
-#ifdef __cplusplus
-
-class GpuvisTraceBlock
+static inline void gpuvis_trace_block_finalize( uint64_t m_t0, const char *str )
 {
-public:
-    GpuvisTraceBlock( const char *str ) : m_str( str )
-    {
-        m_t0 = gpuvis_gettime_u64();
-    }
+    uint64_t dt = gpuvis_gettime_u64() - m_t0;
 
-    ~GpuvisTraceBlock()
-    {
-        uint64_t dt = gpuvis_gettime_u64() - m_t0;
+    // The cpu clock_gettime() functions seems to vary compared to the
+    // ftrace event timestamps. If we don't reduce the duration here,
+    // scopes oftentimes won't stack correctly when they're drawn.
+    if ( dt > 11000 )
+        dt -= 11000;
 
-        // The cpu clock_gettime() functions seems to vary compared to the
-        // ftrace event timestamps. If we don't reduce the duration here,
-        // blocks oftentimes won't stack correctly when they're drawn.
-        if ( dt > 11000 )
-            dt -= 11000;
-        gpuvis_trace_printf( "%s (lduration=-%lu)", m_str, dt );
-    }
+    gpuvis_trace_printf( "%s (lduration=-%lu)", str, dt );
+}
 
-public:
-    uint64_t m_t0;
-    const char *m_str;
-};
-
-class GpuvisTraceBlockf
+static inline void gpuvis_trace_block_begin( struct GpuvisTraceBlock* block, const char *str )
 {
-public:
-    GpuvisTraceBlockf( const char *fmt, ... ) GPUVIS_ATTR_PRINTF( 2, 3 )
-    {
-        va_list args;
+    block->m_str = str;
+    block->m_t0 = gpuvis_gettime_u64();
+}
 
-        va_start( args, fmt );
-        vsnprintf( m_buf, sizeof( m_buf ), fmt, args );
-        va_end( args );
+static inline void gpuvis_trace_block_end( struct GpuvisTraceBlock *block )
+{
+    gpuvis_trace_block_finalize(block->m_t0, block->m_str);
+}
 
-        m_t0 = gpuvis_gettime_u64();
-    }
+static inline void gpuvis_trace_blockf_vbegin( struct GpuvisTraceBlockf *block, const char *fmt, va_list ap)
+{
+    vsnprintf(block->m_buf, sizeof(block->m_buf), fmt, ap);
+    block->m_t0 = gpuvis_gettime_u64();
+}
 
-    ~GpuvisTraceBlockf()
-    {
-        uint64_t dt = gpuvis_gettime_u64() - m_t0;
+static inline void gpuvis_trace_blockf_begin( struct GpuvisTraceBlockf *block, const char *fmt, ... )
+{
+    va_list args;
 
-        if ( dt > 11000 )
-            dt -= 11000;
-        gpuvis_trace_printf( "%s (lduration=-%lu)", m_buf, dt );
-    }
+    va_start( args, fmt );
+    gpuvis_trace_blockf_vbegin( block, fmt, args );
+    va_end( args );
+}
 
-public:
-    uint64_t m_t0;
-    char m_buf[ TRACE_BUF_SIZE ];
-};
-
-#define LNAME3( _name, _line ) _name ## _line
-#define LNAME2( _name, _line ) LNAME3( _name, _line )
-#define LNAME( _name ) LNAME2( _name, __LINE__ )
-
-#define GPUVIS_TRACE_BLOCK( _conststr ) GpuvisTraceBlock LNAME( gpuvistimeblock )( _conststr )
-#define GPUVIS_TRACE_BLOCKF( _fmt, ...  ) GpuvisTraceBlockf LNAME( gpuvistimeblock )( _fmt, __VA_ARGS__ )
-
-#endif // __cplusplus
+static inline void gpuvis_trace_blockf_end( struct GpuvisTraceBlockf *block )
+{
+    gpuvis_trace_block_finalize( block->m_t0, block->m_buf );
+}
 
 #define GPUVIS_COUNT_HOT_FUNC_CALLS() gpuvis_count_hot_func_calls_internal_( __func__ );
 
@@ -206,10 +279,18 @@ static inline int gpuvis_tracing_on() { return -1; }
 static inline const char *gpuvis_get_tracefs_dir() { return ""; }
 static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file ) { return NULL; }
 
-#ifdef __cplusplus
+struct GpuvisTraceBlock {};
+
+static inline void gpuvis_trace_block_begin( struct GpuvisTraceBlock *block, const char *str ) {}
+static inline void gpuvis_trace_block_end( struct GpuvisTraceBlock *block ) {}
+
+struct GpuvisTraceBlockf {};
+static inline void gpuvis_trace_blockf_vbegin( struct GpuvisTraceBlockf *block, const char *fmt, va_list ap ) {}
+static inline void gpuvis_trace_blockf_begin( struct GpuvisTraceBlockf *block, const char *fmt, ... ) {}
+static inline void gpuvis_trace_blockf_end( struct GpuvisTraceBlockf *block ) {}
+
 #define GPUVIS_TRACE_BLOCK( _conststr )
 #define GPUVIS_TRACE_BLOCKF( _fmt, ...  )
-#endif
 
 #define GPUVIS_COUNT_HOT_FUNC_CALLS()
 
