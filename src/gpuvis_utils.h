@@ -415,6 +415,7 @@ enum action_t
 
     action_toggle_vblank0,
     action_toggle_vblank1,
+    action_toggle_vblank_hardware_timestamps,
     action_toggle_framemarkers,
     action_toggle_frame_filters,
 
