@@ -300,6 +300,9 @@ void Opts::init()
 
         init_opt_bool( i, desc.c_str(), inikey.c_str(), true );
     }
+
+    init_opt_bool( OPT_VBlankHighPrecTimestamps, "Use high-precision HW vblank timestamps (if available)", "vblank_high_prec_timestamps", false );
+
     init_opt_bool( OPT_RenderFrameMarkers, "Show render frame markers", "render_framemarkers", true );
 
     // Set up action mappings so we can display hotkeys in render_imgui_opt().
