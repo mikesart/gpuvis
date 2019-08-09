@@ -314,6 +314,7 @@ void Opts::init()
     // Set up action mappings so we can display hotkeys in render_imgui_opt().
     m_options[ OPT_RenderCrtc0 ].action = action_toggle_vblank0;
     m_options[ OPT_RenderCrtc1 ].action = action_toggle_vblank1;
+    m_options[ OPT_VBlankHighPrecTimestamps].action = action_toggle_vblank_hardware_timestamps;
     m_options[ OPT_RenderFrameMarkers ].action = action_toggle_framemarkers;
 
     add_opt_graph_rowsize( "gfx", 8 );
@@ -4616,6 +4617,8 @@ void MainApp::handle_hotkeys()
         s_opts().setb( OPT_RenderCrtc0, !s_opts().getb( OPT_RenderCrtc0 ) );
     if ( s_actions().get( action_toggle_vblank1 ) )
         s_opts().setb( OPT_RenderCrtc1, !s_opts().getb( OPT_RenderCrtc1 ) );
+    if ( s_actions().get( action_toggle_vblank_hardware_timestamps ) )
+        s_opts().setb( OPT_VBlankHighPrecTimestamps, !s_opts().getb( OPT_VBlankHighPrecTimestamps ) );
     if ( s_actions().get( action_toggle_framemarkers ) )
         s_opts().setb( OPT_RenderFrameMarkers, !s_opts().getb( OPT_RenderFrameMarkers ) );
 

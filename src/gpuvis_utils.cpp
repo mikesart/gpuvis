@@ -1449,6 +1449,7 @@ void Actions::init()
 
     m_actionmap.push_back( { action_toggle_vblank0, KMOD_CTRL | KMOD_SHIFT, SDLK_m, "Graph: Toggle showing vblank 0 markers" } );
     m_actionmap.push_back( { action_toggle_vblank1, KMOD_CTRL | KMOD_SHIFT, SDLK_n, "Graph: Toggle showing vblank 1 markers" } );
+    m_actionmap.push_back( { action_toggle_vblank_hardware_timestamps, KMOD_CTRL | KMOD_SHIFT, SDLK_k, "Graph: Toggle showing hardware vblank timestamps" } );
     m_actionmap.push_back( { action_toggle_framemarkers, KMOD_CTRL | KMOD_SHIFT, SDLK_f, "Graph: Toggle showing Frame Markers" } );
     m_actionmap.push_back( { action_toggle_frame_filters, KMOD_CTRL | KMOD_SHIFT, SDLK_r, "Graph: Toggle Frame Filters" } );
 
