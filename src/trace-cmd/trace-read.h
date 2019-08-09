@@ -178,16 +178,18 @@ struct trace_event_t
 public:
     bool is_filtered_out = false;
 
-    int pid;                        // event process id
-    uint32_t id;                    // event id
-    uint32_t cpu;                   // cpu this event was hit on
-    int64_t ts;                     // timestamp
+    int pid;                          // event process id
+    uint32_t id;                      // event id
+    uint32_t cpu;                     // cpu this event was hit on
+    int64_t ts;                       // timestamp
 
-    uint32_t flags = 0;             // TRACE_FLAGS_IRQS_OFF, TRACE_FLAG_HARDIRQ, TRACE_FLAG_SOFTIRQ
-    uint32_t seqno = 0;             // event seqno (from fields)
-    uint32_t id_start = INVALID_ID; // start event if this is a graph sequence event (ie amdgpu_sched_run_job, fence_signaled)
+    uint32_t flags = 0;               // TRACE_FLAGS_IRQS_OFF, TRACE_FLAG_HARDIRQ, TRACE_FLAG_SOFTIRQ
+    uint32_t seqno = 0;               // event seqno (from fields)
+    uint32_t id_start = INVALID_ID;   // start event if this is a graph sequence event (ie amdgpu_sched_run_job, fence_signaled)
     uint32_t graph_row_id = 0;
-    int crtc = -1;                  // drm_vblank_event crtc (or -1)
+    int crtc = -1;                    // drm_vblank_event crtc (or -1)
+    int64_t vblank_ts = INT64_MAX;    // time-stamp that is passed with the drm_event_vblank event
+    bool vblank_ts_high_prec = false; // denotes whether or not the hardware timestamp is high-precision
 
     uint32_t color = 0;             // color of the event (or 0 for default)
 
@@ -207,13 +209,14 @@ public:
     event_field_t *fields = nullptr;
 
 public:
-    bool is_fence_signaled() const  { return !!( flags & TRACE_FLAG_FENCE_SIGNALED ); }
-    bool is_ftrace_print() const    { return !!( flags & TRACE_FLAG_FTRACE_PRINT ); }
-    bool is_vblank() const          { return !!( flags & TRACE_FLAG_VBLANK ); }
-    bool is_timeline() const        { return !!( flags & TRACE_FLAG_TIMELINE ); }
-    bool is_sched_switch() const    { return !!( flags & TRACE_FLAG_SCHED_SWITCH ); }
+    bool is_fence_signaled() const             { return !!( flags & TRACE_FLAG_FENCE_SIGNALED ); }
+    bool is_ftrace_print() const               { return !!( flags & TRACE_FLAG_FTRACE_PRINT ); }
+    bool is_vblank() const                     { return !!( flags & TRACE_FLAG_VBLANK ); }
+    bool is_timeline() const                   { return !!( flags & TRACE_FLAG_TIMELINE ); }
+    bool is_sched_switch() const               { return !!( flags & TRACE_FLAG_SCHED_SWITCH ); }
 
-    bool has_duration() const       { return duration != INT64_MAX; }
+    bool has_duration() const                  { return duration != INT64_MAX; }
+    int64_t get_vblank_ts(bool want_high_prec) const { return want_high_prec && (vblank_ts != INT64_MAX) && vblank_ts_high_prec ? vblank_ts : ts; }
 
     const char *get_timeline_name( const char *def = NULL ) const
     {

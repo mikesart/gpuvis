@@ -1575,6 +1575,8 @@ public:
         ftrace_function_str = strpool.getstr( "ftrace-function" );
         drm_vblank_event_str = strpool.getstr( "drm_vblank_event" );
         sched_switch_str = strpool.getstr( "sched_switch" );
+        time_str = strpool.getstr( "time" );
+        high_prec_str = strpool.getstr( "high_prec" );
     }
 
 public:
@@ -1593,6 +1595,8 @@ public:
     const char *ftrace_function_str;
     const char *drm_vblank_event_str;
     const char *sched_switch_str;
+    const char *time_str;
+    const char *high_prec_str;
 };
 
 static void init_event_flags( trace_data_t &trace_data, trace_event_t &event )
@@ -1726,6 +1730,30 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
                                ( char * )record->data + format->offset, format->size );
 
                     trace_event.crtc = val;
+                }
+                else if ( trace_event.name == trace_data.drm_vblank_event_str &&
+                          format_name == trace_data.time_str &&
+                          !strcmp(handle->pevent->trace_clock, "mono"))
+                {
+                    // for drm_vblank_event, if "time" field is available,
+                    // and the trace-clock is monotonic, store the timestamp
+                    // passed along with the vblank event
+                    unsigned long long val = pevent_read_number( pevent,
+                               ( char * )record->data + format->offset, format->size );
+
+                    trace_event.vblank_ts = val - trace_data.trace_info.min_file_ts;
+                }
+                else if ( trace_event.name == trace_data.drm_vblank_event_str &&
+                          format_name == trace_data.high_prec_str &&
+                          !strcmp(handle->pevent->trace_clock, "mono"))
+                {
+                    // for drm_vblank_event, if "high_prec" field is available,
+                    // and the trace-lock is monotonic, store the field whether or not
+                    // the passed timestamp is actually from a high-precision source
+                    unsigned long long val = pevent_read_number( pevent,
+                               ( char * )record->data + format->offset, format->size );
+
+                    trace_event.vblank_ts_high_prec = val != 0;
                 }
                 else if ( is_ftrace_function )
                 {
