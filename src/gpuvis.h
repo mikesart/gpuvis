@@ -945,6 +945,7 @@ enum : uint32_t
     OPT_RenderCrtc7,
     OPT_RenderCrtc8,
     OPT_RenderCrtc9,
+    OPT_VBlankHighPrecTimestamps,
     OPT_RenderFrameMarkers,
     OPT_GraphHeight,
     OPT_GraphHeightZoomed,
