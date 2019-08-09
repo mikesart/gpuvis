@@ -2570,7 +2570,7 @@ static float get_vblank_xdiffs( TraceWin &win, graph_info_t &gi, const std::vect
 
         if ( s_opts().getcrtc( event.crtc ) )
         {
-            float x = gi.ts_to_screenx( event.ts );
+            float x = gi.ts_to_screenx( event.get_vblank_ts( s_opts().getb( OPT_VBlankHighPrecTimestamps ) ) );
 
             if ( xlast )
                 xdiff = std::max< float >( xdiff, x - xlast );
@@ -2617,7 +2617,7 @@ void TraceWin::graph_render_vblanks( graph_info_t &gi )
             {
                 // Handle drm_vblank_event0 .. drm_vblank_event2
                 uint32_t col = Clamp< uint32_t >( col_VBlank0 + event.crtc, col_VBlank0, col_VBlank2 );
-                float x = gi.ts_to_screenx( event.ts );
+                float x = gi.ts_to_screenx( event.get_vblank_ts( s_opts().getb( OPT_VBlankHighPrecTimestamps ) ) );
 
                 imgui_drawrect_filled( x, gi.rc.y, imgui_scale( 1.0f ), gi.rc.h,
                                        s_clrs().get( col, alpha ) );
@@ -4099,13 +4099,13 @@ void TraceWin::graph_mouse_tooltip_vblanks( std::string &ttip, graph_info_t &gi,
             {
                 if ( event.ts < mouse_ts )
                 {
-                    if ( mouse_ts - event.ts < prev_vblank_ts )
-                        prev_vblank_ts = mouse_ts - event.ts;
+                    if ( mouse_ts - event.get_vblank_ts( s_opts().getb( OPT_VBlankHighPrecTimestamps ) ) < prev_vblank_ts )
+                        prev_vblank_ts = mouse_ts - event.get_vblank_ts( s_opts().getb( OPT_VBlankHighPrecTimestamps ) );
                 }
-                if ( event.ts > mouse_ts )
+                if ( event.get_vblank_ts( s_opts().getb( OPT_VBlankHighPrecTimestamps ) ) > mouse_ts )
                 {
-                    if ( event.ts - mouse_ts < next_vblank_ts )
-                        next_vblank_ts = event.ts - mouse_ts;
+                    if ( event.get_vblank_ts( s_opts().getb( OPT_VBlankHighPrecTimestamps ) ) - mouse_ts < next_vblank_ts )
+                        next_vblank_ts = event.get_vblank_ts( s_opts().getb( OPT_VBlankHighPrecTimestamps ) ) - mouse_ts;
                 }
             }
         }

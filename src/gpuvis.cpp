@@ -1947,7 +1947,7 @@ void TraceEvents::init_new_event_vblank( trace_event_t &event )
         trace_event_t &event_vblank_queued = m_events[ *vblank_queued_id ];
 
         // If so, set the vblank queued time
-        event_vblank_queued.duration = event.ts - event_vblank_queued.ts;
+        event_vblank_queued.duration = event.get_vblank_ts( s_opts().getb( OPT_VBlankHighPrecTimestamps ) ) - event_vblank_queued.ts;
     }
 
     m_tdopexpr_locs.add_location_str( "$name=drm_vblank_event", event.id );
@@ -1957,7 +1957,7 @@ void TraceEvents::init_new_event_vblank( trace_event_t &event )
      */
     if ( m_vblank_info[ event.crtc ].last_vblank_ts )
     {
-        int64_t diff = event.ts - m_vblank_info[ event.crtc ].last_vblank_ts;
+        int64_t diff = event.get_vblank_ts( s_opts().getb( OPT_VBlankHighPrecTimestamps ) ) - m_vblank_info[ event.crtc ].last_vblank_ts;
 
         // Normalize ts diff to known frequencies
         diff = normalize_vblank_diff( diff );
@@ -1967,7 +1967,7 @@ void TraceEvents::init_new_event_vblank( trace_event_t &event )
         m_vblank_info[ event.crtc ].count++;
     }
 
-    m_vblank_info[ event.crtc ].last_vblank_ts = event.ts;
+    m_vblank_info[ event.crtc ].last_vblank_ts = event.get_vblank_ts( s_opts().getb( OPT_VBlankHighPrecTimestamps ) );
 }
 
 // new_event_cb adds all events to array, this function initializes them.
