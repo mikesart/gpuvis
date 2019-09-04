@@ -177,7 +177,7 @@ void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
 
     if ( ret >= 0 )
     {
-        logf( "%s", buf );
+        logf( "[Error] %s", buf );
         free( buf );
     }
 
@@ -343,9 +343,9 @@ static void read_header_files( tracecmd_input_t *handle )
     free( header );
 
     /*
-	 * The size field in the page is of type long,
-	 * use that instead, since it represents the kernel.
-	 */
+     * The size field in the page is of type long,
+     * use that instead, since it represents the kernel.
+     */
     handle->long_size = pevent->header_page_size_size;
 
     do_read_check( handle, buf, 13 );
@@ -1362,29 +1362,15 @@ static inline int tracecmd_host_bigendian( void )
  * The returned pointer is not ready to be read yet. A tracecmd_read_headers()
  * and tracecmd_init_data() still need to be called on the descriptor.
  */
-static tracecmd_input_t *tracecmd_alloc_fd( const char *file, int fd )
+static void tracecmd_alloc_fd( tracecmd_input_t *handle, const char *file, int fd )
 {
     char buf[ 64 ];
     char *version;
     char test[] = { 23, 8, 68 };
-    tracecmd_input_t *handle;
-
-    handle = new ( std::nothrow ) tracecmd_input_t;
-    if ( !handle )
-        return NULL;
 
     handle->file = file;
     handle->fd = fd;
     handle->ref = 1;
-
-    if ( setjmp( handle->jump_buffer ) )
-    {
-        logf( "[Error] %s: setjmp error code called for %s.\n", __func__, file );
-
-        delete handle;
-        close( fd );
-        return NULL;
-    }
 
     do_read_check( handle, buf, 3 );
     if ( memcmp( buf, test, 3 ) != 0 )
@@ -1417,8 +1403,6 @@ static tracecmd_input_t *tracecmd_alloc_fd( const char *file, int fd )
     handle->header_files_start = lseek64( handle->fd, 0, SEEK_CUR );
     handle->total_file_size = lseek64( handle->fd, 0, SEEK_END );
     handle->header_files_start = lseek64( handle->fd, handle->header_files_start, SEEK_SET );
-
-    return handle;
 }
 
 /**
@@ -1432,18 +1416,18 @@ static tracecmd_input_t *tracecmd_alloc_fd( const char *file, int fd )
  * The returned pointer is not ready to be read yet. A tracecmd_read_headers()
  * and tracecmd_init_data() still need to be called on the descriptor.
  */
-static tracecmd_input_t *tracecmd_alloc( const char *file )
+static void tracecmd_alloc( tracecmd_input_t *handle, const char *file )
 {
     int fd;
 
     fd = TEMP_FAILURE_RETRY( open( file, O_RDONLY ) );
     if ( fd < 0 )
     {
-        logf( "%s: open(\"%s\") failed: %d\n", __func__, file, errno );
-        return NULL;
+        logf( "[Error] %s: open(\"%s\") failed: %d\n", __func__, file, errno );
+        return;
     }
 
-    return tracecmd_alloc_fd( file, fd );
+    tracecmd_alloc_fd( handle, file, fd );
 }
 
 /**
@@ -1485,7 +1469,11 @@ static void tracecmd_close( tracecmd_input_t *handle )
         }
     }
 
-    close( handle->fd );
+    if ( handle->fd >= 0 )
+    {
+        close( handle->fd );
+        handle->fd = -1;
+    }
 
     delete [] handle->cpu_data;
 
@@ -1857,12 +1845,22 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
     // Latest ts value where a cpu data starts
     unsigned long long trim_ts = 0;
 
-    handle = tracecmd_alloc( file );
+    handle = new ( std::nothrow ) tracecmd_input_t;
     if ( !handle )
     {
-        logf( "%s: Open trace file \"%s\" failed.\n", __func__, file );
+        logf( "[Error] %s: new tracecmd_input_t failed.\n", __func__ );
         return -1;
     }
+
+    if ( setjmp( handle->jump_buffer ) )
+    {
+        logf( "[Error] %s: setjmp error called for %s.\n", __func__, file );
+
+        tracecmd_close( handle );
+        return -1;
+    }
+
+    tracecmd_alloc( handle, file );
 
     add_file( file_list, handle, file );
 
