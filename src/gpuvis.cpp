@@ -2892,6 +2892,8 @@ void TraceWin::trace_render_info()
 
     if ( !trace_info.uname.empty() )
         ImGui::Text( "Trace uname: %s", trace_info.uname.c_str() );
+    if ( !trace_info.opt_version.empty() )
+        ImGui::Text( "Trace version: %s", trace_info.opt_version.c_str() );
 
     if ( !m_graph.rows.m_graph_rows_list.empty() &&
          ImGui::CollapsingHeader( "Graph Row Info" ) )

@@ -75,6 +75,7 @@ enum
     TRACECMD_OPTION_HOOK,
     TRACECMD_OPTION_OFFSET,
     TRACEMCD_OPTION_CPUCOUNT,
+    TRACECMD_OPTION_VERSION,
     TRACECMD_OPTION_SAVED_TGIDS = 32,
 };
 
@@ -149,6 +150,7 @@ typedef struct tracecmd_input
 
     std::string file;
     std::string uname;
+    std::string opt_version;
     std::vector< std::string > cpustats;
 
     /* file information */
@@ -1155,11 +1157,11 @@ static int handle_options( tracecmd_input_t *handle )
         {
         case TRACECMD_OPTION_DATE:
             /*
-			 * A time has been mapped that is the
-			 * difference between the timestamps and
-			 * gtod. It is stored as ASCII with '0x'
-			 * appended.
-			 */
+             * A time has been mapped that is the
+             * difference between the timestamps and
+             * gtod. It is stored as ASCII with '0x'
+             * appended.
+             */
             offset = strtoll( buf, NULL, 0 );
 
             /* Convert from micro to nano */
@@ -1168,9 +1170,9 @@ static int handle_options( tracecmd_input_t *handle )
             break;
         case TRACECMD_OPTION_OFFSET:
             /*
-			 * Similar to date option, but just adds an
-			 * offset to the timestamp.
-			 */
+             * Similar to date option, but just adds an
+             * offset to the timestamp.
+             */
             offset = strtoll( buf, NULL, 0 );
             handle->ts_offset += offset;
             break;
@@ -1214,6 +1216,9 @@ static int handle_options( tracecmd_input_t *handle )
             break;
         case TRACECMD_OPTION_SAVED_TGIDS:
             tracecmd_parse_tgids(handle->pevent, buf, size);
+            break;
+        case TRACECMD_OPTION_VERSION:
+            handle->opt_version = std::string( buf, size );
             break;
         default:
             die( handle, "%s: unknown option %d\n", __func__, option );
@@ -1328,11 +1333,11 @@ void tracecmd_init_data( tracecmd_input_t *handle )
     if ( handle->use_trace_clock )
     {
         /*
-		 * There was a bug in the original setting of
-		 * the trace_clock file which let it get
-		 * corrupted. If it fails to read, force local
-		 * clock.
-		 */
+         * There was a bug in the original setting of
+         * the trace_clock file which let it get
+         * corrupted. If it fails to read, force local
+         * clock.
+         */
         if ( read_and_parse_trace_clock( handle, pevent ) < 0 )
             pevent_register_trace_clock( pevent, "local" );
     }
@@ -1891,6 +1896,7 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
     trace_info.cpus = handle->cpus;
     trace_info.file = handle->file;
     trace_info.uname = handle->uname;
+    trace_info.opt_version = handle->opt_version;
     trace_info.timestamp_in_us = is_timestamp_in_us( handle->pevent->trace_clock, handle->use_trace_clock );
 
     // Explicitly add idle thread at pid 0

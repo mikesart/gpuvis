@@ -122,6 +122,7 @@ struct trace_info_t
     uint32_t cpus = 0;
     std::string file;
     std::string uname;
+    std::string opt_version;
     bool timestamp_in_us;
 
     std::vector< cpu_info_t > cpu_info;
