@@ -120,6 +120,8 @@ static const char *s_buf_prefixes[] =
 // ftrace print event information
 enum bufvar_t
 {
+    bufvar_ltime,
+
     bufvar_lduration,
     bufvar_duration,
     bufvar_begin_ctx,
@@ -139,6 +141,7 @@ static struct
     size_t len;
 } s_buf_vars[] =
 {
+    { "ltime=", 6 },
     { "lduration=", 10 },
     { "duration=", 9 },
     { "begin_ctx=", 10 },
@@ -273,6 +276,7 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
     trace_event_t *add_event = &event;
     const char *orig_buf = get_event_field_val( event, "buf" );
     const char *buf = orig_buf;
+    bool has_print_ltime = false;
 
     if ( m_ftrace.ftrace_pairs.empty() )
         init_ftrace_pairs( m_ftrace.ftrace_pairs );
@@ -282,6 +286,22 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
 
     event.color_index = 0;
     event.seqno = UINT32_MAX;
+
+    // bufvar_ltime is first in enumeration, so if ltime= is present,
+    // it should be the first bufvar returned
+    STATIC_ASSERT( bufvar_ltime == 0 );
+    const char *var_ltime = NULL;
+    var_ltime = find_buf_var( buf, &bufvar );
+
+    if ( bufvar == bufvar_ltime )
+    {
+        event.ts = atoll( var_ltime ) - m_trace_info.min_file_ts;
+
+        // Remove "ltime=XXX", etc from buf
+        buf = trim_ftrace_print_buf( newbuf, buf, var_ltime, s_buf_vars[ bufvar ].len );
+        has_print_ltime = true;
+    }
+    bufvar = bufvar_Max;
 
     const char *tid_offset_str = strncasestr( buf, "tid=", 4 );
     if ( tid_offset_str )
@@ -348,7 +368,7 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
 
     const char *var = do_find_buf_var ? find_buf_var( buf, &bufvar ) : NULL;
 
-    if ( bufvar <= bufvar_end_gctx )
+    if ( bufvar >= bufvar_lduration && bufvar <= bufvar_end_gctx )
     {
         // This is a duration or ctx print event...
 
@@ -427,6 +447,20 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
     else if ( bufvar < bufvar_Max )
     {
         event.color_index = hashstr32( buf );
+    }
+
+    // If this event's timestamp has been injected by
+    // the print buf, add an asterisk to it's text
+    if ( has_print_ltime )
+    {
+        assert( buf == newbuf );
+        size_t len = strlen( newbuf );
+        const size_t size = sizeof( newbuf );
+        if ( len < size - 2 )
+        {
+            newbuf[ len ] = '*';
+            newbuf[ len + 1 ] = 0;
+        }
     }
 
     if ( buf == newbuf )
