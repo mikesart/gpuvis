@@ -279,12 +279,11 @@ static inline int gpuvis_tracing_on() { return -1; }
 static inline const char *gpuvis_get_tracefs_dir() { return ""; }
 static inline const char *gpuvis_get_tracefs_filename( char *buf, size_t buflen, const char *file ) { return NULL; }
 
-struct GpuvisTraceBlock {};
-
+struct GpuvisTraceBlock;
 static inline void gpuvis_trace_block_begin( struct GpuvisTraceBlock *block, const char *str ) {}
 static inline void gpuvis_trace_block_end( struct GpuvisTraceBlock *block ) {}
 
-struct GpuvisTraceBlockf {};
+struct GpuvisTraceBlockf;
 static inline void gpuvis_trace_blockf_vbegin( struct GpuvisTraceBlockf *block, const char *fmt, va_list ap ) {}
 static inline void gpuvis_trace_blockf_begin( struct GpuvisTraceBlockf *block, const char *fmt, ... ) {}
 static inline void gpuvis_trace_blockf_end( struct GpuvisTraceBlockf *block ) {}
