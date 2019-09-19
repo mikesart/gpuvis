@@ -19,6 +19,11 @@ CMD="trace-cmd stop"
 echo ${CMD}
 $CMD
 
+# Extract i915-perf trace
+CMD="i915-perf-control -d trace_${DATE}.i915-dat"
+echo ${CMD}
+$CMD
+
 # Extract trace
 CMD="trace-cmd extract -k -o trace_${DATE}.dat"
 echo ${CMD}
