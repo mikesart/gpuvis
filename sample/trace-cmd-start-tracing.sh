@@ -12,6 +12,13 @@ if [ ! -u "${TRACECMD}" ]; then
     exit -1
 fi
 
+if [ "${USE_I915_PERF}" ]; then
+    if [ -z "${I915_PERF_METRIC}" ]; then
+        echo "WARNING: Missing I915_PERF_METRIC value. Using default value 'RenderBasic'."
+        I915_PERF_METRIC="RenderBasic"
+    fi
+fi
+
 EVENTS=
 
 # https://github.com/mikesart/gpuvis/wiki/TechDocs-Linux-Scheduler
@@ -63,10 +70,22 @@ CMD="trace-cmd reset"
 echo $CMD
 $CMD
 
+CLOCK=mono
+
 echo
-CMD="trace-cmd start -C mono -b 8000 -D -i ${EVENTS}"
+CMD="trace-cmd start -C ${CLOCK} -b 8000 -D -i ${EVENTS}"
 echo $CMD
 $CMD
+
+if [ -e /tmp/.i915-perf-record ]; then
+   CMD="i915-perf-control -q"
+   echo $CMD
+   $CMD
+fi
+
+CMD="i915-perf-recorder -m ${I915_PERF_METRIC} -s 8000 -k ${CLOCK}"
+echo $CMD
+$CMD &
 
 echo
 ./trace-cmd-status.sh

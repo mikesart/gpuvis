@@ -83,6 +83,9 @@ else
     ROOT_CMDS+="chmod 0222 \"${TRACEFS}/trace_marker\"\n"
 fi
 
+# Enable i915-perf to collect GPU data.
+ROOT_CMDS+="sysctl dev.i915.perf_stream_paranoid=0"
+
 if [ -z "${ROOT_CMDS}" ]; then
     :
 else
@@ -134,4 +137,3 @@ else
 fi
 
 spewTraceStatus
-
