@@ -503,6 +503,11 @@ static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t r
 {
     option_id_t optid = s_opts().get_opt_graph_rowsize_id( row_name );
 
+    if ( strstr( row_name.c_str(), "(print)" ) )
+    {
+        row_type = LOC_TYPE_Print;
+    }
+
     if ( optid != OPT_Invalid )
         return optid;
 
@@ -1494,6 +1499,13 @@ uint32_t TraceEvents::ts_to_ftrace_print_info_idx( const std::vector< uint32_t >
         const trace_event_t &event = m_events[ locs[ it ] ];
         const print_info_t *print_info = get_print_info( event.id );
 
+        //$ TODO mikesart
+        // This can happen when we have a "(print)" row based on filtered events and
+        //   some of those events aren't print_infos. For now we just give up and
+        //   start from the first entry.
+        if ( !print_info )
+            return 0;
+
         if ( print_info->ts < ts )
         {
             first = ++it;
@@ -1702,6 +1714,9 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         const trace_event_t &event = get_event( locs[ idx ] );
         const print_info_t *print_info = m_trace_events.get_print_info( event.id );
 
+        if ( !print_info )
+            continue;
+
         if ( print_info->ts > gi.ts1 )
             break;
         else if ( gi.graph_only_filtered && event.is_filtered_out )
@@ -1729,6 +1744,10 @@ uint32_t TraceWin::graph_render_print_timeline( graph_info_t &gi )
         uint32_t row_id;
         const trace_event_t &event = get_event( locs[ idx ] );
         const print_info_t *print_info = m_trace_events.get_print_info( event.id );
+
+        if ( !print_info )
+            continue;
+
         int64_t event_start_ts = print_info->ts;
 
         if ( event_start_ts > gi.ts1 )
@@ -2076,6 +2095,9 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
 
 uint32_t TraceWin::graph_render_row_events( graph_info_t &gi )
 {
+    if ( strstr( gi.prinfo_cur->row_name.c_str(), "(print)" ) )
+        return graph_render_print_timeline( gi );
+
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.rc.y + 4, gi.rc.w, gi.rc.h - 8 );
     bool hide_sched_switch = s_opts().getb( OPT_HideSchedSwitchEvents );

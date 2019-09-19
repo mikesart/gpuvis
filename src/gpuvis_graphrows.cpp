@@ -540,8 +540,9 @@ void GraphRows::add_row( const std::string &name_in, const std::string &filter_e
     {
         for ( size_t i = 0; i < m_graph_rows_list.size(); i++ )
         {
-            // Add this new filter expression before the first comm / tdop expression event we find
-            if ( m_graph_rows_list[ i ].type == LOC_TYPE_Tdopexpr ||
+            // Add this new filter expression before the first print / comm / tdop expression event we find
+            if ( m_graph_rows_list[ i ].type == LOC_TYPE_Print ||
+                 m_graph_rows_list[ i ].type == LOC_TYPE_Tdopexpr ||
                  m_graph_rows_list[ i ].type == LOC_TYPE_Comm )
             {
                 m_graph_rows_list.insert( m_graph_rows_list.begin() + i,
