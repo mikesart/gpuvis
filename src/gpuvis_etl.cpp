@@ -628,7 +628,6 @@ public:
         , mTraceInfo( trace_info )
         , mCallback( cb )
         , mReader( file,  process_event_cb_proxy, this )
-        , mCurrentEventId( 0 )
         , mStartTicks( 0 )
         , mAdapterCount( 0 )
         , mCrtcCount( 0 )
@@ -717,7 +716,6 @@ private:
     EventCallback &mCallback;
 
     etl_reader_t mReader;
-    uint32_t mCurrentEventId;
     uint64_t mStartTicks;
 
     std::unordered_map<uint64_t, int> mAdapterMap;
@@ -827,7 +825,6 @@ private:
         }
 
         event.pid = entry.tid;
-        event.id = mCurrentEventId++;
         event.cpu = entry.cpu;
         event.ts = ticks_to_relative_us( entry.ts );
         event.comm = comm;
