@@ -21,6 +21,7 @@ cmake_minimum_required( VERSION 2.8 FATAL_ERROR )
 project( "gpuvis" )
 
 option(USE_FREETYPE "USE_FREETYPE" ON)
+option(USE_I915_PERF "USE_I915_PERF" OFF)
 
 set( CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake )
 
@@ -81,6 +82,12 @@ elseif ( UNIX AND NOT APPLE )
     LINK_LIBRARIES( dl )
 endif()
 
+if ( USE_I915_PERF )
+    pkg_check_modules( I915_PERF REQUIRED i915-perf )
+    ucm_add_flags( -DUSE_I915_PERF )
+endif()
+
+
 ucm_print_flags()
 
 # Main source list
@@ -91,6 +98,7 @@ set ( SRC_LIST
     src/gpuvis_plots.cpp
     src/gpuvis_graphrows.cpp
     src/gpuvis_ftrace_print.cpp
+    src/gpuvis_i915_perfcounters.cpp
     src/gpuvis_utils.cpp
 	src/gpuvis_etl.cpp
 	src/etl_utils.cpp
@@ -105,6 +113,7 @@ set ( SRC_LIST
     src/imgui/imgui_draw.cpp
     src/imgui/imgui_freetype.cpp
     src/GL/gl3w.c
+    src/i915-perf/i915-perf-read.cpp
     src/trace-cmd/event-parse.c
     src/trace-cmd/trace-seq.c
     src/trace-cmd/kbuffer-parse.c
@@ -120,6 +129,7 @@ include_directories(
     ${FREETYPE_INCLUDE_DIRS}
     ${GTK3_INCLUDE_DIRS}
     ${SDL2_INCLUDE_DIR}
+    ${I915_PERF_INCLUDE_DIRS}
     )
 
 ucm_add_target( NAME gpuvis TYPE EXECUTABLE SOURCES ${SRC_LIST} )
@@ -130,4 +140,5 @@ target_link_libraries(
     ${SDL2_LIBRARY}
     ${FREETYPE_LIBRARIES}
     ${GTK3_LIBRARIES}
+    ${I915_PERF_LIBRARIES}
     )

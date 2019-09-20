@@ -199,6 +199,7 @@ public:
     } i915;
 
     std::vector< uint32_t > sched_switch_bars;
+    std::vector< uint32_t > i915_perf_bars;
 
     // Id of hovered / selected fence signaled event
     uint32_t hovered_fence_signaled = INVALID_ID;
@@ -516,7 +517,8 @@ static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t r
          row_type == LOC_TYPE_Plot ||
          row_type == LOC_TYPE_AMDTimeline ||
          row_type == LOC_TYPE_i915RequestWait ||
-         row_type == LOC_TYPE_i915Request )
+         row_type == LOC_TYPE_i915Request ||
+         row_type == LOC_TYPE_i915Perf )
     {
         int defval = 4;
         int minval = 4;
@@ -537,6 +539,11 @@ static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t r
         {
             defval = 2;
             minval = 2;
+        }
+        else if ( row_type == LOC_TYPE_i915Perf )
+        {
+            defval = 8;
+            minval = 4;
         }
 
         return s_opts().add_opt_graph_rowsize( row_name.c_str(), defval, minval );
@@ -559,6 +566,7 @@ RenderGraphRowCallback graph_info_t::get_render_cb( loc_type_t row_type )
     case LOC_TYPE_AMDTimeline_hw:  return std::bind( &TraceWin::graph_render_amdhw_timeline, &win, _1 );
     case LOC_TYPE_i915Request:     return std::bind( &TraceWin::graph_render_i915_req_events, &win, _1 );
     case LOC_TYPE_i915RequestWait: return std::bind( &TraceWin::graph_render_i915_reqwait_events, &win, _1 );
+    case LOC_TYPE_i915Perf:        return std::bind( &TraceWin::graph_render_i915_perf_events, &win, _1 );
     // LOC_TYPE_Comm or LOC_TYPE_Tdopexpr hopefully...
     default:                       return std::bind( &TraceWin::graph_render_row_events, &win, _1 );
     }
@@ -2458,6 +2466,73 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     return event_renderer.m_num_events;
 }
 
+uint32_t TraceWin::graph_render_i915_perf_events( graph_info_t &gi )
+{
+    ImU32 textcolor = s_clrs().get( col_Graph_BarText );
+    const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
+    float row_h = gi.rc.h / 2;
+    event_renderer_t event_renderer( gi, gi.rc.y + row_h, gi.rc.w, row_h );
+    uint32_t count = 0;
+
+    for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
+          idx < locs.size();
+          idx++ )
+    {
+        uint32_t eventid = locs[ idx ];
+        const trace_event_t &_event = get_event( eventid );
+        if ( !_event.has_duration() )
+        {
+            if ( _event.id_start < gi.eventstart ) {
+                eventid = _event.id_start;
+            } else
+                continue;
+        }
+        const trace_event_t &event = get_event( eventid );
+
+        if ( eventid > gi.eventend )
+            break;
+        else if ( gi.graph_only_filtered && event.is_filtered_out )
+            continue;
+
+        if ( event_renderer.is_event_filtered( event ) )
+            continue;
+
+        count++;
+
+        I915PerfCounters::i915_perf_process process = m_i915_perf.counters.get_process( event );
+
+        float x0 = gi.ts_to_screenx( event.ts );
+        float x1 = gi.ts_to_screenx( event.ts + event.duration );
+        float y = gi.rc.y + row_h;
+
+        if ( ( x1 - x0 ) < imgui_scale( 3.0f ) )
+        {
+            event_renderer.add_event( event.id, x0, process.color );
+        }
+        else
+        {
+            imgui_drawrect_filled( x0, y, x1 - x0, row_h, process.color );
+            imgui_push_cliprect( { x0, y, x1 - x0, gi.text_h } );
+            imgui_draw_textf( x0 + imgui_scale( 1.0f ), y, textcolor,
+                              "%s hw_id=%u", process.label, event.pid );
+            imgui_pop_cliprect();
+
+            if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
+            {
+                imgui_drawrect( x0, y, x1 - x0, row_h, s_clrs().get( col_Graph_BarSelRect ) );
+                gi.i915_perf_bars.push_back( event.id );
+
+                m_i915_perf.counters.set_event( event );
+            }
+        }
+    }
+
+    event_renderer.done();
+    event_renderer.draw_event_markers();
+
+    return count;
+}
+
 void TraceWin::graph_render_single_row( graph_info_t &gi )
 {
     if ( gi.mouse_over )
@@ -2910,6 +2985,7 @@ bool TraceWin::is_graph_row_zoomable()
     case LOC_TYPE_Plot:
     case LOC_TYPE_Print:
     case LOC_TYPE_i915Request:
+    case LOC_TYPE_i915Perf:
         return true;
     default:
         return false;
@@ -3008,6 +3084,10 @@ void TraceWin::graph_handle_hotkeys( graph_info_t &gi )
             const trace_event_t &event = get_event( event_id );
 
             m_graph.cpu_filter_pid = event.pid;
+        }
+        else if ( !gi.i915_perf_bars.empty() )
+        {
+            //
         }
         else if ( !gi.hovered_items.empty() )
         {
@@ -4170,6 +4250,24 @@ void TraceWin::graph_mouse_tooltip_sched_switch( std::string &ttip, graph_info_t
     }
 }
 
+void TraceWin::graph_mouse_tooltip_i915_perf( std::string &ttip, graph_info_t &gi, int64_t mouse_ts )
+{
+    if ( gi.i915_perf_bars.empty() )
+        return;
+
+    ttip += "\n";
+
+    for ( uint32_t id : gi.i915_perf_bars )
+    {
+        trace_event_t &event = get_event( id );
+        std::string timestr = ts_to_timestr( event.duration, 4 );
+        I915PerfCounters::i915_perf_process process = m_i915_perf.counters.get_process( event );
+
+        ttip += string_format( "\nhw_id: %u", event.pid );
+        ttip += string_format( "\nProcess: %s (Time: %s)", process.label, timestr.c_str() );
+    }
+}
+
 void TraceWin::graph_mouse_tooltip_hovered_amd_fence_signaled( std::string &ttip, graph_info_t &gi, int64_t mouse_ts )
 {
     if ( !is_valid_id( gi.hovered_fence_signaled ) )
@@ -4259,7 +4357,11 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
         if ( event.crtc >= 0 )
             ttip += std::to_string( event.crtc );
 
-        if ( i915_type < i915_req_Max )
+        if ( i915_type == i915_perf )
+        {
+            // Nothing to display
+        }
+        else if ( i915_type < i915_req_Max )
         {
             const char *ctxstr = get_event_field_val( event, "ctx", NULL );
 
@@ -4361,6 +4463,7 @@ void TraceWin::graph_mouse_tooltip( graph_info_t &gi, int64_t mouse_ts )
     graph_mouse_tooltip_sched_switch( ttip, gi, mouse_ts );
     graph_mouse_tooltip_hovered_items( ttip, gi, mouse_ts );
     graph_mouse_tooltip_hovered_amd_fence_signaled( ttip, gi, mouse_ts );
+    graph_mouse_tooltip_i915_perf( ttip, gi, mouse_ts );
 
     ImGui::SetTooltip( "%s", ttip.c_str() );
 

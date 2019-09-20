@@ -68,6 +68,7 @@ _XTAG( col_Graph_TaskRunning, 0x4fff00ff, "Sched_switch task running block" )
 _XTAG( col_Graph_TaskSleeping, 0x4fffff00, "Sched_switch task sleeping block" )
 
 _XTAG( col_Graph_Bari915ReqWait, 0x4f0000ff, "i915 reqwait bar" )
+_XTAG( col_Graph_i915Perf, 0xff9b9400, "i915-perf bar" )
 
 _XTAG( col_Graph_Bari915Queue, 0xc81d740c, "Request queued waiting to be added" )
 _XTAG( col_Graph_Bari915SubmitDelay, 0xc8f8552e, "Requests waiting on fences and dependencies before they are runnable" )

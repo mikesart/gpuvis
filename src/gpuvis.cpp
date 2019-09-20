@@ -47,6 +47,7 @@
 
 #include "tdopexpr.h"
 #include "trace-cmd/trace-read.h"
+#include "i915-perf/i915-perf-read.h"
 
 #include "stlini.h"
 #include "gpuvis_utils.h"
@@ -167,6 +168,21 @@ uint32_t TraceLocationsRingCtxSeq::get_i915_ringno( const trace_event_t &event, 
                 return ( instanceno << 4 ) | classno;
             }
         }
+    }
+
+    return ( uint32_t )-1;
+}
+
+uint32_t TraceLocationsRingCtxSeq::get_i915_hw_id( const trace_event_t &event)
+{
+    if ( event.seqno )
+    {
+        const char *hw_id_str = get_event_field_val( event, "hw_id", NULL );
+
+        if ( !hw_id_str )
+            return ( uint32_t )-1;
+
+        return strtoul( hw_id_str, NULL, 10 );
     }
 
     return ( uint32_t )-1;
@@ -310,6 +326,8 @@ void Opts::init()
     init_opt_bool( OPT_VBlankHighPrecTimestamps, "Use high-precision HW vblank timestamps (if available)", "vblank_high_prec_timestamps", false );
 
     init_opt_bool( OPT_RenderFrameMarkers, "Show render frame markers", "render_framemarkers", true );
+
+    init_opt_bool( OPT_ShowI915Counters, "Show i915-perf counters", "render_i915_perf_counters", true );
 
     // Set up action mappings so we can display hotkeys in render_imgui_opt().
     m_options[ OPT_RenderCrtc0 ].action = action_toggle_vblank0;
@@ -617,6 +635,10 @@ bool MainApp::load_file( const char *filename, bool last )
     {
         m_trace_type = trace_type_trace;
     }
+    else if ( real_ext && ( !strcmp( real_ext, ".i915-dat" ) || !strcmp( real_ext, ".i915-trace" ) ) )
+    {
+        m_trace_type = trace_type_i915_perf_trace;
+    }
 
     size_t filesize = get_file_size( filename );
     if ( !filesize )
@@ -737,6 +759,16 @@ int MainApp::load_etl_file( loading_info_t *loading_info, TraceEvents &trace_eve
         trace_events.m_trace_info, trace_cb );
 }
 
+int MainApp::load_i915_perf_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb )
+{
+#ifdef USE_I915_PERF
+    return read_i915_perf_file( loading_info->filename.c_str(), trace_events.m_strpool,
+        trace_events.m_trace_info, &trace_events.i915_perf_reader, trace_cb );
+#else
+    return 0;
+#endif
+}
+
 int SDLCALL MainApp::thread_func( void *data )
 {
     util_time_t t0 = util_get_time();
@@ -764,6 +796,9 @@ int SDLCALL MainApp::thread_func( void *data )
             break;
         case trace_type_etl:
             ret = load_etl_file( loading_info, trace_events, trace_cb );
+            break;
+        case trace_type_i915_perf_trace:
+            ret = load_i915_perf_file( loading_info, trace_events, trace_cb );
             break;
         default:
             ret = -1;
@@ -1976,6 +2011,42 @@ void TraceEvents::init_i915_event( trace_event_t &event )
     }
 }
 
+void TraceEvents::init_i915_perf_event( trace_event_t &event )
+{
+    if ( !event.has_duration() )
+        event.id_start = m_i915.perf_locs.back();
+    else
+    {
+        for ( uint32_t i = 1; i <= event.id; i++ )
+        {
+            const trace_event_t &req_event = m_events[ event.id - i ];
+
+            if ( !strcmp ( req_event.name, "i915_request_add" ) &&
+                 TraceLocationsRingCtxSeq::get_i915_hw_id( req_event ) == event.pid )
+            {
+                m_i915.perf_to_req_in.m_map[ event.id ] = req_event.id;
+                break;
+            }
+        }
+    }
+
+    m_i915.perf_hw_context_ids.insert( event.pid );
+    m_i915.perf_locs.push_back( event.id );
+}
+
+void TraceEvents::update_i915_perf_colors()
+{
+    uint32_t n_colors = m_i915.perf_hw_context_ids.size();
+    uint32_t idx = 0;
+
+    for ( const uint32_t hw_id : m_i915.perf_hw_context_ids ) {
+        m_i915.perf_hw_context_colors.insert(
+            std::make_pair( hw_id,
+                            ImColor::HSV( (float) idx / n_colors, 0.8f, 0.8f ) ) );
+        idx++;
+    }
+}
+
 static int64_t normalize_vblank_diff( int64_t diff )
 {
     static const int64_t rates[] =
@@ -2061,7 +2132,8 @@ void TraceEvents::init_new_event( trace_event_t &event )
     }
 
     // Add this event comm to our comm locations map (ie, 'thread_main-1152')
-    m_comm_locs.add_location_str( event.comm, event.id );
+    if ( !event.is_i915_perf() )
+        m_comm_locs.add_location_str( event.comm, event.id );
 
     // Add this event name to event name map
     if ( event.is_vblank() )
@@ -2122,6 +2194,10 @@ void TraceEvents::init_new_event( trace_event_t &event )
     else if ( event.seqno && !event.is_ftrace_print() )
     {
         init_i915_event( event );
+    }
+    else if ( event.is_i915_perf() )
+    {
+        init_i915_perf_event( event );
     }
 
     if ( !strcmp( event.name, "amdgpu_job_msg" ) )
@@ -2227,6 +2303,9 @@ void TraceEvents::init()
 
     // Update tgid colors
     update_tgid_colors();
+
+    // Update i915 HW context ID colors
+    update_i915_perf_colors();
 
     std::vector< INIEntry > entries = s_ini().GetSectionEntries( "$imgui_eventcolors$" );
 
@@ -2475,6 +2554,9 @@ i915_type_t get_i915_reqtype( const trace_event_t &event )
             return i915_reqwait_end;
     }
 
+    if ( event.is_i915_perf() )
+        return i915_perf;
+
     return i915_req_Max;
 }
 
@@ -2694,6 +2776,11 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
     {
         type = LOC_TYPE_i915Request;
         plocs = m_i915.req_locs.get_locations_str( name );
+    }
+    else if ( !strcmp( name, "i915-perf" ) )
+    {
+        type = LOC_TYPE_i915Perf;
+        plocs = &m_i915.perf_locs;
     }
     else if ( !strncmp( name, "plot:", 5 ) )
     {
@@ -2919,6 +3006,9 @@ void TraceWin::render()
 
                 m_eventlist.do_gotoevent = true;
                 m_eventlist.goto_eventid = ts_to_eventid( m_graph.start_ts + m_graph.length_ts / 2 );
+
+                // Initialize the i915 counters view.
+                m_i915_perf.counters.init( m_trace_events );
             }
 
             if ( !s_opts().getb( OPT_ShowEventList ) ||
@@ -2934,6 +3024,12 @@ void TraceWin::render()
                 eventlist_render_options();
                 eventlist_render();
                 eventlist_handle_hotkeys();
+            }
+
+            if ( s_opts().getb( OPT_ShowI915Counters ) &&
+                 imgui_collapsingheader( "I915 performance counters", &m_i915_perf.has_focus, ImGuiTreeNodeFlags_DefaultOpen ) )
+            {
+                m_i915_perf.counters.render();
             }
 
             // Render pinned tooltips

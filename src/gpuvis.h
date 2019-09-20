@@ -22,6 +22,10 @@
  * THE SOFTWARE.
  */
 
+extern "C" {
+    struct intel_perf_data_reader;
+};
+
 // Opts singleton
 class Opts &s_opts();
 
@@ -41,6 +45,7 @@ enum loc_type_t
     LOC_TYPE_AMDTimeline_hw,
     LOC_TYPE_i915RequestWait,
     LOC_TYPE_i915Request,
+    LOC_TYPE_i915Perf, // GPU generated data
     LOC_TYPE_Max
 };
 
@@ -55,6 +60,8 @@ enum i915_type_t
 
     i915_reqwait_begin,
     i915_reqwait_end,
+
+    i915_perf,
 
     i915_req_Max
 };
@@ -107,6 +114,7 @@ public:
     static uint64_t db_key( uint32_t ringno, uint32_t seqno, const char *ctxstr );
 
     static uint32_t get_i915_ringno( const trace_event_t &event, bool *is_class_instance = nullptr );
+    static uint32_t get_i915_hw_id( const trace_event_t &event);
 
 public:
     // Map of db_key to array of event locations.
@@ -392,6 +400,7 @@ public:
     void calculate_amd_event_durations();
     void calculate_i915_req_event_durations();
     void calculate_i915_reqwait_event_durations();
+    void update_i915_perf_colors();
     void calculate_event_print_info();
     void calculate_vblank_info();
 
@@ -448,6 +457,7 @@ public:
     void init_amd_timeline_event( trace_event_t &event );
     void init_msm_timeline_event( trace_event_t &event );
     void init_i915_event( trace_event_t &event );
+    void init_i915_perf_event( trace_event_t &event );
 
     int new_event_cb( const trace_event_t &event );
     void new_event_ftrace_print( trace_event_t &event );
@@ -516,6 +526,15 @@ public:
 
         // i915_request_queue events key'd on ring/ctx/seqno
         TraceLocationsRingCtxSeq req_queue_locs;
+
+        // i915-perf (GPU generated data)
+        std::vector< uint32_t > perf_locs;
+        // i915-perf-begin event to i915_request_in
+        util_umap< uint32_t, uint32_t > perf_to_req_in;
+        // i915-perf HW context ID
+        std::unordered_set< uint32_t > perf_hw_context_ids;
+        // Maps a HW context ID to its color
+        std::map< uint32_t, ImU32 > perf_hw_context_colors;
     } m_i915;
 
     struct ftrace_pair_t
@@ -573,6 +592,8 @@ public:
 
     // 0: events loaded, 1+: loading events, -1: error
     SDL_atomic_t m_eventsloaded = { 1 };
+
+    struct intel_perf_data_reader *i915_perf_reader = NULL;
 };
 
 class GraphRows
@@ -641,6 +662,58 @@ public:
     util_umap< std::string, std::string > m_graph_row_scale_ts;
 };
 
+union i915_perf_count_value_t
+{
+    uint64_t u;
+    double   f;
+};
+
+struct i915_perf_counter_t {
+    std::string name;
+    std::string desc;
+
+    enum type {
+        FLOAT,
+        INTEGER,
+    } type;
+
+    i915_perf_count_value_t value;
+    i915_perf_count_value_t max_value;
+
+    char pretty_value[32];
+};
+
+class I915PerfCounters
+{
+public:
+    I915PerfCounters() {}
+    ~I915PerfCounters() {}
+
+    void init( TraceEvents &trace_events );
+    void shutdown();
+
+    void set_event( const trace_event_t &event );
+
+    void render();
+
+    /* Associated process to a given i915-perf event. */
+    struct i915_perf_process {
+        const char *label;
+        ImU32 color;
+    };
+
+    i915_perf_process get_process( const trace_event_t &event );
+
+private:
+    uint32_t m_n_reports = 0;
+    std::vector<i915_perf_counter_t> m_counters;
+
+    TraceEvents *m_trace_events = nullptr;
+    uint32_t m_event_id = INVALID_ID;
+
+    ImGuiTextFilter m_filter;
+};
+
 class graph_info_t;
 
 class TraceWin
@@ -702,6 +775,8 @@ protected:
     uint32_t graph_render_i915_reqwait_events( graph_info_t &gi );
     // Render intel i915 request_add, request_submit, request_in, request_out, intel_engine_notify
     uint32_t graph_render_i915_req_events( graph_info_t &gi );
+    // Render intel i915-perf events (GPU generated data)
+    uint32_t graph_render_i915_perf_events( graph_info_t &gi );
 
     // Render graph decorations
     void graph_render_time_ticks( graph_info_t &gi, float h0, float h1 );
@@ -734,6 +809,7 @@ protected:
     void graph_mouse_tooltip_sched_switch( std::string &ttip, graph_info_t &gi, int64_t mouse_ts );
     void graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_t &gi, int64_t mouse_ts );
     void graph_mouse_tooltip_hovered_amd_fence_signaled( std::string &ttip, graph_info_t &gi, int64_t mouse_ts );
+    void graph_mouse_tooltip_i915_perf( std::string &ttip, graph_info_t &gi, int64_t mouse_ts );
 
     // Graph keyboard handling
     void graph_handle_hotkeys( graph_info_t &gi );
@@ -839,6 +915,13 @@ public:
         bool columns_resized = false;
         bool has_focus = false;
     } m_eventlist;
+
+    struct
+    {
+        I915PerfCounters counters;
+
+        bool has_focus = false;
+    } m_i915_perf;
 
     enum mouse_captured_t
     {
@@ -957,6 +1040,7 @@ enum : uint32_t
     OPT_TrimTrace,
     OPT_ShowFps,
     OPT_VerticalSync,
+    OPT_ShowI915Counters,
     OPT_PresetMax
 };
 
@@ -1095,13 +1179,15 @@ public:
 
     static int load_trace_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb );
     static int load_etl_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb );
+    static int load_i915_perf_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb );
 
 public:
     enum trace_type_t
     {
         trace_type_invalid,
         trace_type_trace,
-        trace_type_etl
+        trace_type_etl,
+        trace_type_i915_perf_trace,
     };
 
     struct loading_info_t
