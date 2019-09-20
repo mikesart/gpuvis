@@ -713,6 +713,9 @@ int TraceEvents::new_event_cb( const trace_event_t &event )
     // Add event to our m_events array
     m_events.push_back( event );
 
+    // Assign an event id
+    m_events.back().id = m_events.size() - 1;
+
     // If this is a sched_switch event, see if it has comm info we don't know about.
     // This is the reason we're initializing events in two passes to collect all this data.
     if ( event.is_sched_switch() )

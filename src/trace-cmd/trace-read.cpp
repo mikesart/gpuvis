@@ -1584,7 +1584,6 @@ public:
     trace_info_t &trace_info;
     StrPool &strpool;
 
-    uint32_t events = 0;
     const char *seqno_str;
     const char *crtc_str;
     const char *ip_str;
@@ -1648,7 +1647,6 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
         trace_seq_init( &seq );
 
         trace_event.pid = pid;
-        trace_event.id = trace_data.events++;
         trace_event.cpu = record->cpu;
         trace_event.ts = record->ts - trace_data.trace_info.min_file_ts;
 
