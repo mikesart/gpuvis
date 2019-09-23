@@ -40,6 +40,8 @@
 #include "imgui/imgui_internal.h"   // BeginColumns(), EndColumns(), PushColumnClipRect()
 #include "imgui/imgui_impl_sdl_gl3.h"
 
+#include "MurmurHash3.h"
+
 #define GPUVIS_TRACE_IMPLEMENTATION
 #include "gpuvis_macros.h"
 
@@ -177,13 +179,17 @@ uint64_t TraceLocationsRingCtxSeq::db_key( uint32_t ringno, uint32_t seqno, cons
         uint64_t ctx = strtoul( ctxstr, NULL, 10 );
 
         // Try to create unique 64-bit key from ring/seq/ctx.
-        assert( ctx <= 0xffff );
-        assert( ringno <= 0xffff );
-        assert( seqno <= 0xffffffff );
+        struct {
+            uint64_t ctx;
+            uint64_t ringno;
+            uint64_t seqno;
+        } data = {
+            ctx,
+            ringno,
+            seqno,
+        };
 
-        //    ring | ctx  |    seqno
-        //  0xffff | ffff | ffffffff
-        return ( ( uint64_t )ringno << 48 ) | ( ( uint64_t )ctx << 32 ) | seqno;
+        return MurmurHash3_x86_32( &data, sizeof(data), 0x42424242);
     }
 
     return 0;
