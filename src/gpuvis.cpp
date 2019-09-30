@@ -587,7 +587,7 @@ static std::string unzip_first_file( const char *zipfile )
     return ret;
 }
 
-bool MainApp::load_file( const char *filename )
+bool MainApp::load_file( const char *filename, bool last )
 {
     GPUVIS_TRACE_BLOCKF( "%s: %s", __func__, filename );
 
@@ -627,12 +627,14 @@ bool MainApp::load_file( const char *filename )
 
     set_state( State_Loading, filename );
 
-    delete m_trace_win;
-    m_trace_win = new TraceWin( filename, filesize );
+    // delete m_trace_win;
+    if ( !m_trace_win )
+        m_trace_win = new TraceWin( filename, filesize );
 
     m_loading_info.win = m_trace_win;
     m_loading_info.type = m_trace_type;
     m_loading_info.thread = SDL_CreateThread( thread_func, "eventloader", &m_loading_info );
+    m_loading_info.last = last;
     if ( !m_loading_info.thread )
     {
         logf( "[Error] %s: SDL_CreateThread failed.", __func__ );
@@ -713,21 +715,6 @@ int TraceEvents::new_event_cb( const trace_event_t &event )
     // Add event to our m_events array
     m_events.push_back( event );
 
-    // Assign an event id
-    m_events.back().id = m_events.size() - 1;
-
-    // If this is a sched_switch event, see if it has comm info we don't know about.
-    // This is the reason we're initializing events in two passes to collect all this data.
-    if ( event.is_sched_switch() )
-    {
-        add_sched_switch_pid_comm( m_trace_info, event, "prev_pid", "prev_comm" );
-        add_sched_switch_pid_comm( m_trace_info, event, "next_pid", "next_comm" );
-    }
-    else if ( event.is_ftrace_print() )
-    {
-        new_event_ftrace_print( m_events.back() );
-    }
-
     // Record the maximum crtc value we've ever seen
     m_crtc_max = std::max< int >( m_crtc_max, event.crtc );
 
@@ -794,8 +781,35 @@ int SDLCALL MainApp::thread_func( void *data )
         }
     }
 
+    if (loading_info->last)
     {
         GPUVIS_TRACE_BLOCK( "trace_init" );
+
+        // Sort events (with multiple files, events are added out of order)
+        std::sort( trace_events.m_events.begin(), trace_events.m_events.end(),
+                   [=]( const trace_event_t& lx, const trace_event_t& rx )
+                       {
+                           return lx.ts < rx.ts;
+                       } );
+
+        // Assign event ids
+        for ( uint32_t i = 0; i < trace_events.m_events.size(); i++ ) {
+            trace_event_t& event = trace_events.m_events[i];
+
+            event.id = i;
+
+            // If this is a sched_switch event, see if it has comm info we don't know about.
+            // This is the reason we're initializing events in two passes to collect all this data.
+            if ( event.is_sched_switch() )
+            {
+                add_sched_switch_pid_comm( trace_events.m_trace_info, event, "prev_pid", "prev_comm" );
+                add_sched_switch_pid_comm( trace_events.m_trace_info, event, "next_pid", "next_comm" );
+            }
+            else if ( event.is_ftrace_print() )
+            {
+                trace_events.new_event_ftrace_print( event );
+            }
+        }
 
         float time_load = util_time_to_ms( t0, util_get_time() );
 
@@ -813,10 +827,11 @@ int SDLCALL MainApp::thread_func( void *data )
 #if !defined( GPUVIS_TRACE_UTILS_DISABLE )
         printf( "%s\n", str.c_str() );
 #endif
+
+        // 0 means events have all all been loaded
+        SDL_AtomicSet( &trace_events.m_eventsloaded, 0 );
     }
 
-    // 0 means events have all all been loaded
-    SDL_AtomicSet( &trace_events.m_eventsloaded, 0 );
     s_app().set_state( State_Idle );
 
     return 0;
@@ -1237,7 +1252,7 @@ void MainApp::update()
     {
         const char *filename = m_loading_info.inputfiles[ 0 ].c_str();
 
-        load_file( filename );
+        load_file( filename, m_loading_info.inputfiles.size() == 1 );
 
         m_loading_info.inputfiles.erase( m_loading_info.inputfiles.begin() );
     }
@@ -4766,7 +4781,7 @@ void MainApp::parse_cmdline( int argc, char **argv )
 
     for ( ; ya_optind < argc; ya_optind++ )
     {
-        m_loading_info.inputfiles.clear();
+        //m_loading_info.inputfiles.clear();
         m_loading_info.inputfiles.push_back( argv[ ya_optind ] );
     }
 }

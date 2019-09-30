@@ -1055,7 +1055,7 @@ public:
     void init( int argc, char **argv );
     void shutdown( SDL_Window *window );
 
-    bool load_file( const char *filename );
+    bool load_file( const char *filename, bool last );
     void cancel_load_file();
 
     // Trace file loaded and viewing?
@@ -1119,6 +1119,8 @@ public:
         TraceWin *win = nullptr;
         SDL_Thread *thread = nullptr;
         std::vector< std::string > inputfiles;
+
+        bool last;
     };
     loading_info_t m_loading_info;
 
