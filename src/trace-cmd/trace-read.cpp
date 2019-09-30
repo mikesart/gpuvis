@@ -1648,7 +1648,7 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
 
         trace_event.pid = pid;
         trace_event.cpu = record->cpu;
-        trace_event.ts = record->ts - trace_data.trace_info.min_file_ts;
+        trace_event.ts = record->ts;
 
         trace_event.comm = strpool.getstrf( "%s-%u", comm, pid );
 
