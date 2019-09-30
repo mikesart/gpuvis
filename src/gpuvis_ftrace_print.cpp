@@ -295,7 +295,7 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
 
     if ( bufvar == bufvar_ltime )
     {
-        event.ts = atoll( var_ltime ) - m_trace_info.min_file_ts;
+        event.ts = atoll( var_ltime );
 
         // Remove "ltime=XXX", etc from buf
         buf = trim_ftrace_print_buf( newbuf, buf, var_ltime, s_buf_vars[ bufvar ].len );
