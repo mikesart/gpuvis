@@ -86,7 +86,7 @@ DATE=$(date +%m-%d-%Y_%H-%M-%S)
 TRACEFILE=trace_${DATE}.dat
 
 echo
-CMD="trace-cmd record -b 8000 -D -o ${TRACEFILE} -i ${EVENTS} ${COMMAND}"
+CMD="trace-cmd record -C mono -b 8000 -D -o ${TRACEFILE} -i ${EVENTS} ${COMMAND}"
 echo $CMD
 $CMD
 
