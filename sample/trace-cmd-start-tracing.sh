@@ -64,7 +64,7 @@ echo $CMD
 $CMD
 
 echo
-CMD="trace-cmd start -b 8000 -D -i ${EVENTS}"
+CMD="trace-cmd start -C mono -b 8000 -D -i ${EVENTS}"
 echo $CMD
 $CMD
 
