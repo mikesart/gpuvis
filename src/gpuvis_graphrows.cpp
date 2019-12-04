@@ -327,6 +327,22 @@ void GraphRows::init( TraceEvents &trace_events )
         }
     }
 
+    // Qualcomm MSM GPU timeline
+    {
+        // How many max rings on Qualcomm MSM?
+        for ( int ring = 0; ring < 9; ring++)
+        {
+            std::string str = string_format( "msm ring%d", ring );
+            std::string str_hw = string_format( "msm ring%d hw", ring );
+
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+
+            if ( ( plocs = trace_events.get_locs( str_hw.c_str(), &type ) ) )
+                push_row( str_hw, type, plocs->size() );
+        }
+    }
+
     if ( ( plocs = trace_events.get_locs( "cpu graph", &type ) ) )
     {
         push_row( "cpu graph", type, plocs->size(), false );

@@ -446,6 +446,7 @@ public:
     void init_sched_switch_event( trace_event_t &event );
     void init_sched_process_fork( trace_event_t &event );
     void init_amd_timeline_event( trace_event_t &event );
+    void init_msm_timeline_event( trace_event_t &event );
     void init_i915_event( trace_event_t &event );
 
     int new_event_cb( const trace_event_t &event );

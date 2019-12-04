@@ -687,6 +687,12 @@ static void add_sched_switch_pid_comm( trace_info_t &trace_info, const trace_eve
     }
 }
 
+static bool is_msm_timeline_event( const char *name )
+{
+    return ( !strcmp( name, "msm_gpu_submit_flush" ) ||
+            !strcmp( name, "msm_gpu_submit_retired" ) );
+}
+
 TraceEvents::~TraceEvents()
 {
     for ( trace_event_t &event : m_events )
@@ -1699,6 +1705,11 @@ const tgid_info_t *TraceEvents::tgid_from_commstr( const char *comm )
 
 uint32_t TraceEvents::get_event_gfxcontext_hash( const trace_event_t &event )
 {
+    if ( is_msm_timeline_event( event.name ) )
+    {
+        return atoi( get_event_field_val( event, "seqno", "0" ) );
+    }
+
     if ( event.seqno )
     {
         const char *context = get_event_field_val( event, "context", NULL );
@@ -1854,6 +1865,44 @@ void TraceEvents::init_amd_timeline_event( trace_event_t &event )
                 m_events[ idx ].flags |= TRACE_FLAG_TIMELINE;
             }
         }
+    }
+}
+
+void TraceEvents::init_msm_timeline_event( trace_event_t &event )
+{
+    uint32_t gfxcontext_hash = get_event_gfxcontext_hash( event );
+
+    int ringid = atoi( get_event_field_val( event, "ringid", "0" ) );
+    std::string str = string_format( "msm ring%d", ringid );
+
+    m_amd_timeline_locs.add_location_str( str.c_str(), event.id );
+
+    m_gfxcontext_locs.add_location_u32( gfxcontext_hash, event.id );
+
+    event.flags |= TRACE_FLAG_TIMELINE;
+
+    event.id_start = INVALID_ID;
+
+    if ( !strcmp( event.name, "msm_gpu_submit_retired" ) )
+    {
+        event.flags |= TRACE_FLAG_FENCE_SIGNALED;
+    }
+    else if ( !strcmp( event.name, "msm_gpu_submit_flush" ) )
+    {
+        event.flags |= TRACE_FLAG_HW_QUEUE;
+    }
+
+    const std::vector< uint32_t > *plocs = m_gfxcontext_locs.get_locations_u32( gfxcontext_hash );
+    if ( plocs->size() > 1 )
+    {
+        // First event.
+        trace_event_t &event0 = m_events[ plocs->front() ];
+
+        // Assume the user comm is the first comm event in this set.
+        event.user_comm = event0.comm;
+
+        // We shouldn't recycle seqnos in the same trace hopefully?
+        event.id_start = event0.id;
     }
 }
 
@@ -2047,6 +2096,10 @@ void TraceEvents::init_new_event( trace_event_t &event )
     else if ( is_amd_timeline_event( event ) )
     {
         init_amd_timeline_event( event );
+    }
+    else if ( is_msm_timeline_event( event.name ) )
+    {
+        init_msm_timeline_event( event );
     }
     else if ( event.seqno && !event.is_ftrace_print() )
     {
@@ -2633,6 +2686,22 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
             type = LOC_TYPE_Plot;
             plocs = get_tdopexpr_locs( plot->m_filter_str.c_str() );
         }
+    }
+    else if ( !strncmp( name, "msm ring", 8 ) )
+    {
+        std::string timeline_name = name;
+        size_t len = strlen( name );
+
+        if ( !strcmp( name + len - 3, " hw" ) )
+        {
+            timeline_name.erase( len - 3 );
+            type = LOC_TYPE_AMDTimeline_hw;
+        }
+        else
+        {
+            type = LOC_TYPE_AMDTimeline;
+        }
+        plocs = m_amd_timeline_locs.get_locations_str( timeline_name.c_str() );
     }
     else
     {
