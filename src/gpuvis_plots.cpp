@@ -54,6 +54,17 @@ static size_t str_get_digit_loc( const char *str )
     return 0;
 }
 
+static std::string createEventString( const trace_event_t &event )
+{
+    std::string buf = "";
+    for ( uint32_t i = 0; i < event.numfields; i++ )
+    {
+        const event_field_t &field = event.fields[ i ];
+        buf += std::string( field.key ) + "=" + std::string( field.value ) + " ";
+    }
+    return buf;
+}
+
 const std::string CreatePlotDlg::get_plot_str( const trace_event_t &event )
 {
     if ( event.is_ftrace_print() )
@@ -66,6 +77,10 @@ const std::string CreatePlotDlg::get_plot_str( const trace_event_t &event )
     else if ( event.has_duration() )
     {
         return s_textclrs().bright_str( event.name ) + " duration...";
+    }
+    else
+    {
+        return s_textclrs().bright_str( event.name ) + " custom...";
     }
 
     return "";
@@ -137,6 +152,17 @@ bool CreatePlotDlg::init( TraceEvents &trace_events, uint32_t eventid )
         snprintf_safe( m_plot_name_buf, "%s duration", event.name );
         snprintf_safe( m_plot_filter_buf, "$name = \"%s\"", event.name );
         strcpy_safe( m_plot_scanf_buf, "$duration" );
+
+        ImGui::OpenPopup( "Create Plot" );
+    }
+    else
+    {
+        m_plot_buf = createEventString( event );
+        m_plot_err_str.clear();
+
+        snprintf_safe( m_plot_name_buf, "%s", event.name );
+        snprintf_safe( m_plot_filter_buf, "$name = \"%s\"", event.name );
+        strcpy_safe( m_plot_scanf_buf, "" );
 
         ImGui::OpenPopup( "Create Plot" );
     }
@@ -255,6 +281,7 @@ bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
 
     if ( plocs )
     {
+        const trace_event_t &event0 = trace_events.m_events[ ( *plocs )[ 0 ] ];
         if ( scanf_str == "$duration" )
         {
             for ( uint32_t idx : *plocs )
@@ -272,7 +299,7 @@ bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
                 }
             }
         }
-        else
+        else if ( get_event_field_val( event0, "buf", NULL ) )
         {
             ParsePlotStr parse_plot_str;
 
@@ -284,6 +311,29 @@ bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
                     const char *buf = get_event_field_val( event, "buf" );
 
                     if ( parse_plot_str.parse( buf ) )
+                    {
+                        float valf = parse_plot_str.m_valf;
+
+                        m_minval = std::min< float >( m_minval, valf );
+                        m_maxval = std::max< float >( m_maxval, valf );
+
+                        m_plotdata.push_back( { event.ts, event.id, valf } );
+                    }
+                }
+            }
+        }
+        else
+        {
+            ParsePlotStr parse_plot_str;
+
+            if ( parse_plot_str.init( m_scanf_str.c_str() ) )
+            {
+                for ( uint32_t idx : *plocs )
+                {
+                    const trace_event_t &event = trace_events.m_events[ idx ];
+                    std::string buf = createEventString( event );
+
+                    if ( parse_plot_str.parse( buf.c_str() ) )
                     {
                         float valf = parse_plot_str.m_valf;
 
