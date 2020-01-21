@@ -1329,6 +1329,7 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
     float minval = FLT_MAX;
     float maxval = FLT_MIN;
     std::vector< ImVec2 > points;
+    std::vector< ImVec2 > plotPoints;
     const char *row_name = gi.prinfo_cur->row_name.c_str();
     GraphPlot &plot = m_trace_events.get_plot( row_name );
     uint32_t index0 = plot.find_ts_index( gi.ts0 );
@@ -1344,6 +1345,7 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
                 m_trace_events.m_events[ idx0 ].color : 0xffffffff;
     ImU32 color_point = imgui_col_complement( color_line );
 
+    float lastY = 0.0f;
     for ( size_t idx = index0; idx < plot.m_plotdata.size(); idx++ )
     {
         GraphPlot::plotdata_t &data = plot.m_plotdata[ idx ];
@@ -1357,6 +1359,13 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
         }
 
         points.push_back( ImVec2( x, y ) );
+
+        if ( !plot.m_interpolation && idx != index0 )
+            plotPoints.push_back( ImVec2( x, lastY ) );
+
+        lastY = y;
+
+        plotPoints.push_back( ImVec2( x, y ) );
 
         minval = std::min< float >( minval, y );
         maxval = std::max< float >( maxval, y );
@@ -1387,7 +1396,10 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
         for ( ImVec2 &pt : points )
             pt.y = gi.rc.y + ( maxval - pt.y ) * rcpdenom;
 
-        ImGui::GetWindowDrawList()->AddPolyline( points.data(), points.size(),
+        for ( ImVec2 &pt : plotPoints )
+            pt.y = gi.rc.y + ( maxval - pt.y ) * rcpdenom;
+
+        ImGui::GetWindowDrawList()->AddPolyline( plotPoints.data(), plotPoints.size(),
                                                  color_line, closed, thickness );
 
         for ( const ImVec2 &pt : points )
