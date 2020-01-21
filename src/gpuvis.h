@@ -164,6 +164,8 @@ public:
 
     // "[Compositor] TimeSyncLastVsync: %f("
     std::string m_scanf_str;
+
+    bool m_interpolation = true;
 };
 
 class ParsePlotStr
@@ -201,6 +203,7 @@ public:
 
     std::string m_plot_buf;
     std::string m_plot_err_str;
+    bool m_interpolation;
     char m_plot_name_buf[ 128 ];
     char m_plot_filter_buf[ 512 ];
     char m_plot_scanf_buf[ 512 ];

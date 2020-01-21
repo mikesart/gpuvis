@@ -390,15 +390,21 @@ void GraphRows::init( TraceEvents &trace_events )
             const std::string &plot_name = entry.first;
             const std::vector< std::string > plot_args = string_explode( entry.second, '\t' );
 
-            if ( plot_args.size() == 2 )
+            if ( plot_args.size() == 3 )
             {
                 const std::string &plot_filter = plot_args[ 0 ];
                 const std::string &plot_scanf = plot_args[ 1 ];
+                const std::string &plot_interpolation = plot_args[ 2 ];
 
                 plocs = trace_events.get_locs( plot_filter.c_str() );
                 if ( plocs )
                 {
                     GraphPlot &plot = trace_events.get_plot( plot_name.c_str() );
+
+                    if ( !plot_interpolation.compare( "1" ) )
+                        plot.m_interpolation = true;
+                    else
+                        plot.m_interpolation = false;
 
                     if ( plot.init( trace_events, plot_name, plot_filter, plot_scanf ) )
                         push_row( plot_name, LOC_TYPE_Plot, plot.m_plotdata.size() );
@@ -520,8 +526,8 @@ void GraphRows::add_row( const std::string &name_in, const std::string &filter_e
     if ( type == LOC_TYPE_Plot )
     {
         GraphPlot &plot = m_trace_events->get_plot( name.c_str() );
-        std::string val = string_format( "%s\t%s",
-                plot.m_filter_str.c_str(), plot.m_scanf_str.c_str() );
+        std::string val = string_format( "%s\t%s\t%d",
+                plot.m_filter_str.c_str(), plot.m_scanf_str.c_str(), plot.m_interpolation );
 
         s_ini().PutStr( name.c_str(), val.c_str(), "$graph_plots$" );
     }

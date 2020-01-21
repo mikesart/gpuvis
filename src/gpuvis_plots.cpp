@@ -95,6 +95,7 @@ bool CreatePlotDlg::init( TraceEvents &trace_events, uint32_t eventid )
         return false;
 
     const trace_event_t &event = trace_events.m_events[ eventid ];
+    m_interpolation = true;
 
     if ( event.is_ftrace_print() )
     {
@@ -219,6 +220,7 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
 
     imgui_input_text( "Plot Scan Str:", m_plot_scanf_buf, x, w );
 
+    ImGui::Checkbox( " Interpolation", &m_interpolation );
     ImGui::NewLine();
 
     bool disabled = !m_plot_name_buf[ 0 ] || !m_plot_filter_buf[ 0 ] || !m_plot_scanf_buf[ 0 ];
@@ -239,6 +241,7 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
             m_plot_name = std::string( "plot:" ) + m_plot_name_buf;
 
             GraphPlot &plot = trace_events.get_plot( m_plot_name.c_str() );
+            plot.m_interpolation = m_interpolation;
 
             if ( plot.init( trace_events, m_plot_name,
                             m_plot_filter_buf, m_plot_scanf_buf ) )
