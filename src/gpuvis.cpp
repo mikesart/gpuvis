@@ -688,6 +688,13 @@ static bool is_amd_timeline_event( const trace_event_t &event )
              !strcmp( event.name, "amdgpu_sched_run_job" ) );
 }
 
+static bool is_drm_sched_timeline_event( const trace_event_t &event )
+{
+    return ( !strcmp( event.name, "drm_sched_job" ) ||
+             !strcmp( event.name, "drm_run_job" ) ||
+             !strcmp( event.name, "drm_sched_process_job" ) );
+}
+
 static void add_sched_switch_pid_comm( trace_info_t &trace_info, const trace_event_t &event,
                                        const char *pidstr, const char *commstr )
 {
@@ -1763,6 +1770,11 @@ uint32_t TraceEvents::get_event_gfxcontext_hash( const trace_event_t &event )
         return atoi( get_event_field_val( event, "seqno", "0" ) );
     }
 
+    if ( is_drm_sched_timeline_event( event ) )
+    {
+        return event.seqno;
+    }
+
     if ( event.seqno )
     {
         const char *context = get_event_field_val( event, "context", NULL );
@@ -1956,6 +1968,107 @@ void TraceEvents::init_msm_timeline_event( trace_event_t &event )
 
         // We shouldn't recycle seqnos in the same trace hopefully?
         event.id_start = event0.id;
+    }
+}
+
+void TraceEvents::init_drm_sched_timeline_event( trace_event_t &event )
+{
+    uint32_t gfxcontext_hash = get_event_gfxcontext_hash( event );
+    std::string str;
+    const char *ring;
+    uint32_t fence;
+
+    fence = strtoul( get_event_field_val( event, "fence", "0" ), nullptr, 0 );
+    event.flags |= TRACE_FLAG_TIMELINE;
+
+    if ( !strcmp( event.name, "drm_sched_job" ) )
+    {
+        event.flags |= TRACE_FLAG_SW_QUEUE;
+        event.id_start = INVALID_ID;
+        event.graph_row_id = atoi( get_event_field_val( event, "job_count", "0" ) ) +
+                             atoi( get_event_field_val( event, "hw_job_count", "0" ) );
+        event.seqno = strtoul( get_event_field_val( event, "id", "0" ), nullptr, 0 );
+        m_drm_sched.outstanding_jobs[fence] = event.seqno;
+        ring = get_event_field_val( event, "name", "<unknown>" );
+        str = string_format( "drm sched %s", ring );
+        m_drm_sched.rings.insert(str);
+        m_amd_timeline_locs.add_location_str( str.c_str(), event.id );
+        m_gfxcontext_locs.add_location_u32( event.seqno, event.id );
+        return;
+    }
+
+    auto job = m_drm_sched.outstanding_jobs.find( fence );
+    if ( job == m_drm_sched.outstanding_jobs.end() ) {
+        // no in flight job. This event will be dropped
+        return;
+    }
+
+    const std::vector< uint32_t > *plocs = get_gfxcontext_locs( job->second );
+    if ( plocs->size()  < 1 )
+    {
+        // no previous start event. This event will be dropped
+        return;
+    }
+
+    if ( !strcmp( event.name, "drm_run_job" ) )
+    {
+        for ( auto it = plocs->rbegin(); it != plocs->rend(); ++it )
+        {
+            const trace_event_t &e = m_events[ *it ];
+            if ( e.flags & TRACE_FLAG_FENCE_SIGNALED )
+            {
+                // if we hit an end event, we should have already found a start
+                // event. Ignore this event, it will be dropped
+                return;
+            }
+
+            if ( e.flags & TRACE_FLAG_SW_QUEUE )
+            {
+                ring = get_event_field_val( e, "name", "<unknown>" );
+                str = string_format( "drm sched %s", ring );
+                m_drm_sched.rings.insert( str );
+                m_amd_timeline_locs.add_location_str( str.c_str(), event.id );
+                event.user_comm = e.comm;
+                event.id_start = e.id;
+                event.flags |= TRACE_FLAG_HW_QUEUE;
+                event.graph_row_id = e.graph_row_id;
+                event.seqno = e.seqno;
+                m_gfxcontext_locs.add_location_u32( event.seqno, event.id );
+                break;
+            }
+        }
+    }
+
+    if ( !strcmp( event.name, "drm_sched_process_job" ) )
+    {
+        // fence can be reused across multiple jobs, but never at the same
+        // time. Find the previous event with TRACE_FLAG_SW_QUEUE as start event.
+        for ( auto it = plocs->rbegin(); it != plocs->rend(); ++it )
+        {
+            const trace_event_t &e = m_events[ *it ];
+            if ( e.flags & TRACE_FLAG_FENCE_SIGNALED )
+            {
+                // if we hit an end event, we should have already found a start
+                // event. Ignore this event, it will be dropped
+                return;
+            }
+
+            if ( e.flags & TRACE_FLAG_HW_QUEUE )
+            {
+                ring = get_event_field_val( e, "name", "<unknown>" );
+                str = string_format( "drm sched %s", ring );
+                m_drm_sched.rings.insert( str );
+                m_amd_timeline_locs.add_location_str( str.c_str(), event.id );
+                event.user_comm = e.comm;
+                event.id_start = e.id;
+                event.flags |= TRACE_FLAG_FENCE_SIGNALED;
+                event.graph_row_id = e.graph_row_id;
+                event.seqno = e.seqno;
+                m_gfxcontext_locs.add_location_u32( event.seqno, event.id );
+                m_drm_sched.outstanding_jobs.erase( fence );
+                break;
+            }
+        }
     }
 }
 
@@ -2186,6 +2299,10 @@ void TraceEvents::init_new_event( trace_event_t &event )
     else if ( is_amd_timeline_event( event ) )
     {
         init_amd_timeline_event( event );
+    }
+    else if ( is_drm_sched_timeline_event( event ) )
+    {
+        init_drm_sched_timeline_event( event );
     }
     else if ( is_msm_timeline_event( event.name ) )
     {
@@ -2807,6 +2924,11 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
             type = LOC_TYPE_AMDTimeline;
         }
         plocs = m_amd_timeline_locs.get_locations_str( timeline_name.c_str() );
+    }
+    else if ( !strncmp( name, "drm sched", 9 ) )
+    {
+        type = LOC_TYPE_AMDTimeline;
+        plocs = m_amd_timeline_locs.get_locations_str( name );
     }
     else
     {

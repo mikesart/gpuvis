@@ -459,6 +459,7 @@ public:
     void init_sched_process_fork( trace_event_t &event );
     void init_amd_timeline_event( trace_event_t &event );
     void init_msm_timeline_event( trace_event_t &event );
+    void init_drm_sched_timeline_event( trace_event_t &event );
     void init_i915_event( trace_event_t &event );
     void init_i915_perf_event( trace_event_t &event );
 
@@ -597,6 +598,14 @@ public:
     SDL_atomic_t m_eventsloaded = { 1 };
 
     struct intel_perf_data_reader *i915_perf_reader = NULL;
+
+    struct {
+        // set of rings discovered during event parsing
+        std::unordered_set< std::string > rings;
+
+        // mapping from fence to outstanding job id
+        std::map<uint32_t, uint32_t> outstanding_jobs;
+    } m_drm_sched;
 };
 
 class GraphRows

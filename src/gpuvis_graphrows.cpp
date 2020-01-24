@@ -345,6 +345,20 @@ void GraphRows::init( TraceEvents &trace_events )
         }
     }
 
+    // drm sched timeline
+    {
+        std::string ring;
+
+        for ( std::string ring : trace_events.m_drm_sched.rings)
+        {
+            if ( strncmp( "drm sched", ring.c_str(), 9 ) )
+                continue;
+
+            if ( (plocs = trace_events.get_locs( ring.c_str(), &type ) ) )
+                push_row( ring, type, plocs->size() );
+        }
+    }
+
     if ( ( plocs = trace_events.get_locs( "cpu graph", &type ) ) )
     {
         push_row( "cpu graph", type, plocs->size(), false );
