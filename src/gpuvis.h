@@ -24,7 +24,7 @@
 
 extern "C" {
     struct intel_perf_data_reader;
-};
+}
 
 // Opts singleton
 class Opts &s_opts();

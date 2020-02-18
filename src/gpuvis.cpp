@@ -2022,7 +2022,7 @@ void TraceEvents::init_i915_perf_event( trace_event_t &event )
             const trace_event_t &req_event = m_events[ event.id - i ];
 
             if ( !strcmp ( req_event.name, "i915_request_add" ) &&
-                 TraceLocationsRingCtxSeq::get_i915_hw_id( req_event ) == event.pid )
+                 TraceLocationsRingCtxSeq::get_i915_hw_id( req_event ) == ( uint32_t )event.pid )
             {
                 m_i915.perf_to_req_in.m_map[ event.id ] = req_event.id;
                 break;
