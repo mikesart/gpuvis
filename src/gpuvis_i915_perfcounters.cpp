@@ -285,7 +285,7 @@ void I915PerfCounters::set_event( const trace_event_t &event )
 I915PerfCounters::i915_perf_process
 I915PerfCounters::get_process( const trace_event_t &i915_perf_event )
 {
-    i915_perf_process ret;
+    i915_perf_process ret = { "", 0 };
 
     return ret;
 }

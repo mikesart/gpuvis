@@ -347,8 +347,6 @@ void GraphRows::init( TraceEvents &trace_events )
 
     // drm sched timeline
     {
-        std::string ring;
-
         for ( std::string ring : trace_events.m_drm_sched.rings)
         {
             if ( strncmp( "drm sched", ring.c_str(), 9 ) )

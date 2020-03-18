@@ -1973,7 +1973,6 @@ void TraceEvents::init_msm_timeline_event( trace_event_t &event )
 
 void TraceEvents::init_drm_sched_timeline_event( trace_event_t &event )
 {
-    uint32_t gfxcontext_hash = get_event_gfxcontext_hash( event );
     std::string str;
     const char *ring;
     uint32_t fence;
