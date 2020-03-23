@@ -44,8 +44,8 @@
 #include <perf_data_reader.h>
 #endif
 
-#include "gpuvis_macros.h"
-#include "trace-cmd/trace-read.h"
+#include "../gpuvis_macros.h"
+#include "../trace-cmd/trace-read.h"
 #include "i915-perf-read.h"
 
 void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
