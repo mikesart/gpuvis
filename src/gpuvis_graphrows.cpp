@@ -310,7 +310,8 @@ void GraphRows::init( TraceEvents &trace_events )
 
     // Intel gpu events
     {
-        push_row( "i915-perf", LOC_TYPE_i915Perf, trace_events.m_i915.perf_locs.size() );
+        if ( !trace_events.m_i915.perf_locs.empty() )
+            push_row( "i915-perf", LOC_TYPE_i915Perf, trace_events.m_i915.perf_locs.size() );
 
         for ( auto &req_locs : trace_events.m_i915.req_locs.m_locs.m_map )
         {
