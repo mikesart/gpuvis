@@ -83,9 +83,11 @@ if [ -e /tmp/.i915-perf-record ]; then
    $CMD
 fi
 
-CMD="i915-perf-recorder -m ${I915_PERF_METRIC} -s 8000 -k ${CLOCK}"
-echo $CMD
-$CMD &
+if [ "${USE_I915_PERF}" ]; then
+    CMD="i915-perf-recorder -m ${I915_PERF_METRIC} -s 8000 -k ${CLOCK}"
+    echo $CMD
+    $CMD &
+fi
 
 echo
 ./trace-cmd-status.sh
