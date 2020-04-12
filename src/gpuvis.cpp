@@ -2142,20 +2142,26 @@ void TraceEvents::init_i915_perf_event( trace_event_t &event )
         }
     }
 
-    m_i915.perf_hw_context_ids.insert( event.pid );
     m_i915.perf_locs.push_back( event.id );
 }
 
 void TraceEvents::update_i915_perf_colors()
 {
-    uint32_t n_colors = m_i915.perf_hw_context_ids.size();
-    uint32_t idx = 0;
+    for ( const uint32_t event_id : m_i915.perf_locs )
+    {
+        trace_event_t &i915_perf_event = m_events[ event_id ];
 
-    for ( const uint32_t hw_id : m_i915.perf_hw_context_ids ) {
-        m_i915.perf_hw_context_colors.insert(
-            std::make_pair( hw_id,
-                            ImColor::HSV( (float) idx / n_colors, 0.8f, 0.8f ) ) );
-        idx++;
+        if ( m_i915.perf_to_req_in.m_map.find( i915_perf_event.id ) == m_i915.perf_to_req_in.m_map.end() )
+        {
+            i915_perf_event.color = s_clrs().get( col_Graph_Bari915Execute );
+        }
+        else
+        {
+            uint32_t tg_event_id = m_i915.perf_to_req_in.m_map[ i915_perf_event.id ];
+            const trace_event_t &tg_event = m_events[ tg_event_id ];
+
+            i915_perf_event.color = tg_event.color;
+        }
     }
 }
 
