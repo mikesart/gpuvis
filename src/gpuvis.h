@@ -535,8 +535,6 @@ public:
         std::vector< uint32_t > perf_locs;
         // i915-perf-begin event to i915_request_in
         util_umap< uint32_t, uint32_t > perf_to_req_in;
-        // i915-perf HW context ID
-        std::unordered_set< uint32_t > perf_hw_context_ids;
         // Maps a HW context ID to its color
         std::map< uint32_t, ImU32 > perf_hw_context_colors;
     } m_i915;
