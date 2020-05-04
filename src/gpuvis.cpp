@@ -966,9 +966,9 @@ void MainApp::shutdown( SDL_Window *window )
     {
         // Write main window position / size to ini file.
         int x, y, w, h;
-        int top, left, bottom, right;
+        int top = 0, left = 0, bottom = 0, right = 0;
 
-        SDL_GetWindowBordersSize( window, &top, &left, &bottom, &right );
+        //SDL_GetWindowBordersSize( window, &top, &left, &bottom, &right );
         SDL_GetWindowPosition( window, &x, &y );
         SDL_GetWindowSize( window, &w, &h );
 
