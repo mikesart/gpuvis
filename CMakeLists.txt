@@ -107,10 +107,12 @@ set ( SRC_LIST
     src/MurmurHash3.cpp
     src/miniz.c
     src/stlini.cpp
-    src/imgui/imgui_impl_sdl_gl3.cpp
+    src/imgui/imgui_impl_opengl3.cpp
+    src/imgui/imgui_impl_sdl.cpp
     src/imgui/imgui.cpp
     src/imgui/imgui_demo.cpp
     src/imgui/imgui_draw.cpp
+    src/imgui/imgui_widgets.cpp
     src/imgui/imgui_freetype.cpp
     src/GL/gl3w.c
     src/i915-perf/i915-perf-read.cpp
