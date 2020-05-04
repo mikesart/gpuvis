@@ -460,6 +460,33 @@ bool ImGui_ImplOpenGL3_CreateFontsTexture()
     // Restore state
     glBindTexture(GL_TEXTURE_2D, last_texture);
 
+#ifdef DEBUG_FONTS
+    SDL_Surface* surf = SDL_CreateRGBSurface(SDL_SWSURFACE, io.Fonts->TexWidth, io.Fonts->TexHeight, 8, 0, 0, 0, 0);
+    if (surf)
+    {
+        const unsigned char* src = io.Fonts->TexPixelsAlpha8;
+        SDL_Palette* palette = surf->format->palette;
+
+        for (int index = 0; index < 256; index++)
+        {
+            palette->colors[index].r = index;
+            palette->colors[index].g = index;
+            palette->colors[index].b = index;
+        }
+
+        for (int h = 0; h < surf->h; h++)
+        {
+            uint8_t* dst = (uint8_t*)((char*)surf->pixels + h * surf->pitch);
+
+            memcpy(dst, src, surf->w);
+            src += surf->w;
+        }
+        SDL_SaveBMP(surf, "TexPixelsAlpha8.bmp");
+
+        SDL_FreeSurface(surf);
+    }
+#endif
+
     return true;
 }
 
