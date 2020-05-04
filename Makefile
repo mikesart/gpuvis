@@ -168,3 +168,4 @@ clean:
 	$(VERBOSE_PREFIX)$(RM) $(PROJ)
 	$(VERBOSE_PREFIX)$(RM) $(OBJS)
 	$(VERBOSE_PREFIX)$(RM) $(OBJS:.o=.d)
+	$(VERBOSE_PREFIX)$(RM) $(OBJS:.o=.dwo)
