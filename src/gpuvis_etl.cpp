@@ -51,7 +51,8 @@
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"   // BeginColumns(), EndColumns(), PushColumnClipRect()
-#include "imgui/imgui_impl_sdl_gl3.h"
+#include "imgui/imgui_impl_sdl.h"
+#include "imgui/imgui_impl_opengl3.h"
 
 #define GPUVIS_TRACE_IMPLEMENTATION
 #include "gpuvis_macros.h"

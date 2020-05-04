@@ -3510,7 +3510,7 @@ void TraceWin::graph_render_hscrollbar( graph_info_t &gi )
     int target = -1;
     bool frame_markers = frame_markers_enabled();
 
-    float w1 = ImGui::GetContentRegionAvailWidth();
+    float w1 = ImGui::GetContentRegionAvail().x;
 
     ImGui::SmallButton( "<<" );
     if ( ImGui::IsItemActive() )
@@ -3527,7 +3527,7 @@ void TraceWin::graph_render_hscrollbar( graph_info_t &gi )
         ImGui::SameLine();
     }
 
-    float w2 = ImGui::GetContentRegionAvailWidth();
+    float w2 = ImGui::GetContentRegionAvail().x;
     w2 = w2 - ( w1 - w2 );
 
     {
@@ -3610,7 +3610,7 @@ void TraceWin::graph_render_resizer( graph_info_t &gi )
     {
         option_id_t opt = gi.prinfo_zoom ? OPT_GraphHeightZoomed : OPT_GraphHeight;
 
-        ImGui::Button( "##resize_graph", ImVec2( ImGui::GetContentRegionAvailWidth(), imgui_scale( 4.0f ) ) );
+        ImGui::Button( "##resize_graph", ImVec2( ImGui::GetContentRegionAvail().x, imgui_scale( 4.0f ) ) );
 
         if ( mouse_captured || ImGui::IsItemHovered() )
             ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeNS );

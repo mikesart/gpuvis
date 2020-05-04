@@ -38,7 +38,8 @@
 #include "GL/gl3w.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"   // BeginColumns(), EndColumns(), PushColumnClipRect()
-#include "imgui/imgui_impl_sdl_gl3.h"
+#include "imgui/imgui_impl_sdl.h"
+#include "imgui/imgui_impl_opengl3.h"
 
 #include "MurmurHash3.h"
 
@@ -1060,14 +1061,8 @@ void MainApp::render_save_filename()
     }
 }
 
-static void imgui_setnextwindowsize( float w, float h, float x = -1.0f, float y = -1.0f )
+static void imgui_setnextwindowsize( float w, float h )
 {
-    if ( x >= 0.0f )
-    {
-        ImGui::SetNextWindowPos( ImVec2( imgui_scale( x ), imgui_scale( y ) ),
-                                 ImGuiCond_FirstUseEver );
-    }
-
     ImGui::SetNextWindowSize( ImVec2( imgui_scale( w ), imgui_scale( h ) ),
                               ImGuiCond_FirstUseEver );
 }
@@ -1098,14 +1093,17 @@ static void render_help_entry( const char *hotkey, const char *desc )
 
 void MainApp::render()
 {
+    // Main menu
+    render_menu();
+
+    // Root dockspace
+    // FIXME: Ideally we would build a default docking tree so console is at the bottom, etc. but to be honest it's not worth the hassle
+    // for so few windows, at the user can set it up however they want and the data will be saved.
+    m_root_dockspace_id = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
     if ( m_trace_win && m_trace_win->m_open )
     {
-        float w = ImGui::GetIO().DisplaySize.x;
-        float h = ImGui::GetIO().DisplaySize.y;
-
-        ImGui::SetNextWindowPos( ImVec2( 0, 0 ), ImGuiCond_Always );
-        ImGui::SetNextWindowSizeConstraints( ImVec2( w, h ), ImVec2( w, h ) );
-
+        ImGui::SetNextWindowDockID(m_root_dockspace_id, ImGuiCond_FirstUseEver);
         m_trace_win->render();
     }
     else if ( m_trace_win )
@@ -1130,34 +1128,39 @@ void MainApp::render()
         }
         if ( m_show_gpuvis_console )
         {
-            imgui_setnextwindowsize( 600, 600, 4, 4 );
+            ImGui::SetNextWindowDockID( m_root_dockspace_id, ImGuiCond_FirstUseEver );
+            imgui_setnextwindowsize( 600, 600 );//, 4, 4 );
 
             render_console();
         }
 
-        if ( m_show_imgui_test_window )
+        if ( m_show_imgui_demo_window )
         {
+            ImGui::SetNextWindowDockID(m_root_dockspace_id, ImGuiCond_FirstUseEver);
             imgui_setnextwindowsize( 800, 600 );
 
-            ImGui::ShowDemoWindow( &m_show_imgui_test_window );
+            ImGui::ShowDemoWindow( &m_show_imgui_demo_window );
         }
 
         if ( m_show_imgui_style_editor )
         {
+            ImGui::SetNextWindowDockID(m_root_dockspace_id, ImGuiCond_FirstUseEver);
             imgui_setnextwindowsize( 800, 600 );
 
-            ImGui::Begin( "Style Editor", &m_show_imgui_style_editor );
+            ImGui::Begin( "Dear ImGui Style Editor", &m_show_imgui_style_editor );
             ImGui::ShowStyleEditor();
             ImGui::End();
         }
 
         if ( m_show_imgui_metrics_editor )
         {
+            ImGui::SetNextWindowDockID(m_root_dockspace_id, ImGuiCond_FirstUseEver);
             ImGui::ShowMetricsWindow( &m_show_imgui_metrics_editor );
         }
 
         if ( m_show_font_window )
         {
+            ImGui::SetNextWindowDockID(m_root_dockspace_id, ImGuiCond_FirstUseEver);
             imgui_setnextwindowsize( 800, 600 );
 
             ImGui::Begin( "Font Options", &m_show_font_window );
@@ -1167,6 +1170,7 @@ void MainApp::render()
 
         if ( m_show_color_picker )
         {
+            ImGui::SetNextWindowDockID(m_root_dockspace_id, ImGuiCond_FirstUseEver);
             imgui_setnextwindowsize( 800, 600 );
 
             ImGui::Begin( "Color Configuration", &m_show_color_picker );
@@ -1180,6 +1184,7 @@ void MainApp::render()
 
             if ( show_trace_info )
             {
+                ImGui::SetNextWindowDockID(m_root_dockspace_id, ImGuiCond_FirstUseEver);
                 imgui_setnextwindowsize( 800, 600 );
 
                 ImGui::Begin( m_show_trace_info.c_str(), &show_trace_info );
@@ -1304,7 +1309,7 @@ void MainApp::update()
     {
         imgui_set_scale( s_opts().getf( OPT_Scale ) );
 
-        ImGui_ImplSdlGL3_InvalidateDeviceObjects();
+        ImGui_ImplOpenGL3_DestroyDeviceObjects();
         load_fonts();
     }
 }
@@ -3108,13 +3113,10 @@ void TraceWin::render()
     TraceEvents::tracestatus_t status = m_trace_events.get_load_status( &count );
 
     ImGui::Begin( m_title.c_str(), &m_open,
-                  ImGuiWindowFlags_MenuBar |
                   ImGuiWindowFlags_NoResize |
                   ImGuiWindowFlags_NoCollapse |
                   ImGuiWindowFlags_NoTitleBar |
                   ImGuiWindowFlags_NoBringToFrontOnFocus );
-
-    s_app().render_menu( "menu_tracewin" );
 
     if ( status == TraceEvents::Trace_Loaded )
     {
@@ -3706,7 +3708,7 @@ static void draw_ts_line( const ImVec2 &pos, ImU32 color )
                 ImVec2( pos.x, pos_y ), ImVec2( max_x, pos_y ),
                 color, imgui_scale( 2.0f ) );
 
-    ImGui::PushColumnClipRect();
+    ImGui::PushColumnClipRect(-1);
 }
 
 static bool imgui_input_uint32( uint32_t *pval, float w, const char *label, const char *label2, ImGuiInputTextFlags flags = 0 )
@@ -4288,22 +4290,22 @@ void MainApp::render_menu_options()
 
         ImGui::Separator();
 
-        if ( ImGui::MenuItem( "ImGui Style Editor" ) )
+        if ( ImGui::MenuItem( "Dear ImGui Style Editor" ) )
         {
-            ImGui::SetWindowFocus( "Style Editor" );
+            ImGui::SetWindowFocus( "Dear ImGui Style Editor" );
             m_show_imgui_style_editor = true;
         }
 
-        if ( ImGui::MenuItem( "ImGui Metrics" ) )
+        if ( ImGui::MenuItem( "Dear ImGui Metrics" ) )
         {
-            ImGui::SetWindowFocus( "ImGui Metrics" );
+            ImGui::SetWindowFocus( "Dear ImGui Metrics" );
             m_show_imgui_metrics_editor = true;
         }
 
-        if ( ImGui::MenuItem( "ImGui Test Window" ) )
+        if ( ImGui::MenuItem( "Dear ImGui Demo" ) )
         {
-            ImGui::SetWindowFocus( "ImGui Demo" );
-            m_show_imgui_test_window = true;
+            ImGui::SetWindowFocus( "Dear ImGui Demo" );
+            m_show_imgui_demo_window = true;
         }
 
         ImGui::Unindent();
@@ -4753,7 +4755,7 @@ void MainApp::render_log()
 
         if ( m_log_size != log.size() )
         {
-            ImGui::SetScrollHere();
+            ImGui::SetScrollHereY();
 
             m_log_size = log.size();
         }
@@ -4765,13 +4767,11 @@ void MainApp::render_log()
 
 void MainApp::render_console()
 {
-    if ( !ImGui::Begin( "Gpuvis Console", &m_show_gpuvis_console, ImGuiWindowFlags_MenuBar ) )
+    if ( !ImGui::Begin( "Gpuvis Console", &m_show_gpuvis_console ) )
     {
         ImGui::End();
         return;
     }
-
-    render_menu( "menu_console" );
 
     render_log();
 
@@ -4811,13 +4811,10 @@ void MainApp::open_trace_dialog()
     }
 }
 
-void MainApp::render_menu( const char *str_id )
+void MainApp::render_menu()
 {
-    ImGui::PushID( str_id );
-
-    if ( !ImGui::BeginMenuBar() )
+    if ( !ImGui::BeginMainMenuBar() )
     {
-        ImGui::PopID();
         return;
     }
 
@@ -4891,9 +4888,7 @@ void MainApp::render_menu( const char *str_id )
                      s_textclrs().str( TClr_Def ) );
     }
 
-    ImGui::EndMenuBar();
-
-    ImGui::PopID();
+    ImGui::EndMainMenuBar();
 }
 
 void MainApp::handle_hotkeys()
@@ -5019,7 +5014,19 @@ static void imgui_render( SDL_Window *window )
     glClear( GL_COLOR_BUFFER_BIT );
 
     ImGui::Render();
-    ImGui_ImplSdlGL3_RenderDrawData(ImGui::GetDrawData(), s_opts().getf( OPT_Gamma ) );
+    ImGui_ImplOpenGL3_RenderDrawData( ImGui::GetDrawData() );// FIXME-GPUVIS: , s_opts().getf(OPT_Gamma) );
+
+    // Update and Render additional Platform Windows
+    // (Platform functions may change the current OpenGL context, so we save/restore it to make it easier to paste this code elsewhere.
+    //  For this specific demo app we could also call SDL_GL_MakeCurrent(window, gl_context) directly)
+    if ( ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable )
+    {
+        SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
+        SDL_GLContext backup_current_context = SDL_GL_GetCurrentContext();
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
+        SDL_GL_MakeCurrent( backup_current_window, backup_current_context );
+    }
 
     SDL_GL_SwapWindow( window );
 }
@@ -5072,6 +5079,9 @@ int main( int argc, char **argv )
     std::string imguiini = util_get_config_dir( "gpuvis" ) + "/imgui.ini";
     ImGuiIO &io = ImGui::GetIO();
     io.IniFilename = imguiini.c_str();
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
     // Init ini singleton
     s_ini().Open( "gpuvis", "gpuvis.ini" );
@@ -5104,7 +5114,8 @@ int main( int argc, char **argv )
     gl3wInit();
 
     // Setup ImGui binding
-    ImGui_ImplSdlGL3_Init( window );
+    ImGui_ImplSDL2_InitForOpenGL( window, glcontext );
+    ImGui_ImplOpenGL3_Init();
 
     // 1 for updates synchronized with the vertical retrace
     bool vsync = true;
@@ -5124,7 +5135,7 @@ int main( int argc, char **argv )
 
         while ( SDL_PollEvent( &event ) )
         {
-            ImGui_ImplSdlGL3_ProcessEvent( &event );
+            ImGui_ImplSDL2_ProcessEvent( &event );
 
             if ( ( event.type == SDL_KEYDOWN ) || ( event.type == SDL_KEYUP ) )
                 s_keybd().update( event.key );
@@ -5135,7 +5146,9 @@ int main( int argc, char **argv )
         }
 
         bool use_freetype = s_opts().getb( OPT_UseFreetype );
-        ImGui_ImplSdlGL3_NewFrame( window, &use_freetype );
+        ImGui_ImplOpenGL3_NewFrame(); // FIXME-GPUVIS: , &use_freetype
+        ImGui_ImplSDL2_NewFrame( window );
+        ImGui::NewFrame();
         s_opts().setb( OPT_UseFreetype, use_freetype );
 
         if ( s_opts().getb( OPT_VerticalSync ) != vsync )
@@ -5182,7 +5195,8 @@ int main( int argc, char **argv )
     // Cleanup
     logf_shutdown();
 
-    ImGui_ImplSdlGL3_Shutdown();
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 
     SDL_GL_DeleteContext( glcontext );

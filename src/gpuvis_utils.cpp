@@ -661,17 +661,18 @@ bool imgui_collapsingheader( const char *label, bool *has_focus, ImGuiTreeNodeFl
     return ret;
 }
 
-bool imgui_begin_columns( const char* str_id, int columns_count, ImGuiColumnsFlags flags )
+// FIXME: Should normally use ImGuiColumnsFlags but would require imgui_internal.h included in gpuvis_utils.h
+bool imgui_begin_columns( const char* str_id, int columns_count, int /*ImGuiColumnsFlags*/ flags )
 {
     ImGui::BeginColumns( str_id, columns_count, flags );
 
-    ImGuiColumnsSet *columns = ImGui::GetCurrentWindow()->DC.ColumnsSet;
+    ImGuiColumns *columns = ImGui::GetCurrentWindow()->DC.CurrentColumns;
     return columns->IsFirstFrame;
 }
 
 bool imgui_end_columns()
 {
-    ImGuiColumnsSet *columns = ImGui::GetCurrentWindow()->DC.ColumnsSet;
+    ImGuiColumns *columns = ImGui::GetCurrentWindow()->DC.CurrentColumns;
 
     ImGui::EndColumns();
 
@@ -773,15 +774,20 @@ static colors_t col_index_from_imguicol( ImGuiCol col )
     case ImGuiCol_ResizeGrip: return col_ImGui_ResizeGrip;
     case ImGuiCol_ResizeGripHovered: return col_ImGui_ResizeGripHovered;
     case ImGuiCol_ResizeGripActive: return col_ImGui_ResizeGripActive;
-    case ImGuiCol_CloseButton: return col_ImGui_CloseButton;
-    case ImGuiCol_CloseButtonHovered: return col_ImGui_CloseButtonHovered;
-    case ImGuiCol_CloseButtonActive: return col_ImGui_CloseButtonActive;
+    case ImGuiCol_Tab: return col_ImGui_Tab;
+    case ImGuiCol_TabHovered: return col_ImGui_TabHovered;
+    case ImGuiCol_TabActive: return col_ImGui_TabActive;
+    case ImGuiCol_TabUnfocused: return col_ImGui_TabUnfocused;
+    case ImGuiCol_TabUnfocusedActive: return col_ImGui_TabUnfocusedActive;
+    case ImGuiCol_DockingPreview: return col_ImGui_DockingPreview;
+    case ImGuiCol_DockingEmptyBg: return col_ImGui_DockingEmptyBg;
     case ImGuiCol_PlotLines: return col_Max;
     case ImGuiCol_PlotLinesHovered: return col_Max;
     case ImGuiCol_PlotHistogram: return col_Max;
     case ImGuiCol_PlotHistogramHovered: return col_Max;
     case ImGuiCol_TextSelectedBg: return col_ImGui_TextSelectedBg;
-    case ImGuiCol_ModalWindowDarkening: return col_ImGui_ModalWindowDarkening;
+    case ImGuiCol_NavWindowingDimBg: return col_ImGui_NavWindowingDimBg;
+    case ImGuiCol_ModalWindowDimBg: return col_ImGui_ModalWindowDimBg;
     case ImGuiCol_DragDropTarget: return col_Max;
     case ImGuiCol_NavHighlight: return col_Max;
     case ImGuiCol_NavWindowingHighlight: return col_Max;
@@ -1123,14 +1129,14 @@ void FontInfo::render_font_options( bool m_use_freetype )
         if ( !m_use_freetype )
         {
             ImGui::SameLine();
-            changed |= ImGui::SliderInt( "##oversample_h", &m_font_cfg.OversampleH, 1, 4, "OverSampleH: %.0f" );
+            changed |= ImGui::SliderInt( "##oversample_h", &m_font_cfg.OversampleH, 1, 4, "OverSampleH: %d" );
             if ( ImGui::IsItemHovered() )
                 ImGui::SetTooltip( "%s", "Rasterize at higher quality for sub-pixel positioning." );
 
 #if 0
             // imgui doesn't currently do sub-pixel on Y axis.
             ImGui::SameLine();
-            changed |= ImGui::SliderInt( "##oversample_v", &m_font_cfg.OversampleV, 1, 4, "OverSampleV: %.0f" );
+            changed |= ImGui::SliderInt( "##oversample_v", &m_font_cfg.OversampleV, 1, 4, "OverSampleV: %d" );
 #endif
         }
 
@@ -1232,15 +1238,17 @@ bool ColorPicker::render( ImU32 color, bool is_alpha, ImU32 defcolor )
     {
         ImColor col = color;
         ImColor defcol = defcolor;
-        ImGuiColorEditFlags flags = ImGuiColorEditFlags_NoOptions;
+        ImGuiColorEditFlags flags = 0;
 
+        // flags |= ImGuiColorEditFlags_NoOptions;
         flags |= ImGuiColorEditFlags_AlphaBar;
         flags |= ImGuiColorEditFlags_AlphaPreview;
-        flags |= ImGuiColorEditFlags_RGB;
+        flags |= ImGuiColorEditFlags_DisplayRGB;
         flags |= ImGuiColorEditFlags_Uint8;
         flags |= ImGuiColorEditFlags_PickerHueBar;
 
         ImGui::NewLine();
+        ImGui::SetNextItemWidth( imgui_scale( 300.0f ) );
         if ( ImGui::ColorPicker4( "colorpicker##argb", &col.Value.x, flags, &defcol.Value.x ) )
         {
             ret = true;

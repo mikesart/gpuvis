@@ -206,7 +206,7 @@ bool CreatePlotDlg::render_dlg( TraceEvents &trace_events )
     ImGui::NewLine();
 
     struct PlotNameFilter {
-        static int FilterPunct( ImGuiTextEditCallbackData *data )
+        static int FilterPunct( ImGuiInputTextCallbackData *data )
                 { return ( ( data->EventChar < 256 ) && ispunct( data->EventChar ) ); }
     };
     imgui_input_text( "Plot Name:", m_plot_name_buf, x, w, PlotNameFilter::FilterPunct );

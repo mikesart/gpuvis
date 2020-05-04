@@ -138,7 +138,7 @@ void imgui_pop_font();
 
 bool imgui_collapsingheader( const char *label, bool *has_focus, ImGuiTreeNodeFlags flags = 0 );
 
-bool imgui_begin_columns( const char* str_id, int columns_count, ImGuiColumnsFlags flags = 0 );
+bool imgui_begin_columns( const char* str_id, int columns_count, int /*ImGuiColumnsFlags*/ flags = 0 );
 bool imgui_end_columns();
 
 bool imgui_begin_columns( const char *title,
@@ -150,7 +150,7 @@ bool imgui_begin_columns( const char *title,
 #define ImGuiInputText2FlagsLeft_LabelIsButton ( 1 << 30 )
 template < size_t T >
 bool imgui_input_text2( const char *label, char ( &buf ) [ T ], float w = 120.0f,
-                        ImGuiInputTextFlags flags = 0, ImGuiTextEditCallback callback = NULL,
+                        ImGuiInputTextFlags flags = 0, ImGuiInputTextCallback callback = NULL,
                         void *user_data = NULL )
 {
     bool ret = false;
@@ -183,7 +183,7 @@ bool imgui_input_text2( const char *label, char ( &buf ) [ T ], float w = 120.0f
 }
 
 template < size_t T >
-static bool imgui_input_text( const char *label, char ( &buf )[ T ], float x, float w, ImGuiTextEditCallback callback = nullptr )
+static bool imgui_input_text( const char *label, char ( &buf )[ T ], float x, float w, ImGuiInputTextCallback callback = nullptr )
 {
     bool ret = false;
     ImGuiInputTextFlags flags = callback ? ImGuiInputTextFlags_CallbackCharFilter : 0;

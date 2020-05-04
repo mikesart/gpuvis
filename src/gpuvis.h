@@ -1159,7 +1159,7 @@ public:
     void render_log();
     void render_console();
     void render_save_filename();
-    void render_menu( const char *str_id );
+    void render_menu();
     void render_menu_options();
     void render_font_options();
     void render_color_picker();
@@ -1253,13 +1253,14 @@ public:
     bool m_quit = false;
     bool m_focus_gpuvis_console = false;
     bool m_show_gpuvis_console = false;
-    bool m_show_imgui_test_window = false;
+    bool m_show_imgui_demo_window = false;
     bool m_show_imgui_style_editor = false;
     bool m_show_imgui_metrics_editor = false;
     bool m_show_font_window = false;
     bool m_show_color_picker = false;
     bool m_show_scale_popup = false;
     bool m_show_help = false;
+    ImGuiID m_root_dockspace_id = 0;
 
     std::string m_show_trace_info;
 };
