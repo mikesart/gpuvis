@@ -265,6 +265,10 @@ void GraphRows::init( TraceEvents &trace_events )
         if ( ( plocs = trace_events.get_locs( "gfx", &type ) ) )
             push_row( "gfx", type, plocs->size() );
 
+        // post-navi gfx has the full ring notation - only one so far, so we can get away with this for now
+        if ( ( plocs = trace_events.get_locs( "gfx_0.0.0", &type ) ) )
+            push_row( "gfx_0.0.0", type, plocs->size() );
+
         // Andres: full list of compute rings is comp_[1-2].[0-3].[0-8]
         for ( int c0 = 1; c0 < 3; c0++)
         {
@@ -282,6 +286,10 @@ void GraphRows::init( TraceEvents &trace_events )
 
         if ( ( plocs = trace_events.get_locs( "gfx hw", &type ) ) )
             push_row( "gfx hw", type, plocs->size() );
+
+        // post-navi gfx has the full ring notation - only one so far, so we can get away with this for now
+        if ( ( plocs = trace_events.get_locs( "gfx_0.0.0 hw", &type ) ) )
+            push_row( "gfx_0.0.0 hw", type, plocs->size() );
 
         for ( int c0 = 1; c0 < 3; c0++)
         {
