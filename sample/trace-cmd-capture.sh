@@ -8,7 +8,8 @@ fi
 
 if [ ${TRACE_ENABLED} -eq 0 ]; then
     echo -e "ERROR: Tracing is disabled\n"
-    ./trace-cmd-status.sh
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+    ${SCRIPT_DIR}/trace-cmd-status.sh
     exit -1
 fi
 

@@ -14,4 +14,5 @@ if [ "${USE_I915_PERF} " ]; then
     $CMD
 fi
 
-./trace-cmd-status.sh
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+${SCRIPT_DIR}/trace-cmd-status.sh
