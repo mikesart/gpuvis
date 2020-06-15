@@ -52,7 +52,7 @@ endif
 #  http://www.productive-cpp.com/improving-cpp-builds-with-split-dwarf/
 
 CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf $(SDL2FLAGS) $(GTK3FLAGS) $(I915_PERF_CFLAGS) -I/usr/include/freetype2
-CFLAGS += -DUSE_FREETYPE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
+CFLAGS += -DUSE_FREETYPE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64 -DIMGUI_IMPL_OPENGL_LOADER_GL3W -Isrc
 CXXFLAGS = -fno-rtti -Woverloaded-virtual -Wno-class-memaccess
 LDFLAGS = -march=native -gdwarf-4 -g2 -Wl,--build-id=sha1
 LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lfreetype -lstdc++ $(SDL2LIBS) $(I915_PERF_LIBS)
@@ -80,10 +80,12 @@ CFILES = \
 	src/MurmurHash3.cpp \
 	src/miniz.c \
 	src/stlini.cpp \
-	src/imgui/imgui_impl_sdl_gl3.cpp \
 	src/imgui/imgui.cpp \
 	src/imgui/imgui_demo.cpp \
 	src/imgui/imgui_draw.cpp \
+	src/imgui/imgui_widgets.cpp \
+	src/imgui/imgui_impl_opengl3.cpp \
+	src/imgui/imgui_impl_sdl.cpp \
 	src/GL/gl3w.c \
 	src/i915-perf/i915-perf-read.cpp \
 	src/trace-cmd/event-parse.c \
