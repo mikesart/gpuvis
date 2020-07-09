@@ -1221,7 +1221,7 @@ static int handle_options( tracecmd_input_t *handle )
             handle->opt_version = std::string( buf, size );
             break;
         default:
-            die( handle, "%s: unknown option %d\n", __func__, option );
+            logf( "%s: unknown option %d\n", __func__, option ) ;
             break;
         }
 
