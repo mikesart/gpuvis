@@ -121,6 +121,7 @@ static const char *s_buf_prefixes[] =
 enum bufvar_t
 {
     bufvar_ltime,
+    bufvar_dtime,
 
     bufvar_lduration,
     bufvar_duration,
@@ -142,6 +143,7 @@ static struct
 } s_buf_vars[] =
 {
     { "ltime=", 6 },
+    { "dtime=", 6 },
     { "lduration=", 10 },
     { "duration=", 9 },
     { "begin_ctx=", 10 },
@@ -277,6 +279,7 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
     const char *orig_buf = get_event_field_val( event, "buf" );
     const char *buf = orig_buf;
     bool has_print_ltime = false;
+    bool has_print_dtime = false;
 
     if ( m_ftrace.ftrace_pairs.empty() )
         init_ftrace_pairs( m_ftrace.ftrace_pairs );
@@ -301,6 +304,23 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
         buf = trim_ftrace_print_buf( newbuf, buf, var_ltime, s_buf_vars[ bufvar ].len );
         has_print_ltime = true;
     }
+
+    // bufvar_dtime is second in enumeration, so if dtime= is present,
+    // it should be the second bufvar returned.  It basically mimics
+	//the behavior of ltime.  ltime and dtime are mututally exclusive.
+    STATIC_ASSERT( bufvar_dtime == 1 );
+    const char *var_dtime = NULL;
+    var_dtime = find_buf_var( buf, &bufvar );
+
+    if ( bufvar == bufvar_dtime )
+    {
+        event.ts += atoll( var_dtime );
+
+        // Remove "dtime=XXX", etc from buf
+        buf = trim_ftrace_print_buf( newbuf, buf, var_dtime, s_buf_vars[ bufvar ].len );
+        has_print_dtime = true;
+    }
+
     bufvar = bufvar_Max;
 
     const char *tid_offset_str = strncasestr( buf, "tid=", 4 );
@@ -449,9 +469,9 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
         event.color_index = hashstr32( buf );
     }
 
-    // If this event's timestamp has been injected by
+    // If this event's timestamp has been injected or modified by
     // the print buf, add an asterisk to it's text
-    if ( has_print_ltime )
+    if ( has_print_ltime || has_print_dtime )
     {
         assert( buf == newbuf );
         size_t len = strlen( newbuf );
