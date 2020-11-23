@@ -98,6 +98,9 @@ void I915PerfCounters::init( TraceEvents &trace_events )
 
     m_counters.clear();
 
+    if (!m_trace_events->i915_perf_reader)
+        return;
+
     const struct intel_perf_metric_set *metric_set =
         m_trace_events->i915_perf_reader->metric_set;
 
