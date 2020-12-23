@@ -768,12 +768,8 @@ int MainApp::load_etl_file( loading_info_t *loading_info, TraceEvents &trace_eve
 
 int MainApp::load_i915_perf_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb )
 {
-#ifdef USE_I915_PERF
     return read_i915_perf_file( loading_info->filename.c_str(), trace_events.m_strpool,
         trace_events.m_trace_info, &trace_events.i915_perf_reader, trace_cb );
-#else
-    return 0;
-#endif
 }
 
 int SDLCALL MainApp::thread_func( void *data )
