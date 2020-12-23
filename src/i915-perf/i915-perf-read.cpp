@@ -75,6 +75,7 @@ int read_i915_perf_file( const char *file, StrPool &strpool, trace_info_t &trace
 
     for (uint32_t i = 0; i < reader->n_timelines; i++)
     {
+        // Skip the idle time
         if ( reader->timelines[i].hw_id == 0xffffffff )
             continue;
 
