@@ -2501,6 +2501,10 @@ uint32_t TraceWin::graph_render_i915_perf_events( graph_info_t &gi )
         }
         const trace_event_t &event = get_event( eventid );
 
+        // Skip idle events
+        if ( event.pid == 0xffffffff )
+            continue;
+
         if ( eventid > gi.eventend )
             break;
         else if ( gi.graph_only_filtered && event.is_filtered_out )
