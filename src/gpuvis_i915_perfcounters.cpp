@@ -275,6 +275,53 @@ void I915PerfCounters::render()
     ImGui::EndChild();
 }
 
+void I915PerfCounters::show_record_info( TraceEvents &trace_events )
+{
+    ImGui::Columns( 2, "##i915-record" );
+
+
+    ImGui::Text( "Number of GPU generated records");
+    ImGui::NextColumn();
+    ImGui::Text( "%u", trace_events.i915_perf_reader->n_records );
+    ImGui::NextColumn();
+    ImGui::Text( "Number of GPU timeline items");
+    ImGui::NextColumn();
+    ImGui::Text( "%u", trace_events.i915_perf_reader->n_timelines );
+    ImGui::NextColumn();
+    ImGui::Text( "Number of CPU/GPU correlation timestamp points" );
+    ImGui::NextColumn();
+    ImGui::Text( "%u", trace_events.i915_perf_reader->n_correlations );
+    ImGui::NextColumn();
+    ImGui::Text( "Metric set name" );
+    ImGui::NextColumn();
+    ImGui::Text( "%s", trace_events.i915_perf_reader->metric_set_name );
+    ImGui::NextColumn();
+    ImGui::Text( "Metric set uuid" );
+    ImGui::NextColumn();
+    ImGui::Text( "%s", trace_events.i915_perf_reader->metric_set_uuid );
+    ImGui::NextColumn();
+
+    const struct intel_perf *perf = trace_events.i915_perf_reader->perf;
+    if ( strlen( perf->devinfo.devname ) )
+    {
+        ImGui::Text( "Device name" );
+        ImGui::NextColumn();
+        ImGui::Text( "%s", perf->devinfo.devname );
+        ImGui::NextColumn();
+    }
+    if ( strlen( perf->devinfo.prettyname ) )
+    {
+        ImGui::Text( "Device pretty name" );
+        ImGui::NextColumn();
+        ImGui::Text( "%s", perf->devinfo.prettyname );
+        ImGui::NextColumn();
+    }
+    ImGui::Text( "Device execution units" );
+    ImGui::NextColumn();
+    ImGui::Text( "%lu", perf->devinfo.n_eus );
+    ImGui::EndColumns();
+}
+
 #else
 
 void I915PerfCounters::init( TraceEvents &trace_events )
@@ -294,6 +341,10 @@ I915PerfCounters::get_process( const trace_event_t &i915_perf_event )
 }
 
 void I915PerfCounters::render()
+{
+}
+
+void I915PerfCounters::show_record_info( TraceEvents &trace_events )
 {
 }
 
