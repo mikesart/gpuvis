@@ -706,6 +706,8 @@ public:
 
     void render();
 
+    void show_record_info( TraceEvents &trace_events );
+
     /* Associated process to a given i915-perf event. */
     struct i915_perf_process {
         const char *label;

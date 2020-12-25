@@ -3421,6 +3421,12 @@ void TraceWin::trace_render_info()
 
         ImGui::EndColumns();
     }
+
+    if ( m_trace_events.i915_perf_reader &&
+         ImGui::CollapsingHeader( "i915-perf info" ) )
+    {
+        m_i915_perf.counters.show_record_info( m_trace_events );
+    }
 }
 
 void TraceWin::graph_center_event( uint32_t eventid )
