@@ -2919,6 +2919,11 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
         type = LOC_TYPE_i915Perf;
         plocs = &m_i915.perf_locs;
     }
+    else if ( !strcmp( name, "i915-perf-freq" ) )
+    {
+        type = LOC_TYPE_i915PerfFreq;
+        plocs = &m_i915.perf_locs;
+    }
     else if ( !strncmp( name, "plot:", 5 ) )
     {
         GraphPlot *plot = get_plot_ptr( name );

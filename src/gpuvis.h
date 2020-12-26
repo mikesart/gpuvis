@@ -47,6 +47,7 @@ enum loc_type_t
     LOC_TYPE_i915RequestWait,
     LOC_TYPE_i915Request,
     LOC_TYPE_i915Perf, // GPU generated data
+    LOC_TYPE_i915PerfFreq, // GPU generated data
     LOC_TYPE_Max
 };
 
@@ -793,7 +794,8 @@ protected:
     // Render cpus print row
     uint32_t graph_render_cpus_timeline( graph_info_t &gi );
     // Render plot row
-    uint32_t graph_render_plot( graph_info_t &gi );
+    uint32_t graph_render_row_plot( graph_info_t &gi );
+    uint32_t graph_render_plot( graph_info_t &gi, GraphPlot &plot );
     // Render regular trace events
     uint32_t graph_render_row_events( graph_info_t &gi );
     // Render intel i915 request_wait events
@@ -802,6 +804,8 @@ protected:
     uint32_t graph_render_i915_req_events( graph_info_t &gi );
     // Render intel i915-perf events (GPU generated data)
     uint32_t graph_render_i915_perf_events( graph_info_t &gi );
+    // Render intel i915-perf frequency data (GPU generated data)
+    uint32_t graph_render_i915_perf_freq( graph_info_t &gi );
 
     // Render graph decorations
     void graph_render_time_ticks( graph_info_t &gi, float h0, float h1 );
