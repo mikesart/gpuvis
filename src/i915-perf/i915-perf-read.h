@@ -25,8 +25,22 @@
 #ifndef I915_PERF_READ_H_
 #define I915_PERF_READ_H_
 
-struct intel_perf_data_reader;
+#include <functional>
+
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+
+extern "C" {
+    struct intel_perf_data_reader;
+    struct intel_perf_logical_counter;
+}
+
+typedef std::function< void ( const trace_event_t &event, int64_t ts, float value ) > I915CounterCallback;
 
 int read_i915_perf_file( const char *file, StrPool &strpool, trace_info_t &trace_info, struct intel_perf_data_reader **reader, EventCallback &cb );
+struct intel_perf_logical_counter *get_i915_perf_frequency_counter( struct intel_perf_data_reader *reader );
+void load_i915_perf_counter_values( struct intel_perf_data_reader *reader,
+                                    struct intel_perf_logical_counter *counter,
+                                    const trace_event_t &event, I915CounterCallback &cb );
 
 #endif // I915_PERF_READ_H_

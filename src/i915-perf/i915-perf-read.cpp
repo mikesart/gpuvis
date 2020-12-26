@@ -26,6 +26,7 @@
 #define _LARGEFILE64_SOURCE
 #endif
 
+#include <assert.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -110,4 +111,69 @@ int read_i915_perf_file( const char *file, StrPool &strpool, trace_info_t &trace
 #endif
 
     return 0;
+}
+
+#if USE_I915_PERF
+static uint32_t record_timestamp( const struct drm_i915_perf_record_header *record )
+{
+    const uint32_t *data = ( const uint32_t * )( record + 1 );
+    return data[ 1 ];
+}
+#endif
+
+void load_i915_perf_counter_values( struct intel_perf_data_reader *reader,
+                                    struct intel_perf_logical_counter *counter,
+                                    const trace_event_t &event, I915CounterCallback &cb )
+{
+#if USE_I915_PERF
+    assert( event.i915_perf_timeline < reader->n_timelines );
+
+    const struct intel_perf_timeline_item *item = &reader->timelines[ event.i915_perf_timeline ];
+    const struct drm_i915_perf_record_header *first_record = reader->records[ item->record_start ];
+    for ( uint32_t j = item->record_start; j < item->record_end; j++ )
+    {
+        const struct drm_i915_perf_record_header *record = reader->records[j];
+        int64_t ts = item->cpu_ts_start +
+            ( record_timestamp( record ) - record_timestamp( first_record ) ) *
+            ( item->cpu_ts_end - item->cpu_ts_start ) / ( item->ts_end - item->ts_start );
+        struct intel_perf_accumulator acc;
+
+        intel_perf_accumulate_reports( &acc, reader->metric_set->perf_oa_format,
+                                       reader->records[j], reader->records[j + 1] );
+
+        float value;
+        if ( counter->storage == INTEL_PERF_LOGICAL_COUNTER_STORAGE_DOUBLE ||
+             counter->storage == INTEL_PERF_LOGICAL_COUNTER_STORAGE_FLOAT )
+        {
+            value = counter->read_float( reader->perf, reader->metric_set, acc.deltas );
+        }
+        else
+        {
+            value = counter->read_uint64( reader->perf, reader->metric_set, acc.deltas );
+        }
+
+        cb( event, ts, value / 1000000.0 ); // Report the frequency in MHz, not Hz
+    }
+#endif
+}
+
+struct intel_perf_logical_counter *get_i915_perf_frequency_counter( struct intel_perf_data_reader *reader )
+{
+#if USE_I915_PERF
+    struct intel_perf_metric_set *metric_set = reader->metric_set;
+
+    for ( uint32_t i = 0; i < metric_set->n_counters; i++ )
+    {
+        struct intel_perf_logical_counter *counter = &metric_set->counters[ i ];
+
+        if ( strcmp( counter->symbol_name, "AvgGpuCoreFrequency" ) == 0 )
+        {
+            return counter;
+        }
+    }
+
+    return NULL;
+#else
+    return NULL;
+#endif
 }

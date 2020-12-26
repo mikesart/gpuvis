@@ -353,6 +353,24 @@ bool GraphPlot::init( TraceEvents &trace_events, const std::string &name,
     return !m_plotdata.empty();
 }
 
+void GraphPlot::init_empty( const std::string &name )
+{
+    m_name = name;
+    m_filter_str.clear();
+    m_scanf_str.clear();
+
+    m_minval = FLT_MAX;
+    m_maxval = FLT_MIN;
+    m_plotdata.clear();
+}
+
+void GraphPlot::add_item( uint32_t eventid, int64_t ts, float value )
+{
+    m_minval = std::min< float >( m_minval, value );
+    m_maxval = std::max< float >( m_maxval, value );
+    m_plotdata.push_back( { ts, eventid, value } );
+}
+
 uint32_t GraphPlot::find_ts_index( int64_t ts0 )
 {
     auto lambda = []( const GraphPlot::plotdata_t &lhs, int64_t ts )

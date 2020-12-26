@@ -24,6 +24,7 @@
 
 extern "C" {
     struct intel_perf_data_reader;
+    struct intel_perf_logical_counter;
 }
 
 // Opts singleton
@@ -149,6 +150,10 @@ public:
 
     bool init( TraceEvents &trace_events, const std::string &name,
                const std::string &filter_str, const std::string scanf_str );
+
+    void init_empty( const std::string &name );
+
+    void add_item( uint32_t eventid, int64_t ts, float value );
 
     uint32_t find_ts_index( int64_t ts0 );
 
@@ -449,6 +454,8 @@ public:
     }
     uint32_t ts_to_ftrace_print_info_idx( const std::vector< uint32_t > &locs, int64_t ts );
 
+    void add_i915_perf_frequency( const trace_event_t &event, int64_t ts, float value );
+
 public:
     // Called once on background thread after all events loaded.
     void init();
@@ -537,6 +544,12 @@ public:
         util_umap< uint32_t, uint32_t > perf_to_req_in;
         // Maps a HW context ID to its color
         std::map< uint32_t, ImU32 > perf_hw_context_colors;
+
+        // Frequency counter, filled right after parsing the i915-perf data.
+        struct intel_perf_logical_counter *frequency_counter = NULL;
+        // Plot generated after i915-perf data is parsed with the frequency
+        // counter values.
+        GraphPlot freq_plot;
     } m_i915;
 
     struct ftrace_pair_t
