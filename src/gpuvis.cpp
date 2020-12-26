@@ -768,8 +768,16 @@ int MainApp::load_etl_file( loading_info_t *loading_info, TraceEvents &trace_eve
 
 int MainApp::load_i915_perf_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb )
 {
-    return read_i915_perf_file( loading_info->filename.c_str(), trace_events.m_strpool,
+    int ret = read_i915_perf_file( loading_info->filename.c_str(), trace_events.m_strpool,
         trace_events.m_trace_info, &trace_events.i915_perf_reader, trace_cb );
+
+    if ( ret == 0 )
+    {
+        trace_events.m_i915.freq_plot.init_empty( "i915-perf-freq" );
+        trace_events.m_i915.frequency_counter = get_i915_perf_frequency_counter( trace_events.i915_perf_reader );
+    }
+
+    return ret;
 }
 
 int SDLCALL MainApp::thread_func( void *data )
@@ -2119,6 +2127,11 @@ void TraceEvents::init_i915_event( trace_event_t &event )
     }
 }
 
+void TraceEvents::add_i915_perf_frequency( const trace_event_t &event, int64_t ts, float value )
+{
+    m_i915.freq_plot.add_item( event.id, ts, value );
+}
+
 void TraceEvents::init_i915_perf_event( trace_event_t &event )
 {
     if ( !event.has_duration() )
@@ -2138,6 +2151,10 @@ void TraceEvents::init_i915_perf_event( trace_event_t &event )
                 break;
             }
         }
+
+        // Load the GPU frequency data assocated with this event.
+        I915CounterCallback counter_cb = std::bind( &TraceEvents::add_i915_perf_frequency, this, _1, _2, _3 );
+        load_i915_perf_counter_values( i915_perf_reader, m_i915.frequency_counter, event, counter_cb );
     }
 
     m_i915.perf_locs.push_back( event.id );
