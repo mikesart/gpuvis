@@ -154,6 +154,7 @@ public:
 
     bool add_mouse_hovered_event( float x, const trace_event_t &event, bool force = false );
 
+    void set_i915_perf_frequency( float value );
     void set_selected_i915_ringctxseq( const trace_event_t &event );
     bool is_i915_ringctxseq_selected( const trace_event_t &event );
 
@@ -196,6 +197,7 @@ public:
         uint32_t selected_ringno = 0;
         uint32_t selected_seqno = 0;
         uint32_t selected_ctx = 0;
+        float frequency = 0.0f;
     } i915;
 
     std::vector< uint32_t > sched_switch_bars;
@@ -518,7 +520,8 @@ static option_id_t get_comm_option_id( const std::string &row_name, loc_type_t r
          row_type == LOC_TYPE_AMDTimeline ||
          row_type == LOC_TYPE_i915RequestWait ||
          row_type == LOC_TYPE_i915Request ||
-         row_type == LOC_TYPE_i915Perf )
+         row_type == LOC_TYPE_i915Perf ||
+         row_type == LOC_TYPE_i915PerfFreq )
     {
         int defval = 4;
         int minval = 4;
@@ -561,12 +564,13 @@ RenderGraphRowCallback graph_info_t::get_render_cb( loc_type_t row_type )
     {
     case LOC_TYPE_CpuGraph:        return std::bind( &TraceWin::graph_render_cpus_timeline, &win, _1 );
     case LOC_TYPE_Print:           return std::bind( &TraceWin::graph_render_print_timeline, &win, _1 );
-    case LOC_TYPE_Plot:            return std::bind( &TraceWin::graph_render_plot, &win, _1 );
+    case LOC_TYPE_Plot:            return std::bind( &TraceWin::graph_render_row_plot, &win, _1 );
     case LOC_TYPE_AMDTimeline:     return std::bind( &TraceWin::graph_render_amd_timeline, &win, _1 );
     case LOC_TYPE_AMDTimeline_hw:  return std::bind( &TraceWin::graph_render_amdhw_timeline, &win, _1 );
     case LOC_TYPE_i915Request:     return std::bind( &TraceWin::graph_render_i915_req_events, &win, _1 );
     case LOC_TYPE_i915RequestWait: return std::bind( &TraceWin::graph_render_i915_reqwait_events, &win, _1 );
     case LOC_TYPE_i915Perf:        return std::bind( &TraceWin::graph_render_i915_perf_events, &win, _1 );
+    case LOC_TYPE_i915PerfFreq:    return std::bind( &TraceWin::graph_render_i915_perf_freq, &win, _1 );
     // LOC_TYPE_Comm or LOC_TYPE_Tdopexpr hopefully...
     default:                       return std::bind( &TraceWin::graph_render_row_events, &win, _1 );
     }
@@ -908,6 +912,11 @@ bool graph_info_t::add_mouse_hovered_event( float xin, const trace_event_t &even
     }
 
     return inserted;
+}
+
+void graph_info_t::set_i915_perf_frequency( float value )
+{
+    i915.frequency = value;
 }
 
 void graph_info_t::set_selected_i915_ringctxseq( const trace_event_t &event )
@@ -1324,14 +1333,12 @@ void RowFilters::toggle_filter( TraceEvents &trace_events, size_t idx, const std
     }
 }
 
-uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
+uint32_t TraceWin::graph_render_plot( graph_info_t &gi, GraphPlot &plot )
 {
     float minval = FLT_MAX;
     float maxval = FLT_MIN;
     std::vector< ImVec2 > points;
     std::vector< ImVec2 > plotPoints;
-    const char *row_name = gi.prinfo_cur->row_name.c_str();
-    GraphPlot &plot = m_trace_events.get_plot( row_name );
     uint32_t index0 = plot.find_ts_index( gi.ts0 );
     uint32_t index1 = plot.find_ts_index( gi.ts1 );
 
@@ -1374,6 +1381,10 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
         if ( gi.mouse_over )
             gi.add_mouse_hovered_event( x, get_event( data.eventid ) );
 
+        if ( m_graph.mouse_over_row_type == LOC_TYPE_i915PerfFreq &&
+             gi.mouse_pos_in_rect( { x - 5.0, gi.mouse_pos.y - 5.0, 10.0, 10.0 } ) )
+            gi.set_i915_perf_frequency( y );
+
         if ( x >= gi.rc.x + gi.rc.w )
             break;
     }
@@ -1411,6 +1422,14 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi )
     }
 
     return points.size();
+}
+
+uint32_t TraceWin::graph_render_row_plot( graph_info_t &gi )
+{
+    const char *row_name = gi.prinfo_cur->row_name.c_str();
+    GraphPlot &plot = m_trace_events.get_plot( row_name );
+
+    return graph_render_plot( gi, plot );
 }
 
 class row_draw_info_t
@@ -2547,6 +2566,11 @@ uint32_t TraceWin::graph_render_i915_perf_events( graph_info_t &gi )
     event_renderer.draw_event_markers();
 
     return count;
+}
+
+uint32_t TraceWin::graph_render_i915_perf_freq( graph_info_t &gi )
+{
+    return graph_render_plot( gi, m_trace_events.m_i915.freq_plot );
 }
 
 void TraceWin::graph_render_single_row( graph_info_t &gi )
@@ -4268,19 +4292,25 @@ void TraceWin::graph_mouse_tooltip_sched_switch( std::string &ttip, graph_info_t
 
 void TraceWin::graph_mouse_tooltip_i915_perf( std::string &ttip, graph_info_t &gi, int64_t mouse_ts )
 {
-    if ( gi.i915_perf_bars.empty() )
-        return;
-
-    ttip += "\n";
-
-    for ( uint32_t id : gi.i915_perf_bars )
+    if ( gi.i915.frequency > 0.0f )
     {
-        trace_event_t &event = get_event( id );
-        std::string timestr = ts_to_timestr( event.duration, 4 );
-        I915PerfCounters::i915_perf_process process = m_i915_perf.counters.get_process( event );
+        ttip += "\n";
+        ttip += string_format( "\nGPU frequency: %.02f MHz", gi.i915.frequency );
+    }
 
-        ttip += string_format( "\nhw_id: %u", event.pid );
-        ttip += string_format( "\nProcess: %s (Time: %s)", process.label, timestr.c_str() );
+    if ( !gi.i915_perf_bars.empty() )
+    {
+        ttip += "\n";
+
+        for ( uint32_t id : gi.i915_perf_bars )
+        {
+            trace_event_t &event = get_event( id );
+            std::string timestr = ts_to_timestr( event.duration, 4 );
+            I915PerfCounters::i915_perf_process process = m_i915_perf.counters.get_process( event );
+
+            ttip += string_format( "\nhw_id: %u", event.pid );
+            ttip += string_format( "\nProcess: %s (Time: %s)", process.label, timestr.c_str() );
+        }
     }
 }
 
