@@ -2125,6 +2125,8 @@ void TraceEvents::init_i915_perf_event( trace_event_t &event )
         event.id_start = m_i915.perf_locs.back();
     else
     {
+        // Figure out which kernel trace point triggered this GPU generated
+        // event.
         for ( uint32_t i = 1; i <= event.id; i++ )
         {
             const trace_event_t &req_event = m_events[ event.id - i ];
