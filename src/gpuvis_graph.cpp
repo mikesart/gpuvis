@@ -1382,7 +1382,7 @@ uint32_t TraceWin::graph_render_plot( graph_info_t &gi, GraphPlot &plot )
             gi.add_mouse_hovered_event( x, get_event( data.eventid ) );
 
         if ( m_graph.mouse_over_row_type == LOC_TYPE_i915PerfFreq &&
-             gi.mouse_pos_in_rect( { x - 5.0, gi.mouse_pos.y - 5.0, 10.0, 10.0 } ) )
+             gi.mouse_pos_in_rect( { x - 5.0f, gi.mouse_pos.y - 5.0f, 10.0f, 10.0f } ) )
             gi.set_i915_perf_frequency( y );
 
         if ( x >= gi.rc.x + gi.rc.w )
@@ -2521,7 +2521,7 @@ uint32_t TraceWin::graph_render_i915_perf_events( graph_info_t &gi )
         const trace_event_t &event = get_event( eventid );
 
         // Skip idle events
-        if ( event.pid == 0xffffffff )
+        if ( event.pid == -1 )
             continue;
 
         if ( eventid > gi.eventend )
