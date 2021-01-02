@@ -1739,7 +1739,7 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
                     unsigned long long val = pevent_read_number( pevent,
                                ( char * )record->data + format->offset, format->size );
 
-                    trace_event.vblank_ts = val - trace_data.trace_info.min_file_ts;
+                    trace_event.vblank_ts = val;
                 }
                 else if ( trace_event.name == trace_data.drm_vblank_event_str &&
                           format_name == trace_data.high_prec_str &&
