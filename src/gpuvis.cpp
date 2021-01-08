@@ -2162,13 +2162,36 @@ void TraceEvents::init_i915_perf_event( trace_event_t &event )
 
 void TraceEvents::update_i915_perf_colors()
 {
+    // The pid field of i915-perf events is the GPU context ID. Assign each of
+    // them a color in case we can't find a process related to them.
+    std::unordered_set< int > all_gpu_contexts;
+    for ( const uint32_t event_id : m_i915.perf_locs )
+    {
+        const trace_event_t &i915_perf_event = m_events[ event_id ];
+
+        if ( all_gpu_contexts.find( i915_perf_event.pid ) == all_gpu_contexts.end() )
+            all_gpu_contexts.insert( i915_perf_event.pid );
+    }
+
+    uint32_t idx = 0;
+    std::map< int, uint32_t > gpu_context_to_color;
+    for ( auto context_id : all_gpu_contexts )
+    {
+        ImVec4 color( 0.0f, 0.0f, 0.0f, 1.0f );
+        ImGui::ColorConvertHSVtoRGB( (float) idx++ / all_gpu_contexts.size(), 1.0, 0.5,
+                                     color.x, color.y, color.z );
+        gpu_context_to_color.insert( std::make_pair( context_id, ImGui::ColorConvertFloat4ToU32( color ) ) );
+    }
+
+    // Go through all i915-perf events and assign the color of the process
+    // that submitted the workload to the GPU timeline event.
     for ( const uint32_t event_id : m_i915.perf_locs )
     {
         trace_event_t &i915_perf_event = m_events[ event_id ];
 
         if ( m_i915.perf_to_req_in.m_map.find( i915_perf_event.id ) == m_i915.perf_to_req_in.m_map.end() )
         {
-            i915_perf_event.color = s_clrs().get( col_Graph_Bari915Execute );
+            i915_perf_event.color = gpu_context_to_color[ i915_perf_event.pid ];
         }
         else
         {
