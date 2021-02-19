@@ -15,8 +15,6 @@ add_project_arguments(['-Wno-unused-parameter',
 c = meson.get_compiler('c')
 cc = meson.get_compiler('cpp')
 
-prog_python2 = find_program('python2')
-
 all_deps = [
   cc.find_library('dl'),
   dependency('sdl2'),
