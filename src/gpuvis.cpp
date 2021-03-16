@@ -56,6 +56,13 @@
 
 #include "miniz.h"
 
+#if defined( HAVE_RAPIDJSON )
+#include "rapidjson/document.h"
+#include "rapidjson/filereadstream.h"
+#include "rapidjson/encodedstream.h"
+#include "rapidjson/error/en.h"
+#endif
+
 // https://github.com/ocornut/imgui/issues/88
 #if defined( __APPLE__ )
   #define NOC_FILE_DIALOG_IMPLEMENTATION
@@ -639,6 +646,12 @@ bool MainApp::load_file( const char *filename, bool last )
     {
         m_trace_type = trace_type_i915_perf_trace;
     }
+#if defined( HAVE_RAPIDJSON )
+    else if ( real_ext && !strcmp( real_ext, ".json" ) )
+    {
+        m_trace_type = trace_type_perf;
+    }
+#endif
 
     size_t filesize = get_file_size( filename );
     if ( !filesize )
@@ -780,6 +793,86 @@ int MainApp::load_i915_perf_file( loading_info_t *loading_info, TraceEvents &tra
     return ret;
 }
 
+#if defined( HAVE_RAPIDJSON )
+int MainApp::load_perf_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb )
+{
+    StrPool& strpool = trace_events.m_strpool;
+
+    FILE* file = fopen(loading_info->filename.c_str(), "rb");
+    if (!file) {
+        logf("Failed to open file: %s", loading_info->filename.c_str());
+        return -1;
+    }
+
+    char buffer[256];
+    rapidjson::FileReadStream fis(file, buffer, sizeof(buffer));
+    rapidjson::AutoUTFInputStream<unsigned, rapidjson::FileReadStream> uis(fis);
+    rapidjson::Document document;
+    rapidjson::ParseResult ok = document.ParseStream(uis);
+    fclose(file);
+    if (!ok) {
+        logf("JSON parse error in file %s: %s (%zu)", loading_info->filename.c_str(),
+                rapidjson::GetParseError_En(ok.Code()), ok.Offset());
+        return -1;
+    }
+
+    if (!document.IsObject() ||
+            !document.HasMember("perf-json-version") ||
+            !document["perf-json-version"].IsInt() ||
+            document["perf-json-version"].GetInt() != 1) {
+        logf("ERROR: JSON file is not recognized as a perf data export.");
+        return -1;
+    }
+
+    if (document.HasMember("samples") && document["samples"].IsArray()) {
+        for (auto& sample : document["samples"].GetArray()) {
+            if (!sample.IsObject()) {
+                logf("ERROR: JSON samples array is corrupt!");
+                return -1;
+            }
+
+            trace_event_t trace_event;
+
+            trace_event.ts = (sample.HasMember("timestamp") && sample["timestamp"].IsInt64()) ?
+                sample["timestamp"].GetInt64() : 0;
+
+            // Note we're using the thread ID as PID here. It's not entirely
+            // clear which should be used.
+            trace_event.pid = (sample.HasMember("tid") && sample["tid"].IsInt()) ?
+                sample["tid"].GetInt() : 0;
+
+            int cpu = (sample.HasMember("cpu") && sample["cpu"].IsInt()) ?
+                sample["cpu"].GetInt() : 0;
+            // CPU is currently bugged
+            if (cpu < 0)
+                cpu = 0;
+            trace_event.cpu = cpu;
+
+            const char* comm = (sample.HasMember("comm") && sample["comm"].IsString()) ?
+                strpool.getstr(sample["comm"].GetString()) : "<unknown>";
+            trace_event.comm = strpool.getstrf("%s-%u", comm, trace_event.pid);
+
+            trace_event.name = (sample.HasMember("symbol") && sample["symbol"].IsString()) ?
+                strpool.getstr(sample["symbol"].GetString()) : "<unknown>";
+
+            trace_event.system = "Linux-perf";
+            trace_event.duration = 0;
+            trace_event.user_comm = trace_event.comm;
+
+            trace_event.numfields = 1;
+            trace_event.fields = new event_field_t[ 1 ];
+            trace_event.fields[ 0 ].key = "dso";
+            trace_event.fields[ 0 ].value = (sample.HasMember("dso") && sample["dso"].IsString()) ?
+                strpool.getstr(sample["dso"].GetString()) : "<unknown>";
+
+            trace_cb(trace_event);
+        }
+    }
+
+    return 0;
+}
+#endif
+
 int SDLCALL MainApp::thread_func( void *data )
 {
     util_time_t t0 = util_get_time();
@@ -811,6 +904,11 @@ int SDLCALL MainApp::thread_func( void *data )
         case trace_type_i915_perf_trace:
             ret = load_i915_perf_file( loading_info, trace_events, trace_cb );
             break;
+#if defined( HAVE_RAPIDJSON )
+        case trace_type_perf:
+            ret = load_perf_file( loading_info, trace_events, trace_cb );
+            break;
+#endif
         default:
             ret = -1;
             break;
@@ -4852,7 +4950,15 @@ void MainApp::open_trace_dialog()
     else
     {
         const char *file = noc_file_dialog_open( NOC_FILE_DIALOG_OPEN,
-                                 "trace-cmd files (*.dat;*.trace;*.etl;*.zip)\0*.dat;*.trace;*.etl;*.zip\0",
+                                 "trace-cmd files (*.dat;*.trace;*.etl;*.zip"
+#if defined( HAVE_RAPIDJSON )
+                                 ";*.json"
+#endif
+                                 ")\0*.dat;*.trace;*.etl;*.zip"
+#if defined( HAVE_RAPIDJSON )
+                                 ";*.json"
+#endif
+                                 "\0",
                                  NULL, "trace.dat" );
 
         if ( file && file[ 0 ] )

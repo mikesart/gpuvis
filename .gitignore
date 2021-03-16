@@ -4,6 +4,7 @@ _debug/*
 build/*
 traces_x/*
 traces_intel/*
+lib/
 
 sample/_release/*
 sample/_debug/*
