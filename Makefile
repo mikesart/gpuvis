@@ -13,6 +13,9 @@
 # Ie:
 #   scan-build -k -V --use-analyzer ~/bin/clang make
 
+.PHONY: all
+all:
+
 NAME = gpuvis
 
 USE_GTK3 ?= 1
@@ -143,6 +146,14 @@ $(info Building $(ODIR)/$(NAME)...)
 C_OBJS = ${CFILES:%.c=${ODIR}/%.o}
 OBJS = ${C_OBJS:%.cpp=${ODIR}/%.o}
 
+# Fetch RapidJSON
+CFLAGS += -DHAVE_RAPIDJSON -Ilib/rapidjson/include
+RAPIDJSON = https://github.com/Tencent/rapidjson/archive/1c2c8e085a8b2561dff17bedb689d2eb0609b689.tar.gz
+RAPIDJSON_DEP = lib/rapidjson/include/rapidjson/rapidjson.h
+$(RAPIDJSON_DEP):
+	@mkdir -p lib/rapidjson
+	curl -Lo- "$(RAPIDJSON)" | tar -xzf- --strip-components=1 -Clib/rapidjson
+
 all: $(PROJ)
 
 $(ODIR)/$(NAME): $(OBJS)
@@ -151,12 +162,12 @@ $(ODIR)/$(NAME): $(OBJS)
 
 -include $(OBJS:.o=.d)
 
-$(ODIR)/%.o: %.c Makefile
+$(ODIR)/%.o: %.c Makefile $(RAPIDJSON_DEP)
 	$(VERBOSE_PREFIX)echo "---- $< ----";
 	@$(MKDIR) $(dir $@)
 	$(VERBOSE_PREFIX)$(CC) -MMD -MP -std=gnu99 $(CFLAGS) -o $@ -c $<
 
-$(ODIR)/%.o: %.cpp Makefile
+$(ODIR)/%.o: %.cpp Makefile $(RAPIDJSON_DEP)
 	$(VERBOSE_PREFIX)echo "---- $< ----";
 	@$(MKDIR) $(dir $@)
 	$(VERBOSE_PREFIX)$(CXX) -MMD -MP -std=c++11 $(CFLAGS) $(CXXFLAGS) -o $@ -c $<
@@ -169,3 +180,4 @@ clean:
 	$(VERBOSE_PREFIX)$(RM) $(OBJS)
 	$(VERBOSE_PREFIX)$(RM) $(OBJS:.o=.d)
 	$(VERBOSE_PREFIX)$(RM) $(OBJS:.o=.dwo)
+	$(VERBOSE_PREFIX)$(RM) -r lib/rapidjson
