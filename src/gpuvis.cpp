@@ -817,9 +817,9 @@ int MainApp::load_perf_file( loading_info_t *loading_info, TraceEvents &trace_ev
     }
 
     if (!document.IsObject() ||
-            !document.HasMember("perf-json-version") ||
-            !document["perf-json-version"].IsInt() ||
-            document["perf-json-version"].GetInt() != 1) {
+            !document.HasMember("linux-perf-json-version") ||
+            !document["linux-perf-json-version"].IsInt() ||
+            document["linux-perf-json-version"].GetInt() != 1) {
         logf("ERROR: JSON file is not recognized as a perf data export.");
         return -1;
     }
@@ -829,6 +829,23 @@ int MainApp::load_perf_file( loading_info_t *loading_info, TraceEvents &trace_ev
             if (!sample.IsObject()) {
                 logf("ERROR: JSON samples array is corrupt!");
                 return -1;
+            }
+
+            if (!sample.HasMember("callchain") || !sample["callchain"].IsArray()) {
+                // sample doesn't have a callchain; skip it
+                continue;
+            }
+
+            auto callchain = sample["callchain"].GetArray();
+            if (callchain.Size() < 1 || !callchain[0].IsObject()) {
+                // sample callchain is empty or invalid; skip it
+                continue;
+            }
+
+            auto topStack = callchain[0].GetObject();
+            if (!topStack.HasMember("symbol") || !topStack["symbol"].IsString()) {
+                // sample symbol wasn't resolved; skip it
+                continue;
             }
 
             trace_event_t trace_event;
@@ -852,8 +869,7 @@ int MainApp::load_perf_file( loading_info_t *loading_info, TraceEvents &trace_ev
                 strpool.getstr(sample["comm"].GetString()) : "<unknown>";
             trace_event.comm = strpool.getstrf("%s-%u", comm, trace_event.pid);
 
-            trace_event.name = (sample.HasMember("symbol") && sample["symbol"].IsString()) ?
-                strpool.getstr(sample["symbol"].GetString()) : "<unknown>";
+            trace_event.name = strpool.getstr(topStack["symbol"].GetString());
 
             trace_event.system = "Linux-perf";
             trace_event.duration = 0;
@@ -862,8 +878,8 @@ int MainApp::load_perf_file( loading_info_t *loading_info, TraceEvents &trace_ev
             trace_event.numfields = 1;
             trace_event.fields = new event_field_t[ 1 ];
             trace_event.fields[ 0 ].key = "dso";
-            trace_event.fields[ 0 ].value = (sample.HasMember("dso") && sample["dso"].IsString()) ?
-                strpool.getstr(sample["dso"].GetString()) : "<unknown>";
+            trace_event.fields[ 0 ].value = (topStack.HasMember("dso") && topStack["dso"].IsString()) ?
+                strpool.getstr(topStack["dso"].GetString()) : "<unknown>";
 
             trace_cb(trace_event);
         }

@@ -71,3 +71,5 @@ ucm cmake macros are MIT licensed: [ucm](https://github.com/onqtam/ucm)
 SMHasher is MIT licensed: [SMHasher](https://github.com/aappleby/smhasher)
 
 {fmt} is 2-clause BSD licensed small, safe and fast formatting library: [fmt](http://fmtlib.net/latest/index.html)
+
+RapidJSON is MIT licensed: [RapidJSON](https://github.com/Tencent/rapidjson)
