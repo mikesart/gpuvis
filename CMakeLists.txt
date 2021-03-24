@@ -87,6 +87,18 @@ if ( USE_I915_PERF )
     ucm_add_flags( -DUSE_I915_PERF )
 endif()
 
+# Fetch RapidJSON
+set(RAPIDJSON_URL https://github.com/Tencent/rapidjson/archive/1c2c8e085a8b2561dff17bedb689d2eb0609b689.tar.gz)
+set(RAPIDJSON_DEP lib/rapidjson/include/rapidjson/rapidjson.h)
+if(NOT EXISTS "${PROJECT_SOURCE_DIR}/${RAPIDJSON_DEP}")
+    message("Downloading RapidJSON...")
+    file(DOWNLOAD ${RAPIDJSON_URL} "${PROJECT_SOURCE_DIR}/lib/rapidjson.tar.gz")
+    execute_process(COMMAND ${CMAKE_COMMAND} -E tar xzf ${PROJECT_SOURCE_DIR}/lib/rapidjson.tar.gz WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
+    file(RENAME ${PROJECT_SOURCE_DIR}/lib/rapidjson-1c2c8e085a8b2561dff17bedb689d2eb0609b689 ${PROJECT_SOURCE_DIR}/lib/rapidjson)
+endif()
+ucm_add_flags( -DHAVE_RAPIDJSON )
+include_directories( ${PROJECT_SOURCE_DIR}/lib/rapidjson/include )
+
 
 ucm_print_flags()
 

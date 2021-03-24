@@ -148,11 +148,11 @@ OBJS = ${C_OBJS:%.cpp=${ODIR}/%.o}
 
 # Fetch RapidJSON
 CFLAGS += -DHAVE_RAPIDJSON -Ilib/rapidjson/include
-RAPIDJSON = https://github.com/Tencent/rapidjson/archive/1c2c8e085a8b2561dff17bedb689d2eb0609b689.tar.gz
+RAPIDJSON_URL = https://github.com/Tencent/rapidjson/archive/1c2c8e085a8b2561dff17bedb689d2eb0609b689.tar.gz
 RAPIDJSON_DEP = lib/rapidjson/include/rapidjson/rapidjson.h
 $(RAPIDJSON_DEP):
 	@mkdir -p lib/rapidjson
-	curl -Lo- "$(RAPIDJSON)" | tar -xzf- --strip-components=1 -Clib/rapidjson
+	curl -Lo- "$(RAPIDJSON_URL)" | tar -xzf- --strip-components=1 -Clib/rapidjson
 
 all: $(PROJ)
 
