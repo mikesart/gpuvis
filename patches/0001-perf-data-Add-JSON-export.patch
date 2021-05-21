@@ -1,24 +1,29 @@
-From 3c92a5f8cb1476885b98df31dd1385067ed9f228 Mon Sep 17 00:00:00 2001
+From e0e72d8326f72f671c5861efbf5349e4aa6c56d1 Mon Sep 17 00:00:00 2001
 From: Nicholas Fraser <nfraser@codeweavers.com>
-Date: Wed, 24 Mar 2021 08:55:02 -0400
+Date: Wed, 31 Mar 2021 06:10:00 -0400
 Subject: [PATCH] perf data: Add JSON export
 
-This adds a feature to export perf data to a bespoke JSON file. It uses
-a (very) minimal inline JSON encoding, no external dependencies.
-Currently it only outputs some sample metadata but it's easily
-extensible.
+This adds a feature to export perf data to JSON.
+
+This is included in the Linux 5.13 kernel. For earlier kernel versions,
+you have to patch the same version of perf as your kernel (the version
+of perf and the kernel must match.)
+
+Built on 8bcfdd7cad3dffdd340f9a79098cbf331eb2cd53; applied upstream as
+d0713d4ca3e94827de77f8758e3e8045a0d85215.
 
 Signed-off-by: Nicholas Fraser <nfraser@codeweavers.com>
 ---
  tools/perf/Documentation/perf-data.txt |   5 +-
- tools/perf/builtin-data.c              |  39 ++++-
+ tools/perf/builtin-data.c              |  26 +-
  tools/perf/util/Build                  |   1 +
- tools/perf/util/data-convert-json.c    | 228 +++++++++++++++++++++++++
- tools/perf/util/data-convert-json.h    |   9 +
- tools/perf/util/data-convert.h         |   2 +
- 6 files changed, 276 insertions(+), 8 deletions(-)
+ tools/perf/util/data-convert-bt.c      |   2 +-
+ tools/perf/util/data-convert-bt.h      |  11 -
+ tools/perf/util/data-convert-json.c    | 384 +++++++++++++++++++++++++
+ tools/perf/util/data-convert.h         |  10 +
+ 7 files changed, 418 insertions(+), 21 deletions(-)
+ delete mode 100644 tools/perf/util/data-convert-bt.h
  create mode 100644 tools/perf/util/data-convert-json.c
- create mode 100644 tools/perf/util/data-convert-json.h
 
 diff --git a/tools/perf/Documentation/perf-data.txt b/tools/perf/Documentation/perf-data.txt
 index 726b9bc9e1a7..417bf17e265c 100644
@@ -44,18 +49,18 @@ index 726b9bc9e1a7..417bf17e265c 100644
  	Convert time to wall clock time.
  
 diff --git a/tools/perf/builtin-data.c b/tools/perf/builtin-data.c
-index 8d23b8d6ee8e..64546ba517a5 100644
+index 8d23b8d6ee8e..15ca23675ef0 100644
 --- a/tools/perf/builtin-data.c
 +++ b/tools/perf/builtin-data.c
-@@ -8,6 +8,7 @@
+@@ -7,7 +7,6 @@
+ #include "debug.h"
  #include <subcmd/parse-options.h>
  #include "data-convert.h"
- #include "data-convert-bt.h"
-+#include "data-convert-json.h"
+-#include "data-convert-bt.h"
  
  typedef int (*data_cmd_fn_t)(int argc, const char **argv);
  
-@@ -55,7 +56,8 @@ static const char * const data_convert_usage[] = {
+@@ -55,7 +54,8 @@ static const char * const data_convert_usage[] = {
  
  static int cmd_data_convert(int argc, const char **argv)
  {
@@ -65,7 +70,7 @@ index 8d23b8d6ee8e..64546ba517a5 100644
  	struct perf_data_convert_opts opts = {
  		.force = false,
  		.all = false,
-@@ -63,6 +65,7 @@ static int cmd_data_convert(int argc, const char **argv)
+@@ -63,6 +63,7 @@ static int cmd_data_convert(int argc, const char **argv)
  	const struct option options[] = {
  		OPT_INCR('v', "verbose", &verbose, "be more verbose"),
  		OPT_STRING('i', "input", &input_name, "file", "input file name"),
@@ -73,7 +78,7 @@ index 8d23b8d6ee8e..64546ba517a5 100644
  #ifdef HAVE_LIBBABELTRACE_SUPPORT
  		OPT_STRING(0, "to-ctf", &to_ctf, NULL, "Convert to CTF format"),
  		OPT_BOOLEAN(0, "tod", &opts.tod, "Convert time to wall clock time"),
-@@ -72,11 +75,6 @@ static int cmd_data_convert(int argc, const char **argv)
+@@ -72,11 +73,6 @@ static int cmd_data_convert(int argc, const char **argv)
  		OPT_END()
  	};
  
@@ -85,7 +90,7 @@ index 8d23b8d6ee8e..64546ba517a5 100644
  	argc = parse_options(argc, argv, options,
  			     data_convert_usage, 0);
  	if (argc) {
-@@ -84,11 +82,38 @@ static int cmd_data_convert(int argc, const char **argv)
+@@ -84,11 +80,25 @@ static int cmd_data_convert(int argc, const char **argv)
  		return -1;
  	}
  
@@ -98,21 +103,8 @@ index 8d23b8d6ee8e..64546ba517a5 100644
 +		return -1;
 +	}
 +
-+	if (to_json) {
-+		if (opts.all) {
-+			pr_err("--all is currently unsupported for JSON output.\n");
-+			return -1;
-+		}
-+		if (opts.tod) {
-+			pr_err("--tod is currently unsupported for JSON output.\n");
-+			return -1;
-+		}
-+		if (opts.force) {
-+			pr_err("--force is currently unsupported for JSON output.\n");
-+			return -1;
-+		}
++	if (to_json)
 +		return bt_convert__perf2json(input_name, to_json, &opts);
-+	}
 +
  	if (to_ctf) {
  #ifdef HAVE_LIBBABELTRACE_SUPPORT
@@ -120,8 +112,8 @@ index 8d23b8d6ee8e..64546ba517a5 100644
  #else
 -		pr_err("The libbabeltrace support is not compiled in.\n");
 +		pr_err("The libbabeltrace support is not compiled in. perf should be "
-+					"compiled with environment variables LIBBABELTRACE=1 and "
-+					"LIBBABELTRACE_DIR=/path/to/libbabeltrace/\n");
++		       "compiled with environment variables LIBBABELTRACE=1 and "
++		       "LIBBABELTRACE_DIR=/path/to/libbabeltrace/\n");
  		return -1;
  #endif
  	}
@@ -137,12 +129,42 @@ index e2563d0154eb..de9ac182b25a 100644
  
  perf-y += scripting-engines/
  
+diff --git a/tools/perf/util/data-convert-bt.c b/tools/perf/util/data-convert-bt.c
+index 27c5fef9ad54..803102207a8b 100644
+--- a/tools/perf/util/data-convert-bt.c
++++ b/tools/perf/util/data-convert-bt.c
+@@ -21,7 +21,7 @@
+ #include <babeltrace/ctf/events.h>
+ #include <traceevent/event-parse.h>
+ #include "asm/bug.h"
+-#include "data-convert-bt.h"
++#include "data-convert.h"
+ #include "session.h"
+ #include "debug.h"
+ #include "tool.h"
+diff --git a/tools/perf/util/data-convert-bt.h b/tools/perf/util/data-convert-bt.h
+deleted file mode 100644
+index 821674d63c4e..000000000000
+--- a/tools/perf/util/data-convert-bt.h
++++ /dev/null
+@@ -1,11 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef __DATA_CONVERT_BT_H
+-#define __DATA_CONVERT_BT_H
+-#include "data-convert.h"
+-#ifdef HAVE_LIBBABELTRACE_SUPPORT
+-
+-int bt_convert__perf2ctf(const char *input_name, const char *to_ctf,
+-			 struct perf_data_convert_opts *opts);
+-
+-#endif /* HAVE_LIBBABELTRACE_SUPPORT */
+-#endif /* __DATA_CONVERT_BT_H */
 diff --git a/tools/perf/util/data-convert-json.c b/tools/perf/util/data-convert-json.c
 new file mode 100644
-index 000000000000..b19674a9f2b8
+index 000000000000..d70c73cb3697
 --- /dev/null
 +++ b/tools/perf/util/data-convert-json.c
-@@ -0,0 +1,228 @@
+@@ -0,0 +1,384 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * JSON export.
@@ -150,10 +172,12 @@ index 000000000000..b19674a9f2b8
 + * Copyright (C) 2021, CodeWeavers Inc. <nfraser@codeweavers.com>
 + */
 +
-+#include "data-convert-json.h"
++#include "data-convert.h"
 +
-+#include <unistd.h>
++#include <fcntl.h>
 +#include <inttypes.h>
++#include <sys/stat.h>
++#include <unistd.h>
 +
 +#include "linux/compiler.h"
 +#include "linux/err.h"
@@ -162,6 +186,7 @@ index 000000000000..b19674a9f2b8
 +#include "util/dso.h"
 +#include "util/event.h"
 +#include "util/evsel.h"
++#include "util/evlist.h"
 +#include "util/header.h"
 +#include "util/map.h"
 +#include "util/session.h"
@@ -173,8 +198,10 @@ index 000000000000..b19674a9f2b8
 +	struct perf_tool tool;
 +	FILE *out;
 +	bool first;
++	u64 events_count;
 +};
 +
++// Outputs a JSON-encoded string surrounded by quotes with characters escaped.
 +static void output_json_string(FILE *out, const char *s)
 +{
 +	fputc('"', out);
@@ -182,22 +209,20 @@ index 000000000000..b19674a9f2b8
 +		switch (*s) {
 +
 +		// required escapes with special forms as per RFC 8259
-+		case '"':  fprintf(out, "\\\""); break;
-+		case '\\': fprintf(out, "\\\\"); break;
-+		case '/':  fprintf(out, "\\/");  break;
-+		case '\b': fprintf(out, "\\b");  break;
-+		case '\f': fprintf(out, "\\f");  break;
-+		case '\n': fprintf(out, "\\n");  break;
-+		case '\r': fprintf(out, "\\r");  break;
-+		case '\t': fprintf(out, "\\t");  break;
++		case '"':  fputs("\\\"", out); break;
++		case '\\': fputs("\\\\", out); break;
++		case '\b': fputs("\\b", out);  break;
++		case '\f': fputs("\\f", out);  break;
++		case '\n': fputs("\\n", out);  break;
++		case '\r': fputs("\\r", out);  break;
++		case '\t': fputs("\\t", out);  break;
 +
 +		default:
 +			// all other control characters must be escaped by hex code
-+			if (*s <= 0x1f) {
++			if (*s <= 0x1f)
 +				fprintf(out, "\\u%04x", *s);
-+			} else {
++			else
 +				fputc(*s, out);
-+			}
 +			break;
 +		}
 +
@@ -206,29 +231,80 @@ index 000000000000..b19674a9f2b8
 +	fputc('"', out);
 +}
 +
++// Outputs an optional comma, newline and indentation to delimit a new value
++// from the previous one in a JSON object or array.
++static void output_json_delimiters(FILE *out, bool comma, int depth)
++{
++	int i;
++
++	if (comma)
++		fputc(',', out);
++	fputc('\n', out);
++	for (i = 0; i < depth; ++i)
++		fputc('\t', out);
++}
++
++// Outputs a printf format string (with delimiter) as a JSON value.
++__printf(4, 5)
++static void output_json_format(FILE *out, bool comma, int depth, const char *format, ...)
++{
++	va_list args;
++
++	output_json_delimiters(out, comma, depth);
++	va_start(args, format);
++	vfprintf(out,  format, args);
++	va_end(args);
++}
++
++// Outputs a JSON key-value pair where the value is a string.
++static void output_json_key_string(FILE *out, bool comma, int depth,
++		const char *key, const char *value)
++{
++	output_json_delimiters(out, comma, depth);
++	output_json_string(out, key);
++	fputs(": ", out);
++	output_json_string(out, value);
++}
++
++// Outputs a JSON key-value pair where the value is a printf format string.
++__printf(5, 6)
++static void output_json_key_format(FILE *out, bool comma, int depth,
++		const char *key, const char *format, ...)
++{
++	va_list args;
++
++	output_json_delimiters(out, comma, depth);
++	output_json_string(out, key);
++	fputs(": ", out);
++	va_start(args, format);
++	vfprintf(out,  format, args);
++	va_end(args);
++}
++
 +static void output_sample_callchain_entry(struct perf_tool *tool,
 +		u64 ip, struct addr_location *al)
 +{
 +	struct convert_json *c = container_of(tool, struct convert_json, tool);
 +	FILE *out = c->out;
 +
-+	fprintf(out, "\n\t\t\t\t{");
-+	fprintf(out, "\n\t\t\t\t\t\"ip\": \"0x%" PRIx64 "\"", ip);
++	output_json_format(out, false, 4, "{");
++	output_json_key_format(out, false, 5, "ip", "\"0x%" PRIx64 "\"", ip);
 +
-+	if (al && al->sym && al->sym->name && strlen(al->sym->name) > 0) {
-+		fprintf(out, ",\n\t\t\t\t\t\"symbol\": ");
-+		output_json_string(out, al->sym->name);
++	if (al && al->sym && strlen(al->sym->name) > 0) {
++		fputc(',', out);
++		output_json_key_string(out, false, 5, "symbol", al->sym->name);
 +
 +		if (al->map && al->map->dso) {
 +			const char *dso = al->map->dso->short_name;
++
 +			if (dso && strlen(dso) > 0) {
-+				fprintf(out, ",\n\t\t\t\t\t\"dso\": ");
-+				output_json_string(out, dso);
++				fputc(',', out);
++				output_json_key_string(out, false, 5, "dso", dso);
 +			}
 +		}
 +	}
 +
-+	fprintf(out, "\n\t\t\t\t}");
++	output_json_format(out, false, 4, "}");
 +}
 +
 +static int process_sample_event(struct perf_tool *tool,
@@ -243,28 +319,28 @@ index 000000000000..b19674a9f2b8
 +	u8 cpumode = PERF_RECORD_MISC_USER;
 +
 +	if (machine__resolve(machine, &al, sample) < 0) {
-+		return 0;
++		pr_err("Sample resolution failed!\n");
++		return -1;
 +	}
 +
-+	if (c->first) {
++	++c->events_count;
++
++	if (c->first)
 +		c->first = false;
-+	} else {
-+		fprintf(out, ",");
-+	}
-+	fprintf(out, "\n\t\t{");
++	else
++		fputc(',', out);
++	output_json_format(out, false, 2, "{");
 +
-+	fprintf(out, "\n\t\t\t\"timestamp\": %" PRIi64, sample->time);
-+	fprintf(out, ",\n\t\t\t\"pid\": %i", al.thread->pid_);
-+	fprintf(out, ",\n\t\t\t\"tid\": %i", al.thread->tid);
++	output_json_key_format(out, false, 3, "timestamp", "%" PRIi64, sample->time);
++	output_json_key_format(out, true, 3, "pid", "%i", al.thread->pid_);
++	output_json_key_format(out, true, 3, "tid", "%i", al.thread->tid);
 +
-+	if (al.thread->cpu >= 0) {
-+		fprintf(out, ",\n\t\t\t\"cpu\": %i", al.thread->cpu);
-+	}
++	if (al.thread->cpu >= 0)
++		output_json_key_format(out, true, 3, "cpu", "%i", al.thread->cpu);
 +
-+	fprintf(out, ",\n\t\t\t\"comm\": ");
-+	output_json_string(out, thread__comm_str(al.thread));
++	output_json_key_string(out, true, 3, "comm", thread__comm_str(al.thread));
 +
-+	fprintf(out, ",\n\t\t\t\"callchain\": [");
++	output_json_key_format(out, true, 3, "callchain", "[");
 +	if (sample->callchain) {
 +		unsigned int i;
 +		bool ok;
@@ -285,18 +361,17 @@ index 000000000000..b19674a9f2b8
 +					cpumode = PERF_RECORD_MISC_USER;
 +					break;
 +				default:
-+					pr_debug("invalid callchain context: "
-+						"%"PRId64"\n", (s64) ip);
++					pr_debug("invalid callchain context: %"
++							PRId64 "\n", (s64) ip);
 +					break;
 +				}
 +				continue;
 +			}
 +
-+			if (first_callchain) {
++			if (first_callchain)
 +				first_callchain = false;
-+			} else {
-+				fprintf(out, ",");
-+			}
++			else
++				fputc(',', out);
 +
 +			ok = thread__find_symbol(al.thread, cpumode, ip, &tal);
 +			output_sample_callchain_entry(tool, ip, ok ? &tal : NULL);
@@ -304,93 +379,181 @@ index 000000000000..b19674a9f2b8
 +	} else {
 +		output_sample_callchain_entry(tool, sample->ip, &al);
 +	}
-+	fprintf(out, "\n\t\t\t]");
++	output_json_format(out, false, 3, "]");
 +
-+	fprintf(out, "\n\t\t}");
++	output_json_format(out, false, 2, "}");
 +	return 0;
 +}
 +
++static void output_headers(struct perf_session *session, struct convert_json *c)
++{
++	struct stat st;
++	struct perf_header *header = &session->header;
++	int ret;
++	int fd = perf_data__fd(session->data);
++	int i;
++	FILE *out = c->out;
++
++	output_json_key_format(out, false, 2, "header-version", "%u", header->version);
++
++	ret = fstat(fd, &st);
++	if (ret >= 0) {
++		time_t stctime = st.st_mtime;
++		char buf[256];
++
++		strftime(buf, sizeof(buf), "%FT%TZ", gmtime(&stctime));
++		output_json_key_string(out, true, 2, "captured-on", buf);
++	} else {
++		pr_debug("Failed to get mtime of source file, not writing captured-on");
++	}
++
++	output_json_key_format(out, true, 2, "data-offset", "%" PRIu64, header->data_offset);
++	output_json_key_format(out, true, 2, "data-size", "%" PRIu64, header->data_size);
++	output_json_key_format(out, true, 2, "feat-offset", "%" PRIu64, header->feat_offset);
++
++	output_json_key_string(out, true, 2, "hostname", header->env.hostname);
++	output_json_key_string(out, true, 2, "os-release", header->env.os_release);
++	output_json_key_string(out, true, 2, "arch", header->env.arch);
++
++	output_json_key_string(out, true, 2, "cpu-desc", header->env.cpu_desc);
++	output_json_key_string(out, true, 2, "cpuid", header->env.cpuid);
++	output_json_key_format(out, true, 2, "nrcpus-online", "%u", header->env.nr_cpus_online);
++	output_json_key_format(out, true, 2, "nrcpus-avail", "%u", header->env.nr_cpus_avail);
++
++	if (header->env.clock.enabled) {
++		output_json_key_format(out, true, 2, "clockid",
++				"%u", header->env.clock.clockid);
++		output_json_key_format(out, true, 2, "clock-time",
++				"%" PRIu64, header->env.clock.clockid_ns);
++		output_json_key_format(out, true, 2, "real-time",
++				"%" PRIu64, header->env.clock.tod_ns);
++	}
++
++	output_json_key_string(out, true, 2, "perf-version", header->env.version);
++
++	output_json_key_format(out, true, 2, "cmdline", "[");
++	for (i = 0; i < header->env.nr_cmdline; i++) {
++		output_json_delimiters(out, i != 0, 3);
++		output_json_string(c->out, header->env.cmdline_argv[i]);
++	}
++	output_json_format(out, false, 2, "]");
++}
++
 +int bt_convert__perf2json(const char *input_name, const char *output_name,
-+			 struct perf_data_convert_opts *opts __maybe_unused)
++		struct perf_data_convert_opts *opts __maybe_unused)
 +{
 +	struct perf_session *session;
++	int fd;
++	int ret = -1;
 +
 +	struct convert_json c = {
 +		.tool = {
-+			.sample = process_sample_event,
-+			.mmap = perf_event__process_mmap,
-+			.mmap2 = perf_event__process_mmap2,
-+			.comm = perf_event__process_comm,
-+			.namespaces = perf_event__process_namespaces,
-+			.cgroup = perf_event__process_cgroup,
-+			.exit = perf_event__process_exit,
-+			.fork = perf_event__process_fork,
-+			.lost = perf_event__process_lost,
-+			.tracing_data = perf_event__process_tracing_data,
-+			.build_id = perf_event__process_build_id,
-+			.id_index = perf_event__process_id_index,
-+			.auxtrace_info = perf_event__process_auxtrace_info,
-+			.auxtrace = perf_event__process_auxtrace,
-+			.event_update = perf_event__process_event_update,
++			.sample         = process_sample_event,
++			.mmap           = perf_event__process_mmap,
++			.mmap2          = perf_event__process_mmap2,
++			.comm           = perf_event__process_comm,
++			.namespaces     = perf_event__process_namespaces,
++			.cgroup         = perf_event__process_cgroup,
++			.exit           = perf_event__process_exit,
++			.fork           = perf_event__process_fork,
++			.lost           = perf_event__process_lost,
++			.tracing_data   = perf_event__process_tracing_data,
++			.build_id       = perf_event__process_build_id,
++			.id_index       = perf_event__process_id_index,
++			.auxtrace_info  = perf_event__process_auxtrace_info,
++			.auxtrace       = perf_event__process_auxtrace,
++			.event_update   = perf_event__process_event_update,
 +			.ordered_events = true,
 +			.ordering_requires_timestamps = true,
 +		},
 +		.first = true,
++		.events_count = 0,
 +	};
 +
 +	struct perf_data data = {
 +		.mode = PERF_DATA_MODE_READ,
 +		.path = input_name,
++		.force = opts->force,
 +	};
 +
-+	c.out = fopen(output_name, "w");
++	if (opts->all) {
++		pr_err("--all is currently unsupported for JSON output.\n");
++		goto err;
++	}
++	if (opts->tod) {
++		pr_err("--tod is currently unsupported for JSON output.\n");
++		goto err;
++	}
++
++	fd = open(output_name, O_CREAT | O_WRONLY | (opts->force ? O_TRUNC : O_EXCL), 0666);
++	if (fd == -1) {
++		if (errno == EEXIST)
++			pr_err("Output file exists. Use --force to overwrite it.\n");
++		else
++			pr_err("Error opening output file!\n");
++		goto err;
++	}
++
++	c.out = fdopen(fd, "w");
 +	if (!c.out) {
-+		fprintf(stderr, "error opening output file!\n");
-+		return -1;
++		fprintf(stderr, "Error opening output file!\n");
++		close(fd);
++		goto err;
 +	}
 +
 +	session = perf_session__new(&data, false, &c.tool);
 +	if (IS_ERR(session)) {
-+		fprintf(stderr, "error creating perf session!\n");
-+		return -1;
++		fprintf(stderr, "Error creating perf session!\n");
++		goto err_fclose;
 +	}
 +
 +	if (symbol__init(&session->header.env) < 0) {
-+		fprintf(stderr, "symbol init error!\n");
-+		return -1;
++		fprintf(stderr, "Symbol init error!\n");
++		goto err_session_delete;
 +	}
++
++	// The opening brace is printed manually because it isn't delimited from a
++	// previous value (i.e. we don't want a leading newline)
++	fputc('{', c.out);
 +
 +	// Version number for future-proofing. Most additions should be able to be
 +	// done in a backwards-compatible way so this should only need to be bumped
 +	// if some major breaking change must be made.
-+	fprintf(c.out, "{\n\t\"linux-perf-json-version\": 1,");
++	output_json_format(c.out, false, 1, "\"linux-perf-json-version\": 1");
 +
-+	fprintf(c.out, "\n\t\"samples\": [");
++	// Output headers
++	output_json_format(c.out, true, 1, "\"headers\": {");
++	output_headers(session, &c);
++	output_json_format(c.out, false, 1, "}");
++
++	// Output samples
++	output_json_format(c.out, true, 1, "\"samples\": [");
 +	perf_session__process_events(session);
-+	fprintf(c.out, "\n\t]\n}\n");
++	output_json_format(c.out, false, 1, "]");
++	output_json_format(c.out, false, 0, "}");
++	fputc('\n', c.out);
 +
-+	return 0;
++	fprintf(stderr,
++			"[ perf data convert: Converted '%s' into JSON data '%s' ]\n",
++			data.path, output_name);
++
++	fprintf(stderr,
++			"[ perf data convert: Converted and wrote %.3f MB (%" PRIu64 " samples) ]\n",
++			(ftell(c.out)) / 1024.0 / 1024.0, c.events_count);
++
++	ret = 0;
++err_session_delete:
++	perf_session__delete(session);
++err_fclose:
++	fclose(c.out);
++err:
++	return ret;
 +}
-diff --git a/tools/perf/util/data-convert-json.h b/tools/perf/util/data-convert-json.h
-new file mode 100644
-index 000000000000..1fcac5ce3ec1
---- /dev/null
-+++ b/tools/perf/util/data-convert-json.h
-@@ -0,0 +1,9 @@
-+/* SPDX-License-Identifier: GPL-2.0 */
-+#ifndef __DATA_CONVERT_JSON_H
-+#define __DATA_CONVERT_JSON_H
-+#include "data-convert.h"
-+
-+int bt_convert__perf2json(const char *input_name, const char *to_ctf,
-+			 struct perf_data_convert_opts *opts);
-+
-+#endif /* __DATA_CONVERT_JSON_H */
 diff --git a/tools/perf/util/data-convert.h b/tools/perf/util/data-convert.h
-index feab5f114e37..17c35eb6ab4f 100644
+index feab5f114e37..1b4c5f598415 100644
 --- a/tools/perf/util/data-convert.h
 +++ b/tools/perf/util/data-convert.h
-@@ -2,6 +2,8 @@
+@@ -2,10 +2,20 @@
  #ifndef __DATA_CONVERT_H
  #define __DATA_CONVERT_H
  
@@ -399,6 +562,18 @@ index feab5f114e37..17c35eb6ab4f 100644
  struct perf_data_convert_opts {
  	bool force;
  	bool all;
+ 	bool tod;
+ };
+ 
++#ifdef HAVE_LIBBABELTRACE_SUPPORT
++int bt_convert__perf2ctf(const char *input_name, const char *to_ctf,
++			 struct perf_data_convert_opts *opts);
++#endif /* HAVE_LIBBABELTRACE_SUPPORT */
++
++int bt_convert__perf2json(const char *input_name, const char *to_ctf,
++			 struct perf_data_convert_opts *opts);
++
+ #endif /* __DATA_CONVERT_H */
 -- 
-2.31.0
+2.31.1
 
