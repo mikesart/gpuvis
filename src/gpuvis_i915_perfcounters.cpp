@@ -192,16 +192,19 @@ I915PerfCounters::get_process( const trace_event_t &i915_perf_event )
     i915_perf_process process;
     process.label = "<unknown>";
     process.color = i915_perf_event.color;
+    process.event = NULL;
 
     uint32_t *req_event_id = m_trace_events->m_i915.perf_to_req_in.get_val( i915_perf_event.id );
 
     if ( req_event_id )
     {
-        const trace_event_t &req_event = m_trace_events->m_events[ *req_event_id ];
-        process.label = req_event.comm;
+        const trace_event_t *req_event = &m_trace_events->m_events[ *req_event_id ];
+        process.label = req_event->comm;
+        process.event = req_event;
+
 
         const std::vector< uint32_t > *sched_plocs =
-            m_trace_events->get_sched_switch_locs( req_event.pid,
+            m_trace_events->get_sched_switch_locs( req_event->pid,
                                                    TraceEvents::SCHED_SWITCH_PREV );
         if ( sched_plocs )
         {

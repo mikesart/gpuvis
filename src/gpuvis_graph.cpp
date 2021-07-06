@@ -2555,6 +2555,9 @@ uint32_t TraceWin::graph_render_i915_perf_events( graph_info_t &gi )
             if ( gi.mouse_pos_in_rect( { x0, y, x1 - x0, row_h } ) )
             {
                 imgui_drawrect( x0, y, x1 - x0, row_h, s_clrs().get( col_Graph_BarSelRect ) );
+
+                gi.set_selected_i915_ringctxseq( *process.event );
+
                 gi.i915_perf_bars.push_back( event.id );
 
                 m_i915_perf.counters.set_event( event );

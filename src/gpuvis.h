@@ -727,6 +727,7 @@ public:
     struct i915_perf_process {
         const char *label;
         ImU32 color;
+        const trace_event_t *event;
     };
 
     i915_perf_process get_process( const trace_event_t &event );
