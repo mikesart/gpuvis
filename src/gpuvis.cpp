@@ -180,6 +180,16 @@ uint32_t TraceLocationsRingCtxSeq::get_i915_ringno( const trace_event_t &event, 
     return ( uint32_t )-1;
 }
 
+uint32_t TraceLocationsRingCtxSeq::get_i915_seqno( const trace_event_t &event )
+{
+    const char *seqno_str = get_event_field_val( event, "seqno", NULL );
+
+    if ( seqno_str )
+        return strtoul( seqno_str, NULL, 10 );
+
+    return ( uint32_t )-1;
+}
+
 uint32_t TraceLocationsRingCtxSeq::get_i915_hw_id( const trace_event_t &event)
 {
     if ( event.seqno )
@@ -2257,6 +2267,34 @@ void TraceEvents::init_i915_perf_event( trace_event_t &event )
         for ( uint32_t i = 1; i <= event.id; i++ )
         {
             const trace_event_t &req_event = m_events[ event.id - i ];
+
+            // If we can't find a request within a second before this event,
+            // give up.
+            if ( ( event.ts - req_event.ts ) >= NSECS_PER_SEC )
+                break;
+
+            if ( !strcmp ( req_event.name, "i915_request_in" ) &&
+                 TraceLocationsRingCtxSeq::get_i915_hw_id( req_event ) == ( uint32_t )event.pid )
+            {
+                bool process_found = false;
+
+                for ( uint32_t j = 1; j <= req_event.id; j++ )
+                {
+                    const uint32_t seqno = TraceLocationsRingCtxSeq::get_i915_seqno( req_event );
+                    const trace_event_t &add_event = m_events[ req_event.id - j ];
+
+                    if ( !strcmp ( add_event.name, "i915_request_add" ) &&
+                         TraceLocationsRingCtxSeq::get_i915_seqno( add_event ) == seqno )
+                    {
+                        m_i915.perf_to_req_in.m_map[ event.id ] = add_event.id;
+                        process_found = true;
+                        break;
+                    }
+                }
+
+                if (process_found)
+                    break;
+            }
 
             if ( !strcmp ( req_event.name, "i915_request_add" ) &&
                  TraceLocationsRingCtxSeq::get_i915_hw_id( req_event ) == ( uint32_t )event.pid )
