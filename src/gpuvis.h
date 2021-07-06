@@ -117,6 +117,7 @@ public:
 
     static uint32_t get_i915_ringno( const trace_event_t &event, bool *is_class_instance = nullptr );
     static uint32_t get_i915_hw_id( const trace_event_t &event);
+    static uint32_t get_i915_seqno( const trace_event_t &event );
 
 public:
     // Map of db_key to array of event locations.
