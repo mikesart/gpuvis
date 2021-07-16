@@ -602,12 +602,18 @@ static std::string unzip_first_file( const char *zipfile )
 
             if ( mz_zip_reader_extract_to_file( &zip_archive, i, ret.c_str(), 0 ) )
                 break;
+            else
+                logf( "[Error] %s failed to extract from %s (src: %s, dest: %s).",
+                        __func__, zipfile, file_stat.m_filename, ret.c_str() );
 
             ret.clear();
         }
 
         mz_zip_reader_end( &zip_archive );
     }
+    else
+        logf( "[Error] %s could not open archive %s.",
+                __func__, zipfile );
 
     return ret;
 }
