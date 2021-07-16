@@ -580,40 +580,30 @@ static std::string unzip_first_file( const char *zipfile )
 
     if ( mz_zip_reader_init_file( &zip_archive, zipfile, 0 ) )
     {
-        mz_uint fileCount = mz_zip_reader_get_num_files( &zip_archive );
+        const mz_uint fileCount = mz_zip_reader_get_num_files( &zip_archive );
 
-        if ( fileCount )
+        for ( mz_uint i = 0; i < fileCount; i++ )
         {
             mz_zip_archive_file_stat file_stat;
 
-            if ( mz_zip_reader_file_stat( &zip_archive, 0, &file_stat ) )
-            {
-                for ( mz_uint i = 0; i < fileCount; i++ )
-                {
-                    if ( !mz_zip_reader_file_stat( &zip_archive, i, &file_stat ) )
-                        continue;
+            if ( !mz_zip_reader_file_stat( &zip_archive, i, &file_stat ) )
+                continue;
 
-                    if ( file_stat.m_is_directory )
-                        continue;
+            if ( file_stat.m_is_directory )
+                continue;
 
-#if defined( _WIN32 )
-                    const char *filename = util_basename( file_stat.m_filename );
+            // If no extension is present, default to dat. Otherwise, preserve extension.
+            // XXX: This usage of std::tmpnam may warn, but since we're using the temporary
+            // string as a prefix along with other identifying data, this should be fine
+            // in most reasonable scenarios.
+            const char *filename = util_basename( file_stat.m_filename );
+            ret = string_format( "%s_gpuvis_%s%s", std::tmpnam( NULL ), filename,
+                    !strrchr( filename, '.' ) ? ".dat" : "");
 
-                    ret = string_format( "%s_%s", std::tmpnam( NULL ), filename );
-#else
-                    const std::string tstr = string_strftime();
-                    const char *filename = util_basename( file_stat.m_filename );
-                    const char *dot = strrchr( filename, '.' );
-                    int len = dot ? ( dot - filename ) : strlen( filename );
+            if ( mz_zip_reader_extract_to_file( &zip_archive, i, ret.c_str(), 0 ) )
+                break;
 
-                    ret = string_format( "%s/%.*s_%s.dat", P_tmpdir, len, filename, tstr.c_str() );
-#endif
-                    if ( mz_zip_reader_extract_to_file( &zip_archive, i, ret.c_str(), 0 ) )
-                        break;
-
-                    ret.clear();
-                }
-            }
+            ret.clear();
         }
 
         mz_zip_reader_end( &zip_archive );
