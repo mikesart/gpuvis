@@ -924,6 +924,12 @@ int SDLCALL MainApp::thread_func( void *data )
             break;
         }
 
+        if (loading_info->tmpfiles.count(loading_info->filename))
+        {
+            std::remove(filename);
+            loading_info->tmpfiles.erase(filename);
+        }
+
         if ( ret < 0 )
         {
             logf( "[Error] load_trace_file(%s) failed.", filename );
@@ -1415,9 +1421,19 @@ void MainApp::update()
             const auto to_load = extract_archive(filename);
             m_loading_info.inputfiles.insert(m_loading_info.inputfiles.end(),
                     to_load.begin(), to_load.end());
+            m_loading_info.tmpfiles.insert(to_load.begin(), to_load.end());
         }
-        else
-            load_file( filename, m_loading_info.inputfiles.size() == 1 );
+        else if (!load_file( filename, m_loading_info.inputfiles.size() == 1 ) &&
+                m_loading_info.tmpfiles.count(inputfile))
+        {
+            // XXX: So long as this method is called from one thread at a time,
+            // there is no need to lock around access to m_loading_info since
+            // it is only ever accessed n this thread when state is State_Idle
+            // and it is only ever accessed in the worker thread when state is
+            // not State_Idle.
+            std::remove(filename);
+            m_loading_info.tmpfiles.erase(inputfile);
+        }
 
         m_loading_info.inputfiles.erase( m_loading_info.inputfiles.begin() );
     }

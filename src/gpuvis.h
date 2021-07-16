@@ -1242,6 +1242,7 @@ public:
         TraceWin *win = nullptr;
         SDL_Thread *thread = nullptr;
         std::vector< std::string > inputfiles;
+        std::unordered_set< std::string > tmpfiles;
 
         bool last;
     };
