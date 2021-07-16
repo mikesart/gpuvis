@@ -571,10 +571,10 @@ void MainApp::cancel_load_file()
     SDL_AtomicCAS( &m_loading_info.state, State_Loading, State_CancelLoading );
 }
 
-static std::string unzip_first_file( const char *zipfile )
+static std::vector< std::string > extract_archive( const char *zipfile )
 {
-    std::string ret;
     mz_zip_archive zip_archive;
+    std::vector< std::string > to_load;
 
     memset( &zip_archive, 0, sizeof( zip_archive ) );
 
@@ -597,16 +597,15 @@ static std::string unzip_first_file( const char *zipfile )
             // string as a prefix along with other identifying data, this should be fine
             // in most reasonable scenarios.
             const char *filename = util_basename( file_stat.m_filename );
-            ret = string_format( "%s_gpuvis_%s%s", std::tmpnam( NULL ), filename,
+            const std::string dest_path = string_format( "%s_gpuvis_%s%s",
+                    std::tmpnam( NULL ), filename,
                     !strrchr( filename, '.' ) ? ".dat" : "");
 
-            if ( mz_zip_reader_extract_to_file( &zip_archive, i, ret.c_str(), 0 ) )
-                break;
+            if ( mz_zip_reader_extract_to_file( &zip_archive, i, dest_path.c_str(), 0 ) )
+                to_load.push_back(dest_path);
             else
                 logf( "[Error] %s failed to extract from %s (src: %s, dest: %s).",
-                        __func__, zipfile, file_stat.m_filename, ret.c_str() );
-
-            ret.clear();
+                        __func__, zipfile, file_stat.m_filename, dest_path.c_str() );
         }
 
         mz_zip_reader_end( &zip_archive );
@@ -615,15 +614,12 @@ static std::string unzip_first_file( const char *zipfile )
         logf( "[Error] %s could not open archive %s.",
                 __func__, zipfile );
 
-    return ret;
+    return to_load;
 }
 
 bool MainApp::load_file( const char *filename, bool last )
 {
     GPUVIS_TRACE_BLOCKF( "%s: %s", __func__, filename );
-
-    std::string tmpfile;
-    const char *ext = strrchr( filename, '.' );
 
     if ( get_state() != State_Idle )
     {
@@ -631,29 +627,21 @@ bool MainApp::load_file( const char *filename, bool last )
         return false;
     }
 
-    if ( ext && !strcmp( ext, ".zip" ) )
-    {
-        tmpfile = unzip_first_file( filename );
-
-        if ( !tmpfile.empty() )
-            filename = tmpfile.c_str();
-    }
-
-    const char *real_ext = strrchr( filename, '.' );
-    if ( real_ext && !strcmp( real_ext, ".etl" ) )
+    const char *ext = strrchr( filename, '.' );
+    if ( ext && !strcmp( ext, ".etl" ) )
     {
         m_trace_type = trace_type_etl;
     }
-    else if ( real_ext && ( !strcmp( real_ext, ".dat" ) || !strcmp( real_ext, ".trace" ) ) )
+    else if ( ext && ( !strcmp( ext, ".dat" ) || !strcmp( ext, ".trace" ) ) )
     {
         m_trace_type = trace_type_trace;
     }
-    else if ( real_ext && ( !strcmp( real_ext, ".i915-dat" ) || !strcmp( real_ext, ".i915-trace" ) ) )
+    else if ( ext && ( !strcmp( ext, ".i915-dat" ) || !strcmp( ext, ".i915-trace" ) ) )
     {
         m_trace_type = trace_type_i915_perf_trace;
     }
 #if defined( HAVE_RAPIDJSON )
-    else if ( real_ext && !strcmp( real_ext, ".json" ) )
+    else if ( ext && !strcmp( ext, ".json" ) )
     {
         m_trace_type = trace_type_perf;
     }
@@ -1414,11 +1402,22 @@ void MainApp::render()
 
 void MainApp::update()
 {
-    if ( !m_loading_info.inputfiles.empty() && ( get_state() == State_Idle ) )
+    while ( !m_loading_info.inputfiles.empty() && ( get_state() == State_Idle ) )
     {
-        const char *filename = m_loading_info.inputfiles[ 0 ].c_str();
+        const auto &inputfile = m_loading_info.inputfiles[ 0 ];
+        const char *filename = inputfile.c_str();
+        const char *ext = strrchr( filename, '.' );
 
-        load_file( filename, m_loading_info.inputfiles.size() == 1 );
+        if ( ext && !strcmp( ext, ".zip" ) )
+        {
+            // Extract archive into temporary files and add them to the
+            // list of files to load.
+            const auto to_load = extract_archive(filename);
+            m_loading_info.inputfiles.insert(m_loading_info.inputfiles.end(),
+                    to_load.begin(), to_load.end());
+        }
+        else
+            load_file( filename, m_loading_info.inputfiles.size() == 1 );
 
         m_loading_info.inputfiles.erase( m_loading_info.inputfiles.begin() );
     }
