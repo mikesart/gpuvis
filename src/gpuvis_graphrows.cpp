@@ -438,6 +438,22 @@ void GraphRows::init( TraceEvents &trace_events )
 			    push_row( str, type, plocs->size() );
 	    }
 	}
+
+	for ( int v0 = 0; v0 < 2; v0++)
+        {
+		std::string str = string_format( "vce%d", v0);
+
+		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                        push_row( str, type, plocs->size() );
+	}
+
+	for ( int v0 = 0; v0 < 2; v0++)
+        {
+		std::string str = string_format( "vce%d hw", v0);
+
+		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                        push_row( str, type, plocs->size() );
+	}
     }
 
     // Intel gpu events
