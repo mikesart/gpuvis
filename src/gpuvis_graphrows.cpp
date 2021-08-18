@@ -305,15 +305,20 @@ void GraphRows::init( TraceEvents &trace_events )
             }
         }
 
-        if ( ( plocs = trace_events.get_locs( "sdma0", &type ) ) )
-            push_row( "sdma0", type, plocs->size() );
-        if ( ( plocs = trace_events.get_locs( "sdma1", &type ) ) )
-            push_row( "sdma1", type, plocs->size() );
+	for ( int s0 = 0; s0 < 8; s0++)
+        {
+		std::string str = string_format( "sdma%d", s0);
 
-        if ( ( plocs = trace_events.get_locs( "sdma0 hw", &type ) ) )
-            push_row( "sdma0 hw", type, plocs->size() );
-        if ( ( plocs = trace_events.get_locs( "sdma1 hw", &type ) ) )
-            push_row( "sdma1 hw", type, plocs->size() );
+		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                        push_row( str, type, plocs->size() );
+	}
+	for ( int s0 = 0; s0 < 8; s0++)
+        {
+		std::string str = string_format( "sdma%d hw", s0);
+
+		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                        push_row( str, type, plocs->size() );
+	}
     }
 
     // Intel gpu events
