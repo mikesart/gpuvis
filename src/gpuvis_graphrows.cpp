@@ -319,6 +319,66 @@ void GraphRows::init( TraceEvents &trace_events )
 		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
                         push_row( str, type, plocs->size() );
 	}
+
+        if ( ( plocs = trace_events.get_locs( "vcn_dec", &type ) ) )
+            push_row( "vcn_dec", type, plocs->size() );
+	if ( ( plocs = trace_events.get_locs( "vcn_dec hw", &type ) ) )
+            push_row( "vcn_dec hw", type, plocs->size() );
+
+	for ( int v0 = 0; v0 < 2; v0++)
+        {
+		std::string str = string_format( "vcn_dec_%d", v0);
+
+		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                        push_row( str, type, plocs->size() );
+	}
+
+	for ( int v0 = 0; v0 < 2; v0++)
+        {
+		std::string str = string_format( "vcn_dec_%d hw", v0);
+
+		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                        push_row( str, type, plocs->size() );
+	}
+
+
+	for ( int v0 = 0; v0 < 2; v0++)
+        {
+		std::string str = string_format( "vcn_enc%d", v0);
+
+		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                        push_row( str, type, plocs->size() );
+	}
+
+	for ( int v0 = 0; v0 < 2; v0++)
+        {
+		std::string str = string_format( "vcn_enc%d hw", v0);
+
+		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                        push_row( str, type, plocs->size() );
+	}
+
+	for ( int v0 = 0; v0 < 2; v0++)
+        {
+            for ( int v1 = 0; v1 < 2; v1++ )
+            {
+		    std::string str = string_format( "vcn_enc_%d.%d", v0, v1);
+
+		    if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+			    push_row( str, type, plocs->size() );
+	    }
+	}
+
+	for ( int v0 = 0; v0 < 2; v0++)
+        {
+            for ( int v1 = 0; v1 < 2; v1++ )
+            {
+		    std::string str = string_format( "vcn_enc_%d.%d hw", v0, v1);
+
+		    if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+			    push_row( str, type, plocs->size() );
+	    }
+	}
     }
 
     // Intel gpu events
