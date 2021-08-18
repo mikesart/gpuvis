@@ -379,6 +379,65 @@ void GraphRows::init( TraceEvents &trace_events )
 			    push_row( str, type, plocs->size() );
 	    }
 	}
+
+	if ( ( plocs = trace_events.get_locs( "uvd", &type ) ) )
+            push_row( "uvd", type, plocs->size() );
+	if ( ( plocs = trace_events.get_locs( "uvd hw", &type ) ) )
+            push_row( "uvd hw", type, plocs->size() );
+
+	for ( int u0 = 0; u0 < 2; u0++)
+        {
+		std::string str = string_format( "uvd_enc%d", u0);
+
+		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                        push_row( str, type, plocs->size() );
+	}
+
+	for ( int u0 = 0; u0 < 2; u0++)
+        {
+		std::string str = string_format( "uvd_enc%d hw", u0);
+
+		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                        push_row( str, type, plocs->size() );
+	}
+
+	for ( int u0 = 0; u0 < 2; u0++)
+        {
+		std::string str = string_format( "uvd_%d", u0);
+
+		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                        push_row( str, type, plocs->size() );
+	}
+
+	for ( int u0 = 0; u0 < 2; u0++)
+        {
+		std::string str = string_format( "uvd_%d hw", u0);
+
+		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                        push_row( str, type, plocs->size() );
+	}
+
+	for ( int u0 = 0; u0 < 2; u0++)
+        {
+            for ( int u1 = 0; u1 < 2; u1++ )
+            {
+		    std::string str = string_format( "uvd_enc_%d.%d", u0, u1);
+
+		    if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+			    push_row( str, type, plocs->size() );
+	    }
+	}
+
+	for ( int u0 = 0; u0 < 2; u0++)
+        {
+            for ( int u1 = 0; u1 < 2; u1++ )
+            {
+		    std::string str = string_format( "uvd_enc_%d.%d hw", u0, u1);
+
+		    if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+			    push_row( str, type, plocs->size() );
+	    }
+	}
     }
 
     // Intel gpu events
