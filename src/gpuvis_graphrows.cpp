@@ -305,155 +305,155 @@ void GraphRows::init( TraceEvents &trace_events )
             }
         }
 
-	for ( int s0 = 0; s0 < 8; s0++)
+        for ( int s0 = 0; s0 < 8; s0++)
         {
-		std::string str = string_format( "sdma%d", s0);
+            std::string str = string_format( "sdma%d", s0);
 
-		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                        push_row( str, type, plocs->size() );
-	}
-	for ( int s0 = 0; s0 < 8; s0++)
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+        }
+        for ( int s0 = 0; s0 < 8; s0++)
         {
-		std::string str = string_format( "sdma%d hw", s0);
+            std::string str = string_format( "sdma%d hw", s0);
 
-		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                        push_row( str, type, plocs->size() );
-	}
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+        }
 
         if ( ( plocs = trace_events.get_locs( "vcn_dec", &type ) ) )
             push_row( "vcn_dec", type, plocs->size() );
-	if ( ( plocs = trace_events.get_locs( "vcn_dec hw", &type ) ) )
+        if ( ( plocs = trace_events.get_locs( "vcn_dec hw", &type ) ) )
             push_row( "vcn_dec hw", type, plocs->size() );
 
-	for ( int v0 = 0; v0 < 2; v0++)
+        for ( int v0 = 0; v0 < 2; v0++)
         {
-		std::string str = string_format( "vcn_dec_%d", v0);
+            std::string str = string_format( "vcn_dec_%d", v0);
 
-		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                        push_row( str, type, plocs->size() );
-	}
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+        }
 
-	for ( int v0 = 0; v0 < 2; v0++)
+        for ( int v0 = 0; v0 < 2; v0++)
         {
-		std::string str = string_format( "vcn_dec_%d hw", v0);
+            std::string str = string_format( "vcn_dec_%d hw", v0);
 
-		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                        push_row( str, type, plocs->size() );
-	}
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+        }
 
 
-	for ( int v0 = 0; v0 < 2; v0++)
+        for ( int v0 = 0; v0 < 2; v0++)
         {
-		std::string str = string_format( "vcn_enc%d", v0);
+            std::string str = string_format( "vcn_enc%d", v0);
 
-		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                        push_row( str, type, plocs->size() );
-	}
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+        }
 
-	for ( int v0 = 0; v0 < 2; v0++)
+        for ( int v0 = 0; v0 < 2; v0++)
         {
-		std::string str = string_format( "vcn_enc%d hw", v0);
+            std::string str = string_format( "vcn_enc%d hw", v0);
 
-		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                        push_row( str, type, plocs->size() );
-	}
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+        }
 
-	for ( int v0 = 0; v0 < 2; v0++)
-        {
-            for ( int v1 = 0; v1 < 2; v1++ )
-            {
-		    std::string str = string_format( "vcn_enc_%d.%d", v0, v1);
-
-		    if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-			    push_row( str, type, plocs->size() );
-	    }
-	}
-
-	for ( int v0 = 0; v0 < 2; v0++)
+        for ( int v0 = 0; v0 < 2; v0++)
         {
             for ( int v1 = 0; v1 < 2; v1++ )
             {
-		    std::string str = string_format( "vcn_enc_%d.%d hw", v0, v1);
+                std::string str = string_format( "vcn_enc_%d.%d", v0, v1);
 
-		    if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-			    push_row( str, type, plocs->size() );
-	    }
-	}
+                if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                    push_row( str, type, plocs->size() );
+            }
+        }
 
-	if ( ( plocs = trace_events.get_locs( "uvd", &type ) ) )
+        for ( int v0 = 0; v0 < 2; v0++)
+        {
+            for ( int v1 = 0; v1 < 2; v1++ )
+            {
+                std::string str = string_format( "vcn_enc_%d.%d hw", v0, v1);
+
+                if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                    push_row( str, type, plocs->size() );
+            }
+        }
+
+        if ( ( plocs = trace_events.get_locs( "uvd", &type ) ) )
             push_row( "uvd", type, plocs->size() );
-	if ( ( plocs = trace_events.get_locs( "uvd hw", &type ) ) )
+        if ( ( plocs = trace_events.get_locs( "uvd hw", &type ) ) )
             push_row( "uvd hw", type, plocs->size() );
 
-	for ( int u0 = 0; u0 < 2; u0++)
+        for ( int u0 = 0; u0 < 2; u0++)
         {
-		std::string str = string_format( "uvd_enc%d", u0);
+            std::string str = string_format( "uvd_enc%d", u0);
 
-		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                        push_row( str, type, plocs->size() );
-	}
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+        }
 
-	for ( int u0 = 0; u0 < 2; u0++)
+        for ( int u0 = 0; u0 < 2; u0++)
         {
-		std::string str = string_format( "uvd_enc%d hw", u0);
+            std::string str = string_format( "uvd_enc%d hw", u0);
 
-		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                        push_row( str, type, plocs->size() );
-	}
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+        }
 
-	for ( int u0 = 0; u0 < 2; u0++)
+        for ( int u0 = 0; u0 < 2; u0++)
         {
-		std::string str = string_format( "uvd_%d", u0);
+            std::string str = string_format( "uvd_%d", u0);
 
-		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                        push_row( str, type, plocs->size() );
-	}
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+        }
 
-	for ( int u0 = 0; u0 < 2; u0++)
+        for ( int u0 = 0; u0 < 2; u0++)
         {
-		std::string str = string_format( "uvd_%d hw", u0);
+            std::string str = string_format( "uvd_%d hw", u0);
 
-		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                        push_row( str, type, plocs->size() );
-	}
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+        }
 
-	for ( int u0 = 0; u0 < 2; u0++)
-        {
-            for ( int u1 = 0; u1 < 2; u1++ )
-            {
-		    std::string str = string_format( "uvd_enc_%d.%d", u0, u1);
-
-		    if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-			    push_row( str, type, plocs->size() );
-	    }
-	}
-
-	for ( int u0 = 0; u0 < 2; u0++)
+        for ( int u0 = 0; u0 < 2; u0++)
         {
             for ( int u1 = 0; u1 < 2; u1++ )
             {
-		    std::string str = string_format( "uvd_enc_%d.%d hw", u0, u1);
+                std::string str = string_format( "uvd_enc_%d.%d", u0, u1);
 
-		    if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-			    push_row( str, type, plocs->size() );
-	    }
-	}
+                if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                    push_row( str, type, plocs->size() );
+            }
+        }
 
-	for ( int v0 = 0; v0 < 2; v0++)
+        for ( int u0 = 0; u0 < 2; u0++)
         {
-		std::string str = string_format( "vce%d", v0);
+            for ( int u1 = 0; u1 < 2; u1++ )
+            {
+                std::string str = string_format( "uvd_enc_%d.%d hw", u0, u1);
 
-		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                        push_row( str, type, plocs->size() );
-	}
+                if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                    push_row( str, type, plocs->size() );
+            }
+        }
 
-	for ( int v0 = 0; v0 < 2; v0++)
+        for ( int v0 = 0; v0 < 2; v0++)
         {
-		std::string str = string_format( "vce%d hw", v0);
+            std::string str = string_format( "vce%d", v0);
 
-		if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
-                        push_row( str, type, plocs->size() );
-	}
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+        }
+
+        for ( int v0 = 0; v0 < 2; v0++)
+        {
+            std::string str = string_format( "vce%d hw", v0);
+
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+        }
     }
 
     // Intel gpu events
