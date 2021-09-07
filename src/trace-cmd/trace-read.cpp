@@ -55,6 +55,10 @@
 
 #endif
 
+#ifndef O_BINARY
+#define O_BINARY  0
+#endif
+
 extern "C"
 {
     #include "event-parse.h"
@@ -1420,7 +1424,7 @@ static void tracecmd_alloc( tracecmd_input_t *handle, const char *file )
 {
     int fd;
 
-    fd = TEMP_FAILURE_RETRY( open( file, O_RDONLY ) );
+    fd = TEMP_FAILURE_RETRY( open( file, O_RDONLY | O_BINARY ) );
     if ( fd < 0 )
     {
         logf( "[Error] %s: open(\"%s\") failed: %d\n", __func__, file, errno );
