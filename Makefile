@@ -48,7 +48,7 @@ endif
 WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wshadow -Wno-unused-parameter -Wno-missing-field-initializers
 ifneq ($(COMPILER),clang)
   # https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
-  WARNINGS += -Wsuggest-attribute=format -Wimplicit-fallthrough=2
+  WARNINGS += -Wsuggest-attribute=format -Wimplicit-fallthrough=2 -Wno-class-memaccess
 endif
 
 # Investigate: Improving C++ Builds with Split DWARF
@@ -56,7 +56,7 @@ endif
 
 CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf $(SDL2FLAGS) $(GTK3FLAGS) $(I915_PERF_CFLAGS) -I/usr/include/freetype2
 CFLAGS += -DUSE_FREETYPE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
-CXXFLAGS = -fno-rtti -Woverloaded-virtual -Wno-class-memaccess
+CXXFLAGS = -fno-rtti -Woverloaded-virtual 
 LDFLAGS = -march=native -gdwarf-4 -g2 -Wl,--build-id=sha1
 LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lfreetype -lstdc++ $(SDL2LIBS) $(I915_PERF_LIBS)
 

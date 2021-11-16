@@ -32,7 +32,9 @@
 #else	// defined(_MSC_VER)
 
 // Disable: "warning: this statement may fall through [-Wimplicit-fallthrough=]"
+#ifndef __clang__
 #pragma GCC diagnostic warning "-Wimplicit-fallthrough=0"
+#endif
 
 #define	FORCE_INLINE inline __attribute__((always_inline))
 
