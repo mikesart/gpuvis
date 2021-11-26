@@ -446,6 +446,7 @@ int tep_set_function_resolver(struct tep_handle *tep,
 void tep_reset_function_resolver(struct tep_handle *tep);
 int tep_register_comm(struct tep_handle *tep, const char *comm, int pid);
 int tep_override_comm(struct tep_handle *tep, const char *comm, int pid);
+int tep_register_tgid(struct tep_handle *tep, int tgid, int pid); /* gpuvis change! */
 int tep_parse_saved_cmdlines(struct tep_handle *tep, const char *buf);
 int tep_parse_kallsyms(struct tep_handle *tep, const char *kallsyms);
 int tep_register_function(struct tep_handle *tep, char *name,
@@ -547,6 +548,7 @@ int tep_data_type(struct tep_handle *tep, struct tep_record *rec);
 int tep_data_pid(struct tep_handle *tep, struct tep_record *rec);
 int tep_data_preempt_count(struct tep_handle *tep, struct tep_record *rec);
 int tep_data_flags(struct tep_handle *tep, struct tep_record *rec);
+int tep_data_tgid_from_pid(struct tep_handle *tep, int pid); /* gpuvis change! */
 const char *tep_data_comm_from_pid(struct tep_handle *tep, int pid);
 struct tep_cmdline;
 struct tep_cmdline *tep_data_pid_from_comm(struct tep_handle *tep, const char *comm,
@@ -601,6 +603,7 @@ int tep_get_ref(struct tep_handle *tep);
 /* for debugging */
 void tep_print_funcs(struct tep_handle *tep);
 void tep_print_printk(struct tep_handle *tep);
+void tep_print_tgids(struct tep_handle *tep); /* gpuvis change! */
 
 /* ----------------------- filtering ----------------------- */
 

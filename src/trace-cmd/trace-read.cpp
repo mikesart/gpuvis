@@ -63,8 +63,55 @@
 
 extern "C"
 {
-    #include "event-parse.h"
-    #include "kbuffer.h"
+    #include "../libtraceevent/src/event-parse.h"
+    #include "../libtraceevent/src/event-parse-local.h"
+    #include "../libtraceevent/src/kbuffer.h"
+
+    #define NSECS_PER_SEC  1000000000LL
+
+    /* Be sure this syncs with event-parse.c! */
+    struct cmdline_list {
+        struct cmdline_list     *next;
+        char                    *comm;
+        int                     pid;
+    };
+
+    /* Taken from the old event-parse.h */
+    static inline unsigned int
+    __data2host4(struct tep_handle *pevent, unsigned int data)
+    {
+        unsigned int swap;
+
+        if (tep_is_bigendian() == tep_is_file_bigendian(pevent))
+            return data;
+
+        swap = ((data & 0xffULL) << 24) |
+            ((data & (0xffULL << 8)) << 8) |
+            ((data & (0xffULL << 16)) >> 8) |
+            ((data & (0xffULL << 24)) >> 24);
+
+        return swap;
+    }
+
+    static inline unsigned long long
+    __data2host8(struct tep_handle *pevent, unsigned long long data)
+    {
+        unsigned long long swap;
+
+        if (tep_is_bigendian() == tep_is_file_bigendian(pevent))
+            return data;
+
+        swap = ((data & 0xffULL) << 56) |
+            ((data & (0xffULL << 8)) << 40) |
+            ((data & (0xffULL << 16)) << 24) |
+            ((data & (0xffULL << 24)) << 8) |
+            ((data & (0xffULL << 32)) >> 8) |
+            ((data & (0xffULL << 40)) >> 24) |
+            ((data & (0xffULL << 48)) >> 40) |
+            ((data & (0xffULL << 56)) >> 56);
+
+        return swap;
+    }
 }
 
 #include "../gpuvis_macros.h"
@@ -92,10 +139,10 @@ enum
 };
 
 typedef struct tracecmd_input tracecmd_input_t;
-typedef struct pevent pevent_t;
-typedef struct pevent_record pevent_record_t;
+typedef struct tep_handle pevent_t;
+typedef struct tep_record pevent_record_t;
 typedef struct kbuffer kbuffer_t;
-typedef struct event_format event_format_t;
+typedef struct tep_event_format event_format_t;
 
 typedef struct file_info
 {
@@ -157,6 +204,7 @@ typedef struct tracecmd_input
     std::string file;
     std::string uname;
     std::string opt_version;
+    std::string trace_clock;
     std::vector< std::string > cpustats;
 
     /* file information */
@@ -347,14 +395,14 @@ static void read_header_files( tracecmd_input_t *handle )
 
     do_read_check( handle, header, size );
 
-    pevent_parse_header_page( pevent, header, size, handle->long_size );
+    tep_parse_header_page( pevent, header, size, handle->long_size );
     free( header );
 
     /*
      * The size field in the page is of type long,
      * use that instead, since it represents the kernel.
      */
-    handle->long_size = pevent->header_page_size_size;
+    handle->long_size = tep_get_header_page_size( pevent );
 
     do_read_check( handle, buf, 13 );
 
@@ -382,7 +430,7 @@ static void read_ftrace_file( tracecmd_input_t *handle,
 
     do_read_check( handle, buf, size );
 
-    if ( pevent_parse_event( pevent, buf, size, "ftrace" ) )
+    if ( tep_parse_event( pevent, buf, size, "ftrace" ) )
         die( handle, "%s: pevent_parse_event failed.\n", __func__ );
 
     free( buf );
@@ -398,7 +446,7 @@ static void read_event_file( tracecmd_input_t *handle,
 
     do_read_check( handle, buf, size );
 
-    if ( pevent_parse_event( pevent, buf, size, system ) )
+    if ( tep_parse_event( pevent, buf, size, system ) )
         die( handle, "%s: pevent_parse_event failed.\n", __func__ );
 
     free( buf );
@@ -492,7 +540,7 @@ static void parse_proc_kallsyms( pevent_t *pevent, char *file )
 
                 //$ TODO mikesart PERF: This is adding the item to a func_list
                 // which gets converted to a sorted array afterwords.
-                pevent_register_function( pevent, func, addr, mod );
+                tep_register_function( pevent, func, addr, mod );
             }
         }
 
@@ -546,7 +594,7 @@ static void parse_ftrace_printk( tracecmd_input_t *handle, pevent_t *pevent, cha
         /* fmt still has a space, skip it */
         printk = strdup( fmt + 1 );
         line = strtok_r( NULL, "\n", &next );
-        pevent_register_print_string( pevent, printk, addr );
+        tep_register_print_string( pevent, printk, addr );
 
         free( printk );
     }
@@ -586,7 +634,7 @@ static void parse_cmdlines( pevent_t *pevent, char *file )
         // Parse "PID CMDLINE"
         pid = strtoul( line, &comm, 10 );
         if ( comm && *comm == ' ' )
-            pevent_register_comm( pevent, comm + 1, pid );
+            tep_register_comm( pevent, comm + 1, pid );
 
         line = strtok_r( NULL, "\n", &next );
     }
@@ -605,7 +653,7 @@ static void read_and_parse_cmdlines( tracecmd_input_t *handle )
     free( cmdlines );
 }
 
-static void parse_trace_clock( pevent_t *pevent, char *file )
+static void parse_trace_clock( tracecmd_input_t *handle, char *file )
 {
     // "[local] global counter uptime perf mono mono_raw x86-tsc\n"
     char *clock = strchr( file, '[' );
@@ -617,7 +665,7 @@ static void parse_trace_clock( pevent_t *pevent, char *file )
         if ( end )
         {
             *end = 0;
-            pevent_register_trace_clock( pevent, clock + 1 );
+            handle->trace_clock = ( clock + 1 );
         }
     }
 }
@@ -644,7 +692,7 @@ static void tracecmd_read_headers( tracecmd_input_t *handle )
 
     read_and_parse_cmdlines( handle );
 
-    pevent_set_long_size( handle->pevent, handle->long_size );
+    tep_set_long_size( handle->pevent, handle->long_size );
 }
 
 static int read_page( tracecmd_input_t *handle, off64_t offset,
@@ -818,7 +866,7 @@ static void update_page_info( tracecmd_input_t *handle, int cpu )
     kbuffer_t *kbuf = handle->cpu_data[ cpu ].kbuf;
 
     /* FIXME: handle header page */
-    if ( pevent->header_page_ts_size != 8 )
+    if ( tep_get_header_timestamp_size( pevent ) != 8 )
         die( handle, "%s: expected a long long type for timestamp.\n", __func__ );
 
     kbuffer_load_subbuffer( kbuf, ptr );
@@ -1119,7 +1167,7 @@ static int init_cpu( tracecmd_input_t *handle, int cpu )
     return 0;
 }
 
-static void tracecmd_parse_tgids(struct pevent *pevent,
+static void tracecmd_parse_tgids(pevent_t *pevent,
                                  char *file, int size __maybe_unused)
 {
     char *next = NULL;
@@ -1132,7 +1180,7 @@ static void tracecmd_parse_tgids(struct pevent *pevent,
         pid = strtol(line, &endptr, 10);
         if (endptr && *endptr == ' ') {
             tgid = strtol(endptr + 1, NULL, 10);
-            pevent_register_tgid(pevent, tgid, pid);
+            tep_register_tgid(pevent, tgid, pid);
         }
         line = strtok_r(NULL, "\n", &next);
     }
@@ -1273,7 +1321,7 @@ static void read_cpu_data( tracecmd_input_t *handle )
 
     long_size = ( handle->long_size == 8 ) ? KBUFFER_LSIZE_8 : KBUFFER_LSIZE_4;
 
-    endian = handle->pevent->file_bigendian ?
+    endian = tep_is_file_bigendian( handle->pevent ) ?
                 KBUFFER_ENDIAN_BIG : KBUFFER_ENDIAN_LITTLE;
 
     for ( int cpu = 0; cpu < handle->cpus; cpu++ )
@@ -1285,7 +1333,7 @@ static void read_cpu_data( tracecmd_input_t *handle )
         if ( !handle->cpu_data[ cpu ].kbuf )
             die( handle, "%s: kbuffer_alloc failed.\n", __func__ );
 
-        if ( handle->pevent->old_format )
+        if ( tep_is_old_format( handle->pevent ) )
             kbuffer_set_old_format( handle->cpu_data[ cpu ].kbuf );
 
         offset = read8( handle );
@@ -1307,8 +1355,7 @@ static void read_cpu_data( tracecmd_input_t *handle )
     }
 }
 
-static int read_and_parse_trace_clock( tracecmd_input_t *handle,
-                                       pevent_t *pevent )
+static int read_and_parse_trace_clock( tracecmd_input_t *handle )
 {
     char *trace_clock;
     unsigned long long size;
@@ -1316,7 +1363,7 @@ static int read_and_parse_trace_clock( tracecmd_input_t *handle,
     read_data_and_size( handle, &trace_clock, &size );
 
     trace_clock[ size ] = 0;
-    parse_trace_clock( pevent, trace_clock );
+    parse_trace_clock( handle, trace_clock );
     free( trace_clock );
     return 0;
 }
@@ -1334,7 +1381,7 @@ void tracecmd_init_data( tracecmd_input_t *handle )
 
     handle->cpus = read4( handle );
 
-    pevent_set_cpus( pevent, handle->cpus );
+    tep_set_cpus( pevent, handle->cpus );
 
     read_cpu_data( handle );
 
@@ -1346,8 +1393,8 @@ void tracecmd_init_data( tracecmd_input_t *handle )
          * corrupted. If it fails to read, force local
          * clock.
          */
-        if ( read_and_parse_trace_clock( handle, pevent ) < 0 )
-            pevent_register_trace_clock( pevent, "local" );
+        if ( read_and_parse_trace_clock( handle ) < 0 )
+            handle->trace_clock = "local";
     }
 }
 
@@ -1396,12 +1443,12 @@ static void tracecmd_alloc_fd( tracecmd_input_t *handle, const char *file, int f
 
     do_read_check( handle, buf, 1 );
 
-    handle->pevent = pevent_alloc();
+    handle->pevent = tep_alloc();
     if ( !handle->pevent )
         die( handle, "[Error] %s: pevent_alloc failed.\n", __func__ );
 
-    handle->pevent->file_bigendian = buf[ 0 ];
-    handle->pevent->host_bigendian = tracecmd_host_bigendian();
+    tep_set_file_bigendian( handle->pevent, (tep_endian) buf[ 0 ] );
+    tep_set_local_bigendian( handle->pevent, (tep_endian) tracecmd_host_bigendian() );
 
     do_read_check( handle, buf, 1 );
     handle->long_size = buf[ 0 ];
@@ -1492,7 +1539,7 @@ static void tracecmd_close( tracecmd_input_t *handle )
     else
     {
         /* Only main handle frees pevent */
-        pevent_free( handle->pevent );
+        tep_free( handle->pevent );
     }
 
     delete handle;
@@ -1546,17 +1593,17 @@ static tracecmd_input_t *tracecmd_buffer_instance_handle( tracecmd_input_t *hand
     return new_handle;
 }
 
-static bool is_timestamp_in_us( char *trace_clock, bool use_trace_clock )
+static bool is_timestamp_in_us( const std::string& trace_clock, bool use_trace_clock )
 {
     if ( !use_trace_clock )
         return true;
 
     // trace_clock information:
     //  https://www.kernel.org/doc/Documentation/trace/ftrace.txt
-    if ( !strcmp( trace_clock, "local" ) ||
-         !strcmp( trace_clock, "global" ) ||
-         !strcmp( trace_clock, "uptime" ) ||
-         !strcmp( trace_clock, "perf" ) )
+    if ( trace_clock == "local" ||
+         trace_clock == "global" ||
+         trace_clock == "uptime" ||
+         trace_clock == "perf" )
         return true;
 
     /* trace_clock is setting in tsc or counter mode */
@@ -1564,8 +1611,8 @@ static bool is_timestamp_in_us( char *trace_clock, bool use_trace_clock )
 }
 
 extern "C" void print_str_arg( struct trace_seq *s, void *data, int size,
-              struct event_format *event, const char *format,
-              int len_arg, struct print_arg *arg );
+                               struct tep_event *event, const char *format,
+                               int len_arg, struct tep_print_arg *arg );
 
 class trace_data_t
 {
@@ -1637,18 +1684,18 @@ static void init_event_flags( trace_data_t &trace_data, trace_event_t &event )
 static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle, pevent_record_t *record )
 {
     int ret = 0;
-    event_format_t *event;
+    tep_event *event;
     pevent_t *pevent = handle->pevent;
     StrPool &strpool = trace_data.strpool;
 
-    event = pevent_find_event_by_record( pevent, record );
+    event = tep_find_event_by_record( pevent, record );
     if ( event )
     {
         struct trace_seq seq;
         trace_event_t trace_event;
-        struct format_field *format;
-        int pid = pevent_data_pid( pevent, record );
-        const char *comm = pevent_data_comm_from_pid( pevent, pid );
+        struct tep_format_field *format;
+        int pid = tep_data_pid( pevent, record );
+        const char *comm = tep_data_comm_from_pid( pevent, pid );
         bool is_ftrace_function = !strcmp( "ftrace", event->system ) && !strcmp( "function", event->name );
         bool is_printk_function = !strcmp( "ftrace", event->system ) && !strcmp( "print", event->name );
 
@@ -1679,7 +1726,7 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
         {
             if ( !strcmp( format->name, "common_flags" ) )
             {
-                unsigned long long val = pevent_read_number( pevent,
+                unsigned long long val = tep_read_number( pevent,
                         ( char * )record->data + format->offset, format->size );
 
                 // TRACE_FLAG_IRQS_OFF | TRACE_FLAG_HARDIRQ | TRACE_FLAG_SOFTIRQ
@@ -1697,11 +1744,11 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
 
             if ( is_printk_function && ( format_name == trace_data.buf_str ) )
             {
-                struct print_arg *args = event->print_fmt.args;
+                struct tep_print_arg *args = event->print_fmt.args;
 
                 // We are assuming print_fmt for ftrace/print function is:
                 //   print fmt: "%ps: %s", (void *)REC->ip, REC->buf
-                if ( args->type != PRINT_FIELD )
+                if ( args->type != TEP_PRINT_FIELD )
                     args = args->next;
 
                 print_str_arg( &seq, record->data, record->size,
@@ -1721,42 +1768,42 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
             }
             else
             {
-                pevent_print_field( &seq, record->data, format );
+                tep_print_field( &seq, record->data, format );
 
                 if ( format_name == trace_data.seqno_str )
                 {
-                    unsigned long long val = pevent_read_number( pevent,
+                    unsigned long long val = tep_read_number( pevent,
                                ( char * )record->data + format->offset, format->size );
 
                     trace_event.seqno = val;
                 }
                 else if ( format_name == trace_data.crtc_str )
                 {
-                    unsigned long long val = pevent_read_number( pevent,
+                    unsigned long long val = tep_read_number( pevent,
                                ( char * )record->data + format->offset, format->size );
 
                     trace_event.crtc = val;
                 }
                 else if ( trace_event.name == trace_data.drm_vblank_event_str &&
                           format_name == trace_data.time_str &&
-                          !strcmp(handle->pevent->trace_clock, "mono"))
+                          handle->trace_clock == "mono" )
                 {
                     // for drm_vblank_event, if "time" field is available,
                     // and the trace-clock is monotonic, store the timestamp
                     // passed along with the vblank event
-                    unsigned long long val = pevent_read_number( pevent,
+                    unsigned long long val = tep_read_number( pevent,
                                ( char * )record->data + format->offset, format->size );
 
                     trace_event.vblank_ts = val;
                 }
                 else if ( trace_event.name == trace_data.drm_vblank_event_str &&
                           format_name == trace_data.high_prec_str &&
-                          !strcmp(handle->pevent->trace_clock, "mono"))
+                          handle->trace_clock == "mono" )
                 {
                     // for drm_vblank_event, if "high_prec" field is available,
                     // and the trace-lock is monotonic, store the field whether or not
                     // the passed timestamp is actually from a high-precision source
-                    unsigned long long val = pevent_read_number( pevent,
+                    unsigned long long val = tep_read_number( pevent,
                                ( char * )record->data + format->offset, format->size );
 
                     trace_event.vblank_ts_high_prec = val != 0;
@@ -1767,9 +1814,9 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
 
                     if ( is_ip || ( format_name == trace_data.parent_ip_str ) )
                     {
-                        unsigned long long val = pevent_read_number( pevent,
+                        unsigned long long val = tep_read_number( pevent,
                                 ( char * )record->data + format->offset, format->size );
-                        const char *func = pevent_find_function( pevent, val );
+                        const char *func = tep_find_function( pevent, val );
 
                         if ( func )
                         {
@@ -1930,7 +1977,7 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
     trace_info.file = handle->file;
     trace_info.uname = handle->uname;
     trace_info.opt_version = handle->opt_version;
-    trace_info.timestamp_in_us = is_timestamp_in_us( handle->pevent->trace_clock, handle->use_trace_clock );
+    trace_info.timestamp_in_us = is_timestamp_in_us( handle->trace_clock, handle->use_trace_clock );
 
     // Explicitly add idle thread at pid 0
     trace_info.pid_comm_map.get_val( 0, strpool.getstr( "<idle>" ) );
@@ -1942,7 +1989,7 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
     {
         int pid = cmdlist->pid;
         const char *comm = cmdlist->comm;
-        int tgid = pevent_data_tgid_from_pid( handle->pevent, pid );
+        int tgid = tep_data_tgid_from_pid( handle->pevent, pid );
 
         // Add to our pid --> comm map
         trace_info.pid_comm_map.get_val( pid, strpool.getstr( comm ) );
