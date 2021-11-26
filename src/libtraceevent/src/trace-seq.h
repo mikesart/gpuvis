@@ -40,9 +40,15 @@ void trace_seq_reset(struct trace_seq *s);
 void trace_seq_destroy(struct trace_seq *s);
 
 extern int trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
-	__attribute__ ((format (printf, 2, 3)));
+#ifndef _WIN32 /* gpuvis change! */
+	__attribute__ ((format (printf, 2, 3)))
+#endif
+    ;
 extern int trace_seq_vprintf(struct trace_seq *s, const char *fmt, va_list args)
-	__attribute__ ((format (printf, 2, 0)));
+#ifndef _WIN32 /* gpuvis change! */
+	__attribute__ ((format (printf, 2, 0)))
+#endif
+    ;
 
 extern int trace_seq_puts(struct trace_seq *s, const char *str);
 extern int trace_seq_putc(struct trace_seq *s, unsigned char c);
