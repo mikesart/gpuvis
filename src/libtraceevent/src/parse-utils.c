@@ -12,7 +12,11 @@
 #include "event-utils.h"
 #include "event-parse.h"
 
+#ifdef _WIN32 /* gpuvis change! */
+#define __weak
+#else
 #define __weak __attribute__((weak))
+#endif
 
 static int log_level = TEP_LOG_CRITICAL;
 
@@ -110,12 +114,12 @@ int __weak tep_vwarning(const char *name, const char *fmt, va_list ap)
 }
 
 void pr_stat(const char *fmt, ...)
-#ifndef __APPLE__ /* gpuvis change! */
+#if !defined(__APPLE__) && !defined(_WIN32) /* gpuvis change! */
 	__attribute__((weak, alias("tep_info")))
 #endif
 	;
 void __pr_stat(const char *fmt, ...)
-#ifndef __APPLE__ /* gpuvis change! */
+#if !defined(__APPLE__) && !defined(_WIN32) /* gpuvis change! */
 	__attribute__((weak, alias("tep_info")))
 #endif
 	;
@@ -126,7 +130,7 @@ void __weak __vpr_stat(const char *fmt, va_list ap)
 }
 
 void vpr_stat(const char *fmt, va_list ap)
-#ifndef __APPLE__ /* gpuvis change! */
+#if !defined(__APPLE__) && !defined(_WIN32) /* gpuvis change! */
 	__attribute__((weak, alias("__vpr_stat")))
 #endif
 	;

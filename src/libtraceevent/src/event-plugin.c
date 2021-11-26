@@ -7,12 +7,16 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
+#ifndef _WIN32 /* gpuvis change! */
 #include <dlfcn.h>
+#endif
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifndef _WIN32 /* gpuvis change! */
 #include <unistd.h>
 #include <dirent.h>
+#endif
 #include <errno.h>
 #include "event-parse.h"
 #include "event-parse-local.h"
@@ -443,6 +447,7 @@ static void
 load_plugin(struct tep_handle *tep, const char *path,
 	    const char *file, void *data)
 {
+#ifndef _WIN32 /* gpuvis change! */
 	struct tep_plugin_list **plugin_list = data;
 	struct tep_plugin_option *options;
 	tep_plugin_load_func func;
@@ -503,6 +508,7 @@ load_plugin(struct tep_handle *tep, const char *path,
 
  out_free:
 	free(plugin);
+#endif
 }
 
 static void
@@ -514,6 +520,7 @@ load_plugins_dir(struct tep_handle *tep, const char *suffix,
 				     void *data),
 		 void *data)
 {
+#ifndef _WIN32 /* gpuvis change! */
 	struct dirent *dent;
 	struct stat st;
 	DIR *dir;
@@ -545,6 +552,7 @@ load_plugins_dir(struct tep_handle *tep, const char *suffix,
 	}
 
 	closedir(dir);
+#endif
 }
 
 /**
@@ -701,10 +709,12 @@ tep_unload_plugins(struct tep_plugin_list *plugin_list, struct tep_handle *tep)
 	while (plugin_list) {
 		list = plugin_list;
 		plugin_list = list->next;
+#ifndef _WIN32 /* gpuvis change! */
 		func = dlsym(list->handle, TEP_PLUGIN_UNLOADER_NAME);
 		if (func)
 			func(tep);
 		dlclose(list->handle);
+#endif
 		free(list->name);
 		free(list);
 	}

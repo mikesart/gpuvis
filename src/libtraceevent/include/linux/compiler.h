@@ -6,6 +6,13 @@
 #include <linux/compiler-gcc.h>
 #endif
 
+#ifdef _WIN32 /* gpuvis change! */
+#define __always_inline __inline
+#define __attribute__(a)
+#define __asm__
+#define __maybe_unused
+#endif
+
 #ifndef __compiletime_error
 # define __compiletime_error(message)
 #endif
@@ -38,7 +45,11 @@
 
 /* Optimization barrier */
 /* The "volatile" is due to gcc bugs */
+#ifdef _WIN32 /* gpuvis change! */
+#define barrier() /* Hypothetically this could be MemoryBarrier or whatever */
+#else
 #define barrier() __asm__ __volatile__("": : :"memory")
+#endif
 
 #ifndef __always_inline
 # define __always_inline	inline __attribute__((always_inline))
@@ -117,6 +128,10 @@ typedef uint8_t __u8;
 typedef uint16_t __u16;
 typedef uint32_t __u32;
 typedef uint64_t __u64;
+#ifdef _WIN32
+#include <string.h>
+#define __builtin_memcpy memcpy
+#endif
 #else
 #include <linux/types.h>
 #endif
