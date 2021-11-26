@@ -126,9 +126,12 @@ set ( SRC_LIST
     src/imgui/imgui_freetype.cpp
     src/GL/gl3w.c
     src/i915-perf/i915-perf-read.cpp
-    src/trace-cmd/event-parse.c
-    src/trace-cmd/trace-seq.c
-    src/trace-cmd/kbuffer-parse.c
+    src/libtraceevent/src/event-parse.c
+    src/libtraceevent/src/event-parse-api.c
+    src/libtraceevent/src/event-plugin.c
+    src/libtraceevent/src/kbuffer-parse.c
+    src/libtraceevent/src/parse-utils.c
+    src/libtraceevent/src/trace-seq.c
     src/trace-cmd/trace-read.cpp
     )
 
@@ -138,6 +141,7 @@ endif()
 
 include_directories(
     ${CMAKE_CURRENT_LIST_DIR}/src
+    ${CMAKE_CURRENT_LIST_DIR}/src/libtraceevent/include
     ${FREETYPE_INCLUDE_DIRS}
     ${GTK3_INCLUDE_DIRS}
     ${SDL2_INCLUDE_DIR}
