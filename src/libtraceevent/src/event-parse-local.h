@@ -50,6 +50,10 @@ struct tep_handle {
 	struct printk_list *printklist;
 	unsigned int printk_count;
 
+	/* gpuvis change! */
+	int *tgid_map;
+	unsigned int tgid_count;
+
 	struct tep_event **events;
 	int nr_events;
 	struct tep_event **sort_events;
