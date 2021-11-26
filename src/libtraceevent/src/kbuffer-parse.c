@@ -1,38 +1,16 @@
+// SPDX-License-Identifier: LGPL-2.1
 /*
  * Copyright (C) 2009, 2010 Red Hat Inc, Steven Rostedt <srostedt@redhat.com>
  *
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation;
- * version 2.1 of the License (not later!)
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
-
-#ifdef __GNUC__
-#pragma GCC diagnostic ignored "-Wpedantic"
-#pragma GCC diagnostic ignored "-Wpointer-arith"
-#pragma GCC diagnostic ignored "-Wsign-compare"
-#endif
 
 #include "kbuffer.h"
 
-#define MISSING_EVENTS (1ULL << 31)
-#define MISSING_STORED (1ULL << 30)
+#define MISSING_EVENTS (1UL << 31)
+#define MISSING_STORED (1UL << 30)
 
 #define COMMIT_MASK ((1 << 27) - 1)
 
@@ -57,6 +35,7 @@ enum {
  * @next		- offset from @data to the start of next event
  * @size		- The size of data on @data
  * @start		- The offset from @subbuffer where @data lives
+ * @first		- The offset from @subbuffer where the first non time stamp event lives
  *
  * @read_4		- Function to read 4 raw bytes (may swap)
  * @read_8		- Function to read 8 raw bytes (may swap)
@@ -73,6 +52,7 @@ struct kbuffer {
 	unsigned int		next;
 	unsigned int		size;
 	unsigned int		start;
+	unsigned int		first;
 
 	unsigned int (*read_4)(void *ptr);
 	unsigned long long (*read_8)(void *ptr);
@@ -171,7 +151,7 @@ static unsigned long long read_long(struct kbuffer *kbuf, void *ptr)
 
 static int calc_index(struct kbuffer *kbuf, void *ptr)
 {
-	return (uintptr_t)ptr - (uintptr_t)kbuf->data;
+	return (unsigned long)ptr - (unsigned long)kbuf->data;
 }
 
 static int __next_event(struct kbuffer *kbuf);
@@ -301,11 +281,11 @@ static unsigned int old_update_pointers(struct kbuffer *kbuf)
 	unsigned int type;
 	unsigned int len;
 	unsigned int delta;
-    unsigned int length = 0;
-	void *ptr = (char *)kbuf->data + kbuf->curr;
+	unsigned int length;
+	void *ptr = kbuf->data + kbuf->curr;
 
 	type_len_ts = read_4(kbuf, ptr);
-	ptr = (char *)ptr + 4;
+	ptr += 4;
 
 	type = type4host(kbuf, type_len_ts);
 	len = len4host(kbuf, type_len_ts);
@@ -321,7 +301,8 @@ static unsigned int old_update_pointers(struct kbuffer *kbuf)
 		extend <<= TS_SHIFT;
 		extend += delta;
 		delta = extend;
-		ptr = (char *)ptr + 4;
+		ptr += 4;
+		length = 0;
 		break;
 
 	case OLD_RINGBUF_TYPE_TIME_STAMP:
@@ -336,7 +317,7 @@ static unsigned int old_update_pointers(struct kbuffer *kbuf)
 		else {
 			length = read_4(kbuf, ptr);
 			length -= 4;
-			ptr = (char *)ptr + 4;
+			ptr += 4;
 		}
 		break;
 	}
@@ -371,7 +352,7 @@ translate_data(struct kbuffer *kbuf, void *data, void **rptr,
 	unsigned int type_len;
 
 	type_len_ts = read_4(kbuf, data);
-	data = (char *)data + 4;
+	data += 4;
 
 	type_len = type_len4host(kbuf, type_len_ts);
 	*delta = ts4host(kbuf, type_len_ts);
@@ -382,22 +363,19 @@ translate_data(struct kbuffer *kbuf, void *data, void **rptr,
 		break;
 
 	case KBUFFER_TYPE_TIME_EXTEND:
+	case KBUFFER_TYPE_TIME_STAMP:
 		extend = read_4(kbuf, data);
-		data = (char *)data + 4;
+		data += 4;
 		extend <<= TS_SHIFT;
 		extend += *delta;
 		*delta = extend;
 		*length = 0;
 		break;
 
-	case KBUFFER_TYPE_TIME_STAMP:
-		data = (char *)data + 12;
-		*length = 0;
-		break;
 	case 0:
 		*length = read_4(kbuf, data) - 4;
 		*length = (*length + 3) & ~3;
-		data = (char *)data + 4;
+		data += 4;
 		break;
 	default:
 		*length = type_len * 4;
@@ -414,11 +392,15 @@ static unsigned int update_pointers(struct kbuffer *kbuf)
 	unsigned long long delta;
 	unsigned int type_len;
 	int length;
-	void *ptr = (char *)kbuf->data + kbuf->curr;
+	void *ptr = kbuf->data + kbuf->curr;
 
 	type_len = translate_data(kbuf, ptr, &ptr, &delta, &length);
 
-	kbuf->timestamp += delta;
+	if (type_len == KBUFFER_TYPE_TIME_STAMP)
+		kbuf->timestamp = delta;
+	else
+		kbuf->timestamp += delta;
+
 	kbuf->index = calc_index(kbuf, ptr);
 	kbuf->next = kbuf->index + length;
 
@@ -459,7 +441,7 @@ void *kbuffer_translate_data(int swap, void *data, unsigned int *size)
 	case KBUFFER_TYPE_TIME_EXTEND:
 	case KBUFFER_TYPE_TIME_STAMP:
 		return NULL;
-	};
+	}
 
 	*size = length;
 
@@ -475,7 +457,9 @@ static int __next_event(struct kbuffer *kbuf)
 		if (kbuf->next >= kbuf->size)
 			return -1;
 		type = update_pointers(kbuf);
-	} while (type == KBUFFER_TYPE_TIME_EXTEND || type == KBUFFER_TYPE_PADDING);
+	} while (type == KBUFFER_TYPE_TIME_EXTEND ||
+		 type == KBUFFER_TYPE_TIME_STAMP ||
+		 type == KBUFFER_TYPE_PADDING);
 
 	return 0;
 }
@@ -511,7 +495,7 @@ void *kbuffer_next_event(struct kbuffer *kbuf, unsigned long long *ts)
 	if (ts)
 		*ts = kbuf->timestamp;
 
-	return (char *)kbuf->data + kbuf->index;
+	return kbuf->data + kbuf->index;
 }
 
 /**
@@ -536,7 +520,7 @@ int kbuffer_load_subbuffer(struct kbuffer *kbuf, void *subbuffer)
 	kbuf->subbuffer = subbuffer;
 
 	kbuf->timestamp = read_8(kbuf, ptr);
-	ptr = (char *)ptr + 8;
+	ptr += 8;
 
 	kbuf->curr = 0;
 
@@ -545,14 +529,14 @@ int kbuffer_load_subbuffer(struct kbuffer *kbuf, void *subbuffer)
 	else
 		kbuf->start = 12;
 
-	kbuf->data = (char *)subbuffer + kbuf->start;
+	kbuf->data = subbuffer + kbuf->start;
 
 	flags = read_long(kbuf, ptr);
 	kbuf->size = (unsigned int)flags & COMMIT_MASK;
 
 	if (flags & MISSING_EVENTS) {
 		if (flags & MISSING_STORED) {
-			ptr = (char *)kbuf->data + kbuf->size;
+			ptr = kbuf->data + kbuf->size;
 			kbuf->lost_events = read_long(kbuf, ptr);
 		} else
 			kbuf->lost_events = -1;
@@ -564,13 +548,16 @@ int kbuffer_load_subbuffer(struct kbuffer *kbuf, void *subbuffer)
 
 	next_event(kbuf);
 
+	/* save the first record from the page */
+	kbuf->first = kbuf->curr;
+
 	return 0;
 }
 
 /**
  * kbuffer_subbuf_timestamp - read the timestamp from a sub buffer
- * @kbuf:	The kbuffer to load
- * @subbuf:	The subbuffer to read from.
+ * @kbuf:      The kbuffer to load
+ * @subbuf:    The subbuffer to read from.
  *
  * Return the timestamp from a subbuffer.
  */
@@ -581,8 +568,8 @@ unsigned long long kbuffer_subbuf_timestamp(struct kbuffer *kbuf, void *subbuf)
 
 /**
  * kbuffer_ptr_delta - read the delta field from a record
- * @kbuf:	The kbuffer to load
- * @ptr:	The record in the buffe.
+ * @kbuf:      The kbuffer to load
+ * @ptr:       The record in the buffe.
  *
  * Return the timestamp delta from a record
  */
@@ -593,6 +580,7 @@ unsigned int kbuffer_ptr_delta(struct kbuffer *kbuf, void *ptr)
 	type_len_ts = read_4(kbuf, ptr);
 	return ts4host(kbuf, type_len_ts);
 }
+
 
 /**
  * kbuffer_read_event - read the next event in the kbuffer subbuffer
@@ -612,7 +600,7 @@ void *kbuffer_read_event(struct kbuffer *kbuf, unsigned long long *ts)
 
 	if (ts)
 		*ts = kbuf->timestamp;
-	return (char *)kbuf->data + kbuf->index;
+	return kbuf->data + kbuf->index;
 }
 
 /**
@@ -647,7 +635,7 @@ unsigned long long kbuffer_timestamp(struct kbuffer *kbuf)
 void *kbuffer_read_at_offset(struct kbuffer *kbuf, int offset,
 			     unsigned long long *ts)
 {
-    void *data = NULL;
+	void *data;
 
 	if (offset < kbuf->start)
 		offset = 0;
@@ -656,6 +644,7 @@ void *kbuffer_read_at_offset(struct kbuffer *kbuf, int offset,
 
 	/* Reset the buffer */
 	kbuffer_load_subbuffer(kbuf, kbuf->subbuffer);
+	data = kbuffer_read_event(kbuf, ts);
 
 	while (kbuf->curr < offset) {
 		data = kbuffer_next_event(kbuf, ts);
@@ -772,7 +761,7 @@ void kbuffer_set_old_format(struct kbuffer *kbuf)
  */
 int kbuffer_start_of_data(struct kbuffer *kbuf)
 {
-	return kbuf->start;
+	return kbuf->first + kbuf->start;
 }
 
 /**
@@ -807,15 +796,15 @@ kbuffer_raw_get(struct kbuffer *kbuf, void *subbuf, struct kbuffer_raw_info *inf
 	else
 		start = 12;
 
-	flags = read_long(kbuf, (char *)subbuf + 8);
+	flags = read_long(kbuf, subbuf + 8);
 	size = (unsigned int)flags & COMMIT_MASK;
 
-	if (ptr < subbuf || ptr >= (void *)((char *)subbuf + start + size))
+	if (ptr < subbuf || ptr >= subbuf + start + size)
 		return NULL;
 
 	type_len = translate_data(kbuf, ptr, &ptr, &delta, &length);
 
-	info->next = (char *)ptr + length;
+	info->next = ptr + length;
 
 	info->type = type_len;
 	info->delta = delta;
