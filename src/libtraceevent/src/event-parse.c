@@ -39,6 +39,9 @@ int asprintf(char **str, const char *fmt, ...);
 #include "event-utils.h"
 #include "trace-seq.h"
 
+/* gpuvis change! From include/linux/threads.h */
+#define PID_MAX_LIMIT (4 * 1024 * 1024)
+
 static const char *input_buf;
 static unsigned long long input_buf_ptr;
 static unsigned long long input_buf_siz;
@@ -397,6 +400,34 @@ int tep_override_comm(struct tep_handle *tep, const char *comm, int pid)
 		return -1;
 	}
 	return _tep_register_comm(tep, comm, pid, true);
+}
+
+/* gpuvis change! */
+int tep_register_tgid(struct tep_handle *pevent, int tgid, int pid)
+{
+	int *map;
+	int count;
+
+	if (pid <= 0 || pid >= PID_MAX_LIMIT)
+		return -1;
+	if (tgid <= 0 || tgid >= PID_MAX_LIMIT)
+		return -1;
+
+	if (pid >= pevent->tgid_count) {
+		count = pid + 128;
+		map = realloc(pevent->tgid_map, count * sizeof(*pevent->tgid_map));
+		if (!map)
+			return -1;
+
+		memset(map + pevent->tgid_count, 0, (count - pevent->tgid_count) * sizeof(*pevent->tgid_map));
+		pevent->tgid_map = map;
+		pevent->tgid_count = count;
+	}
+
+	if (pid < pevent->tgid_count)
+		pevent->tgid_map[pid] = tgid;
+
+	return 0;
 }
 
 /**
@@ -975,6 +1006,23 @@ int tep_parse_printk_formats(struct tep_handle *tep, const char *buf)
  out:
 	free(copy);
 	return ret;
+}
+
+/**
+ * gpuvis change!
+ * tep_print_tgids - print out the tgids
+ * @pevent: handle for the pevent
+ *
+ * This prints the tgids that were stored.
+ */
+void tep_print_tgids(struct tep_handle *pevent)
+{
+	int i;
+
+	for (i = 0; i < pevent->tgid_count; i++) {
+		if (pevent->tgid_map[i])
+			printf("%d %d\n", i, pevent->tgid_map[i]);
+	}
 }
 
 static struct tep_event *alloc_event(void)
@@ -3442,6 +3490,7 @@ process_arg_token(struct tep_event *event, struct tep_print_arg *arg,
 			type = process_paren(event, arg, &token);
 			break;
 		}
+		break; /* gpuvis change! */
 	case TEP_EVENT_OP:
 		/* handle single ops */
 		arg->type = TEP_PRINT_OP;
@@ -6321,6 +6370,22 @@ const char *tep_data_comm_from_pid(struct tep_handle *tep, int pid)
 	return comm;
 }
 
+/**
+ * gpuvis change!
+ * tep_data_tgid_from_pid - return the TGID from PID
+ * @pevent: a handle to the pevent
+ * @pid: the PID of the task to search for
+ *
+ * This returns a thread group id for the given @pid, or 0
+ * if TGID not found.
+ */
+int tep_data_tgid_from_pid(struct tep_handle *pevent, int pid)
+{
+	if (pid < pevent->tgid_count)
+		return pevent->tgid_map[pid];
+	return -1;
+}
+
 static struct tep_cmdline *
 pid_from_cmdlist(struct tep_handle *tep, const char *comm, struct tep_cmdline *next)
 {
@@ -8016,6 +8081,9 @@ void tep_free(struct tep_handle *tep)
 		free(printklist);
 		printklist = printknext;
 	}
+
+	/* gpuvis change! */
+	free(tep->tgid_map);
 
 	for (i = 0; i < tep->nr_events; i++)
 		free_tep_event(tep->events[i]);
