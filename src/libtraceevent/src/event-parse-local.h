@@ -15,7 +15,11 @@ struct event_handler;
 struct func_resolver;
 struct tep_plugins_dir;
 
+#ifdef _WIN32 /* gpuvis change! */
+#define __hidden
+#else
 #define __hidden __attribute__((visibility ("hidden")))
+#endif
 
 struct tep_handle {
 	int ref_count;

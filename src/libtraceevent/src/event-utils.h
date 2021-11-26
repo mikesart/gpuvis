@@ -24,7 +24,11 @@ int __tep_vprint(const char *name, enum tep_loglevel level,
 		 bool print_err, const char *fmt, va_list ap);
 
 
+#ifdef _WIN32 /* gpuvis change! */
+#define __deprecated(msg)
+#else
 #define __deprecated(msg) __attribute__((deprecated("msg")))
+#endif
 
 /* For backward compatibilty, do not use */
 int tep_vwarning(const char *name, const char *fmt, va_list ap) __deprecated(Use tep_vprint instead);
@@ -33,11 +37,13 @@ void vpr_stat(const char *fmt, va_list ap) __deprecated(Use tep_vprint instead);
 void __pr_stat(const char *fmt, ...) __deprecated(Use tep_info instead);;
 void __vpr_stat(const char *fmt, va_list ap) __deprecated(Use tep_vprint instead);;
 
+#ifndef _WIN32 /* gpuvis change! */
 #define min(x, y) ({				\
 	typeof(x) _min1 = (x);			\
 	typeof(y) _min2 = (y);			\
 	(void) (&_min1 == &_min2);		\
 	_min1 < _min2 ? _min1 : _min2; })
+#endif
 
 static inline char *strim(char *string)
 {

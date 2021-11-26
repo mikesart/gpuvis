@@ -9,13 +9,19 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stdio.h>
+#ifndef _WIN32 /* gpuvis change! */
 #include <regex.h>
+#endif /* _WIN32 */
 #include <string.h>
 
 #include "trace-seq.h"
 
 #ifndef __maybe_unused
+#ifdef _WIN32 /* gpuvis change! */
+#define __maybe_unused
+#else
 #define __maybe_unused __attribute__((unused))
+#endif
 #endif
 
 #ifndef DEBUG_RECORD
@@ -462,7 +468,10 @@ struct tep_event *tep_get_event(struct tep_handle *tep, int index);
 
 void tep_print_event(struct tep_handle *tep, struct trace_seq *s,
 		     struct tep_record *record, const char *fmt, ...)
-	__attribute__ ((format (printf, 4, 5)));
+#ifndef _WIN32 /* gpuvis change! */
+	__attribute__ ((format (printf, 4, 5)))
+#endif
+    ;
 
 int tep_parse_header_page(struct tep_handle *tep, char *buf, unsigned long size,
 			  int long_size);
@@ -693,7 +702,9 @@ struct tep_filter_arg_str {
 	struct tep_format_field		*field;
 	char				*val;
 	char				*buffer;
+#ifndef _WIN32 /* gpuvis change! */
 	regex_t				reg;
+#endif
 };
 
 struct tep_filter_arg {

@@ -41,6 +41,8 @@
 #define read _read
 #define lseek64 _lseeki64
 #define dup _dup
+
+#define __maybe_unused
 #else
 #define USE_MMAP
 

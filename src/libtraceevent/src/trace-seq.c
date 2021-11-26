@@ -19,6 +19,12 @@
  * a trace_seq structure after it was destroyed.
  */
 #define TRACE_SEQ_POISON	((void *)0xdeadbeef)
+#ifdef _WIN32 /* gpuvis change! */
+#define TRACE_SEQ_CHECK(s)
+#define TRACE_SEQ_CHECK_RET_N(s, n)
+#define TRACE_SEQ_CHECK_RET(s)
+#define TRACE_SEQ_CHECK_RET0(s)
+#else
 #define TRACE_SEQ_CHECK(s)						\
 do {									\
 	if (WARN_ONCE((s)->buffer == TRACE_SEQ_POISON,			\
@@ -35,6 +41,7 @@ do {						\
 
 #define TRACE_SEQ_CHECK_RET(s)   TRACE_SEQ_CHECK_RET_N(s, )
 #define TRACE_SEQ_CHECK_RET0(s)  TRACE_SEQ_CHECK_RET_N(s, 0)
+#endif
 
 /**
  * trace_seq_init - initialize the trace_seq structure
