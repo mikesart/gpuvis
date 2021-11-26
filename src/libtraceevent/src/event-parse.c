@@ -5734,7 +5734,14 @@ static int print_arg_number(struct trace_seq *s, const char *format, int plen,
 		if (plen >= 0)
 			trace_seq_printf(s, format, plen, (long long)val);
 		else
+        {
+            /* FIXME: What in the name of fuck Visual Studio -flibit */
+            while (strstr(format, "L"))
+            {
+                *strstr(format, "L") = 'l';
+            }
 			trace_seq_printf(s, format, (long long)val);
+        }
 		break;
 	default:
 		do_warning_event(event, "bad count (%d)", ls);
