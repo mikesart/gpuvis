@@ -21,6 +21,10 @@
 #include <linux/time64.h>
 
 #include <netinet/in.h>
+#ifdef __APPLE__ /* gpuvis change! */
+#define s6_addr16 __u6_addr.__u6_addr16
+#define s6_addr32 __u6_addr.__u6_addr32
+#endif /* __APPLE__ */
 #include "event-parse.h"
 
 #include "event-parse-local.h"

@@ -109,12 +109,24 @@ int __weak tep_vwarning(const char *name, const char *fmt, va_list ap)
 	return tep_vprint(name, TEP_LOG_WARNING, true, fmt, ap);
 }
 
-void pr_stat(const char *fmt, ...) __attribute__((weak, alias("tep_info")));
-void __pr_stat(const char *fmt, ...) __attribute__((weak, alias("tep_info")));
+void pr_stat(const char *fmt, ...)
+#ifndef __APPLE__ /* gpuvis change! */
+	__attribute__((weak, alias("tep_info")))
+#endif
+	;
+void __pr_stat(const char *fmt, ...)
+#ifndef __APPLE__ /* gpuvis change! */
+	__attribute__((weak, alias("tep_info")))
+#endif
+	;
 
 void __weak __vpr_stat(const char *fmt, va_list ap)
 {
 	tep_vprint("libtraceevent", TEP_LOG_INFO, false, fmt, ap);
 }
 
-void vpr_stat(const char *fmt, va_list ap) __attribute__((weak, alias("__vpr_stat")));
+void vpr_stat(const char *fmt, va_list ap)
+#ifndef __APPLE__ /* gpuvis change! */
+	__attribute__((weak, alias("__vpr_stat")))
+#endif
+	;
