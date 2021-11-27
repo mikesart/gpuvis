@@ -75,7 +75,7 @@ endif
 # Investigate: Improving C++ Builds with Split DWARF
 #  http://www.productive-cpp.com/improving-cpp-builds-with-split-dwarf/
 
-CFLAGS = $(WARNINGS) -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf $(SDL2FLAGS) $(GTK3FLAGS) $(I915_PERF_CFLAGS) -I/usr/include/freetype2
+CFLAGS = $(WARNINGS) -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf $(SDL2FLAGS) $(GTK3FLAGS) $(I915_PERF_CFLAGS) -I/usr/include/freetype2 -Isrc/libtraceevent/include
 CFLAGS += -DUSE_FREETYPE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
 CXXFLAGS = -fno-rtti -Woverloaded-virtual $(CXXWARNINGS)
 LDFLAGS = -gdwarf-4 -g2 -Wl,--build-id=sha1
@@ -110,9 +110,12 @@ CFILES = \
 	src/imgui/imgui_draw.cpp \
 	src/GL/gl3w.c \
 	src/i915-perf/i915-perf-read.cpp \
-	src/trace-cmd/event-parse.c \
-	src/trace-cmd/trace-seq.c \
-	src/trace-cmd/kbuffer-parse.c \
+	src/libtraceevent/src/event-parse.c \
+	src/libtraceevent/src/event-parse-api.c \
+	src/libtraceevent/src/event-plugin.c \
+	src/libtraceevent/src/kbuffer-parse.c \
+	src/libtraceevent/src/parse-utils.c \
+	src/libtraceevent/src/trace-seq.c \
 	src/trace-cmd/trace-read.cpp \
 	src/imgui/imgui_freetype.cpp \
 	src/gpuvis_i915_perfcounters.cpp
