@@ -44,19 +44,20 @@ I915_PERF_CFLAGS=$(shell pkg-config --cflags i915-perf) -DUSE_I915_PERF
 I915_PERF_LIBS=$(shell pkg-config --libs i915-perf)
 endif
 
-
+CXXWARNINGS =
 WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wshadow -Wno-unused-parameter -Wno-missing-field-initializers
 ifneq ($(COMPILER),clang)
   # https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
-  WARNINGS += -Wsuggest-attribute=format -Wimplicit-fallthrough=2 -Wno-class-memaccess
+  WARNINGS += -Wsuggest-attribute=format -Wimplicit-fallthrough=2
+  CXXWARNINGS += -Wno-class-memaccess
 endif
 
 # Investigate: Improving C++ Builds with Split DWARF
 #  http://www.productive-cpp.com/improving-cpp-builds-with-split-dwarf/
 
-CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf $(SDL2FLAGS) $(GTK3FLAGS) $(I915_PERF_CFLAGS) -I/usr/include/freetype2
+CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf $(SDL2FLAGS) $(GTK3FLAGS) $(I915_PERF_CFLAGS) -I/usr/include/freetype2 -Isrc/libtraceevent/include
 CFLAGS += -DUSE_FREETYPE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
-CXXFLAGS = -fno-rtti -Woverloaded-virtual 
+CXXFLAGS = -fno-rtti -Woverloaded-virtual $(CXXWARNINGS)
 LDFLAGS = -march=native -gdwarf-4 -g2 -Wl,--build-id=sha1
 LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lfreetype -lstdc++ $(SDL2LIBS) $(I915_PERF_LIBS)
 
@@ -89,9 +90,12 @@ CFILES = \
 	src/imgui/imgui_draw.cpp \
 	src/GL/gl3w.c \
 	src/i915-perf/i915-perf-read.cpp \
-	src/trace-cmd/event-parse.c \
-	src/trace-cmd/trace-seq.c \
-	src/trace-cmd/kbuffer-parse.c \
+	src/libtraceevent/src/event-parse.c \
+	src/libtraceevent/src/event-parse-api.c \
+	src/libtraceevent/src/event-plugin.c \
+	src/libtraceevent/src/kbuffer-parse.c \
+	src/libtraceevent/src/parse-utils.c \
+	src/libtraceevent/src/trace-seq.c \
 	src/trace-cmd/trace-read.cpp \
 	src/imgui/imgui_freetype.cpp \
 	src/gpuvis_i915_perfcounters.cpp
