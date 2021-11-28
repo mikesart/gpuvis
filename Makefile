@@ -44,12 +44,32 @@ I915_PERF_CFLAGS=$(shell pkg-config --cflags i915-perf) -DUSE_I915_PERF
 I915_PERF_LIBS=$(shell pkg-config --libs i915-perf)
 endif
 
+WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wshadow \
+	-Wno-unused-parameter -Wno-missing-field-initializers -Wno-variadic-macros
 CXXWARNINGS =
-WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wshadow -Wno-unused-parameter -Wno-missing-field-initializers
+
 ifneq ($(COMPILER),clang)
   # https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
   WARNINGS += -Wsuggest-attribute=format -Wimplicit-fallthrough=2
   CXXWARNINGS += -Wno-class-memaccess
+
+  NO_MAYBE_UNINITIALIZED = -Wno-maybe-uninitialized
+  NO_OLD_STYLE_DECLARATION = -Wno-old-style-declaration
+  NO_STRINGOP_TRUNCATION = -Wno-stringop-truncation
+  NO_COMPARE_DISTINCT_POINTER_TYPES =
+  NO_FORMAT_NONLITERAL =
+  NO_POINTER_SIGN =
+  NO_CLOBBERED = -Wno-clobbered
+  NO_SUGGEST_ATTRIBUTE_FORMAT = -Wno-suggest-attribute=format
+else
+  NO_MAYBE_UNINITIALIZED =
+  NO_OLD_STYLE_DECLARATION =
+  NO_STRINGOP_TRUNCATION =
+  NO_COMPARE_DISTINCT_POINTER_TYPES = -Wno-compare-distinct-pointer-types
+  NO_FORMAT_NONLITERAL = -Wno-format-nonliteral
+  NO_POINTER_SIGN = -Wno-pointer-sign
+  NO_CLOBBERED =
+  NO_SUGGEST_ATTRIBUTE_FORMAT =
 endif
 
 # Investigate: Improving C++ Builds with Split DWARF
@@ -121,10 +141,12 @@ ifeq ($(ASAN), 1)
 	ASAN_FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls
 	ASAN_FLAGS += -fsanitize=address # fast memory error detector (heap, stack, global buffer overflow, and use-after free)
 	ASAN_FLAGS += -fsanitize=leak # detect leaks
-	ASAN_FLAGS += -fsanitize=undefined # fast undefined behavior detector
 	ASAN_FLAGS += -fsanitize=float-divide-by-zero # detect floating-point division by zero;
 	ASAN_FLAGS += -fsanitize=bounds # enable instrumentation of array bounds and detect out-of-bounds accesses;
+ifneq ($(COMPILER),clang)
+	ASAN_FLAGS += -fsanitize=undefined # fast undefined behavior detector
 	ASAN_FLAGS += -fsanitize=object-size # enable object size checking, detect various out-of-bounds accesses.
+endif
 	CFLAGS += $(ASAN_FLAGS)
 	LDFLAGS += $(ASAN_FLAGS)
 endif
@@ -165,6 +187,20 @@ $(ODIR)/$(NAME): $(OBJS)
 	$(VERBOSE_PREFIX)$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
 -include $(OBJS:.o=.d)
+
+$(ODIR)/src/libtraceevent/src/event-parse.o: CFLAGS += -Wno-pedantic -Wno-format-nonliteral -Wno-sign-compare \
+	-Wno-shadow -Wno-implicit-function-declaration \
+	$(NO_MAYBE_UNINITIALIZED) $(NO_OLD_STYLE_DECLARATION) \
+	$(NO_FORMAT_NONLITERAL) $(NO_POINTER_SIGN) $(NO_COMPARE_DISTINCT_POINTER_TYPES)
+$(ODIR)/src/libtraceevent/src/trace-seq.o: CFLAGS += -Wno-pedantic
+$(ODIR)/src/libtraceevent/src/event-plugin.o: CFLAGS += -Wno-pedantic -Wno-shadow -Wno-implicit-function-declaration
+$(ODIR)/src/libtraceevent/src/trace-seq.o: CFLAGS += -Wno-pedantic -Wno-sign-compare
+$(ODIR)/src/libtraceevent/src/kbuffer-parse.o: CFLAGS += -Wno-pedantic -Wno-sign-compare $(NO_COMPARE_DISTINCT_POINTER_TYPES)
+$(ODIR)/src/libtraceevent/src/parse-utils.o: CFLAGS += -Wno-pedantic -Wno-implicit-function-declaration \
+	$(NO_FORMAT_NONLITERAL) $(NO_SUGGEST_ATTRIBUTE_FORMAT)
+$(ODIR)/src/libtraceevent/src/event-parse-api.o: CFLAGS += -Wno-pedantic
+$(ODIR)/src/imgui/imgui.o: CXXFLAGS += $(NO_STRINGOP_TRUNCATION)
+$(ODIR)/src/trace-cmd/trace-read.o: CXXFLAGS += $(NO_CLOBBERED)
 
 $(ODIR)/%.o: %.c Makefile $(RAPIDJSON_DEP)
 	$(VERBOSE_PREFIX)echo "---- $< ----";
