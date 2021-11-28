@@ -192,6 +192,20 @@ ifneq ($(COMPILER),clang)
 $(ODIR)/src/imgui/imgui.o: CFLAGS += -Wno-stringop-truncation
 endif
 
+$(ODIR)/src/libtraceevent/src/event-parse.o: CFLAGS += -Wno-pedantic -Wno-format-nonliteral -Wno-sign-compare \
+	-Wno-shadow -Wno-implicit-function-declaration \
+	$(NO_MAYBE_UNINITIALIZED) $(NO_OLD_STYLE_DECLARATION) \
+	$(NO_FORMAT_NONLITERAL) $(NO_POINTER_SIGN) $(NO_COMPARE_DISTINCT_POINTER_TYPES)
+$(ODIR)/src/libtraceevent/src/trace-seq.o: CFLAGS += -Wno-pedantic
+$(ODIR)/src/libtraceevent/src/event-plugin.o: CFLAGS += -Wno-pedantic -Wno-shadow -Wno-implicit-function-declaration
+$(ODIR)/src/libtraceevent/src/trace-seq.o: CFLAGS += -Wno-pedantic -Wno-sign-compare
+$(ODIR)/src/libtraceevent/src/kbuffer-parse.o: CFLAGS += -Wno-pedantic -Wno-sign-compare $(NO_COMPARE_DISTINCT_POINTER_TYPES)
+$(ODIR)/src/libtraceevent/src/parse-utils.o: CFLAGS += -Wno-pedantic -Wno-implicit-function-declaration \
+	$(NO_FORMAT_NONLITERAL) $(NO_SUGGEST_ATTRIBUTE_FORMAT)
+$(ODIR)/src/libtraceevent/src/event-parse-api.o: CFLAGS += -Wno-pedantic
+$(ODIR)/src/imgui/imgui.o: CXXFLAGS += $(NO_STRINGOP_TRUNCATION)
+$(ODIR)/src/trace-cmd/trace-read.o: CXXFLAGS += $(NO_CLOBBERED)
+
 $(ODIR)/%.o: %.c Makefile $(RAPIDJSON_DEP)
 	$(VERBOSE_PREFIX)echo "---- $< ----";
 	@$(MKDIR) $(dir $@)
