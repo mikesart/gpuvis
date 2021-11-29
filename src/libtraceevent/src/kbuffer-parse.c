@@ -800,7 +800,7 @@ kbuffer_raw_get(struct kbuffer *kbuf, void *subbuf, struct kbuffer_raw_info *inf
 	flags = read_long(kbuf, (char*) subbuf + 8); /* gpuvis change! */
 	size = (unsigned int)flags & COMMIT_MASK;
 
-	if (ptr < subbuf || (char*) ptr >= (char*) subbuf + start + size) /* gpuvis change! */
+	if (ptr < subbuf || (char *) ptr >= (char*) subbuf + start + size) /* gpuvis change! */
 		return NULL;
 
 	type_len = translate_data(kbuf, ptr, &ptr, &delta, &length);

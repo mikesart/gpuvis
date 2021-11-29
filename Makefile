@@ -75,11 +75,16 @@ endif
 # Investigate: Improving C++ Builds with Split DWARF
 #  http://www.productive-cpp.com/improving-cpp-builds-with-split-dwarf/
 
-CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf $(SDL2FLAGS) $(GTK3FLAGS) $(I915_PERF_CFLAGS) -I/usr/include/freetype2 -Isrc/libtraceevent/include
+CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf $(SDL2FLAGS) $(GTK3FLAGS) $(I915_PERF_CFLAGS) -I/usr/include/freetype2
 CFLAGS += -DUSE_FREETYPE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
 CXXFLAGS = -fno-rtti -Woverloaded-virtual $(CXXWARNINGS)
 LDFLAGS = -march=native -gdwarf-4 -g2 -Wl,--build-id=sha1
 LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lfreetype -lstdc++ $(SDL2LIBS) $(I915_PERF_LIBS)
+
+CFLAGS += \
+	-I./src/libtraceevent/include \
+	-I./src/libtraceevent/src \
+	-I./src/trace-cmd/include
 
 ifneq ("$(wildcard /usr/bin/ld.gold)","")
   $(info Using gold linker...)
@@ -99,6 +104,7 @@ CFILES = \
 	src/gpuvis_graphrows.cpp \
 	src/gpuvis_ftrace_print.cpp \
 	src/gpuvis_utils.cpp \
+	src/gpuvis_i915_perfcounters.cpp \
 	src/tdopexpr.cpp \
 	src/ya_getopt.c \
 	src/MurmurHash3.cpp \
@@ -108,6 +114,7 @@ CFILES = \
 	src/imgui/imgui.cpp \
 	src/imgui/imgui_demo.cpp \
 	src/imgui/imgui_draw.cpp \
+	src/imgui/imgui_freetype.cpp \
 	src/GL/gl3w.c \
 	src/i915-perf/i915-perf-read.cpp \
 	src/libtraceevent/src/event-parse.c \
@@ -117,8 +124,9 @@ CFILES = \
 	src/libtraceevent/src/parse-utils.c \
 	src/libtraceevent/src/trace-seq.c \
 	src/trace-cmd/trace-read.cpp \
-	src/imgui/imgui_freetype.cpp \
-	src/gpuvis_i915_perfcounters.cpp
+	src/trace-cmd/trace-input.c \
+	src/trace-cmd/trace-hooks.c \
+	src/trace-cmd/trace-util.c
 
 ifeq ($(PROF), 1)
 	# To profile with google perftools:
@@ -201,6 +209,9 @@ $(ODIR)/src/libtraceevent/src/parse-utils.o: CFLAGS += -Wno-pedantic -Wno-implic
 $(ODIR)/src/libtraceevent/src/event-parse-api.o: CFLAGS += -Wno-pedantic
 $(ODIR)/src/imgui/imgui.o: CXXFLAGS += $(NO_STRINGOP_TRUNCATION)
 $(ODIR)/src/trace-cmd/trace-read.o: CXXFLAGS += $(NO_CLOBBERED)
+$(ODIR)/src/trace-cmd/trace-input.o: CFLAGS += -Wno-pedantic -Wno-pointer-arith -Wno-shadow -Wno-sign-compare
+$(ODIR)/src/trace-cmd/trace-util.o: CFLAGS += -Wno-pedantic -Wno-old-style-declaration -Wno-sign-compare -Wno-suggest-attribute=format -D_GNU_SOURCE
+$(ODIR)/src/trace-cmd/trace-hooks.o: CFLAGS += -Wno-pedantic
 
 $(ODIR)/%.o: %.c Makefile $(RAPIDJSON_DEP)
 	$(VERBOSE_PREFIX)echo "---- $< ----";

@@ -779,7 +779,7 @@ private:
             cpu_info.overrun = 0;
             cpu_info.commit_overrun = 0;
             cpu_info.bytes = 0;
-            cpu_info.oldest_event_ts = ticks_to_relative_us( entry.start_time );;
+            cpu_info.oldest_event_ts = ticks_to_relative_us( entry.start_time );
             cpu_info.now_ts = ticks_to_relative_us( entry.end_time );
             cpu_info.dropped_events = 0;
             cpu_info.read_events = 0;
