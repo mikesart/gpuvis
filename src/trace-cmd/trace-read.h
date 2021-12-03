@@ -105,7 +105,6 @@ struct cpu_info_t
     int64_t dropped_events = 0;
     int64_t read_events = 0;
 
-    uint64_t file_offset = 0;
     uint64_t file_size = 0;
 
     int64_t min_ts = 0;

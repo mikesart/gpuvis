@@ -772,7 +772,6 @@ private:
         {
             cpu_info_t &cpu_info = mTraceInfo.cpu_info[cpu];
 
-            cpu_info.file_offset = 0;
             cpu_info.file_size = 0;
 
             cpu_info.entries = 0;
