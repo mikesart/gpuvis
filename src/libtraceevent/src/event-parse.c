@@ -4377,7 +4377,7 @@ static void print_bitmask_to_seq(struct tep_handle *tep,
 		if (arg->hex.field->type == TEP_PRINT_DYNAMIC_ARRAY) {
 			dynamic_offset_field(tep, arg->hex.field->dynarray.field, data,
 				             &offset, NULL);
-			hex = (char*) data + offset; /* gpuvis change! */
+			hex = (unsigned char*) data + offset; /* gpuvis change! */
 		} else {
 			field = arg->hex.field->field.field;
 			if (!field) {
@@ -4387,7 +4387,7 @@ static void print_bitmask_to_seq(struct tep_handle *tep,
 					goto out_warning_field;
 				arg->hex.field->field.field = field;
 			}
-			hex = (char*) data + field->offset; /* gpuvis change! */
+			hex = (unsigned char*) data + field->offset; /* gpuvis change! */
 		}
 		len = eval_num_arg(data, size, event, arg->hex.size);
 		for (i = 0; i < len; i++) {
@@ -4874,7 +4874,7 @@ static int print_mac_arg(struct trace_seq *s, const char *format,
 		return ret;
 	}
 
-	buf = (char*) data + arg->field.field->offset; /* gpuvis change! */
+	buf = (unsigned char*) data + arg->field.field->offset; /* gpuvis change! */
 	if (reverse)
 		trace_seq_printf(s, fmt, buf[5], buf[4], buf[3], buf[2], buf[1], buf[0]);
 	else
