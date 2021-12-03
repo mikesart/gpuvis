@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h> /* gpuvis change! */
 
 #include "kbuffer.h"
 
@@ -151,7 +152,7 @@ static unsigned long long read_long(struct kbuffer *kbuf, void *ptr)
 
 static int calc_index(struct kbuffer *kbuf, void *ptr)
 {
-	return (unsigned long)ptr - (unsigned long)kbuf->data;
+	return (uintptr_t)ptr - (uintptr_t)kbuf->data; /* gpuvis change! */
 }
 
 static int __next_event(struct kbuffer *kbuf);
@@ -799,7 +800,7 @@ kbuffer_raw_get(struct kbuffer *kbuf, void *subbuf, struct kbuffer_raw_info *inf
 	flags = read_long(kbuf, (char*) subbuf + 8); /* gpuvis change! */
 	size = (unsigned int)flags & COMMIT_MASK;
 
-	if (ptr < subbuf || ptr >= (char*) subbuf + start + size) /* gpuvis change! */
+	if (ptr < subbuf || (char*) ptr >= (char*) subbuf + start + size) /* gpuvis change! */
 		return NULL;
 
 	type_len = translate_data(kbuf, ptr, &ptr, &delta, &length);
