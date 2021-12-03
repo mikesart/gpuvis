@@ -1057,15 +1057,15 @@ static int event_item_type(enum tep_event_type type)
 {
 	switch (type) {
 	case TEP_EVENT_ITEM:
-    case TEP_EVENT_DQUOTE: /* gpuvis change!*/
-    case TEP_EVENT_SQUOTE:
+	case TEP_EVENT_DQUOTE: /* gpuvis change!*/
+	case TEP_EVENT_SQUOTE:
 		return 1;
-    case TEP_EVENT_ERROR:
-    case TEP_EVENT_NONE: /* gpuvis change! */
-    case TEP_EVENT_SPACE:
-    case TEP_EVENT_NEWLINE:
-    case TEP_EVENT_OP:
-    case TEP_EVENT_DELIM:
+	case TEP_EVENT_ERROR:
+	case TEP_EVENT_NONE: /* gpuvis change! */
+	case TEP_EVENT_SPACE:
+	case TEP_EVENT_NEWLINE:
+	case TEP_EVENT_OP:
+	case TEP_EVENT_DELIM:
 	default:
 		return 0;
 	}
@@ -1332,8 +1332,8 @@ static enum tep_event_type __read_token(char **tok)
 		goto out;
 
 	case TEP_EVENT_ERROR:
-    case TEP_EVENT_NONE: /* gpuvis change! */
-    case TEP_EVENT_SPACE:
+	case TEP_EVENT_NONE: /* gpuvis change! */
+	case TEP_EVENT_SPACE:
 	case TEP_EVENT_ITEM:
 	default:
 		break;
@@ -1628,7 +1628,7 @@ static unsigned int type_size(const char *name)
 		{ "s32",  4 },
 		{ "s64",  8 },
 		{ "char", 1 },
-        { NULL, 0 }, /* gpuvis change! */
+		{ NULL, 0 }, /* gpuvis change! */
 	};
 	int i;
 
@@ -2724,9 +2724,9 @@ static int arg_num_eval(struct tep_print_arg *arg, long long *val)
 		break;
 
 	case TEP_PRINT_NULL:
-    case TEP_PRINT_FIELD:
-    case TEP_PRINT_FLAGS: /* gpuvis change! */
-    case TEP_PRINT_SYMBOL:
+	case TEP_PRINT_FIELD:
+	case TEP_PRINT_FLAGS: /* gpuvis change! */
+	case TEP_PRINT_SYMBOL:
 	case TEP_PRINT_STRING:
 	case TEP_PRINT_BSTRING:
 	case TEP_PRINT_BITMASK:
@@ -2755,9 +2755,9 @@ static char *arg_eval (struct tep_print_arg *arg)
 		return buf;
 
 	case TEP_PRINT_NULL:
-    case TEP_PRINT_FIELD:
-    case TEP_PRINT_FLAGS: /* gpuvis change! */
-    case TEP_PRINT_SYMBOL:
+	case TEP_PRINT_FIELD:
+	case TEP_PRINT_FLAGS: /* gpuvis change! */
+	case TEP_PRINT_SYMBOL:
 	case TEP_PRINT_STRING:
 	case TEP_PRINT_BSTRING:
 	case TEP_PRINT_BITMASK:
@@ -3502,9 +3502,9 @@ process_arg_token(struct tep_event *event, struct tep_print_arg *arg,
 		break;
 
 	case TEP_EVENT_ERROR:
-    case TEP_EVENT_NONE: /* gpuvis change! */
-    case TEP_EVENT_SPACE:
-    case TEP_EVENT_NEWLINE:
+	case TEP_EVENT_NONE: /* gpuvis change! */
+	case TEP_EVENT_SPACE:
+	case TEP_EVENT_NEWLINE:
 	default:
 		do_warning_event(event, "unexpected type %d", type);
 		return TEP_EVENT_ERROR;
@@ -4704,16 +4704,16 @@ static struct tep_print_arg *make_bprint_args(char *fmt, void *data, int size, s
 			case 'L':
 				ls = 2;
 				goto process_again;
-            case '0':
-            case '1': /* gpuvis change! */
-            case '2':
-            case '3':
-            case '4':
-            case '5':
-            case '6':
-            case '7':
-            case '8':
-            case '9':
+			case '0':
+			case '1': /* gpuvis change! */
+			case '2':
+			case '3':
+			case '4':
+			case '5':
+			case '6':
+			case '7':
+			case '8':
+			case '9':
 				goto process_again;
 			case '.':
 				goto process_again;
@@ -5296,8 +5296,8 @@ print_ip_arg( struct trace_seq *s, const char *ptr,
               void *data, int size, struct event_format *event,
               struct print_arg *arg )
 {
-    trace_seq_printf( s, "%s", "NYI: print_ip_arg" );
-    return 0;
+	trace_seq_printf( s, "%s", "NYI: print_ip_arg" );
+	return 0;
 }
 
 #endif
@@ -5939,16 +5939,16 @@ static int parse_arg_format(struct tep_print_parse **parse,
 		case '.':
 		case 'z':
 		case 'Z':
-        case '0':
-        case '1': /* gpuvis change! */
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9':
+		case '0':
+		case '1': /* gpuvis change! */
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
 		case '-':
 			break;
 		case '*':
