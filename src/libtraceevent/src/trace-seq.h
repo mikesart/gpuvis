@@ -31,7 +31,8 @@ struct trace_seq {
 	char			*buffer;
 	unsigned int		buffer_size;
 	unsigned int		len;
-	unsigned int		readpos;
+	/* unsigned int		readpos; */
+	char			buf[TRACE_SEQ_BUF_SIZE]; /* gpuvis change! */
 	enum trace_seq_fail	state;
 };
 

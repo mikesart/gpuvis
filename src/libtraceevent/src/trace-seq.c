@@ -50,9 +50,9 @@ do {						\
 void trace_seq_init(struct trace_seq *s)
 {
 	s->len = 0;
-	s->readpos = 0;
+	/* s->readpos = 0; */
 	s->buffer_size = TRACE_SEQ_BUF_SIZE;
-	s->buffer = malloc(s->buffer_size);
+	s->buffer = s->buf; /* gpuvis change! malloc(s->buffer_size); */
 	if (s->buffer != NULL)
 		s->state = TRACE_SEQ__GOOD;
 	else
@@ -69,7 +69,7 @@ void trace_seq_reset(struct trace_seq *s)
 		return;
 	TRACE_SEQ_CHECK(s);
 	s->len = 0;
-	s->readpos = 0;
+	/* gpuvis change! s->readpos = 0; */
 }
 
 /**
@@ -83,18 +83,32 @@ void trace_seq_destroy(struct trace_seq *s)
 	if (!s)
 		return;
 	TRACE_SEQ_CHECK_RET(s);
-	free(s->buffer);
-	s->buffer = TRACE_SEQ_POISON;
+	if (s->buffer != s->buf) /* gpuvis change! */
+	{
+		free(s->buffer);
+		s->buffer = TRACE_SEQ_POISON;
+	}
 }
 
 static void expand_buffer(struct trace_seq *s)
 {
 	char *buf;
 
-	buf = realloc(s->buffer, s->buffer_size + TRACE_SEQ_BUF_SIZE);
-	if (WARN_ONCE(!buf, "Can't allocate trace_seq buffer memory")) {
-		s->state = TRACE_SEQ__MEM_ALLOC_FAILED;
-		return;
+	if (s->buffer == s->buf) /* gpuvis change! */
+	{
+		buf = malloc(s->buffer_size + TRACE_SEQ_BUF_SIZE);
+		if (WARN_ONCE(!buf, "Can't allocate trace_seq buffer memory")) {
+			s->state = TRACE_SEQ__MEM_ALLOC_FAILED;
+			return;
+		}
+	}
+	else
+	{
+		buf = realloc(s->buffer, s->buffer_size + TRACE_SEQ_BUF_SIZE);
+		if (WARN_ONCE(!buf, "Can't allocate trace_seq buffer memory")) {
+			s->state = TRACE_SEQ__MEM_ALLOC_FAILED;
+			return;
+		}
 	}
 
 	s->buffer = buf;
