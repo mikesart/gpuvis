@@ -1961,17 +1961,23 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
     // Find the lowest ts value in the trace file
     for ( size_t cpu = 0; cpu < ( size_t )handle->cpus; cpu++ )
     {
-        pevent_record_t *record = tracecmd_peek_data( handle, cpu );
+        for ( file_info_t *file_info : file_list )
+        {
+            pevent_record_t *record = tracecmd_peek_data( file_info->handle, cpu );
 
-        if ( record )
-            trace_info.min_file_ts = std::min< int64_t >( trace_info.min_file_ts, record->ts );
+            if ( record )
+                trace_info.min_file_ts = std::min< int64_t >( trace_info.min_file_ts, record->ts );
+        }
     }
+
+    // Should never happen, but sure is bad if it ever does as our min_ts is set to INT64 MAX
+    if (trace_info.min_file_ts == INT64_MAX)
+        trace_info.min_file_ts = 0;
 
     trace_info.cpu_info.resize( handle->cpus );
     for ( size_t cpu = 0; cpu < ( size_t )handle->cpus; cpu++ )
     {
         cpu_info_t &cpu_info = trace_info.cpu_info[ cpu ];
-        pevent_record_t *record = tracecmd_peek_data( handle, cpu );
 
         cpu_info.file_offset = handle->cpu_data[ cpu ].file_offset;
         cpu_info.file_size = handle->cpu_data[ cpu ].file_size;
@@ -1995,12 +2001,17 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
                 cpu_info.now_ts -= trace_info.min_file_ts;
         }
 
-        if ( record )
+        for ( file_info_t *file_info : file_list )
         {
-            cpu_info.min_ts = record->ts - trace_info.min_file_ts;
+            pevent_record_t *record = tracecmd_peek_data( file_info->handle, cpu );
 
-            if ( cpu_info.overrun && trace_info.trim_trace )
-                trim_ts = std::max< unsigned long long >( trim_ts, record->ts );
+            if ( record )
+            {
+                cpu_info.min_ts = record->ts - trace_info.min_file_ts;
+
+                if ( cpu_info.overrun && trace_info.trim_trace )
+                    trim_ts = std::max< unsigned long long >( trim_ts, record->ts );
+            }
         }
     }
 
