@@ -29,6 +29,10 @@ extern char *strtok_r(char *str, const char *delim, char **saveptr);
 #define s6_addr32 __u6_addr.__u6_addr32
 #endif /* __APPLE__ */
 #endif /* _WIN32 */
+
+/* gpuvis change! See gpuvis_utils.cpp */
+int asprintf(char **str, const char *fmt, ...);
+
 #include "event-parse.h"
 
 #include "event-parse-local.h"
