@@ -115,6 +115,76 @@ static void expand_buffer(struct trace_seq *s)
 	s->buffer_size += TRACE_SEQ_BUF_SIZE;
 }
 
+/* gpuvis change! */
+
+/* Fast format_decimal code taken from fmt library (and modified for C):
+ *   https://github.com/fmtlib/fmt/blob/master/include/fmt/format.h#L1079
+ *   http://fmtlib.net/latest/index.html
+ *   http://www.zverovich.net/2013/09/07/integer-to-string-conversion-in-cplusplus.html
+ */
+#define BUFFER_SIZE 64
+
+/* Formats value in reverse and returns a pointer to the beginning. */
+static char *format_decimal(char buf[BUFFER_SIZE], unsigned long long value)
+{
+	char *ptr = buf + BUFFER_SIZE - 1;
+	static const char DIGITS[] =
+			"0001020304050607080910111213141516171819"
+			"2021222324252627282930313233343536373839"
+			"4041424344454647484950515253545556575859"
+			"6061626364656667686970717273747576777879"
+			"8081828384858687888990919293949596979899";
+
+	while (value >= 100)
+	{
+		/* Integer division is slow so do it for a group of two digits instead
+		 * of for every digit. The idea comes from the talk by Alexandrescu
+		 * "Three Optimization Tips for C++". See speed-test for a comparison.
+		 */
+		unsigned index = (unsigned int)((value % 100) * 2);
+
+		value /= 100;
+		*--ptr = DIGITS[index + 1];
+		*--ptr = DIGITS[index];
+	}
+
+	if (value < 10)
+	{
+		*--ptr = (char)('0' + value);
+		return ptr;
+	}
+
+	unsigned index = (unsigned int)(value * 2);
+	*--ptr = DIGITS[index + 1];
+	*--ptr = DIGITS[index];
+	return ptr;
+}
+
+static char *format_signed(char buf[BUFFER_SIZE], long long value)
+{
+	char *str;
+	bool negative = (value < 0);
+	unsigned long long abs_value = (unsigned long long)(value);
+
+	if (negative)
+		abs_value = 0 - abs_value;
+
+	str = format_decimal(buf, abs_value);
+
+	if (negative)
+		*--str = '-';
+
+#if 0
+	char buf2[64];
+	sprintf(buf2, "%lld", value);
+	if (strcmp(str, buf2))
+		printf("%s ERROR: %s != %s\n", __func__, buf, buf2);
+#endif
+	return str;
+}
+
+/* End gpuvis change! */
+
 /**
  * trace_seq_printf - sequence printing of trace information
  * @s: trace sequence descriptor
@@ -136,6 +206,50 @@ trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
 	va_list ap;
 	int len;
 	int ret;
+
+	/* gpuvis change! Optimization:
+	 * ~30% of several traces appear to have constant "%s" fmts.
+	 * ~69.9% have %d or %lld
+	 */
+	if (fmt[ 0 ] == '%')
+	{
+		const char *str;
+		char buf[BUFFER_SIZE];
+
+		if (fmt[ 1 ] == 's' && fmt[ 2 ] == '\0')
+		{
+			va_start(ap, fmt);
+			str = va_arg(ap, const char *);
+			va_end(ap);
+
+			trace_seq_puts(s, str);
+			return 1;
+		}
+		else if (fmt[ 1 ] == 'd' && fmt[ 2 ] == '\0')
+		{
+			int num;
+
+			va_start(ap, fmt);
+			num = va_arg(ap, int);
+			va_end(ap);
+
+			str = format_signed(buf, num);
+			trace_seq_puts(s, str);
+			return 1;
+		}
+		else if (fmt[ 1 ] == 'l' && fmt[ 2 ] == 'l' && fmt[ 3 ] == 'd' && fmt[ 4 ] == '\0')
+		{
+			long long num;
+
+			va_start(ap, fmt);
+			num = va_arg(ap, long long);
+			va_end(ap);
+
+			str = format_signed(buf, num);
+			trace_seq_puts(s, str);
+			return 1;
+		}
+	}
 
  try_again:
 	TRACE_SEQ_CHECK_RET0(s);
