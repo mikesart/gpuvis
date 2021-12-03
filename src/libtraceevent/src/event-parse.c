@@ -2470,7 +2470,7 @@ eval_type_str(unsigned long long val, const char *type, int pointer)
 {
 	int sign = 0;
 	char *ref;
-	int len;
+	size_t len; /* gpuvis change! */
 
 	len = strlen(type);
 
@@ -4180,8 +4180,8 @@ eval_num_arg(void *data, int size, struct tep_event *event, struct tep_print_arg
 		/* Without [], we pass the address to the dynamic data */
 		dynamic_offset_field(tep, arg->dynarray.field, data,
 				     &offset, NULL);
-		val = (unsigned long long)((unsigned long)data + offset);
-		val = (unsigned long)data + offset;
+		val = (unsigned long long)((uintptr_t)data + offset); /* gpuvis change! */
+		val = (uintptr_t)data + offset;
 		break;
 	default: /* not sure what to do there */
 		return 0;
@@ -4646,7 +4646,7 @@ static struct tep_print_arg *make_bprint_args(char *fmt, void *data, int size, s
 	struct tep_print_arg *args, *arg, **next;
 	unsigned long long ip, val;
 	char *ptr;
-	void *bptr;
+	char *bptr; /* gpuvis change! */
 	int vsize = 0;
 
 	field = tep->bprint_buf_field;
@@ -4783,7 +4783,7 @@ static struct tep_print_arg *make_bprint_args(char *fmt, void *data, int size, s
 					vsize = 4;
 
 				/* the pointers are always 4 bytes aligned */
-				bptr = (void *)(((unsigned long)bptr + 3) &
+				bptr = (void *)(((uintptr_t)bptr + 3) & /* gpuvis change! */
 						~3);
 				val = tep_read_number(tep, bptr, vsize);
 				bptr = (char*) bptr + vsize; /* gpuvis change! */
@@ -4980,8 +4980,8 @@ static void print_ip4_addr(struct trace_seq *s, char i, bool reverse, unsigned c
 
 static inline bool ipv6_addr_v4mapped(const struct in6_addr *a)
 {
-	return ((unsigned long)(a->s6_addr32[0] | a->s6_addr32[1]) |
-		(unsigned long)(a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL;
+	return ((uintptr_t)(a->s6_addr32[0] | a->s6_addr32[1]) | /* gpuvis change! */
+		(uintptr_t)(a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL;
 }
 
 static inline bool ipv6_addr_is_isatap(const struct in6_addr *addr)
@@ -5522,7 +5522,7 @@ void static inline print_field(struct trace_seq *s, void *data,
 	start_parse = parse;
 	do {
 		if (parse->type == PRINT_FMT_STRING) {
-			int len = strlen(parse->format);
+			size_t len = strlen(parse->format); /* gpuvis change! */
 
 			if (len > 1 &&
 			    strcmp(parse->format + (len -2), "0x") == 0)
@@ -5914,7 +5914,7 @@ static int parse_arg_format(struct tep_print_parse **parse,
 	int ret = 0;
 	int ls = 0;
 	int res;
-	int len;
+	size_t len; /* gpuvis change! */
 
 	format++;
 	ret++;
@@ -5973,8 +5973,8 @@ static int parse_arg_format(struct tep_print_parse **parse,
 				format += res;
 				ret += res;
 			}
-			len = ((unsigned long)format + 1) -
-				(unsigned long)start;
+			len = ((uintptr_t)format + 1) - /* gpuvis change! */
+				(uintptr_t)start;
 			/* should never happen */
 			if (len > 31) {
 				do_warning_event(event, "bad format!");
@@ -6001,8 +6001,8 @@ static int parse_arg_format(struct tep_print_parse **parse,
 				goto out_failed;
 			}
 
-			len = ((unsigned long)format + 1) -
-				(unsigned long)start;
+			len = ((uintptr_t)format + 1) - /* gpuvis change! */
+				(uintptr_t)start;
 
 			/* should never happen */
 			if (len > 30) {
@@ -6038,8 +6038,8 @@ static int parse_arg_format(struct tep_print_parse **parse,
 				goto out_failed;
 			}
 
-			len = ((unsigned long)format + 1) -
-				(unsigned long)start;
+			len = ((uintptr_t)format + 1) - /* gpuvis change! */
+				(uintptr_t)start;
 
 			/* should never happen */
 			if (len > 31) {
@@ -6123,7 +6123,7 @@ parse_args(struct tep_event *event, const char *format, struct tep_print_arg *ar
 	struct tep_print_parse *parse_ret = NULL;
 	struct tep_print_parse **parse = NULL;
 	int ret;
-	int len;
+	size_t len; /* gpuvis change! */
 
 	len = strlen(format);
 	while (*format) {
