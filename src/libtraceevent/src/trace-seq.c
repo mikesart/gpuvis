@@ -127,13 +127,15 @@ static void expand_buffer(struct trace_seq *s)
 /* Formats value in reverse and returns a pointer to the beginning. */
 static char *format_decimal(char buf[BUFFER_SIZE], unsigned long long value)
 {
-	char *ptr = buf + BUFFER_SIZE - 1;
+	char *ptr = buf + BUFFER_SIZE;
 	static const char DIGITS[] =
 			"0001020304050607080910111213141516171819"
 			"2021222324252627282930313233343536373839"
 			"4041424344454647484950515253545556575859"
 			"6061626364656667686970717273747576777879"
 			"8081828384858687888990919293949596979899";
+
+	*--ptr = 0;
 
 	while (value >= 100)
 	{
@@ -227,9 +229,7 @@ trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
 	int len;
 	int ret;
 
-	/* gpuvis change! Optimization:
-	 * ~30% of several traces appear to have constant "%s" fmts.
-	 */
+	/* gpuvis change! */
 	if (fmt[ 0 ] == '%' && fmt[ 1 ] == 's' && fmt[ 2 ] == '\0')
 	{
 		const char *str;
