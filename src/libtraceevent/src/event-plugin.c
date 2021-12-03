@@ -23,6 +23,9 @@
 #include "event-utils.h"
 #include "trace-seq.h"
 
+/* gpuvis change! See gpuvis_utils.cpp */
+int asprintf(char **str, const char *fmt, ...);
+
 #define LOCAL_PLUGIN_DIR ".local/lib/traceevent/plugins/"
 
 static struct registered_plugin_options {
