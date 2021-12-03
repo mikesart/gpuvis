@@ -54,6 +54,10 @@ extern int trace_seq_vprintf(struct trace_seq *s, const char *fmt, va_list args)
 extern int trace_seq_puts(struct trace_seq *s, const char *str);
 extern int trace_seq_putc(struct trace_seq *s, unsigned char c);
 
+/* gpuvis change! */
+extern int trace_seq_put_sval(struct trace_seq *s, long long val);
+extern int trace_seq_put_uval(struct trace_seq *s, unsigned long long val);
+
 extern void trace_seq_terminate(struct trace_seq *s);
 
 extern int trace_seq_do_fprintf(struct trace_seq *s, FILE *fp);

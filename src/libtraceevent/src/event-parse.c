@@ -5479,7 +5479,8 @@ static void print_field_raw(struct trace_seq *s, void *data,
 				if (field->flags & TEP_FIELD_IS_LONG)
 					trace_seq_printf(s, "0x%x", (int)val);
 				else
-					trace_seq_printf(s, "%d", (int)val);
+					trace_seq_put_sval(s, val); /* gpuvis change! */
+					/* trace_seq_printf(s, "%d", (int)val); */
 				break;
 			case 2:
 				trace_seq_printf(s, "%2d", (short)val);
@@ -5488,13 +5489,15 @@ static void print_field_raw(struct trace_seq *s, void *data,
 				trace_seq_printf(s, "%1d", (char)val);
 				break;
 			default:
-				trace_seq_printf(s, "%lld", val);
+				trace_seq_put_sval(s, val); /* gpuvis change! */
+				/* trace_seq_printf(s, "%lld", val); */
 			}
 		} else {
 			if (field->flags & TEP_FIELD_IS_LONG)
 				trace_seq_printf(s, "0x%llx", val);
 			else
-				trace_seq_printf(s, "%llu", val);
+				trace_seq_put_uval(s, val); /* gpuvis change! */
+				/* trace_seq_printf(s, "%llu", val); */
 		}
 	}
 }
