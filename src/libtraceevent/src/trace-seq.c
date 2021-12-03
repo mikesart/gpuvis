@@ -194,7 +194,7 @@ trace_seq_vprintf(struct trace_seq *s, const char *fmt, va_list args)
  */
 int trace_seq_puts(struct trace_seq *s, const char *str)
 {
-	int len;
+	size_t len; /* gpuvis change! */
 
 	TRACE_SEQ_CHECK_RET0(s);
 
@@ -206,9 +206,9 @@ int trace_seq_puts(struct trace_seq *s, const char *str)
 	TRACE_SEQ_CHECK_RET0(s);
 
 	memcpy(s->buffer + s->len, str, len);
-	s->len += len;
+	s->len += (unsigned long) len; /* gpuvis change! */
 
-	return len;
+	return (int) len; /* gpuvis change! */
 }
 
 int trace_seq_putc(struct trace_seq *s, unsigned char c)
