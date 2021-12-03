@@ -5452,7 +5452,8 @@ static void print_field_raw(struct trace_seq *s, void *data,
 		}
 		if (field->flags & TEP_FIELD_IS_STRING &&
 		    is_printable_array((char*) data + offset, len)) { /* gpuvis change! */
-			trace_seq_printf(s, "%s", (char *)data + offset);
+			trace_seq_puts(s, (char *)data + offset); /* gpuvis change! */
+			/* trace_seq_printf(s, "%s", (char *)data + offset); */
 		} else {
 			trace_seq_puts(s, "ARRAY[");
 			for (i = 0; i < len; i++) {
