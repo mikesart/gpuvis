@@ -515,6 +515,11 @@ static void set_min_file_ts( trace_info_t &trace_info, std::vector< file_info_t>
         trace_info.min_file_ts = 0;
 }
 
+static std::string cstr_to_string(const char *cstr)
+{
+    return std::string(cstr ? cstr : "");
+}
+
 static uint64_t parse_cpu_stats(trace_info_t &trace_info, std::vector< file_info_t > &file_list)
 {
     std::vector< std::string > cpustats;
@@ -533,8 +538,9 @@ static uint64_t parse_cpu_stats(trace_info_t &trace_info, std::vector< file_info
     {
         cpu_info_t &cpu_info = trace_info.cpu_info[ cpu ];
 
-        cpu_info.file_offset = tracecmd_get_cpu_file_offset(handle, cpu);
         cpu_info.file_size = tracecmd_get_cpu_file_size(handle, cpu);
+        if (cpu_info.file_size == (uint64_t)-1)
+            cpu_info.file_size = 0;
 
         if (cpu < cpustats.size())
         {
@@ -661,8 +667,8 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
 
     trace_info.cpus = tracecmd_cpus(handle);
     trace_info.file = file_list[0].file;
-    trace_info.uname = tracecmd_get_uname(handle);
-    trace_info.opt_version = tracecmd_get_version(handle);
+    trace_info.uname = cstr_to_string(tracecmd_get_uname(handle));
+    trace_info.opt_version = cstr_to_string(tracecmd_get_version(handle));
     trace_info.timestamp_in_us = is_timestamp_in_us( tracecmd_get_trace_clock(handle), tracecmd_get_use_trace_clock(handle) );
 
     parse_cmdlist( strpool, trace_info, file_list );

@@ -90,12 +90,10 @@ bool tracecmd_get_quiet(struct tracecmd_output *handle);
 void tracecmd_set_out_clock(struct tracecmd_output *handle, const char *clock);
 const char *tracecmd_get_trace_clock(struct tracecmd_input *handle);
 
-/* gpuvis change! */
 const char *tracecmd_get_cpustats(struct tracecmd_input *handle);
 const char *tracecmd_get_uname(struct tracecmd_input *handle);
 const char *tracecmd_get_version(struct tracecmd_input *handle);
-unsigned long long tracecmd_get_cpu_file_offset(struct tracecmd_input *handle, int cpu);
-unsigned long long tracecmd_get_cpu_file_size(struct tracecmd_input *handle, int cpu);
+off64_t tracecmd_get_cpu_file_size(struct tracecmd_input *handle, int cpu);
 
 static inline int tracecmd_host_bigendian(void)
 {
