@@ -56,7 +56,7 @@ Embeds [DroidSans.ttf](http://www.google.com/fonts/specimen/Droid+Sans) font by 
 
 Uses [stb_textedit.h, stb_truetype.h, stb_rectpack.h](https://github.com/nothings/stb/) by Sean Barrett (public domain).
 
-trace-cmd is [GNU GPL v2](https://git.kernel.org/pub/scm/linux/kernel/git/rostedt/trace-cmd.git)
+trace-cmd is [GNU GPL v2](https://www.trace-cmd.org)
 
 miniz is MIT licensed: [miniz](https://github.com/richgel999/miniz)
 

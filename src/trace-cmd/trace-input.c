@@ -2647,6 +2647,26 @@ tracecmd_search_task_map(struct tracecmd_input *handle,
 	return lib;
 }
 
+/* gpuvis change! */
+static void tracecmd_parse_tgids(struct tep_handle *tep,
+                                 char *file, int size __maybe_unused)
+{
+	char *next = NULL;
+	int pid, tgid;
+	char *endptr;
+	char *line;
+
+	line = strtok_r(file, "\n", &next);
+	while (line) {
+		pid = strtol(line, &endptr, 10);
+		if (endptr && *endptr == ' ') {
+			tgid = strtol(endptr + 1, NULL, 10);
+			tep_register_tgid(tep, tgid, pid);
+		}
+		line = strtok_r(NULL, "\n", &next);
+	}
+}
+
 static int handle_options(struct tracecmd_input *handle)
 {
 	long long offset;
@@ -2780,10 +2800,10 @@ static int handle_options(struct tracecmd_input *handle)
 				cpus = *(int *)buf;
 				handle->cpus = tep_read_number(handle->pevent, &cpus, 4);
 			}
-			//$$$ else if (size > sizeof( unsigned long long ))
-			//$$$ {
-			//$$$ 	tracecmd_parse_tgids(handle->pevent, buf, size);
-			//$$$ }
+			else if (size > sizeof( unsigned long long ))
+			{
+				tracecmd_parse_tgids(handle->pevent, buf, size);
+			}
 			break;
 		case TRACECMD_OPTION_PROCMAPS:
 			if (buf[size-1] == '\0')
@@ -2807,6 +2827,11 @@ static int handle_options(struct tracecmd_input *handle)
 								 buf + 4, 4);
 			handle->tsc_calc.offset = tep_read_number(handle->pevent,
 								  buf + 8, 8);
+			break;
+
+		/* gpuvis change! */
+		case TRACECMD_OPTION_SAVED_TGIDS:
+			tracecmd_parse_tgids(handle->pevent, buf, size);
 			break;
 		default:
 			tracecmd_warning("unknown option %d", option);
