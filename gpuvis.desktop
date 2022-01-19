@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=gpuvis
+GenericName=GPU Trace Visualizer
+Comment=gpuvis desktop application
+Exec=gpuvis
+Icon=gpuvis
+Terminal=false
+Type=Application
+Categories=Graphics;
