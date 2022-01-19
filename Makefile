@@ -54,10 +54,10 @@ endif
 # Investigate: Improving C++ Builds with Split DWARF
 #  http://www.productive-cpp.com/improving-cpp-builds-with-split-dwarf/
 
-CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf $(SDL2FLAGS) $(GTK3FLAGS) $(I915_PERF_CFLAGS) -I/usr/include/freetype2
+CFLAGS = $(WARNINGS) -mcpu=native -mtune=native -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf $(SDL2FLAGS) $(GTK3FLAGS) $(I915_PERF_CFLAGS) -I/usr/include/freetype2
 CFLAGS += -DUSE_FREETYPE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
 CXXFLAGS = -fno-rtti -Woverloaded-virtual 
-LDFLAGS = -march=native -gdwarf-4 -g2 -Wl,--build-id=sha1
+LDFLAGS = -mcpu=native -mtune=native -gdwarf-4 -g2 -Wl,--build-id=sha1
 LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lfreetype -lstdc++ $(SDL2LIBS) $(I915_PERF_LIBS)
 
 ifneq ("$(wildcard /usr/bin/ld.gold)","")
