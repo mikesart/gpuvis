@@ -44,20 +44,43 @@ I915_PERF_CFLAGS=$(shell pkg-config --cflags i915-perf) -DUSE_I915_PERF
 I915_PERF_LIBS=$(shell pkg-config --libs i915-perf)
 endif
 
+WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wshadow \
+	-Wno-unused-parameter -Wno-missing-field-initializers -Wno-variadic-macros
+CXXWARNINGS =
 
-WARNINGS = -Wall -Wextra -Wpedantic -Wmissing-include-dirs -Wformat=2 -Wshadow -Wno-unused-parameter -Wno-missing-field-initializers
 ifneq ($(COMPILER),clang)
   # https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
-  WARNINGS += -Wsuggest-attribute=format -Wimplicit-fallthrough=2 -Wno-class-memaccess
+  WARNINGS += -Wsuggest-attribute=format -Wimplicit-fallthrough=2
+  CXXWARNINGS += -Wno-class-memaccess
+
+  NO_MAYBE_UNINITIALIZED = -Wno-maybe-uninitialized
+  NO_OLD_STYLE_DECLARATION = -Wno-old-style-declaration
+  NO_STRINGOP_TRUNCATION = -Wno-stringop-truncation
+  NO_COMPARE_DISTINCT_POINTER_TYPES =
+  NO_FORMAT_NONLITERAL =
+  NO_POINTER_SIGN =
+  NO_CLOBBERED = -Wno-clobbered
+  NO_SUGGEST_ATTRIBUTE_FORMAT = -Wno-suggest-attribute=format
+  MCPU_OPT = -mcpu=native
+else
+  NO_MAYBE_UNINITIALIZED =
+  NO_OLD_STYLE_DECLARATION =
+  NO_STRINGOP_TRUNCATION =
+  NO_COMPARE_DISTINCT_POINTER_TYPES = -Wno-compare-distinct-pointer-types
+  NO_FORMAT_NONLITERAL = -Wno-format-nonliteral
+  NO_POINTER_SIGN = -Wno-pointer-sign
+  NO_CLOBBERED =
+  NO_SUGGEST_ATTRIBUTE_FORMAT =
+  MCPU_OPT =
 endif
 
 # Investigate: Improving C++ Builds with Split DWARF
 #  http://www.productive-cpp.com/improving-cpp-builds-with-split-dwarf/
 
-CFLAGS = $(WARNINGS) -mcpu=native -mtune=native -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf $(SDL2FLAGS) $(GTK3FLAGS) $(I915_PERF_CFLAGS) -I/usr/include/freetype2
+CFLAGS = $(WARNINGS) $(MCPU_OPT) -mtune=native -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf $(SDL2FLAGS) $(GTK3FLAGS) $(I915_PERF_CFLAGS) -I/usr/include/freetype2
 CFLAGS += -DUSE_FREETYPE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
-CXXFLAGS = -fno-rtti -Woverloaded-virtual 
-LDFLAGS = -mcpu=native -mtune=native -gdwarf-4 -g2 -Wl,--build-id=sha1
+CXXFLAGS = -fno-rtti -Woverloaded-virtual $(CXXWARNINGS)
+LDFLAGS = $(MCPU_OPT) -mtune=native -gdwarf-4 -g2 -Wl,--build-id=sha1
 LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lfreetype -lstdc++ $(SDL2LIBS) $(I915_PERF_LIBS)
 
 ifneq ("$(wildcard /usr/bin/ld.gold)","")
@@ -117,10 +140,12 @@ ifeq ($(ASAN), 1)
 	ASAN_FLAGS = -fno-omit-frame-pointer -fno-optimize-sibling-calls
 	ASAN_FLAGS += -fsanitize=address # fast memory error detector (heap, stack, global buffer overflow, and use-after free)
 	ASAN_FLAGS += -fsanitize=leak # detect leaks
-	ASAN_FLAGS += -fsanitize=undefined # fast undefined behavior detector
 	ASAN_FLAGS += -fsanitize=float-divide-by-zero # detect floating-point division by zero;
 	ASAN_FLAGS += -fsanitize=bounds # enable instrumentation of array bounds and detect out-of-bounds accesses;
+ifneq ($(COMPILER),clang)
+	ASAN_FLAGS += -fsanitize=undefined # fast undefined behavior detector
 	ASAN_FLAGS += -fsanitize=object-size # enable object size checking, detect various out-of-bounds accesses.
+endif
 	CFLAGS += $(ASAN_FLAGS)
 	LDFLAGS += $(ASAN_FLAGS)
 endif
@@ -161,6 +186,10 @@ $(ODIR)/$(NAME): $(OBJS)
 	$(VERBOSE_PREFIX)$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
 -include $(OBJS:.o=.d)
+
+ifneq ($(COMPILER),clang)
+$(ODIR)/src/imgui/imgui.o: CFLAGS += -Wno-stringop-truncation
+endif
 
 $(ODIR)/%.o: %.c Makefile $(RAPIDJSON_DEP)
 	$(VERBOSE_PREFIX)echo "---- $< ----";
