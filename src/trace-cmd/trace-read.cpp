@@ -1921,8 +1921,6 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
 
     tracecmd_input_t *handle;
     std::vector< file_info_t * > file_list;
-    // Latest ts value where a cpu data starts
-    unsigned long long trim_ts = 0;
 
     handle = new ( std::nothrow ) tracecmd_input_t;
     if ( !handle )
@@ -1938,6 +1936,9 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
         tracecmd_close( handle );
         return -1;
     }
+
+    // Latest ts value where a cpu data starts
+    unsigned long long trim_ts = 0;
 
     tracecmd_alloc( handle, file );
 
