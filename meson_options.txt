@@ -1,3 +1,4 @@
 option('use_freetype', type : 'boolean', value : 'true')
 option('use_gtk3', type : 'boolean', value : 'true')
 option('use_i915_perf', type : 'boolean', value : 'false')
+option('have_rapidjson', type : 'boolean', value : 'true')
