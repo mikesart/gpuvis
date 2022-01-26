@@ -38,6 +38,11 @@ if get_option('use_i915_perf')
   all_deps += dependency('i915-perf')
 endif
 
+if get_option('have_rapidjson')
+  compile_flags += '-DHAVE_RAPIDJSON=1'
+  all_deps += dependency('RapidJSON')
+endif
+
 gpuvis_files = files(
   'src/gpuvis.cpp',
   'src/gpuvis_graph.cpp',
