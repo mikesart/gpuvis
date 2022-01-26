@@ -61,7 +61,6 @@ ifneq ($(COMPILER),clang)
   NO_POINTER_SIGN =
   NO_CLOBBERED = -Wno-clobbered
   NO_SUGGEST_ATTRIBUTE_FORMAT = -Wno-suggest-attribute=format
-  MCPU_OPT = -mcpu=native
 else
   NO_MAYBE_UNINITIALIZED =
   NO_OLD_STYLE_DECLARATION =
@@ -71,16 +70,15 @@ else
   NO_POINTER_SIGN = -Wno-pointer-sign
   NO_CLOBBERED =
   NO_SUGGEST_ATTRIBUTE_FORMAT =
-  MCPU_OPT =
 endif
 
 # Investigate: Improving C++ Builds with Split DWARF
 #  http://www.productive-cpp.com/improving-cpp-builds-with-split-dwarf/
 
-CFLAGS = $(WARNINGS) $(MCPU_OPT) -mtune=native -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf $(SDL2FLAGS) $(GTK3FLAGS) $(I915_PERF_CFLAGS) -I/usr/include/freetype2
+CFLAGS = $(WARNINGS) -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf $(SDL2FLAGS) $(GTK3FLAGS) $(I915_PERF_CFLAGS) -I/usr/include/freetype2
 CFLAGS += -DUSE_FREETYPE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
 CXXFLAGS = -fno-rtti -Woverloaded-virtual $(CXXWARNINGS)
-LDFLAGS = $(MCPU_OPT) -mtune=native -gdwarf-4 -g2 -Wl,--build-id=sha1
+LDFLAGS = -gdwarf-4 -g2 -Wl,--build-id=sha1
 LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lfreetype -lstdc++ $(SDL2LIBS) $(I915_PERF_LIBS)
 
 ifneq ("$(wildcard /usr/bin/ld.gold)","")
