@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop">
-  <id>gpuvis.desktop</id>
+  <id>com.github.gpuvis.Gpuvis</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
+  <releases>
+  <release version="0.1" date="2022-02-09" />
+  </releases>
   <name>gpuvis</name>
   <summary>A GPU Trace Visualizer</summary>
   <description>
@@ -20,6 +23,11 @@
       <image>https://raw.githubusercontent.com/mikesart/gpuvis/master/images/gpuvis.jpg</image>
     </screenshot>
   </screenshots>
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-chat">intense</content_attribute>
+    <content_attribute id="social-audio">intense</content_attribute>
+    <content_attribute id="social-contacts">intense</content_attribute>
+  </content_rating>
   <url type="homepage">https://github.com/mikesart/gpuvis/wiki</url>
   <update_contact>mikesart@fastmail.com</update_contact>
 </component>
