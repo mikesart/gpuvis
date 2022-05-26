@@ -172,6 +172,7 @@ enum trace_flag_type_t {
     TRACE_FLAG_SCHED_SWITCH_SYSTEM_EVENT    = 0x10000,
     TRACE_FLAG_AUTOGEN_COLOR                = 0x20000,
     TRACE_FLAG_I915_PERF                    = 0x40000, // i915-perf gpu generated
+    TRACE_FLAG_LINUX_PERF                   = 0x80000,
 };
 
 struct trace_event_t
@@ -181,7 +182,7 @@ public:
 
     int pid;                          // event process id
     uint32_t id;                      // event id
-    uint32_t cpu;                     // cpu this event was hit on
+    uint32_t cpu = UINT32_MAX;        // cpu this event was hit on
     int64_t ts;                       // timestamp
 
     uint32_t flags = 0;               // TRACE_FLAGS_IRQS_OFF, TRACE_FLAG_HARDIRQ, TRACE_FLAG_SOFTIRQ
@@ -219,8 +220,10 @@ public:
     bool is_timeline() const                   { return !!( flags & TRACE_FLAG_TIMELINE ); }
     bool is_sched_switch() const               { return !!( flags & TRACE_FLAG_SCHED_SWITCH ); }
     bool is_i915_perf() const                  { return !!( flags & TRACE_FLAG_I915_PERF ); }
+    bool is_linux_perf() const                 { return !!( flags & TRACE_FLAG_LINUX_PERF ); }
 
     bool has_duration() const                  { return duration != INT64_MAX; }
+    bool has_cpu() const                       { return cpu != UINT32_MAX; }
     int64_t get_vblank_ts(bool want_high_prec) const { return want_high_prec && (vblank_ts != INT64_MAX) && vblank_ts_high_prec ? vblank_ts : ts; }
 
     const char *get_timeline_name( const char *def = NULL ) const
