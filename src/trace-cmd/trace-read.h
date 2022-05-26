@@ -210,6 +210,7 @@ public:
 
     uint32_t numfields = 0;
     event_field_t *fields = nullptr;
+    std::vector< const char * > backtrace;
 
 public:
     bool is_fence_signaled() const             { return !!( flags & TRACE_FLAG_FENCE_SIGNALED ); }
