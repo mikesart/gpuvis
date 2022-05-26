@@ -4377,7 +4377,8 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
 
     ttip += "\n";
 
-    // Show tooltip with the closest events we could drum up
+    // Only display the first available CPU backtrace.
+    bool did_show_backtrace = false;
     for ( size_t i = 0; i < gi.hovered_items.size(); i++ )
     {
         graph_info_t::hovered_t &hov = gi.hovered_items[ i ];
@@ -4401,6 +4402,15 @@ void TraceWin::graph_mouse_tooltip_hovered_items( std::string &ttip, graph_info_
         // If this isn't an ftrace print event, add the event name
         if ( !event.is_ftrace_print() )
             ttip += std::string( " " ) + event.name;
+
+        if ( !did_show_backtrace && event.backtrace.size() > 0 )
+        {
+            ttip += "\n\nCPU stack trace:";
+            for ( const char *&bt : event.backtrace )
+                ttip += string_format("\n\t%s", bt);
+            ttip += "\n\n";
+            did_show_backtrace = true;
+        }
 
         // If this is a vblank event, add the crtc
         if ( event.crtc >= 0 )

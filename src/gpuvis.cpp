@@ -875,6 +875,15 @@ int MainApp::load_perf_file( loading_info_t *loading_info, TraceEvents &trace_ev
             trace_event.fields[ 0 ].value = (topStack.HasMember("dso") && topStack["dso"].IsString()) ?
                 strpool.getstr(topStack["dso"].GetString()) : "<unknown>";
 
+            for (size_t i = 0; i < callchain.Size() && callchain[i].IsObject(); ++i)
+            {
+                auto cc = callchain[i].GetObject();
+                if (!cc.HasMember("symbol") || !cc["symbol"].IsString())
+                    // Symbol unresolved. Stop the backtrace here.
+                    break;
+                trace_event.backtrace.push_back(strpool.getstr(cc["symbol"].GetString()));
+            }
+
             trace_cb(trace_event);
         }
     }
