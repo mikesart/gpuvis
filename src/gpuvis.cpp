@@ -844,6 +844,8 @@ int MainApp::load_perf_file( loading_info_t *loading_info, TraceEvents &trace_ev
 
             trace_event_t trace_event;
 
+            trace_event.flags |= TRACE_FLAG_LINUX_PERF | TRACE_FLAG_AUTOGEN_COLOR;
+
             trace_event.ts = (sample.HasMember("timestamp") && sample["timestamp"].IsInt64()) ?
                 sample["timestamp"].GetInt64() : 0;
 
@@ -853,11 +855,10 @@ int MainApp::load_perf_file( loading_info_t *loading_info, TraceEvents &trace_ev
                 sample["tid"].GetInt() : 0;
 
             int cpu = (sample.HasMember("cpu") && sample["cpu"].IsInt()) ?
-                sample["cpu"].GetInt() : 0;
-            // CPU is currently bugged
-            if (cpu < 0)
-                cpu = 0;
-            trace_event.cpu = cpu;
+                sample["cpu"].GetInt() : -1;
+
+            if (cpu >= 0)
+                trace_event.cpu = cpu;
 
             const char* comm = (sample.HasMember("comm") && sample["comm"].IsString()) ?
                 strpool.getstr(sample["comm"].GetString()) : "<unknown>";
@@ -2511,6 +2512,20 @@ void TraceEvents::init_new_event( trace_event_t &event )
     {
         init_sched_switch_event( event );
     }
+    else if ( event.is_linux_perf() )
+    {
+        // Only add Linux perf locations if CPU data is available.
+        if (event.has_cpu())
+        {
+            m_linux_perf_locs.add_location_u32( event.cpu, event.id );
+
+            // XXX: If for some reason the cpus field of m_trace_info
+            // has not been correctly populated, populate it now based
+            // upon the maximum CPU value that we encounter.
+            if (event.cpu > m_trace_info.cpus)
+                m_trace_info.cpus = event.cpu;
+        }
+    }
     else if ( is_amd_timeline_event( event ) )
     {
         init_amd_timeline_event( event );
@@ -3092,6 +3107,14 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
             plocs = m_sched_switch_cpu_locs.get_locations_u32( cpu );
             if ( plocs )
                 break;
+        }
+
+        if ( !plocs )
+        {
+            // That didn't work. What about Linux perf events?
+            const auto &perf_loc_map = m_linux_perf_locs.m_locs.m_map;
+            if (perf_loc_map.begin() != perf_loc_map.end())
+                plocs = &perf_loc_map.begin()->second;
         }
     }
     else if ( get_ftrace_row_info( name ) )

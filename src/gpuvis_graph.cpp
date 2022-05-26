@@ -1599,6 +1599,7 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
     // room for ~12 characters.
     const ImVec2 text_size = ImGui::CalcTextSize( "0123456789ab" );
 
+    // Display sched_switch events.
     for ( const auto &cpu_locs : m_trace_events.m_sched_switch_cpu_locs.m_locs.m_map )
     {
         const std::vector< uint32_t > &locs = cpu_locs.second;
@@ -1671,6 +1672,63 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
                                     x1 - x0, row_h - imgui_scale( 1.0f ),
                                     s_clrs().get( col_Graph_BarSelRect ) );
                 }
+            }
+        }
+
+        event_renderer.done();
+    }
+
+    // Display Linux perf events.
+    for ( const auto &cpu_locs :
+            m_trace_events.m_linux_perf_locs.m_locs.m_map )
+    {
+        const std::vector< uint32_t > &locs = cpu_locs.second;
+        uint32_t cpu = get_event( locs[ 0 ] ).cpu;
+        float y = gi.rc.y + cpu * row_h;
+
+        // Skip row if it's above or below visible window
+        if ( y > gi.rcwin.y + gi.rcwin.h )
+            continue;
+        if ( y + row_h < gi.rcwin.y )
+            continue;
+
+        event_renderer_t event_renderer( gi, y + imgui_scale( 2.0f ), gi.rc.w,
+                row_h - imgui_scale( 3.0f ) );
+
+        for ( size_t idx = vec_find_eventid( locs, gi.eventstart );
+              idx < locs.size();
+              idx++ )
+        {
+            const trace_event_t &perf = get_event( locs[ idx ] );
+            float x0 = gi.ts_to_screenx( perf.ts - perf.duration );
+            float x1 = gi.ts_to_screenx( perf.ts );
+
+            // Bail if we're off the right side of our graph
+            if ( x0 > gi.rc.x + gi.rc.w )
+                break;
+
+            if ( event_renderer.is_event_filtered( perf ) )
+                continue;
+
+            count++;
+
+            // Check if we're mouse hovering this event
+            if ( gi.mouse_over )
+                gi.add_mouse_hovered_event( x0, perf );
+
+            if ( ( x1 - x0 ) < imgui_scale( 3.0f ) )
+            {
+                event_renderer.add_event( perf.id, x0, perf.color );
+            }
+            else
+            {
+                event_renderer.done();
+                imgui_drawrect_filled( x0, y + imgui_scale( 2.0f ),
+                        x1 - x0, row_h - imgui_scale( 3.0f ),
+                        perf.color );
+                imgui_drawrect( x0, y + imgui_scale( 1.0f ),
+                        x1 - x0, row_h - imgui_scale( 1.0f ),
+                        s_clrs().get( col_Graph_BarSelRect ) );
             }
         }
 

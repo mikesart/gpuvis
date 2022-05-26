@@ -505,6 +505,9 @@ public:
     TraceLocations m_gfxcontext_locs;
     TraceLocations m_gfxcontext_msg_locs;
 
+    // Map of Linux perf event CPU to event ids.
+    TraceLocations m_linux_perf_locs;
+
     // Map of timeline (gfx, sdma0, etc) event locations.
     TraceLocations m_amd_timeline_locs;
 
