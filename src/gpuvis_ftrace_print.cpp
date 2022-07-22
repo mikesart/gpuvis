@@ -307,7 +307,7 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
 
     // bufvar_dtime is second in enumeration, so if dtime= is present,
     // it should be the second bufvar returned.  It basically mimics
-	//the behavior of ltime.  ltime and dtime are mututally exclusive.
+    // the behavior of ltime.  ltime and dtime are mututally exclusive.
     STATIC_ASSERT( bufvar_dtime == 1 );
     const char *var_dtime = NULL;
     var_dtime = find_buf_var( buf, &bufvar );

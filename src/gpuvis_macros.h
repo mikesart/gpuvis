@@ -197,14 +197,14 @@ public:
 
     const char *getstr( const char *str, size_t len = ( size_t )-1 );
     const char *getstrf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
-    const char *findstr( uint32_t hashval );
+    const char *findstr( uint64_t hashval );
 
-    uint32_t getu32( const char *str, size_t len = ( size_t )-1 );
-    uint32_t getu32f( const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
+    uint64_t getu64( const char *str, size_t len = ( size_t )-1 );
+    uint64_t getu64f( const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
 
 public:
     StrAlloc m_alloc;
-    util_umap< uint32_t, const char * > m_pool;
+    util_umap< uint64_t, const char * > m_pool;
 };
 
 class BitVec
@@ -235,6 +235,9 @@ private:
 
 uint32_t hashstr32( const char *str, size_t len = ( size_t )-1, uint32_t hval = 0xB0F57EE3 );
 uint32_t hashstr32( const std::string &str, uint32_t hval = 0xB0F57EE3 );
+
+uint64_t hashstr64( const char *str, size_t len = ( size_t )-1 );
+uint64_t hashstr64( const std::string &str );
 
 size_t get_file_size( const char *filename );
 const char *get_path_filename( const char *filename );

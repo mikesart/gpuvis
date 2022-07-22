@@ -1629,14 +1629,14 @@ const char *filter_get_keyval_func( trace_info_t *trace_info, const trace_event_
 const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name, std::string *err )
 {
     std::vector< uint32_t > *plocs;
-    uint32_t hashval = hashstr32( name );
+    uint64_t hashval = hashstr64( name );
 
     if ( err )
         err->clear();
 
     // Try to find whatever our name hashed to. Name should be something like:
     //   $name=drm_vblank_event
-    plocs = m_tdopexpr_locs.get_locations_u32( hashval );
+    plocs = m_tdopexpr_locs.get_locations_u64( hashval );
     if ( plocs )
         return plocs;
 
@@ -1667,7 +1667,7 @@ const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name,
 
                 ret = tdopexpr_exec( tdop_expr, get_keyval_func );
                 if ( ret[ 0 ] )
-                    m_tdopexpr_locs.add_location_u32( hashval, event.id );
+                    m_tdopexpr_locs.add_location_u64( hashval, event.id );
             }
 
             tdopexpr_delete( tdop_expr );
@@ -1675,7 +1675,7 @@ const std::vector< uint32_t > *TraceEvents::get_tdopexpr_locs( const char *name,
     }
 
     // Try to find this name/expression again and add to failed list if we miss again
-    plocs = m_tdopexpr_locs.get_locations_u32( hashval );
+    plocs = m_tdopexpr_locs.get_locations_u64( hashval );
     if ( !plocs )
         m_failed_commands.insert( hashval );
 
@@ -1690,8 +1690,8 @@ const std::vector< uint32_t > *TraceEvents::get_comm_locs( const char *name )
 const std::vector< uint32_t > *TraceEvents::get_sched_switch_locs( int pid, switch_t switch_type )
 {
     return ( switch_type == SCHED_SWITCH_PREV ) ?
-                m_sched_switch_prev_locs.get_locations_u32( pid ) :
-                m_sched_switch_next_locs.get_locations_u32( pid );
+                m_sched_switch_prev_locs.get_locations_u64( pid ) :
+                m_sched_switch_next_locs.get_locations_u64( pid );
 }
 
 const std::vector< uint32_t > *TraceEvents::get_timeline_locs( const char *name )
@@ -1700,9 +1700,9 @@ const std::vector< uint32_t > *TraceEvents::get_timeline_locs( const char *name 
 }
 
 // Pass a string like "gfx_249_91446"
-const std::vector< uint32_t > *TraceEvents::get_gfxcontext_locs( uint32_t gfxcontext_hash )
+const std::vector< uint32_t > *TraceEvents::get_gfxcontext_locs( uint64_t gfxcontext_hash )
 {
-    return m_gfxcontext_locs.get_locations_u32( gfxcontext_hash );
+    return m_gfxcontext_locs.get_locations_u64( gfxcontext_hash );
 }
 
 uint32_t row_pos_t::get_row( int64_t min_ts, int64_t max_ts )
@@ -1912,7 +1912,7 @@ const tgid_info_t *TraceEvents::tgid_from_commstr( const char *comm )
     return NULL;
 }
 
-uint32_t TraceEvents::get_event_gfxcontext_hash( const trace_event_t &event )
+uint64_t TraceEvents::get_event_gfxcontext_hash( const trace_event_t &event )
 {
     if ( is_msm_timeline_event( event.name ) )
     {
@@ -1934,7 +1934,7 @@ uint32_t TraceEvents::get_event_gfxcontext_hash( const trace_event_t &event )
             char buf[ 128 ];
 
             snprintf_safe( buf, "%s_%s_%u", timeline, context, event.seqno );
-            return hashstr32( buf );
+            return hashstr64( buf );
         }
     }
 
@@ -1991,11 +1991,11 @@ void TraceEvents::init_sched_switch_event( trace_event_t &event )
             m_sched_switch_time_pid.m_map[ prev_pid ] += event.duration;
 
             // Add this event to the sched switch CPU timeline locs array
-            m_sched_switch_cpu_locs.add_location_u32( event.cpu, event.id );
+            m_sched_switch_cpu_locs.add_location_u64( event.cpu, event.id );
         }
 
-        m_sched_switch_prev_locs.add_location_u32( prev_pid, event.id );
-        m_sched_switch_next_locs.add_location_u32( next_pid, event.id );
+        m_sched_switch_prev_locs.add_location_u64( prev_pid, event.id );
+        m_sched_switch_next_locs.add_location_u64( next_pid, event.id );
 
         //$ TODO mikesart: This is messing up the m_comm_locs event counts
         if ( prev_pid != event.pid )
@@ -2045,14 +2045,14 @@ void TraceEvents::init_sched_process_fork( trace_event_t &event )
 
 void TraceEvents::init_amd_timeline_event( trace_event_t &event )
 {
-    uint32_t gfxcontext_hash = get_event_gfxcontext_hash( event );
+    uint64_t gfxcontext_hash = get_event_gfxcontext_hash( event );
     const char *timeline = get_event_field_val( event, "timeline" );
 
     // Add this event under the "gfx", "sdma0", etc timeline map
     m_amd_timeline_locs.add_location_str( timeline, event.id );
 
     // Add this event under our "gfx_ctx_seq" or "sdma0_ctx_seq", etc. map
-    m_gfxcontext_locs.add_location_u32( gfxcontext_hash, event.id );
+    m_gfxcontext_locs.add_location_u64( gfxcontext_hash, event.id );
 
     // Grab the event locations for this event context
     const std::vector< uint32_t > *plocs = get_gfxcontext_locs( gfxcontext_hash );
@@ -2084,14 +2084,14 @@ void TraceEvents::init_amd_timeline_event( trace_event_t &event )
 
 void TraceEvents::init_msm_timeline_event( trace_event_t &event )
 {
-    uint32_t gfxcontext_hash = get_event_gfxcontext_hash( event );
+    uint64_t gfxcontext_hash = get_event_gfxcontext_hash( event );
 
     int ringid = atoi( get_event_field_val( event, "ringid", "0" ) );
     std::string str = string_format( "msm ring%d", ringid );
 
     m_amd_timeline_locs.add_location_str( str.c_str(), event.id );
 
-    m_gfxcontext_locs.add_location_u32( gfxcontext_hash, event.id );
+    m_gfxcontext_locs.add_location_u64( gfxcontext_hash, event.id );
 
     event.flags |= TRACE_FLAG_TIMELINE;
 
@@ -2106,7 +2106,7 @@ void TraceEvents::init_msm_timeline_event( trace_event_t &event )
         event.flags |= TRACE_FLAG_HW_QUEUE;
     }
 
-    const std::vector< uint32_t > *plocs = m_gfxcontext_locs.get_locations_u32( gfxcontext_hash );
+    const std::vector< uint32_t > *plocs = m_gfxcontext_locs.get_locations_u64( gfxcontext_hash );
     if ( plocs->size() > 1 )
     {
         // First event.
@@ -2141,7 +2141,7 @@ void TraceEvents::init_drm_sched_timeline_event( trace_event_t &event )
         str = string_format( "drm sched %s", ring );
         m_drm_sched.rings.insert(str);
         m_amd_timeline_locs.add_location_str( str.c_str(), event.id );
-        m_gfxcontext_locs.add_location_u32( event.seqno, event.id );
+        m_gfxcontext_locs.add_location_u64( event.seqno, event.id );
         return;
     }
 
@@ -2181,7 +2181,7 @@ void TraceEvents::init_drm_sched_timeline_event( trace_event_t &event )
                 event.flags |= TRACE_FLAG_HW_QUEUE;
                 event.graph_row_id = e.graph_row_id;
                 event.seqno = e.seqno;
-                m_gfxcontext_locs.add_location_u32( event.seqno, event.id );
+                m_gfxcontext_locs.add_location_u64( event.seqno, event.id );
                 break;
             }
         }
@@ -2212,7 +2212,7 @@ void TraceEvents::init_drm_sched_timeline_event( trace_event_t &event )
                 event.flags |= TRACE_FLAG_FENCE_SIGNALED;
                 event.graph_row_id = e.graph_row_id;
                 event.seqno = e.seqno;
-                m_gfxcontext_locs.add_location_u32( event.seqno, event.id );
+                m_gfxcontext_locs.add_location_u64( event.seqno, event.id );
                 m_drm_sched.outstanding_jobs.erase( fence );
                 break;
             }
@@ -2244,7 +2244,7 @@ void TraceEvents::init_i915_event( trace_event_t &event )
             if ( ringno != ( uint32_t )-1 )
             {
                 char buf[ 64 ];
-                uint32_t hashval;
+                uint64_t hashval;
 
                 event.graph_row_id = ( uint32_t )-1;
 
@@ -2254,11 +2254,11 @@ void TraceEvents::init_i915_event( trace_event_t &event )
                 event_begin.id_start = event.id;
 
                 if ( ringno_is_class_instance )
-                    hashval = m_strpool.getu32f( "i915_reqwait %s%u", get_i915_engine_str( buf, ringno ), ringno >> 4 );
+                    hashval = m_strpool.getu64f( "i915_reqwait %s%u", get_i915_engine_str( buf, ringno ), ringno >> 4 );
                 else
-                    hashval = m_strpool.getu32f( "i915_reqwait ring%u", ringno );
+                    hashval = m_strpool.getu64f( "i915_reqwait ring%u", ringno );
 
-                m_i915.reqwait_end_locs.add_location_u32( hashval, event.id );
+                m_i915.reqwait_end_locs.add_location_u64( hashval, event.id );
             }
         }
     }
@@ -2468,9 +2468,9 @@ void TraceEvents::init_new_event( trace_event_t &event )
     if ( event.is_vblank() )
     {
         // Add vblanks as "drm_vblank_event1", etc
-        uint32_t hashval = m_strpool.getu32f( "%s%d", event.name, event.crtc );
+        uint64_t hashval = m_strpool.getu64f( "%s%d", event.name, event.crtc );
 
-        m_eventnames_locs.add_location_u32( hashval, event.id );
+        m_eventnames_locs.add_location_u64( hashval, event.id );
     }
     else
     {
@@ -2517,7 +2517,7 @@ void TraceEvents::init_new_event( trace_event_t &event )
         // Only add Linux perf locations if CPU data is available.
         if (event.has_cpu())
         {
-            m_linux_perf_locs.add_location_u32( event.cpu, event.id );
+            m_linux_perf_locs.add_location_u64( event.cpu, event.id );
 
             // XXX: If for some reason the cpus field of m_trace_info
             // has not been correctly populated, populate it now based
@@ -2550,10 +2550,10 @@ void TraceEvents::init_new_event( trace_event_t &event )
     if ( !strcmp( event.name, "amdgpu_job_msg" ) )
     {
         const char *msg = get_event_field_val( event, "msg", NULL );
-        uint32_t gfxcontext_hash = get_event_gfxcontext_hash( event );
+        uint64_t gfxcontext_hash = get_event_gfxcontext_hash( event );
 
         if ( msg && msg[ 0 ] && gfxcontext_hash )
-            m_gfxcontext_msg_locs.add_location_u32( gfxcontext_hash, event.id );
+            m_gfxcontext_msg_locs.add_location_u64( gfxcontext_hash, event.id );
     }
 
     // 1+ means loading events
@@ -2756,7 +2756,7 @@ void TraceEvents::set_event_color( const std::string &eventname, ImU32 color )
  */
 void TraceEvents::calculate_amd_event_durations()
 {
-    std::vector< uint32_t > erase_list;
+    std::vector< uint64_t > erase_list;
     std::vector< trace_event_t > &events = m_events;
     float label_sat = s_clrs().getalpha( col_Graph_TimelineLabelSat );
     float label_alpha = s_clrs().getalpha( col_Graph_TimelineLabelAlpha );
@@ -2832,7 +2832,7 @@ void TraceEvents::calculate_amd_event_durations()
         }
     }
 
-    for ( uint32_t hashval : erase_list )
+    for ( uint64_t hashval : erase_list )
     {
         // Completely erase timeline rows with zero entries.
         m_amd_timeline_locs.m_locs.m_map.erase( hashval );
@@ -3030,13 +3030,13 @@ void TraceEvents::calculate_i915_req_event_durations()
         if ( set_duration )
         {
             char buf[ 64 ];
-            uint32_t hashval;
+            uint64_t hashval;
             int pid = events[ i915_req_Queue ] ? events[ i915_req_Queue ]->pid : 0;
 
             if ( ringno_is_class_instance )
-                hashval = m_strpool.getu32f( "i915_req %s%u", get_i915_engine_str( buf, ringno ), ringno >> 4 );
+                hashval = m_strpool.getu64f( "i915_req %s%u", get_i915_engine_str( buf, ringno ), ringno >> 4 );
             else
-                hashval = m_strpool.getu32f( "i915_req ring%u", ringno );
+                hashval = m_strpool.getu64f( "i915_req ring%u", ringno );
 
             for ( uint32_t i = 0; i < i915_req_Max; i++ )
             {
@@ -3047,7 +3047,7 @@ void TraceEvents::calculate_i915_req_event_durations()
                         events[ i ]->pid = pid;
 
                     events[ i ]->graph_row_id = ( uint32_t )-1;
-                    m_i915.req_locs.add_location_u32( hashval, events[ i ]->id );
+                    m_i915.req_locs.add_location_u64( hashval, events[ i ]->id );
                 }
             }
         }
@@ -3104,7 +3104,7 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
         // Let's try to find the first cpu with some events and give them that
         for ( uint32_t cpu = 0; cpu < m_trace_info.cpus; cpu++ )
         {
-            plocs = m_sched_switch_cpu_locs.get_locations_u32( cpu );
+            plocs = m_sched_switch_cpu_locs.get_locations_u64( cpu );
             if ( plocs )
                 break;
         }
@@ -3180,10 +3180,10 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
         if ( ( len > 3 ) && !strcmp( name + len - 3, " hw" ) )
         {
             // Check for "gfx hw", "comp_1.1.1 hw", etc.
-            uint32_t hashval = hashstr32( name, len - 3 );
+            uint64_t hashval = hashstr64( name, len - 3 );
 
             type = LOC_TYPE_AMDTimeline_hw;
-            plocs = m_amd_timeline_locs.get_locations_u32( hashval );
+            plocs = m_amd_timeline_locs.get_locations_u64( hashval );
         }
 
         if ( !plocs )

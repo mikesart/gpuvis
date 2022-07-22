@@ -582,7 +582,7 @@ void GraphRows::init( TraceEvents &trace_events )
     std::vector< graph_rows_info_t > comms;
     for ( auto item : trace_events.m_comm_locs.m_locs.m_map )
     {
-        uint32_t hashval = item.first;
+        uint64_t hashval = item.first;
         const char *comm = trace_events.m_strpool.findstr( hashval );
 
         comms.push_back( { false, LOC_TYPE_Comm, comm, comm, item.second.size() } );

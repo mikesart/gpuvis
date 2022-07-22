@@ -75,31 +75,31 @@ public:
     TraceLocations() {}
     ~TraceLocations() {}
 
-    void add_location_u32( uint32_t hashval, uint32_t loc )
+    void add_location_u64( uint64_t hashval, uint32_t loc )
     {
         std::vector< uint32_t > *plocs = m_locs.get_val_create( hashval );
 
         plocs->push_back( loc );
     }
 
-    std::vector< uint32_t > *get_locations_u32( uint32_t hashval )
+    std::vector< uint32_t > *get_locations_u64( uint64_t hashval )
     {
         return m_locs.get_val( hashval );
     }
 
     void add_location_str( const char *name, uint32_t loc )
     {
-        add_location_u32( hashstr32( name ), loc );
+        add_location_u64( hashstr64( name ), loc );
     }
 
     std::vector< uint32_t > *get_locations_str( const char *name )
     {
-        return get_locations_u32( hashstr32( name ) );
+        return get_locations_u64( hashstr64( name ) );
     }
 
 public:
     // Map of name hashval to array of event locations.
-    util_umap< uint32_t, std::vector< uint32_t > > m_locs;
+    util_umap< uint64_t, std::vector< uint32_t > > m_locs;
 };
 
 class TraceLocationsRingCtxSeq
@@ -400,9 +400,11 @@ public:
     const std::vector< uint32_t > *get_comm_locs( const char *name );
     // "gfx", "sdma0", etc.
     const std::vector< uint32_t > *get_timeline_locs( const char *name );
+
     // Hash a string like "gfx_249_91446"
-    uint32_t get_event_gfxcontext_hash( const trace_event_t &event );
-    const std::vector< uint32_t > *get_gfxcontext_locs( uint32_t gfxcontext_hash );
+    uint64_t get_event_gfxcontext_hash( const trace_event_t &event );
+    const std::vector< uint32_t > *get_gfxcontext_locs( uint64_t gfxcontext_hash );
+
     // Return vec of locations for sched_switch events.
     enum switch_t { SCHED_SWITCH_PREV, SCHED_SWITCH_NEXT };
     const std::vector< uint32_t > *get_sched_switch_locs( int pid, switch_t switch_type );
@@ -426,11 +428,11 @@ public:
 
     GraphPlot *get_plot_ptr( const char *plot_name )
     {
-        return m_graph_plots.get_val( hashstr32( plot_name ) );
+        return m_graph_plots.get_val( hashstr64( plot_name ) );
     }
     GraphPlot &get_plot( const char *plot_name )
     {
-        return m_graph_plots.m_map[ hashstr32( plot_name ) ];
+        return m_graph_plots.m_map[ hashstr64( plot_name ) ];
     }
 
     // Return "foorbarapp-1234" comm string for specified pid
@@ -493,7 +495,7 @@ public:
 
     // Map of tdop expression string hashval to array of event locations.
     TraceLocations m_tdopexpr_locs;
-    std::unordered_set< uint32_t > m_failed_commands;
+    std::unordered_set< uint64_t > m_failed_commands;
 
     // Map of comm hashval to array of event locations.
     TraceLocations m_comm_locs;
@@ -520,13 +522,13 @@ public:
     int64_t m_sched_switch_time_total = 0;
 
     // plot name to GraphPlot
-    util_umap< uint32_t, GraphPlot > m_graph_plots;
+    util_umap< uint64_t, GraphPlot > m_graph_plots;
 
     // map of pid to 'thread1-1234 (mainthread-1233)'
     util_umap< int, const char * > m_pid_commstr_map;
 
     // Map hashed row name to count of rows calculated by row_pos_t
-    util_umap< uint32_t, uint32_t > m_row_count;
+    util_umap< uint64_t, uint32_t > m_row_count;
 
     struct
     {
