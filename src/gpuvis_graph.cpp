@@ -789,7 +789,7 @@ void graph_info_t::init()
     if ( is_valid_id( hovered_eventid ) && events[ hovered_eventid ].is_timeline() )
     {
         // Find the fence signaled event for this timeline
-        uint32_t gfxcontext_hash = win.m_trace_events.get_event_gfxcontext_hash( events[ hovered_eventid ] );
+        uint64_t gfxcontext_hash = win.m_trace_events.get_event_gfxcontext_hash( events[ hovered_eventid ] );
         const std::vector< uint32_t > *plocs = win.m_trace_events.get_gfxcontext_locs( gfxcontext_hash );
 
         // Mark it as hovered so it'll have a selection rectangle
@@ -2292,7 +2292,7 @@ uint32_t TraceWin::graph_render_i915_reqwait_events( graph_info_t &gi )
     ImU32 barcolor = s_clrs().get( col_Graph_Bari915ReqWait );
     ImU32 textcolor = s_clrs().get( col_Graph_BarText );
 
-    uint32_t hashval = hashstr32( gi.prinfo_cur->row_name );
+    uint64_t hashval = hashstr64( gi.prinfo_cur->row_name );
     uint32_t row_count = m_trace_events.m_row_count.m_map[ hashval ];
     float row_h = std::max< float >( 2.0f, gi.rc.h / row_count );
 
@@ -2401,7 +2401,7 @@ uint32_t TraceWin::graph_render_i915_req_events( graph_info_t &gi )
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     event_renderer_t event_renderer( gi, gi.rc.y, gi.rc.w, gi.rc.h );
 
-    uint32_t hashval = hashstr32( gi.prinfo_cur->row_name );
+    uint64_t hashval = hashstr64( gi.prinfo_cur->row_name );
     uint32_t row_count = m_trace_events.m_row_count.m_map[ hashval ];
     float row_h = std::max< float >( 2.0f, gi.rc.h / row_count );
 
@@ -4381,7 +4381,7 @@ void TraceWin::graph_mouse_tooltip_hovered_amd_fence_signaled( std::string &ttip
         return;
 
     const trace_event_t &event_hov = get_event( gi.hovered_fence_signaled );
-    uint32_t gfxcontext_hash = m_trace_events.get_event_gfxcontext_hash( event_hov );
+    uint64_t gfxcontext_hash = m_trace_events.get_event_gfxcontext_hash( event_hov );
     const std::vector< uint32_t > *plocs = m_trace_events.get_gfxcontext_locs( gfxcontext_hash );
 
     ttip += string_format( "\n\n%s",
@@ -4402,7 +4402,7 @@ void TraceWin::graph_mouse_tooltip_hovered_amd_fence_signaled( std::string &ttip
                                    s_textclrs().mstr( timestr, event_hov.color ).c_str() );
     }
 
-    plocs = m_trace_events.m_gfxcontext_msg_locs.get_locations_u32( gfxcontext_hash );
+    plocs = m_trace_events.m_gfxcontext_msg_locs.get_locations_u64( gfxcontext_hash );
     if ( plocs )
     {
         ttip += "\n";

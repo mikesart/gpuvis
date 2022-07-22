@@ -334,6 +334,8 @@ static void read_header_files( tracecmd_input_t *handle )
 
     do_read_check( handle, buf, 12 );
 
+    //$$$ TODO: need to add "zstd" support?
+    // https://github.com/mikesart/gpuvis/issues/50
     if ( memcmp( buf, "header_page", 12 ) != 0 )
         die( handle, "%s: header_page not found.\n", __func__ );
 

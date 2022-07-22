@@ -1632,7 +1632,7 @@ const char *StrPool::getstr( const char *str, size_t len )
     if ( len == ( size_t )-1 )
         len = strlen( str );
 
-    uint32_t hashval = hashstr32( str, len );
+    uint64_t hashval = hashstr64( str, len );
     const char **ret = m_pool.get_val( hashval );
 
     if ( !ret )
@@ -1657,12 +1657,12 @@ const char *StrPool::getstrf( const char *fmt, ... )
     return getstr( buf );
 }
 
-uint32_t StrPool::getu32( const char *str, size_t len )
+uint64_t StrPool::getu64( const char *str, size_t len )
 {
     if ( len == ( size_t )-1 )
         len = strlen( str );
 
-    uint32_t hashval = hashstr32( str, len );
+    uint64_t hashval = hashstr64( str, len );
     const char **ret = m_pool.get_val( hashval );
 
     if ( !ret )
@@ -1675,7 +1675,7 @@ uint32_t StrPool::getu32( const char *str, size_t len )
     return hashval;
 }
 
-uint32_t StrPool::getu32f( const char *fmt, ... )
+uint64_t StrPool::getu64f( const char *fmt, ... )
 {
     va_list args;
     char buf[ 512 ];
@@ -1684,10 +1684,10 @@ uint32_t StrPool::getu32f( const char *fmt, ... )
     vsnprintf_safe( buf, fmt, args );
     va_end( args );
 
-    return getu32( buf );
+    return getu64( buf );
 }
 
-const char *StrPool::findstr( uint32_t hashval )
+const char *StrPool::findstr( uint64_t hashval )
 {
     const char **str = m_pool.get_val( hashval );
 

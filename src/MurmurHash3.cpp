@@ -593,10 +593,10 @@ fnv_32a_str(char *str, Fnv32_t hval)
  *	 argument on the first call to either fnv_64_buf() or fnv_64_str().
  */
 Fnv64_t
-fnv_64_buf(void *buf, size_t len, Fnv64_t hval)
+fnv_64_buf(const void *buf, size_t len, Fnv64_t hval)
 {
-    unsigned char *bp = (unsigned char *)buf;	/* start of buffer */
-    unsigned char *be = bp + len;		/* beyond end of buffer */
+    const unsigned char *bp = (unsigned char *)buf;	/* start of buffer */
+    const unsigned char *be = bp + len;		/* beyond end of buffer */
 
     /*
      * FNV-1 hash each octet of the buffer
@@ -763,6 +763,19 @@ uint32_t hashstr32( const std::string &str, uint32_t hval )
 #else
     return MurmurHash3_x86_32( str.c_str(), ( int )str.length(), hval );
 #endif
+}
+
+uint64_t hashstr64( const char *str, size_t len )
+{
+    if ( len == (size_t)-1 )
+        len = strlen( str );
+
+    return fnv_64_buf( str, len, FNV1A_64_INIT );
+}
+
+uint64_t hashstr64( const std::string &str )
+{
+    return fnv_64_buf( str.c_str(), str.length(), FNV1A_64_INIT );
 }
 
 //-----------------------------------------------------------------------------
