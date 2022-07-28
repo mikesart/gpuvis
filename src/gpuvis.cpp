@@ -1912,6 +1912,23 @@ const tgid_info_t *TraceEvents::tgid_from_commstr( const char *comm )
     return NULL;
 }
 
+static void check_for_gfxcontext_hash_collision( uint64_t hashval, const char *buf )
+{
+#ifdef DEBUG
+    static util_umap< uint64_t, std::string > s_hashedstrs;
+
+    std::string *str = s_hashedstrs.get_val( hashval );
+    if (!str)
+    {
+        s_hashedstrs.set_val( hashval, std::string( buf ) );
+    }
+    else if (*str != buf)
+    {
+        logf("[Error] Hash collision 0x%lx %s %s\n", hashval, buf, str->c_str());
+    }
+#endif
+}
+
 uint64_t TraceEvents::get_event_gfxcontext_hash( const trace_event_t &event )
 {
     if ( is_msm_timeline_event( event.name ) )
@@ -1932,9 +1949,14 @@ uint64_t TraceEvents::get_event_gfxcontext_hash( const trace_event_t &event )
         if ( timeline && context )
         {
             char buf[ 128 ];
+            uint64_t hashval;
 
             snprintf_safe( buf, "%s_%s_%u", timeline, context, event.seqno );
-            return hashstr64( buf );
+
+            hashval = hashstr64( buf );
+            check_for_gfxcontext_hash_collision( hashval, buf );
+
+            return hashval;
         }
     }
 
