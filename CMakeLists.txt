@@ -22,6 +22,7 @@ project( "gpuvis" )
 
 option(USE_FREETYPE "USE_FREETYPE" ON)
 option(USE_I915_PERF "USE_I915_PERF" OFF)
+option(USE_RAPIDJSON "USE_RAPIDJSON" ON)
 
 set( CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake )
 
@@ -87,18 +88,10 @@ if ( USE_I915_PERF )
     ucm_add_flags( -DUSE_I915_PERF )
 endif()
 
-# Fetch RapidJSON
-set(RAPIDJSON_URL https://github.com/Tencent/rapidjson/archive/1c2c8e085a8b2561dff17bedb689d2eb0609b689.tar.gz)
-set(RAPIDJSON_DEP lib/rapidjson/include/rapidjson/rapidjson.h)
-if(NOT EXISTS "${PROJECT_SOURCE_DIR}/${RAPIDJSON_DEP}")
-    message("Downloading RapidJSON...")
-    file(DOWNLOAD ${RAPIDJSON_URL} "${PROJECT_SOURCE_DIR}/lib/rapidjson.tar.gz")
-    execute_process(COMMAND ${CMAKE_COMMAND} -E tar xzf ${PROJECT_SOURCE_DIR}/lib/rapidjson.tar.gz WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
-    file(RENAME ${PROJECT_SOURCE_DIR}/lib/rapidjson-1c2c8e085a8b2561dff17bedb689d2eb0609b689 ${PROJECT_SOURCE_DIR}/lib/rapidjson)
+if ( USE_RAPIDJSON )
+    find_package( RapidJSON REQUIRED )
+    ucm_add_flags( -DHAVE_RAPIDJSON )
 endif()
-ucm_add_flags( -DHAVE_RAPIDJSON )
-include_directories( ${PROJECT_SOURCE_DIR}/lib/rapidjson/include )
-
 
 ucm_print_flags()
 
@@ -145,6 +138,7 @@ include_directories(
     ${FREETYPE_INCLUDE_DIRS}
     ${GTK3_INCLUDE_DIRS}
     ${SDL2_INCLUDE_DIR}
+    ${RAPIDJSON_INCLUDE_DIRS}
     ${I915_PERF_INCLUDE_DIRS}
     )
 
