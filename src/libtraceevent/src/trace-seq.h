@@ -10,6 +10,10 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* ----------------------- trace_seq ----------------------- */
 
 #ifndef TRACE_SEQ_BUF_SIZE
@@ -62,5 +66,9 @@ extern void trace_seq_terminate(struct trace_seq *s);
 
 extern int trace_seq_do_fprintf(struct trace_seq *s, FILE *fp);
 extern int trace_seq_do_printf(struct trace_seq *s);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _TRACE_SEQ_H */

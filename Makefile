@@ -65,7 +65,7 @@ endif
 #  http://www.productive-cpp.com/improving-cpp-builds-with-split-dwarf/
 
 CFLAGS = $(WARNINGS) -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf
-CFLAGS += -DUSE_FREETYPE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
+CFLAGS += -DBUILDING_GPUVIS -DUSE_FREETYPE -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
 CXXFLAGS = -fno-rtti -Woverloaded-virtual $(CXXWARNINGS)
 LDFLAGS = -gdwarf-4 -g2 -Wl,--build-id=sha1
 LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lstdc++

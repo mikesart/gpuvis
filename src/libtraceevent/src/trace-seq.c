@@ -14,7 +14,9 @@
 #include "event-parse.h"
 #include "event-utils.h"
 
+#ifdef BUILDING_GPUVIS
 #include "../../gpuvis_macros.h" /* gpuvis change! */
+#endif
 
 /*
  * The TRACE_SEQ_POISON is to catch the use of using
@@ -235,7 +237,9 @@ trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
 	static int s_ctx = 1;
 	gpuvis_trace_begin_ctx_printf( ++s_ctx, "%s", __func__ );
 	*/
+#ifdef GPUVIS_COUNT_HOT_FUNC_CALLS
 	GPUVIS_COUNT_HOT_FUNC_CALLS();
+#endif
 
 	/* gpuvis change! */
 	if (fmt[ 0 ] == '%' && fmt[ 1 ] == 's' && fmt[ 2 ] == '\0')
@@ -247,6 +251,7 @@ trace_seq_printf(struct trace_seq *s, const char *fmt, ...)
 		va_end(ap);
 
 		trace_seq_puts(s, str);
+		trace_seq_terminate(s);
 		/* gpuvis_trace_end_ctx_printf( s_ctx, "%s", __func__ ); */
 		return 1;
 	}

@@ -71,13 +71,17 @@ int __tep_vprint(const char *name, enum tep_loglevel level,
 		      bool print_err, const char *fmt, va_list ap)
 {
 	int ret = errno;
+	FILE *fp = stdout;
 
-	if (errno && print_err)
-		perror(name);
-
-	fprintf(stderr, "  ");
-	vfprintf(stderr, fmt, ap);
-	fprintf(stderr, "\n");
+	if (level <= TEP_LOG_WARNING) {
+		fp = stderr;
+		if (errno && print_err) {
+			perror(name);
+			fprintf(stderr, "  ");
+		}
+	}
+	vfprintf(fp, fmt, ap);
+	fprintf(fp, "\n");
 
 	return ret;
 }

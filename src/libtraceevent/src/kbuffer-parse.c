@@ -15,6 +15,9 @@
 
 #define COMMIT_MASK ((1 << 27) - 1)
 
+/* Absolute time stamps do not have the 5 MSB, take from the real time stamp */
+#define TS_MSB		(0xf8ULL << 56)
+
 enum {
 	KBUFFER_FL_HOST_BIG_ENDIAN	= (1<<0),
 	KBUFFER_FL_BIG_ENDIAN		= (1<<1),
@@ -348,7 +351,7 @@ static unsigned int
 translate_data(struct kbuffer *kbuf, void *data, void **rptr,
 	       unsigned long long *delta, int *length)
 {
-	unsigned long long extend;
+	unsigned long long extend, msb = 0;
 	unsigned int type_len_ts;
 	unsigned int type_len;
 
@@ -363,13 +366,15 @@ translate_data(struct kbuffer *kbuf, void *data, void **rptr,
 		*length = read_4(kbuf, data);
 		break;
 
-	case KBUFFER_TYPE_TIME_EXTEND:
 	case KBUFFER_TYPE_TIME_STAMP:
+		msb = kbuf->timestamp & TS_MSB;
+		/* fall through */
+	case KBUFFER_TYPE_TIME_EXTEND:
 		extend = read_4(kbuf, data);
 		data = (char*) data + 4; /* gpuvis change! */
 		extend <<= TS_SHIFT;
 		extend += *delta;
-		*delta = extend;
+		*delta = extend | msb;
 		*length = 0;
 		break;
 

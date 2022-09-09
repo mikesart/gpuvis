@@ -16,6 +16,10 @@
 
 #include "trace-seq.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef __maybe_unused
 #ifdef _WIN32 /* gpuvis change! */
 #define __maybe_unused
@@ -160,11 +164,13 @@ struct tep_print_arg_atom {
 
 struct tep_print_arg_string {
 	char			*string;
+	int			offset;		// for backward compatibility
 	struct tep_format_field	*field;
 };
 
 struct tep_print_arg_bitmask {
 	char			*bitmask;
+	int			offset;		// for backward compatibility
 	struct tep_format_field	*field;
 };
 
@@ -555,8 +561,8 @@ struct tep_cmdline *tep_data_pid_from_comm(struct tep_handle *tep, const char *c
 					   struct tep_cmdline *next);
 int tep_cmdline_pid(struct tep_handle *tep, struct tep_cmdline *cmdline);
 
-void tep_print_field(struct trace_seq *s, void *data,
-		     struct tep_format_field *field);
+void tep_print_field_content(struct trace_seq *s, void *data, int size,
+			     struct tep_format_field *field);
 void tep_record_print_fields(struct trace_seq *s,
 			     struct tep_record *record,
 			     struct tep_event *event);
@@ -575,6 +581,8 @@ struct tep_event **tep_list_events_copy(struct tep_handle *tep,
 struct tep_format_field **tep_event_common_fields(struct tep_event *event);
 struct tep_format_field **tep_event_fields(struct tep_event *event);
 
+int tep_get_function_count(struct tep_handle *tep);
+
 enum tep_endian {
         TEP_LITTLE_ENDIAN = 0,
         TEP_BIG_ENDIAN
@@ -584,6 +592,7 @@ void tep_set_cpus(struct tep_handle *tep, int cpus);
 int tep_get_long_size(struct tep_handle *tep);
 void tep_set_long_size(struct tep_handle *tep, int long_size);
 int tep_get_page_size(struct tep_handle *tep);
+int tep_get_sub_buffer_size(struct tep_handle *tep);
 void tep_set_page_size(struct tep_handle *tep, int _page_size);
 bool tep_is_file_bigendian(struct tep_handle *tep);
 void tep_set_file_bigendian(struct tep_handle *tep, enum tep_endian endian);
@@ -782,5 +791,13 @@ enum tep_loglevel {
 	TEP_LOG_ALL
 };
 void tep_set_loglevel(enum tep_loglevel level);
+
+/* DEPRECATED */
+void tep_print_field(struct trace_seq *s, void *data,
+		     struct tep_format_field *field);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _PARSE_EVENTS_H */

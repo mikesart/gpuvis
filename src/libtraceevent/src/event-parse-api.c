@@ -51,6 +51,20 @@ int tep_get_events_count(struct tep_handle *tep)
 }
 
 /**
+ * tep_get_events_count - get the number of defined events
+ * @tep: a handle to the tep_handle
+ *
+ * This returns number of elements in event array
+ * If @tep is NULL, 0 is returned.
+ */
+int tep_get_function_count(struct tep_handle *tep)
+{
+	if (tep)
+		return tep->func_count;
+	return 0;
+}
+
+/**
  * tep_set_flag - set event parser flag
  * @tep: a handle to the tep_handle
  * @flag: flag, or combination of flags to be set
@@ -246,6 +260,21 @@ void tep_set_page_size(struct tep_handle *tep, int _page_size)
 {
 	if (tep)
 		tep->page_size = _page_size;
+}
+
+/**
+ * tep_get_sub_buffer_size - get the size of a trace buffer page
+ * @tep: a handle to the tep_handle
+ *
+ * This returns the size of a trace buffer page on the traced machine.
+ * If @tep is NULL then -1 is returned.
+ */
+int tep_get_sub_buffer_size(struct tep_handle *tep)
+{
+	if (!tep)
+		return -1;
+
+	return tep->header_page_data_size + tep->header_page_data_offset;
 }
 
 /**

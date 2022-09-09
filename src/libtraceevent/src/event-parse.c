@@ -17,6 +17,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <stdint.h>
+#include <unistd.h>
 #include <limits.h>
 #include <linux/time64.h>
 
@@ -126,6 +127,22 @@ void breakpoint(void)
 {
 	static int x;
 	x++;
+}
+
+static const char *get_event_type(enum tep_event_type type)
+{
+	switch (type) {
+	case TEP_EVENT_ERROR: return "ERROR";
+	case TEP_EVENT_NONE: return "NONE";
+	case TEP_EVENT_SPACE: return "SPACE";
+	case TEP_EVENT_NEWLINE: return "NEWLINE";
+	case TEP_EVENT_OP: return "OP";
+	case TEP_EVENT_DELIM: return "DELIM";
+	case TEP_EVENT_ITEM: return "ITEM";
+	case TEP_EVENT_DQUOTE: return "DQUOTE";
+	case TEP_EVENT_SQUOTE: return "SQUOTE";
+	}
+	return "(UNKNOWN)";
 }
 
 static struct tep_print_arg *alloc_arg(void)
@@ -765,8 +782,11 @@ int tep_parse_kallsyms(struct tep_handle *tep, const char *kallsyms)
 		if (errno)
 			goto out;
 
-		if (n != 2 || !func_end)
+		if (n != 2 || !func_end) {
+			tep_warning("Failed to parse kallsyms n=%d func_end=%d",
+				    n, func_end);
 			goto out;
+		}
 
 		func = line + func_start;
 		/*
@@ -1314,7 +1334,7 @@ static enum tep_event_type __read_token(char **tok)
 			if (ch == '\\' && last_ch == '\\')
 				last_ch = 0;
 			/* Break out if the file is corrupted and giving non print chars */
-		} while ((ch != quote_ch && isprint(ch)) || last_ch == '\\');
+		} while ((ch != quote_ch && isprint(ch)) || last_ch == '\\' || ch == '\n');
 		/* remove the last quote */
 		i--;
 
@@ -1469,8 +1489,9 @@ static enum tep_event_type read_token_item(char **tok)
 static int test_type(enum tep_event_type type, enum tep_event_type expect)
 {
 	if (type != expect) {
-		do_warning("Error: expected type %d but read %d",
-		    expect, type);
+		do_warning("Error: expected type %d (%s) but read %d (%s)",
+			   expect, get_event_type(expect),
+			   type, get_event_type(type));
 		return -1;
 	}
 	return 0;
@@ -1480,8 +1501,9 @@ static int test_type_token(enum tep_event_type type, const char *token,
 		    enum tep_event_type expect, const char *expect_tok)
 {
 	if (type != expect) {
-		do_warning("Error: expected type %d but read %d",
-		    expect, type);
+		do_warning("Error: expected type %d (%s) but read %d (%s)",
+			   expect, get_event_type(expect),
+			   type, get_event_type(type));
 		return -1;
 	}
 
@@ -1896,6 +1918,16 @@ static int event_read_fields(struct tep_event *event, struct tep_format_field **
 		field->size = strtoul(token, NULL, 0);
 		free_token(token);
 
+		/*
+		 * The old data format before dynamic arrays had dynamic
+		 * strings defined with just a 2 byte offset (the length
+		 * is defined by the strlen() of the string. To process them
+		 * correctly, check if the field is dynamic and has a size of
+		 * 2 bytes. All current dynamic events have a size of 4.
+		 */
+		if ((field->flags & TEP_FIELD_IS_DYNAMIC) && field->size == 2)
+			field->flags |= TEP_FIELD_IS_STRING | TEP_FIELD_IS_ARRAY;
+
 		if (read_expected(TEP_EVENT_OP, ";") < 0)
 			goto fail_expect;
 
@@ -1942,6 +1974,7 @@ static int event_read_fields(struct tep_event *event, struct tep_format_field **
 
 		*fields = field;
 		fields = &field->next;
+		field = NULL;
 
 	} while (1);
 
@@ -2184,6 +2217,120 @@ static int set_op_prio(struct tep_print_arg *arg)
 	return arg->op.prio;
 }
 
+static int consolidate_op_arg(struct tep_print_arg *arg)
+{
+	unsigned long long val, left, right;
+	int ret = 0;
+
+	if (arg->type != TEP_PRINT_OP)
+		return 0;
+
+	if (arg->op.left)
+		ret = consolidate_op_arg(arg->op.left);
+	if (ret < 0)
+		return ret;
+
+	if (arg->op.right)
+		ret = consolidate_op_arg(arg->op.right);
+	if (ret < 0)
+		return ret;
+
+	if (!arg->op.left || !arg->op.right)
+		return 0;
+
+	if (arg->op.left->type != TEP_PRINT_ATOM ||
+	    arg->op.right->type != TEP_PRINT_ATOM)
+		return 0;
+
+	/* Two atoms, we can do the operation now. */
+	left = strtoull(arg->op.left->atom.atom, NULL, 0);
+	right = strtoull(arg->op.right->atom.atom, NULL, 0);
+
+	switch (arg->op.op[0]) {
+	case '>':
+		switch (arg->op.op[1]) {
+		case '>':
+			val = left >> right;
+			break;
+		case '=':
+			val = left >= right;
+			break;
+		default:
+			val = left > right;
+			break;
+		}
+		break;
+	case '<':
+		switch (arg->op.op[1]) {
+		case '<':
+			val = left << right;
+			break;
+		case '=':
+			val = left <= right;
+			break;
+		default:
+			val = left < right;
+			break;
+		}
+		break;
+	case '&':
+		switch (arg->op.op[1]) {
+		case '&':
+			val = left && right;
+			break;
+		default:
+			val = left & right;
+			break;
+		}
+		break;
+	case '|':
+		switch (arg->op.op[1]) {
+		case '|':
+			val = left || right;
+			break;
+		default:
+			val = left | right;
+			break;
+		}
+		break;
+	case '-':
+		val = left - right;
+		break;
+	case '+':
+		val = left + right;
+		break;
+	case '*':
+		val = left * right;
+		break;
+	case '^':
+		val = left ^ right;
+		break;
+	case '/':
+		val = left / right;
+		break;
+	case '%':
+		val = left % right;
+		break;
+	case '=':
+		/* Only '==' is called here */
+		val = left == right;
+		break;
+	case '!':
+		/* Only '!=' is called here. */
+		val = left != right;
+		break;
+	default:
+		return 0;
+	}
+
+	free_arg(arg->op.left);
+	free_arg(arg->op.right);
+
+	arg->type = TEP_PRINT_ATOM;
+	free(arg->op.op);
+	return asprintf(&arg->atom.atom, "%lld", val) < 0 ? -1 : 0;
+}
+
 /* Note, *tok does not get freed, but will most likely be saved */
 static enum tep_event_type
 process_op(struct tep_event *event, struct tep_print_arg *arg, char **tok)
@@ -2243,6 +2390,7 @@ process_op(struct tep_event *event, struct tep_print_arg *arg, char **tok)
 		arg->type = TEP_PRINT_OP;
 		arg->op.op = token;
 		arg->op.left = left;
+		arg->op.right = NULL;
 		arg->op.prio = 0;
 
 		/* it will set arg->op.right */
@@ -2348,6 +2496,7 @@ process_op(struct tep_event *event, struct tep_print_arg *arg, char **tok)
 		arg->type = TEP_PRINT_OP;
 		arg->op.op = token;
 		arg->op.left = left;
+		arg->op.right = NULL;
 
 		arg->op.prio = 0;
 
@@ -2477,6 +2626,10 @@ eval_type_str(unsigned long long val, const char *type, int pointer)
 	size_t len; /* gpuvis change! */
 
 	len = strlen(type);
+	if (len < 2) {
+		do_warning("invalid type: %s", type);
+		return val;
+	}
 
 	if (pointer) {
 
@@ -3197,6 +3350,7 @@ process_str(struct tep_event *event __maybe_unused, struct tep_print_arg *arg,
 
 	arg->type = TEP_PRINT_STRING;
 	arg->string.string = token;
+	arg->string.offset = -1;
 	arg->string.field = NULL;
 
 	if (read_expected(TEP_EVENT_DELIM, ")") < 0)
@@ -3226,6 +3380,7 @@ process_bitmask(struct tep_event *event __maybe_unused, struct tep_print_arg *ar
 
 	arg->type = TEP_PRINT_BITMASK;
 	arg->bitmask.bitmask = token;
+	arg->bitmask.offset = -1;
 	arg->bitmask.field = NULL;
 
 	if (read_expected(TEP_EVENT_DELIM, ")") < 0)
@@ -3403,7 +3558,9 @@ process_function(struct tep_event *event, struct tep_print_arg *arg,
 		return process_bitmask(event, arg, tok);
 	}
 	if (strcmp(token, "__get_dynamic_array") == 0 ||
-	    strcmp(token, "__get_rel_dynamic_array") == 0) {
+	    strcmp(token, "__get_rel_dynamic_array") == 0 ||
+	    strcmp(token, "__get_sockaddr") == 0 ||
+	    strcmp(token, "__get_sockaddr_rel") == 0) {
 		free_token(token);
 		return process_dynamic_array(event, arg, tok);
 	}
@@ -3552,6 +3709,10 @@ static int event_read_print_args(struct tep_event *event, struct tep_print_arg *
 		if (type == TEP_EVENT_OP) {
 			type = process_op(event, arg, &token);
 			free_token(token);
+
+			if (consolidate_op_arg(arg) < 0)
+				type = TEP_EVENT_ERROR;
+
 			if (type == TEP_EVENT_ERROR) {
 				*list = NULL;
 				free_arg(arg);
@@ -3954,9 +4115,10 @@ static unsigned long long test_for_symbol(struct tep_handle *tep,
 #define TEP_LEN_SHIFT			16
 
 static void dynamic_offset(struct tep_handle *tep, int size, void *data,
-			   unsigned int *offset, unsigned int *len)
+			   int data_size, unsigned int *offset, unsigned int *len)
 {
 	unsigned long long val;
+	unsigned int o, l;
 
 	/*
 	 * The total allocated length of the dynamic array is
@@ -3965,21 +4127,50 @@ static void dynamic_offset(struct tep_handle *tep, int size, void *data,
 	 */
 	val = tep_read_number(tep, data, size);
 
+	/* Check for overflows */
+	o = (unsigned int)(val & TEP_OFFSET_LEN_MASK);
+
+	/* If there's no length, then just make the length the size of the data */
+	if (size == 2)
+		l = data_size - o;
+	else
+		l = (unsigned int)((val >> TEP_LEN_SHIFT) & TEP_OFFSET_LEN_MASK);
+
 	if (offset)
-		*offset = (unsigned int)(val & TEP_OFFSET_LEN_MASK);
+		*offset = o > data_size ? 0 : o;
 	if (len)
-		*len = (unsigned int)((val >> TEP_LEN_SHIFT) & TEP_OFFSET_LEN_MASK);
+		*len = o + l > data_size ? 0 : l;
 }
 
 static inline void dynamic_offset_field(struct tep_handle *tep,
 					struct tep_format_field *field,
-					void *data,
+					void *data, int size,
 					unsigned int *offset,
 					unsigned int *len)
 {
-	dynamic_offset(tep, field->size, (char*) data + field->offset, offset, len); /* gpuvis change! */
+	/* Test for overflow */
+	if (field->offset + field->size > size) {
+		if (*offset)
+			*offset = 0;
+		if (*len)
+			*len = 0;
+		return;
+	}
+	dynamic_offset(tep, field->size, (char*) data + field->offset, size, offset, len);  /* gpuvis change! */
 	if (field->flags & TEP_FIELD_IS_RELATIVE)
 		*offset += field->offset + field->size;
+}
+
+static bool check_data_offset_size(struct tep_event *event, const char *field_name,
+				    int data_size, int field_offset, int field_size)
+{
+	/* Check to make sure the field is within the data */
+	if (field_offset + field_size <= data_size)
+		return false;
+
+	tep_warning("Event '%s' field '%s' goes beyond the size of the event (%d > %d)",
+		    event->name, field_name, field_offset + field_size, data_size);
+	return true;
 }
 
 static unsigned long long
@@ -4007,6 +4198,12 @@ eval_num_arg(void *data, int size, struct tep_event *event, struct tep_print_arg
 			arg->field.field = tep_find_any_field(event, arg->field.name);
 			if (!arg->field.field)
 				goto out_warning_field;
+		}
+		if (check_data_offset_size(event, arg->field.name, size,
+					   arg->field.field->offset,
+					   arg->field.field->size)) {
+			val = 0;
+			break;
 		}
 		/* must be a number */
 		val = tep_read_number(tep, (char*) data + arg->field.field->offset, /* gpuvis change! */
@@ -4054,7 +4251,7 @@ eval_num_arg(void *data, int size, struct tep_event *event, struct tep_print_arg
 			switch (larg->type) {
 			case TEP_PRINT_DYNAMIC_ARRAY:
 				dynamic_offset_field(tep, larg->dynarray.field, data,
-						     &offset, NULL);
+						     size, &offset, NULL);
 				offset += right;
 				if (larg->dynarray.field->elementsize)
 					field_size = larg->dynarray.field->elementsize;
@@ -4074,6 +4271,11 @@ eval_num_arg(void *data, int size, struct tep_event *event, struct tep_print_arg
 				break;
 			default:
 				goto default_op; /* oops, all bets off */
+			}
+			if (check_data_offset_size(event, arg->field.name, size,
+						   offset, field_size)) {
+				val = 0;
+				break;
 			}
 			val = tep_read_number(tep,
 					      (char*) data + offset, field_size); /* gpuvis change! */
@@ -4176,16 +4378,20 @@ eval_num_arg(void *data, int size, struct tep_event *event, struct tep_print_arg
 		}
 		break;
 	case TEP_PRINT_DYNAMIC_ARRAY_LEN:
-		dynamic_offset_field(tep, arg->dynarray.field, data,
+		dynamic_offset_field(tep, arg->dynarray.field, data, size,
 				     NULL, &field_size);
 		val = field_size;
 		break;
 	case TEP_PRINT_DYNAMIC_ARRAY:
 		/* Without [], we pass the address to the dynamic data */
-		dynamic_offset_field(tep, arg->dynarray.field, data,
+		dynamic_offset_field(tep, arg->dynarray.field, data, size,
 				     &offset, NULL);
-		val = (unsigned long long)((uintptr_t)data + offset); /* gpuvis change! */
-		val = (uintptr_t)data + offset;
+		if (check_data_offset_size(event, arg->field.name, size,
+					   offset, field_size)) {
+			val = (unsigned long)data;
+			break;
+		}
+		val = (uintptr_t)data + offset; /* gpuvis change! */
 		break;
 	default: /* not sure what to do there */
 		return 0;
@@ -4425,7 +4631,7 @@ static void print_bitmask_to_seq(struct tep_handle *tep,
 	case TEP_PRINT_HEX_STR:
 		if (arg->hex.field->type == TEP_PRINT_DYNAMIC_ARRAY) {
 			dynamic_offset_field(tep, arg->hex.field->dynarray.field, data,
-				             &offset, NULL);
+				             size, &offset, NULL);
 			hex = (unsigned char*) data + offset; /* gpuvis change! */
 		} else {
 			field = arg->hex.field->field.field;
@@ -4452,8 +4658,9 @@ static void print_bitmask_to_seq(struct tep_handle *tep,
 
 		if (arg->int_array.field->type == TEP_PRINT_DYNAMIC_ARRAY) {
 			dynamic_offset_field(tep, arg->int_array.field->dynarray.field, data,
-					     &offset, NULL);
+					     size, &offset, NULL);
 			num = (char*) data + offset; /* gpuvis change! */
+			num = data + offset;
 		} else {
 			field = arg->int_array.field->field.field;
 			if (!field) {
@@ -4493,11 +4700,13 @@ static void print_bitmask_to_seq(struct tep_handle *tep,
 	case TEP_PRINT_TYPE:
 		break;
 	case TEP_PRINT_STRING: {
-		if (!arg->string.field)
+		if (!arg->string.field) {
 			arg->string.field = tep_find_any_field(event, arg->string.string);
+			arg->string.offset = arg->string.field->offset;
+		}
 		if (!arg->string.field)
 			break;
-		dynamic_offset_field(tep, arg->string.field, data, &offset, &len);
+		dynamic_offset_field(tep, arg->string.field, data, size, &offset, &len);
 		/* Do not attempt to save zero length dynamic strings */
 		if (!len)
 			break;
@@ -4508,11 +4717,13 @@ static void print_bitmask_to_seq(struct tep_handle *tep,
 		print_str_to_seq(s, format, len_arg, arg->string.string);
 		break;
 	case TEP_PRINT_BITMASK: {
-		if (!arg->bitmask.field)
+		if (!arg->bitmask.field) {
 			arg->bitmask.field = tep_find_any_field(event, arg->bitmask.bitmask);
+			arg->bitmask.offset = arg->bitmask.field->offset;
+		}
 		if (!arg->bitmask.field)
 			break;
-		dynamic_offset_field(tep, arg->bitmask.field, data, &offset, &len);
+		dynamic_offset_field(tep, arg->bitmask.field, data, size, &offset, &len);
 		print_bitmask_to_seq(tep, s, format, len_arg,
 				     (char*) data + offset, len); /* gpuvis change! */
 		break;
@@ -4790,7 +5001,7 @@ static struct tep_print_arg *make_bprint_args(char *fmt, void *data, int size, s
 				bptr = (void *)(((uintptr_t)bptr + 3) & /* gpuvis change! */
 						~3);
 				val = tep_read_number(tep, bptr, vsize);
-				bptr = (char*) bptr + vsize; /* gpuvis change! */
+				bptr += vsize;
 				arg = alloc_arg();
 				if (!arg) {
 					do_warning_event(event, "%s(%d): not enough memory!",
@@ -4824,9 +5035,11 @@ static struct tep_print_arg *make_bprint_args(char *fmt, void *data, int size, s
 				arg->next = NULL;
 				arg->type = TEP_PRINT_BSTRING;
 				arg->string.string = strdup(bptr);
-				if (!arg->string.string)
+				if (!arg->string.string) {
+					free(arg);
 					goto out_free;
-				bptr = (char*) bptr + strlen(bptr) + 1; /* gpuvis change! */
+				}
+				bptr += strlen(bptr) + 1;
 				*next = arg;
 				next = &arg->next;
 			default:
@@ -4891,6 +5104,10 @@ static int print_mac_arg(struct trace_seq *s, const char *format,
 		process_defined_func(s, data, size, event, arg);
 		return 0;
 	}
+
+	/* evaluate if the arg has a type cast */
+	while (arg->type == TEP_PRINT_TYPE)
+		arg = arg->typecast.item;
 
 	if (arg->type != TEP_PRINT_FIELD) {
 		trace_seq_printf(s, "ARG TYPE NOT FIELD BUT %d",
@@ -5102,6 +5319,10 @@ static int print_ipv4_arg(struct trace_seq *s, const char *ptr, char i,
 		return ret;
 	}
 
+	/* evaluate if the arg has a type cast */
+	while (arg->type == TEP_PRINT_TYPE)
+		arg = arg->typecast.item;
+
 	if (arg->type != TEP_PRINT_FIELD) {
 		trace_seq_printf(s, "ARG TYPE NOT FIELD BUT %d", arg->type);
 		return ret;
@@ -5149,6 +5370,10 @@ static int print_ipv6_arg(struct trace_seq *s, const char *ptr, char i,
 		return rc;
 	}
 
+	/* evaluate if the arg has a type cast */
+	while (arg->type == TEP_PRINT_TYPE)
+		arg = arg->typecast.item;
+
 	if (arg->type != TEP_PRINT_FIELD) {
 		trace_seq_printf(s, "ARG TYPE NOT FIELD BUT %d", arg->type);
 		return rc;
@@ -5187,6 +5412,8 @@ static int print_ipsa_arg(struct trace_seq *s, const char *ptr, char i,
 	unsigned char *buf;
 	struct sockaddr_storage *sa;
 	bool reverse = false;
+	unsigned int offset;
+	unsigned int len;
 	int rc = 0;
 	int ret;
 
@@ -5212,27 +5439,42 @@ static int print_ipsa_arg(struct trace_seq *s, const char *ptr, char i,
 		return rc;
 	}
 
-	if (arg->type != TEP_PRINT_FIELD) {
-		trace_seq_printf(s, "ARG TYPE NOT FIELD BUT %d", arg->type);
+	/* evaluate if the arg has a type cast */
+	while (arg->type == TEP_PRINT_TYPE)
+		arg = arg->typecast.item;
+
+	if (arg->type == TEP_PRINT_FIELD) {
+
+		if (!arg->field.field) {
+			arg->field.field =
+				tep_find_any_field(event, arg->field.name);
+			if (!arg->field.field) {
+				do_warning("%s: field %s not found",
+					   __func__, arg->field.name);
+				return rc;
+			}
+		}
+
+		offset = arg->field.field->offset;
+		len = arg->field.field->size;
+
+	} else if (arg->type == TEP_PRINT_DYNAMIC_ARRAY) {
+
+		dynamic_offset_field(event->tep, arg->dynarray.field, data,
+				     size, &offset, &len);
+
+	} else {
+		trace_seq_printf(s, "ARG NOT FIELD NOR DYNAMIC ARRAY BUT TYPE %d",
+				 arg->type);
 		return rc;
 	}
 
-	if (!arg->field.field) {
-		arg->field.field =
-			tep_find_any_field(event, arg->field.name);
-		if (!arg->field.field) {
-			do_warning("%s: field %s not found",
-				   __func__, arg->field.name);
-			return rc;
-		}
-	}
-
-	sa = (struct sockaddr_storage *) (data + arg->field.field->offset);
+	sa = (struct sockaddr_storage *)(data + offset);
 
 	if (sa->ss_family == AF_INET) {
 		struct sockaddr_in *sa4 = (struct sockaddr_in *) sa;
 
-		if (arg->field.field->size < sizeof(struct sockaddr_in)) {
+		if (len < sizeof(struct sockaddr_in)) {
 			trace_seq_printf(s, "INVALIDIPv4");
 			return rc;
 		}
@@ -5245,7 +5487,7 @@ static int print_ipsa_arg(struct trace_seq *s, const char *ptr, char i,
 	} else if (sa->ss_family == AF_INET6) {
 		struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *) sa;
 
-		if (arg->field.field->size < sizeof(struct sockaddr_in6)) {
+		if (len < sizeof(struct sockaddr_in6)) {
 			trace_seq_printf(s, "INVALIDIPv6");
 			return rc;
 		}
@@ -5340,6 +5582,10 @@ static int print_uuid_arg(struct trace_seq *s, const char *ptr,
 		return ret;
 	}
 
+	/* evaluate if the arg has a type cast */
+	while (arg->type == TEP_PRINT_TYPE)
+		arg = arg->typecast.item;
+
 	if (arg->type != TEP_PRINT_FIELD) {
 		trace_seq_printf(s, "ARG TYPE NOT FIELD BUT %d", arg->type);
 		return ret;
@@ -5413,7 +5659,7 @@ static int print_raw_buff_arg(struct trace_seq *s, const char *ptr,
 		return ret;
 	}
 
-	dynamic_offset_field(event->tep, arg->dynarray.field, data,
+	dynamic_offset_field(event->tep, arg->dynarray.field, data, size,
 			     &offset, &arr_len);
 	buf = (char*) data + offset; /* gpuvis change! */
 
@@ -5440,7 +5686,7 @@ static int is_printable_array(char *p, unsigned int len)
 	return 1;
 }
 
-static void print_field_raw(struct trace_seq *s, void *data,
+static void print_field_raw(struct trace_seq *s, void *data, int size,
 			     struct tep_format_field *field)
 {
 	struct tep_handle *tep = field->event->tep;
@@ -5449,14 +5695,15 @@ static void print_field_raw(struct trace_seq *s, void *data,
 
 	if (field->flags & TEP_FIELD_IS_ARRAY) {
 		if (field->flags & TEP_FIELD_IS_DYNAMIC) {
-			dynamic_offset_field(tep, field, data, &offset, &len);
+			dynamic_offset_field(tep, field, data, size, &offset, &len);
 		} else {
 			offset = field->offset;
 			len = field->size;
 		}
 		if (field->flags & TEP_FIELD_IS_STRING &&
 		    is_printable_array((char*) data + offset, len)) { /* gpuvis change! */
-			trace_seq_puts(s, (char *)data + offset); /* gpuvis change! */
+			trace_seq_puts(s, (char *) data + offset);     /* gpuvis change! */
+			trace_seq_terminate(s);                       /* gpuvis change! */
 			/* trace_seq_printf(s, "%s", (char *)data + offset); */
 		} else {
 			trace_seq_puts(s, "ARRAY[");
@@ -5483,9 +5730,11 @@ static void print_field_raw(struct trace_seq *s, void *data,
 				 */
 				if (field->flags & TEP_FIELD_IS_LONG)
 					trace_seq_printf(s, "0x%x", (int)val);
-				else
+				else {
 					trace_seq_put_sval(s, val); /* gpuvis change! */
+					trace_seq_terminate(s);     /* gpuvis change! */
 					/* trace_seq_printf(s, "%d", (int)val); */
+				}
 				break;
 			case 2:
 				trace_seq_printf(s, "%2d", (short)val);
@@ -5495,14 +5744,17 @@ static void print_field_raw(struct trace_seq *s, void *data,
 				break;
 			default:
 				trace_seq_put_sval(s, val); /* gpuvis change! */
+				trace_seq_terminate(s);     /* gpuvis change! */
 				/* trace_seq_printf(s, "%lld", val); */
 			}
 		} else {
 			if (field->flags & TEP_FIELD_IS_LONG)
 				trace_seq_printf(s, "0x%llx", val);
-			else
+			else {
 				trace_seq_put_uval(s, val); /* gpuvis change! */
+				trace_seq_terminate(s);     /* gpuvis change! */
 				/* trace_seq_printf(s, "%llu", val); */
+			}
 		}
 	}
 }
@@ -5510,13 +5762,14 @@ static void print_field_raw(struct trace_seq *s, void *data,
 static int print_parse_data(struct tep_print_parse *parse, struct trace_seq *s,
 			    void *data, int size, struct tep_event *event);
 
-void static inline print_field(struct trace_seq *s, void *data,
+static inline void print_field(struct trace_seq *s, void *data, int size,
 				    struct tep_format_field *field,
 				    struct tep_print_parse **parse_ptr)
 {
 	struct tep_event *event = field->event;
 	struct tep_print_parse *start_parse;
 	struct tep_print_parse *parse;
+	struct tep_print_arg *arg;
 	bool has_0x;
 
 	parse = parse_ptr ? *parse_ptr : event->print_fmt.print_cache;
@@ -5541,9 +5794,13 @@ void static inline print_field(struct trace_seq *s, void *data,
 			goto next;
 		}
 
-		if (!parse->arg ||
-		    parse->arg->type != TEP_PRINT_FIELD ||
-		    parse->arg->field.field != field) {
+		arg = parse->arg;
+
+		while (arg && arg->type == TEP_PRINT_TYPE)
+			arg = arg->typecast.item;
+
+		if (!arg || arg->type != TEP_PRINT_FIELD ||
+		    arg->field.field != field) {
 			has_0x = false;
 			goto next;
 		}
@@ -5565,17 +5822,37 @@ void static inline print_field(struct trace_seq *s, void *data,
 
  out:
 	/* Not found. */
-	print_field_raw(s, data, field);
+	print_field_raw(s, data, size, field);
 }
 
+/**
+ * tep_print_field_content - write out the raw content of a field
+ * @s:    The trace_seq to write the content into
+ * @data: The payload to extract the field from.
+ * @size: The size of the payload.
+ * @field: The field to extract
+ *
+ * Use @field to find the field content from within @data and write it
+ * in human readable format into @s.
+ *
+ * It will not write anything on error (s->len will not move)
+ */
+void tep_print_field_content(struct trace_seq *s, void *data, int size,
+			     struct tep_format_field *field)
+{
+	print_field(s, data, size, field, NULL);
+}
+
+/** DEPRECATED **/
 void tep_print_field(struct trace_seq *s, void *data,
 		     struct tep_format_field *field)
 {
-	print_field(s, data, field, NULL);
+	/* unsafe to use, should pass in size */
+	print_field(s, data, 4096, field, NULL);
 }
 
 static inline void
-print_selected_fields(struct trace_seq *s, void *data,
+print_selected_fields(struct trace_seq *s, void *data, int size,
 		      struct tep_event *event,
 		      unsigned long long ignore_mask)
 {
@@ -5589,14 +5866,14 @@ print_selected_fields(struct trace_seq *s, void *data,
 			continue;
 
 		trace_seq_printf(s, " %s=", field->name);
-		print_field(s, data, field, &parse);
+		print_field(s, data, size, field, &parse);
 	}
 }
 
 void tep_print_fields(struct trace_seq *s, void *data,
-		      int size __maybe_unused, struct tep_event *event)
+		      int size, struct tep_event *event)
 {
-	print_selected_fields(s, data, event, 0);
+	print_selected_fields(s, data, size, event, 0);
 }
 
 /**
@@ -5610,7 +5887,7 @@ void tep_record_print_fields(struct trace_seq *s,
 			     struct tep_record *record,
 			     struct tep_event *event)
 {
-	print_selected_fields(s, record->data, event, 0);
+	print_selected_fields(s, record->data, record->size, event, 0);
 }
 
 /**
@@ -5628,7 +5905,7 @@ void tep_record_print_selected_fields(struct trace_seq *s,
 {
 	unsigned long long ignore_mask = ~select_mask;
 
-	print_selected_fields(s, record->data, event, ignore_mask);
+	print_selected_fields(s, record->data, record->size, event, ignore_mask);
 }
 
 static int print_function(struct trace_seq *s, const char *format,
@@ -5933,9 +6210,11 @@ static int parse_arg_format(struct tep_print_parse **parse,
 		case 'L':
 			ls = 2;
 			break;
-		case '.':
 		case 'z':
 		case 'Z':
+			ls = 1;
+			break;
+		case '.':
 		case '0':
 		case '1': /* gpuvis change! */
 		case '2':
@@ -7160,6 +7439,7 @@ int tep_parse_header_page(struct tep_handle *tep, char *buf, unsigned long size,
 		tep->header_page_ts_size = sizeof(long long);
 		tep->header_page_size_size = long_size;
 		tep->header_page_data_offset = sizeof(long long) + long_size;
+		tep->header_page_data_size = getpagesize() - tep->header_page_data_offset;
 		tep->old_format = 1;
 		return -1;
 	}
