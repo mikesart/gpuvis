@@ -1,29 +1,31 @@
 /*
- * Copyright (C) 2009, 2010 Red Hat Inc, Steven Rostedt <srostedt@redhat.com>
+ * Copyright 2021 Valve Software
  *
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation;
- * version 2.1 of the License (not later!)
+ * All Rights Reserved.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this program; if not,  see <http://www.gnu.org/licenses>
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
-#ifndef _LARGEFILE64_SOURCE
-#define _LARGEFILE64_SOURCE
-#endif
-
 #include <stdlib.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <string.h>
+
 #include <string>
 #include <vector>
 #include <forward_list>
@@ -33,1586 +35,109 @@
 #include <algorithm>
 #include <future>
 
-#ifdef WIN32
-#include <io.h>
-
-#define open _open
-#define close _close
-#define read _read
-#define lseek64 _lseeki64
-#define dup _dup
-
-#define __maybe_unused
-#else
-#define USE_MMAP
-
-#include <sys/mman.h>
-#include <sys/param.h>
-#include <unistd.h>
-
-#ifdef __APPLE__
-#define lseek64 lseek
-#define off64_t off_t
-#endif
-
-#endif
-
-#ifndef O_BINARY
-#define O_BINARY  0
-#endif
-
-extern "C"
-{
-    #include "../libtraceevent/src/event-parse.h"
-    #include "../libtraceevent/src/event-parse-local.h"
-    #include "../libtraceevent/src/kbuffer.h"
-
-    #define NSECS_PER_SEC  1000000000LL
-
-    /* Be sure this syncs with event-parse.c! */
-    struct cmdline_list {
-        struct cmdline_list     *next;
-        char                    *comm;
-        int                     pid;
-    };
-
-    /* Taken from the old event-parse.h */
-    static inline unsigned int
-    __data2host4(struct tep_handle *pevent, unsigned int data)
-    {
-        unsigned int swap;
-
-        if (tep_is_bigendian() == tep_is_file_bigendian(pevent))
-            return data;
-
-        swap = ((data & 0xffULL) << 24) |
-            ((data & (0xffULL << 8)) << 8) |
-            ((data & (0xffULL << 16)) >> 8) |
-            ((data & (0xffULL << 24)) >> 24);
-
-        return swap;
-    }
-
-    static inline unsigned long long
-    __data2host8(struct tep_handle *pevent, unsigned long long data)
-    {
-        unsigned long long swap;
-
-        if (tep_is_bigendian() == tep_is_file_bigendian(pevent))
-            return data;
-
-        swap = ((data & 0xffULL) << 56) |
-            ((data & (0xffULL << 8)) << 40) |
-            ((data & (0xffULL << 16)) << 24) |
-            ((data & (0xffULL << 24)) << 8) |
-            ((data & (0xffULL << 32)) >> 8) |
-            ((data & (0xffULL << 40)) >> 24) |
-            ((data & (0xffULL << 48)) >> 40) |
-            ((data & (0xffULL << 56)) >> 56);
-
-        return swap;
-    }
-}
-
 #include "../gpuvis_macros.h"
 #include "trace-read.h"
 
-enum
-{
-    TRACECMD_OPTION_DONE,
-    TRACECMD_OPTION_DATE,
-    TRACECMD_OPTION_CPUSTAT,
-    TRACECMD_OPTION_BUFFER,
-    TRACECMD_OPTION_TRACECLOCK,
-    TRACECMD_OPTION_UNAME,
-    TRACECMD_OPTION_HOOK,
-    TRACECMD_OPTION_OFFSET,
-    TRACEMCD_OPTION_CPUCOUNT,
-    TRACECMD_OPTION_VERSION,
-    TRACECMD_OPTION_SAVED_TGIDS = 32,
-};
+#define NSECS_PER_SEC  1000000000LL
 
-enum
+extern "C"
 {
-    TRACECMD_FL_BUFFER_INSTANCE = ( 1 << 1 ),
-    TRACECMD_FL_LATENCY = ( 1 << 2 ),
-};
+    #include "trace-cmd-private.h"
+    #include "../libtraceevent/src/event-parse.h"
+    #include "../libtraceevent/src/event-parse-local.h"
+
+    /* Be sure this syncs with event-parse.c! */
+    struct cmdline_list
+    {
+        struct cmdline_list *next;
+        char *comm;
+        int pid;
+    };
+
+    struct tep_record *tracecmd_read_next_data(struct tracecmd_input *handle, int *rec_cpu);
+
+    void print_str_arg( struct trace_seq *s, void *data, int size,
+            struct tep_event *event, const char *format,
+            int len_arg, struct tep_print_arg *arg );
+
+    int tracecmd_ftrace_overrides(struct tracecmd_input *handle,
+        struct tracecmd_ftrace *finfo)
+    {
+        return 0;
+    }
+
+    int tracecmd_blk_hack(struct tracecmd_input *handle)
+    {
+        return -1;
+    }
+
+    char **tracefs_tracers(const char *tracing_dir)
+    {
+        return nullptr;
+    }
+
+    /* From tracefs-events.c */
+    char *trace_append_file(const char *dir, const char *name)
+    {
+        char *file;
+        int ret;
+
+        ret = asprintf(&file, "%s/%s", dir, name);
+
+        return ret < 0 ? NULL : file;
+    }
+}
 
 typedef struct tracecmd_input tracecmd_input_t;
-typedef struct tep_handle pevent_t;
-typedef struct tep_record pevent_record_t;
-typedef struct kbuffer kbuffer_t;
-typedef struct tep_event_format event_format_t;
+typedef struct tep_handle     pevent_t;
+typedef struct tep_record     pevent_record_t;
 
 typedef struct file_info
 {
     int done;
     tracecmd_input_t *handle;
     pevent_record_t *record;
-} file_info_t;
-
-typedef struct page
-{
-    off64_t offset;
-    tracecmd_input_t *handle;
-    void *map;
-    int ref_count;
-} page_t;
-
-typedef struct cpu_data
-{
-    /* the first two never change */
-    unsigned long long file_offset = 0;
-    unsigned long long file_size = 0;
-    unsigned long long offset = 0;
-    unsigned long long size = 0;
-    unsigned long long timestamp = 0;
-
-    std::forward_list< page_t * > pages;
-    pevent_record_t *next_record = nullptr;
-    page_t *page = nullptr;
-    kbuffer_t *kbuf = nullptr;
-
-    pevent_record_t event_record;
-} cpu_data_t;
-
-typedef struct input_buffer_instance
-{
-    char *name;
-    size_t offset;
-} input_buffer_instance_t;
-
-typedef struct tracecmd_input
-{
-    pevent_t *pevent = nullptr;
-    tracecmd_input_t *parent = nullptr;
-    unsigned long flags = 0;
-    int fd = -1;
-    int long_size = 0;
-    unsigned long page_size = 0;
-    int cpus = 0;
-    int ref = 0;
-    int nr_buffers = 0; /* buffer instances */
-    bool use_trace_clock = false;
-#ifdef USE_MMAP
-    bool read_page = false;
-#endif
-    cpu_data_t *cpu_data = nullptr;
-    unsigned long long ts_offset = 0;
-    input_buffer_instance_t *buffers = nullptr;
-
     std::string file;
-    std::string uname;
-    std::string opt_version;
-    std::string trace_clock;
-    std::vector< std::string > cpustats;
-
-    /* file information */
-    size_t header_files_start = 0;
-    size_t ftrace_files_start = 0;
-    size_t event_files_start = 0;
-    size_t total_file_size = 0;
-
-    std::jmp_buf jump_buffer;
-} tracecmd_input_t;
+} file_info_t;
 
 void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
 
-[[noreturn]] static void die( tracecmd_input_t *handle, const char *fmt, ... ) ATTRIBUTE_PRINTF( 2, 3 );
-[[noreturn]] static void die( tracecmd_input_t *handle, const char *fmt, ... )
-{
-    int ret;
-    va_list ap;
-    char *buf = NULL;
-
-    va_start( ap, fmt );
-    ret = vasprintf( &buf, fmt, ap );
-    va_end( ap );
-
-    if ( ret >= 0 )
-    {
-        logf( "[Error] %s", buf );
-        free( buf );
-    }
-
-    std::longjmp( handle->jump_buffer, -1 );
-}
-
-static void *trace_malloc( tracecmd_input_t *handle, size_t size )
-{
-    void *ret = malloc( size );
-
-    if ( !ret && handle )
-        die( handle, "%s(%lu) failed\n", __func__, size );
-    return ret;
-}
-
-static void *trace_realloc( tracecmd_input_t *handle, void *ptr, size_t size )
-{
-    void *ret = realloc( ptr, size );
-
-    if ( !ret && handle )
-        die( handle, "%s(%lu) failed\n", __func__, size );
-    return ret;
-}
-
-static size_t do_read( tracecmd_input_t *handle, void *data, size_t size )
-{
-    ssize_t ret;
-
-    ret = TEMP_FAILURE_RETRY( read( handle->fd, data, size ) );
-    if ( ret < 0 )
-    {
-        die( handle, "%s(\"%s\") failed: %s (%d)\n", __func__, handle->file.c_str(),
-             strerror( errno ), errno );
-    }
-
-    return ret;
-}
-
-static void do_read_check( tracecmd_input_t *handle, void *data, size_t size )
-{
-    size_t ret;
-
-    ret = do_read( handle, data, size );
-    if ( ret != size )
-    {
-        die( handle, "%s(\"%s\") failed: %s (%d)\n", __func__, handle->file.c_str(),
-             strerror( errno ), errno );
-    }
-}
-
-static char *read_string( tracecmd_input_t *handle )
-{
-    char *str = NULL;
-    char buf[ BUFSIZ ];
-    unsigned int i, r;
-    unsigned int size = 0;
-
-    for ( ;; )
-    {
-        r = do_read( handle, buf, BUFSIZ );
-        if ( r <= 0 )
-            goto fail;
-
-        for ( i = 0; i < r; i++ )
-        {
-            if ( !buf[ i ] )
-                break;
-        }
-        if ( i < r )
-            break;
-
-        if ( str )
-        {
-            size += BUFSIZ;
-            str = ( char * )trace_realloc( handle, str, size );
-            memcpy( str + ( size - BUFSIZ ), buf, BUFSIZ );
-        }
-        else
-        {
-            size = BUFSIZ;
-            str = ( char * )trace_malloc( handle, size );
-            memcpy( str, buf, size );
-        }
-    }
-
-    /* move the file descriptor to the end of the string */
-    off64_t val;
-    val = lseek64( handle->fd, -( int )( r - ( i + 1 ) ), SEEK_CUR );
-    if ( val < 0 )
-        goto fail;
-
-    if ( str )
-    {
-        size += i + 1;
-        str = ( char * )trace_realloc( handle, str, size );
-        memcpy( str + ( size - i ), buf, i );
-        str[ size ] = 0;
-    }
-    else
-    {
-        size = i + 1;
-        str = ( char * )trace_malloc( handle, size );
-        memcpy( str, buf, i );
-        str[ i ] = 0;
-    }
-
-    return str;
-
-fail:
-    if ( str )
-        free( str );
-    return NULL;
-}
-
-static unsigned int read4( tracecmd_input_t *handle )
-{
-    unsigned int data;
-    pevent_t *pevent = handle->pevent;
-
-    do_read_check( handle, &data, 4 );
-
-    return __data2host4( pevent, data );
-}
-
-static unsigned long long read8( tracecmd_input_t *handle )
-{
-    unsigned long long data;
-    pevent_t *pevent = handle->pevent;
-
-    do_read_check( handle, &data, 8 );
-
-    return __data2host8( pevent, data );
-}
-
-static void read_data_and_size( tracecmd_input_t *handle,
-                               char **data, unsigned long long *size )
-{
-    *size = read8( handle );
-    *data = ( char * )trace_malloc( handle, *size + 1 );
-
-    do_read_check( handle, *data, *size );
-}
-
-static void read_header_files( tracecmd_input_t *handle )
-{
-    pevent_t *pevent = handle->pevent;
-    long long size;
-    char *header;
-    char buf[ 64 ];
-
-    do_read_check( handle, buf, 12 );
-
-    //$$$ TODO: need to add "zstd" support?
-    // https://github.com/mikesart/gpuvis/issues/50
-    if ( memcmp( buf, "header_page", 12 ) != 0 )
-        die( handle, "%s: header_page not found.\n", __func__ );
-
-    size = read8( handle );
-
-    header = ( char * )trace_malloc( handle, size );
-
-    do_read_check( handle, header, size );
-
-    tep_parse_header_page( pevent, header, size, handle->long_size );
-    free( header );
-
-    /*
-     * The size field in the page is of type long,
-     * use that instead, since it represents the kernel.
-     */
-    handle->long_size = tep_get_header_page_size( pevent );
-
-    do_read_check( handle, buf, 13 );
-
-    if ( memcmp( buf, "header_event", 13 ) != 0 )
-        die( handle, "%s: header_event not found.\n", __func__ );
-
-    size = read8( handle );
-
-    header = ( char * )trace_malloc( handle, size );
-
-    do_read_check( handle, header, size );
-
-    free( header );
-
-    handle->ftrace_files_start = lseek64( handle->fd, 0, SEEK_CUR );
-}
-
-static void read_ftrace_file( tracecmd_input_t *handle,
-                             unsigned long long size )
-{
-    char *buf;
-    pevent_t *pevent = handle->pevent;
-
-    buf = ( char * )trace_malloc( handle, size );
-
-    do_read_check( handle, buf, size );
-
-    if ( tep_parse_event( pevent, buf, size, "ftrace" ) )
-        die( handle, "%s: pevent_parse_event failed.\n", __func__ );
-
-    free( buf );
-}
-
-static void read_event_file( tracecmd_input_t *handle,
-                            char *system, unsigned long long size )
-{
-    pevent_t *pevent = handle->pevent;
-    char *buf;
-
-    buf = ( char * )trace_malloc( handle, size );
-
-    do_read_check( handle, buf, size );
-
-    if ( tep_parse_event( pevent, buf, size, system ) )
-        die( handle, "%s: pevent_parse_event failed.\n", __func__ );
-
-    free( buf );
-}
-
-static void read_ftrace_files( tracecmd_input_t *handle )
-{
-    unsigned int count;
-
-    count = read4( handle );
-
-    for ( unsigned int i = 0; i < count; i++ )
-    {
-        unsigned long long size;
-
-        size = read8( handle );
-        read_ftrace_file( handle, size );
-    }
-
-    handle->event_files_start = lseek64( handle->fd, 0, SEEK_CUR );
-}
-
-static void read_event_files( tracecmd_input_t *handle )
-{
-    unsigned int systems;
-
-    systems = read4( handle );
-
-    for ( unsigned int i = 0; i < systems; i++ )
-    {
-        char *system;
-        unsigned int count;
-
-        system = read_string( handle );
-        if ( !system )
-            die( handle, "%s: failed to read system string.\n", __func__ );
-
-        count = read4( handle );
-
-        for ( unsigned int x = 0; x < count; x++ )
-        {
-            unsigned long long size;
-
-            size = read8( handle );
-            read_event_file( handle, system, size );
-        }
-
-        free( system );
-    }
-}
-
-static void parse_proc_kallsyms( pevent_t *pevent, char *file )
-{
-    char *line;
-    char *next = NULL;
-
-    line = strtok_r( file, "\n", &next );
-    while ( line )
-    {
-        char *endptr;
-        unsigned long long addr;
-
-        // Parse lines of this form:
-        //   addr             ch            func   mod
-        //   ffffffffc07ec678 d descriptor.58652\t[bnep]
-
-        addr = strtoull( line, &endptr, 16 );
-
-        if ( endptr && *endptr == ' ' )
-        {
-            char ch;
-            char *mod;
-            char *func;
-
-            line = endptr + 1;
-
-            ch = *line;
-
-            // Skip: x86-64 reports per-cpu variable offsets as absolute (A)
-            if ( ch && ( ch != 'A' ) && ( line[ 1 ] == ' ' ) && line[ 2 ] )
-            {
-                func = line + 2;
-
-                mod = strchr( func, '\t' );
-                if ( mod && mod[ 1 ] == '[' )
-                {
-                    *mod = 0;
-                    mod += 2;
-                    mod[ strlen( mod ) - 1 ] = 0;
-                }
-
-                //$ TODO mikesart PERF: This is adding the item to a func_list
-                // which gets converted to a sorted array afterwords.
-                tep_register_function( pevent, func, addr, mod );
-            }
-        }
-
-        line = strtok_r( NULL, "\n", &next );
-    }
-}
-
-static void read_proc_kallsyms( tracecmd_input_t *handle )
-{
-    char *buf;
-    unsigned int size;
-    pevent_t *pevent = handle->pevent;
-
-    size = read4( handle );
-    if ( !size  )
-        return; /* OK? */
-
-    buf = ( char * )trace_malloc( handle, size + 1 );
-
-    do_read_check( handle, buf, size );
-
-    buf[ size ] = 0;
-
-    parse_proc_kallsyms( pevent, buf );
-
-    free( buf );
-}
-
-static void parse_ftrace_printk( tracecmd_input_t *handle, pevent_t *pevent, char *file )
-{
-    char *line;
-    char *next = NULL;
-
-    line = strtok_r( file, "\n", &next );
-    while ( line )
-    {
-        char *fmt;
-        char *printk;
-        char *addr_str;
-        unsigned long long addr;
-
-        addr_str = strtok_r( line, ":", &fmt );
-        if ( !addr_str )
-        {
-            die( handle, "%s: printk format with empty entry.\n", __func__ );
-            break;
-        }
-
-        addr = strtoull( addr_str, NULL, 16 );
-
-        /* fmt still has a space, skip it */
-        printk = strdup( fmt + 1 );
-        line = strtok_r( NULL, "\n", &next );
-        tep_register_print_string( pevent, printk, addr );
-
-        free( printk );
-    }
-}
-
-static void read_ftrace_printk( tracecmd_input_t *handle )
-{
-    char *buf;
-    unsigned int size;
-
-    size = read4( handle );
-    if ( !size )
-        return; /* OK? */
-
-    buf = ( char * )trace_malloc( handle, size + 1 );
-
-    do_read_check( handle, buf, size );
-
-    buf[ size ] = 0;
-
-    parse_ftrace_printk( handle, handle->pevent, buf );
-
-    free( buf );
-}
-
-static void parse_cmdlines( pevent_t *pevent, char *file )
-{
-    char *line;
-    char *next = NULL;
-
-    line = strtok_r( file, "\n", &next );
-    while ( line )
-    {
-        int pid;
-        char *comm;
-
-        // Parse "PID CMDLINE"
-        pid = strtoul( line, &comm, 10 );
-        if ( comm && *comm == ' ' )
-            tep_register_comm( pevent, comm + 1, pid );
-
-        line = strtok_r( NULL, "\n", &next );
-    }
-}
-
-static void read_and_parse_cmdlines( tracecmd_input_t *handle )
-{
-    char *cmdlines;
-    unsigned long long size;
-    pevent_t *pevent = handle->pevent;
-
-    read_data_and_size( handle, &cmdlines, &size );
-
-    cmdlines[ size ] = 0;
-    parse_cmdlines( pevent, cmdlines );
-    free( cmdlines );
-}
-
-static void parse_trace_clock( tracecmd_input_t *handle, char *file )
-{
-    // "[local] global counter uptime perf mono mono_raw x86-tsc\n"
-    char *clock = strchr( file, '[' );
-
-    if ( clock )
-    {
-        char *end = strchr( clock, ']' );
-
-        if ( end )
-        {
-            *end = 0;
-            handle->trace_clock = ( clock + 1 );
-        }
-    }
-}
-
-/**
- * tracecmd_read_headers - read the header information from trace.dat
- * @handle: input handle for the trace.dat file
- *
- * This reads the trace.dat file for various information. Like the
- * format of the ring buffer, event formats, ftrace formats, kallsyms
- * and printk.
- */
-static void tracecmd_read_headers( tracecmd_input_t *handle )
-{
-    read_header_files( handle );
-
-    read_ftrace_files( handle );
-
-    read_event_files( handle );
-
-    read_proc_kallsyms( handle );
-
-    read_ftrace_printk( handle );
-
-    read_and_parse_cmdlines( handle );
-
-    tep_set_long_size( handle->pevent, handle->long_size );
-}
-
-static int read_page( tracecmd_input_t *handle, off64_t offset,
-                      int cpu, void *map )
-{
-    off64_t ret;
-    off64_t save_seek;
-
-    /* other parts of the code may expect the pointer to not move */
-    save_seek = lseek64( handle->fd, 0, SEEK_CUR );
-
-    ret = lseek64( handle->fd, offset, SEEK_SET );
-    if ( ret < 0 )
-        return -1;
-
-    ret = TEMP_FAILURE_RETRY( read( handle->fd, map, handle->page_size ) );
-    if ( ret < 0 )
-        return -1;
-
-    /* reset the file pointer back */
-    lseek64( handle->fd, save_seek, SEEK_SET );
-    return 0;
-}
-
-static page_t *allocate_page( tracecmd_input_t *handle, int cpu, off64_t offset )
-{
-    int ret;
-    cpu_data_t *cpu_data = &handle->cpu_data[ cpu ];
-
-    for ( page_t *page : cpu_data->pages )
-    {
-        if ( page->offset == offset )
-        {
-            page->ref_count++;
-            return page;
-        }
-    }
-
-    page_t *page = ( page_t * )trace_malloc( handle, sizeof( *page ) );
-
-    memset( page, 0, sizeof( *page ) );
-
-    page->offset = offset;
-    page->handle = handle;
-
-#ifdef USE_MMAP
-    if ( handle->read_page )
-#endif
-    {
-        page->map = trace_malloc( handle, handle->page_size );
-
-        ret = read_page( handle, offset, cpu, page->map );
-        if ( ret < 0 )
-        {
-            free( page->map );
-            page->map = NULL;
-        }
-    }
-#ifdef USE_MMAP
-    else
-    {
-        page->map = mmap( NULL, handle->page_size, PROT_READ, MAP_PRIVATE,
-                          handle->fd, offset );
-        if ( page->map == MAP_FAILED )
-            page->map = NULL;
-    }
-#endif
-
-    if ( !page->map )
-    {
-        free( page );
-        return NULL;
-    }
-
-    cpu_data->pages.push_front( page );
-
-    page->ref_count = 1;
-    return page;
-}
-
-static void __free_page( tracecmd_input_t *handle, int cpu, page_t *page )
-{
-    if ( !page->ref_count )
-        die( handle, "%s: Page ref count is zero.\n", __func__ );
-
-    page->ref_count--;
-    if ( page->ref_count )
-        return;
-
-#ifdef USE_MMAP
-    if ( handle->read_page )
-#endif
-        free( page->map );
-#ifdef USE_MMAP
-    else
-        munmap( page->map, handle->page_size );
-#endif
-
-    handle->cpu_data[ cpu ].pages.remove( page );
-
-    free( page );
-}
-
-static void free_page( tracecmd_input_t *handle, int cpu )
-{
-    if ( !handle->cpu_data ||
-         cpu >= handle->cpus ||
-         !handle->cpu_data[ cpu ].page )
-        return;
-
-    __free_page( handle, cpu, handle->cpu_data[ cpu ].page );
-
-    handle->cpu_data[ cpu ].page = NULL;
-}
-
-static void __free_record( pevent_record_t *record )
-{
-    if ( record->priv )
-    {
-        page_t *page = ( page_t * )record->priv;
-
-        __free_page( page->handle, record->cpu, page );
-    }
-}
-
-static void free_record( tracecmd_input_t *handle, pevent_record_t *record )
-{
-    if ( !record )
-        return;
-
-    if ( !record->ref_count )
-        die( handle, "%s: record ref count is zero.\n", __func__ );
-
-    record->ref_count--;
-    if ( record->ref_count )
-        return;
-
-    if ( record->locked )
-        die( handle, "%s: freeing record when it is locked.\n", __func__ );
-
-    record->data = NULL;
-
-    __free_record( record );
-}
-
-static void free_next( tracecmd_input_t *handle, int cpu )
-{
-    pevent_record_t *record;
-
-    if ( !handle->cpu_data || cpu >= handle->cpus )
-        return;
-
-    record = handle->cpu_data[ cpu ].next_record;
-    if ( !record )
-        return;
-
-    handle->cpu_data[ cpu ].next_record = NULL;
-
-    record->locked = 0;
-
-    free_record( handle, record );
-}
-
-/*
- * Page is mapped, now read in the page header info.
- */
-static void update_page_info( tracecmd_input_t *handle, int cpu )
-{
-    pevent_t *pevent = handle->pevent;
-    void *ptr = handle->cpu_data[ cpu ].page->map;
-    kbuffer_t *kbuf = handle->cpu_data[ cpu ].kbuf;
-
-    /* FIXME: handle header page */
-    if ( tep_get_header_timestamp_size( pevent ) != 8 )
-        die( handle, "%s: expected a long long type for timestamp.\n", __func__ );
-
-    kbuffer_load_subbuffer( kbuf, ptr );
-    if ( ( unsigned long )kbuffer_subbuffer_size( kbuf ) > handle->page_size )
-    {
-        die( handle, "%s: bad page read, with size of %d\n", __func__,
-                 kbuffer_subbuffer_size( kbuf ) );
-    }
-
-    handle->cpu_data[ cpu ].timestamp = kbuffer_timestamp( kbuf ) + handle->ts_offset;
-}
-
-/*
- * get_page maps a page for a given cpu.
- *
- * Returns 1 if the page was already mapped,
- *         0 if it mapped successfully
- *        -1 on error
- */
-static int get_page( tracecmd_input_t *handle, int cpu,
-                     unsigned long long offset )
-{
-    /* Don't map if the page is already where we want */
-    if ( handle->cpu_data[ cpu ].offset == offset &&
-         handle->cpu_data[ cpu ].page )
-        return 1;
-
-    /* Do not map no data for CPU */
-    if ( !handle->cpu_data[ cpu ].size )
-        return -1;
-
-    if ( offset & ( handle->page_size - 1 ) )
-        die( handle, "%s: bad page offset %llx\n", __func__, offset );
-
-    if ( offset < handle->cpu_data[ cpu ].file_offset ||
-         offset > handle->cpu_data[ cpu ].file_offset +
-                      handle->cpu_data[ cpu ].file_size )
-    {
-        die( handle, "%s: bad page offset %llx\n", __func__, offset );
-        return -1;
-    }
-
-    handle->cpu_data[ cpu ].offset = offset;
-    handle->cpu_data[ cpu ].size = ( handle->cpu_data[ cpu ].file_offset +
-                                     handle->cpu_data[ cpu ].file_size ) - offset;
-
-    free_page( handle, cpu );
-
-    handle->cpu_data[ cpu ].page = allocate_page( handle, cpu, offset );
-    if ( !handle->cpu_data[ cpu ].page )
-        return -1;
-
-    update_page_info( handle, cpu );
-    return 0;
-}
-
-static int get_next_page( tracecmd_input_t *handle, int cpu )
-{
-    unsigned long long offset;
-
-    if ( !handle->cpu_data[ cpu ].page )
-        return 0;
-
-    free_page( handle, cpu );
-
-    if ( handle->cpu_data[ cpu ].size <= handle->page_size )
-    {
-        handle->cpu_data[ cpu ].offset = 0;
-        return 0;
-    }
-
-    offset = handle->cpu_data[ cpu ].offset + handle->page_size;
-
-    return get_page( handle, cpu, offset );
-}
-
-/**
- * tracecmd_peek_data - return the record at the current location.
- * @handle: input handle for the trace.dat file
- * @cpu: the CPU to pull from
- *
- * This returns the record at the current location of the CPU
- * iterator. It does not increment the CPU iterator.
- */
-static pevent_record_t *tracecmd_peek_data( tracecmd_input_t *handle, int cpu )
-{
-    pevent_record_t *record;
-    unsigned long long ts;
-    kbuffer_t *kbuf;
-    page_t *page;
-    void *data;
-
-    if ( cpu >= handle->cpus )
-        return NULL;
-
-    page = handle->cpu_data[ cpu ].page;
-    kbuf = handle->cpu_data[ cpu ].kbuf;
-
-    if ( handle->cpu_data[ cpu ].next_record )
-    {
-        record = handle->cpu_data[ cpu ].next_record;
-        if ( !record->data )
-            die( handle, "%s: Something freed the record.\n", __func__ );
-
-        if ( handle->cpu_data[ cpu ].timestamp == record->ts )
-            return record;
-
-        /*
-		 * The timestamp changed, which means the cached
-		 * record is no longer valid. Reread a new record.
-		 */
-        free_next( handle, cpu );
-    }
-
-read_again:
-    if ( !page )
-        return NULL;
-
-    data = kbuffer_read_event( kbuf, &ts );
-    if ( !data )
-    {
-        if ( get_next_page( handle, cpu ) )
-            return NULL;
-
-        page = handle->cpu_data[ cpu ].page;
-        goto read_again;
-    }
-
-    handle->cpu_data[ cpu ].timestamp = ts + handle->ts_offset;
-
-    record = &handle->cpu_data[ cpu ].event_record;
-
-    record->ts = handle->cpu_data[ cpu ].timestamp;
-    record->offset = handle->cpu_data[ cpu ].offset + kbuffer_curr_offset( kbuf );
-    record->missed_events = 0;
-    record->record_size = kbuffer_curr_size( kbuf );
-    record->size = kbuffer_event_size( kbuf );
-    record->data = data;
-    record->cpu = cpu;
-    record->ref_count = 1;
-    record->locked = 1;
-    record->priv = page;
-
-    handle->cpu_data[ cpu ].next_record = record;
-
-    page->ref_count++;
-
-    kbuffer_next_event( kbuf, NULL );
-
-    return record;
-}
-
-/**
- * tracecmd_read_data - read the next record and increment
- * @handle: input handle for the trace.dat file
- * @cpu: the CPU to pull from
- *
- * This returns the record at the current location of the CPU
- * iterator and increments the CPU iterator.
- *
- * The record returned must be freed.
- */
-static pevent_record_t *tracecmd_read_data( tracecmd_input_t *handle, int cpu )
-{
-    pevent_record_t *record;
-
-    record = tracecmd_peek_data( handle, cpu );
-
-    handle->cpu_data[ cpu ].next_record = NULL;
-
-    if ( record )
-        record->locked = 0;
-
-    return record;
-}
-
-/**
- * tracecmd_peek_next_data - return the next record
- * @handle: input handle to the trace.dat file
- * @rec_cpu: return pointer to the CPU that the record belongs to
- *
- * This returns the next record by time. This is different than
- * tracecmd_peek_data in that it looks at all CPUs. It does a peek
- * at each CPU and the record with the earliest time stame is
- * returned. If @rec_cpu is not NULL it gets the CPU id the record was
- * on. It does not increment the CPU iterator.
- */
-static pevent_record_t *tracecmd_peek_next_data( tracecmd_input_t *handle, int *rec_cpu )
-{
-    int cpu;
-    int next_cpu;
-    unsigned long long ts;
-    pevent_record_t *record, *next_record = NULL;
-
-    if ( rec_cpu )
-        *rec_cpu = -1;
-
-    next_cpu = -1;
-    ts = 0;
-
-    for ( cpu = 0; cpu < handle->cpus; cpu++ )
-    {
-        record = tracecmd_peek_data( handle, cpu );
-        if ( record && ( !next_record || record->ts < ts ) )
-        {
-            ts = record->ts;
-            next_cpu = cpu;
-            next_record = record;
-        }
-    }
-
-    if ( next_record )
-    {
-        if ( rec_cpu )
-            *rec_cpu = next_cpu;
-        return next_record;
-    }
-
-    return NULL;
-}
-
-/**
- * tracecmd_read_next_data - read the next record
- * @handle: input handle to the trace.dat file
- * @rec_cpu: return pointer to the CPU that the record belongs to
- *
- * This returns the next record by time. This is different than
- * tracecmd_read_data in that it looks at all CPUs. It does a peek
- * at each CPU and the record with the earliest time stame is
- * returned. If @rec_cpu is not NULL it gets the CPU id the record was
- * on. The CPU cursor of the returned record is moved to the
- * next record.
- *
- * Multiple reads of this function will return a serialized list
- * of all records for all CPUs in order of time stamp.
- *
- * The record returned must be freed.
- */
-static pevent_record_t *tracecmd_read_next_data( tracecmd_input_t *handle, int *rec_cpu )
-{
-    int next_cpu;
-    pevent_record_t *record;
-
-    record = tracecmd_peek_next_data( handle, &next_cpu );
-    if ( !record )
-        return NULL;
-
-    if ( rec_cpu )
-        *rec_cpu = next_cpu;
-
-    return tracecmd_read_data( handle, next_cpu );
-}
-
-static int init_cpu( tracecmd_input_t *handle, int cpu )
-{
-    cpu_data_t *cpu_data = &handle->cpu_data[ cpu ];
-
-    cpu_data->offset = cpu_data->file_offset;
-    cpu_data->size = cpu_data->file_size;
-    cpu_data->timestamp = 0;
-
-    if ( !cpu_data->size )
-    {
-        //$ TODO: printf( "CPU %d is empty.\n", cpu );
-        return 0;
-    }
-
-    cpu_data->page = allocate_page( handle, cpu, cpu_data->offset );
-#ifdef USE_MMAP
-    if ( !cpu_data->page && !handle->read_page )
-    {
-        //$ TODO mikesart: This just should never happen, yes?
-        die( handle, "%s: Can't mmap file, will read instead.\n", __func__ );
-
-        if ( cpu )
-        {
-            /*
-			 * If the other CPUs had size and was able to mmap
-			 * then bail.
-			 */
-            for ( int i = 0; i < cpu; i++ )
-            {
-                if ( handle->cpu_data[ i ].size )
-                    return -1;
-            }
-        }
-
-        /* try again without mmapping, just read it directly */
-        handle->read_page = true;
-        cpu_data->page = allocate_page( handle, cpu, cpu_data->offset );
-        if ( !cpu_data->page )
-            /* Still no luck, bail! */
-            return -1;
-    }
-#endif
-
-    update_page_info( handle, cpu );
-    return 0;
-}
-
-static void tracecmd_parse_tgids(pevent_t *pevent,
-                                 char *file, int size __maybe_unused)
-{
-    char *next = NULL;
-    int pid, tgid;
-    char *endptr;
-    char *line;
-
-    line = strtok_r(file, "\n", &next);
-    while (line) {
-        pid = strtol(line, &endptr, 10);
-        if (endptr && *endptr == ' ') {
-            tgid = strtol(endptr + 1, NULL, 10);
-            tep_register_tgid(pevent, tgid, pid);
-        }
-        line = strtok_r(NULL, "\n", &next);
-    }
-}
-
-
-static int handle_options( tracecmd_input_t *handle )
-{
-    for ( ;; )
-    {
-        char *buf;
-        unsigned int size;
-        unsigned short option;
-        unsigned long long offset;
-
-        do_read_check( handle, &option, 2 );
-
-        if ( option == TRACECMD_OPTION_DONE )
-            break;
-
-        /* next 4 bytes is the size of the option */
-        do_read_check( handle, &size, 4 );
-
-        size = __data2host4( handle->pevent, size );
-        buf = ( char * )trace_malloc( handle, size );
-
-        do_read_check( handle, buf, size );
-
-        switch ( option )
-        {
-        case TRACECMD_OPTION_DATE:
-            /*
-             * A time has been mapped that is the
-             * difference between the timestamps and
-             * gtod. It is stored as ASCII with '0x'
-             * appended.
-             */
-            offset = strtoll( buf, NULL, 0 );
-
-            /* Convert from micro to nano */
-            offset *= 1000;
-            handle->ts_offset += offset;
-            break;
-        case TRACECMD_OPTION_OFFSET:
-            /*
-             * Similar to date option, but just adds an
-             * offset to the timestamp.
-             */
-            offset = strtoll( buf, NULL, 0 );
-            handle->ts_offset += offset;
-            break;
-        case TRACECMD_OPTION_CPUSTAT:
-            handle->cpustats.push_back( buf );
-            break;
-        case TRACECMD_OPTION_BUFFER:
-        {
-            input_buffer_instance_t *buffer;
-
-            /* A buffer instance is saved at the end of the file */
-            handle->nr_buffers++;
-            handle->buffers = ( input_buffer_instance_t * )trace_realloc( handle, handle->buffers,
-                                       sizeof( *handle->buffers ) * handle->nr_buffers );
-            buffer = &handle->buffers[ handle->nr_buffers - 1 ];
-            buffer->name = strdup( buf + 8 );
-            if ( !buffer->name )
-            {
-                free( handle->buffers );
-                handle->buffers = NULL;
-                return -ENOMEM;
-            }
-
-            offset = *( unsigned long long * )buf;
-            buffer->offset = __data2host8( handle->pevent, offset );
-            break;
-        }
-        case TRACECMD_OPTION_TRACECLOCK:
-            handle->use_trace_clock = true;
-            break;
-        case TRACECMD_OPTION_UNAME:
-            handle->uname = buf;
-            break;
-        case TRACECMD_OPTION_HOOK:
-            // Used by trace-cmd report --profile. We don't need it.
-            //   hook = tracecmd_create_event_hook( buf );
-            break;
-        case TRACEMCD_OPTION_CPUCOUNT:
-            if ( size > sizeof( uint64_t ) )
-                tracecmd_parse_tgids(handle->pevent, buf, size);
-            break;
-        case TRACECMD_OPTION_SAVED_TGIDS:
-            tracecmd_parse_tgids(handle->pevent, buf, size);
-            break;
-        case TRACECMD_OPTION_VERSION:
-            handle->opt_version = std::string( buf, size );
-            break;
-        default:
-            logf( "%s: unknown option %d\n", __func__, option ) ;
-            break;
-        }
-
-        free( buf );
-    }
-
-    return 0;
-}
-
-static void read_cpu_data( tracecmd_input_t *handle )
-{
-    char buf[ 10 ];
-    enum kbuffer_endian endian;
-    enum kbuffer_long_size long_size;
-
-    do_read_check( handle, buf, 10 );
-
-    // check if this handles options
-    if ( strncmp( buf, "options", 7 ) == 0 )
-    {
-        if ( handle_options( handle ) < 0 )
-            die( handle, "%s: handle_options failed.\n", __func__ );
-
-        do_read_check( handle, buf, 10 );
-    }
-
-    // Check if this is a latency report or not.
-    if ( strncmp( buf, "latency", 7 ) == 0 )
-    {
-        handle->flags |= TRACECMD_FL_LATENCY;
-        return;
-    }
-
-    /* We expect this to be flyrecord */
-    if ( strncmp( buf, "flyrecord", 9 ) != 0 )
-        die( handle, "%s: flyrecord not found.\n", __func__ );
-
-    handle->cpu_data = new ( std::nothrow ) cpu_data_t [ handle->cpus ];
-    if ( !handle->cpu_data )
-        die( handle, "%s: new cpu_data_t failed.\n", __func__ );
-
-    long_size = ( handle->long_size == 8 ) ? KBUFFER_LSIZE_8 : KBUFFER_LSIZE_4;
-
-    endian = tep_is_file_bigendian( handle->pevent ) ?
-                KBUFFER_ENDIAN_BIG : KBUFFER_ENDIAN_LITTLE;
-
-    for ( int cpu = 0; cpu < handle->cpus; cpu++ )
-    {
-        unsigned long long size;
-        unsigned long long offset;
-
-        handle->cpu_data[ cpu ].kbuf = kbuffer_alloc( long_size, endian );
-        if ( !handle->cpu_data[ cpu ].kbuf )
-            die( handle, "%s: kbuffer_alloc failed.\n", __func__ );
-
-        if ( tep_is_old_format( handle->pevent ) )
-            kbuffer_set_old_format( handle->cpu_data[ cpu ].kbuf );
-
-        offset = read8( handle );
-        size = read8( handle );
-
-        handle->cpu_data[ cpu ].file_offset = offset;
-        handle->cpu_data[ cpu ].file_size = size;
-
-        if ( size && ( offset + size > handle->total_file_size ) )
-        {
-            /* this happens if the file got truncated */
-            die( handle, "%s: File possibly truncated. "
-                    "Need at least %llu, but file size is %zu.\n",
-                    __func__, offset + size, handle->total_file_size );
-        }
-
-        if ( init_cpu( handle, cpu ) < 0 )
-            die( handle, "%s: init_cpu failed.\n", __func__ );
-    }
-}
-
-static int read_and_parse_trace_clock( tracecmd_input_t *handle )
-{
-    char *trace_clock;
-    unsigned long long size;
-
-    read_data_and_size( handle, &trace_clock, &size );
-
-    trace_clock[ size ] = 0;
-    parse_trace_clock( handle, trace_clock );
-    free( trace_clock );
-    return 0;
-}
-
-/**
- * tracecmd_init_data - prepare reading the data from trace.dat
- * @handle: input handle for the trace.dat file
- *
- * This prepares reading the data from trace.dat. This is called
- * after tracecmd_read_headers() and before tracecmd_read_data().
- */
-void tracecmd_init_data( tracecmd_input_t *handle )
-{
-    pevent_t *pevent = handle->pevent;
-
-    handle->cpus = read4( handle );
-
-    tep_set_cpus( pevent, handle->cpus );
-
-    read_cpu_data( handle );
-
-    if ( handle->use_trace_clock )
-    {
-        /*
-         * There was a bug in the original setting of
-         * the trace_clock file which let it get
-         * corrupted. If it fails to read, force local
-         * clock.
-         */
-        if ( read_and_parse_trace_clock( handle ) < 0 )
-            handle->trace_clock = "local";
-    }
-}
-
-static inline int tracecmd_host_bigendian( void )
-{
-    unsigned char str[] = { 0x1, 0x2, 0x3, 0x4 };
-    unsigned int *ptr = ( unsigned int * )str;
-
-    return *ptr == 0x01020304;
-}
-
-/**
- * tracecmd_alloc_fd - create a tracecmd_input handle from a file descriptor
- * @fd: the file descriptor for the trace.dat file
- *
- * Allocate a tracecmd_input handle from a file descriptor and open the
- * file. This tests if the file is of trace-cmd format and allocates
- * a parse event descriptor.
- *
- * The returned pointer is not ready to be read yet. A tracecmd_read_headers()
- * and tracecmd_init_data() still need to be called on the descriptor.
- */
-static void tracecmd_alloc_fd( tracecmd_input_t *handle, const char *file, int fd )
-{
-    char buf[ 64 ];
-    char *version;
-    char test[] = { 23, 8, 68 };
-
-    handle->file = file;
-    handle->fd = fd;
-    handle->ref = 1;
-
-    do_read_check( handle, buf, 3 );
-    if ( memcmp( buf, test, 3 ) != 0 )
-        die( handle, "[Error] %s: header memcheck failed.\n", __func__ );
-
-    do_read_check( handle, buf, 7 );
-    if ( memcmp( buf, "tracing", 7 ) != 0 )
-        die( handle, "[Error] %s: failed to read tracing string.\n", __func__ );
-
-    version = read_string( handle );
-    if ( !version )
-        die( handle, "[Error] %s: failed to read version string.\n", __func__ );
-
-    free( version );
-
-    do_read_check( handle, buf, 1 );
-
-    handle->pevent = tep_alloc();
-    if ( !handle->pevent )
-        die( handle, "[Error] %s: pevent_alloc failed.\n", __func__ );
-
-    tep_set_file_bigendian( handle->pevent, (tep_endian) buf[ 0 ] );
-    tep_set_local_bigendian( handle->pevent, (tep_endian) tracecmd_host_bigendian() );
-
-    do_read_check( handle, buf, 1 );
-    handle->long_size = buf[ 0 ];
-
-    handle->page_size = read4( handle );
-
-    handle->header_files_start = lseek64( handle->fd, 0, SEEK_CUR );
-    handle->total_file_size = lseek64( handle->fd, 0, SEEK_END );
-    handle->header_files_start = lseek64( handle->fd, handle->header_files_start, SEEK_SET );
-}
-
-/**
- * tracecmd_alloc_fd - create a tracecmd_input handle from a file name
- * @file: the file name of the file that is of tracecmd data type.
- *
- * Allocate a tracecmd_input handle from a given file name and open the
- * file. This tests if the file is of trace-cmd format and allocates
- * a parse event descriptor.
- *
- * The returned pointer is not ready to be read yet. A tracecmd_read_headers()
- * and tracecmd_init_data() still need to be called on the descriptor.
- */
-static void tracecmd_alloc( tracecmd_input_t *handle, const char *file )
-{
-    int fd;
-
-    fd = TEMP_FAILURE_RETRY( open( file, O_RDONLY | O_BINARY ) );
-    if ( fd < 0 )
-    {
-        logf( "[Error] %s: open(\"%s\") failed: %d\n", __func__, file, errno );
-        return;
-    }
-
-    tracecmd_alloc_fd( handle, file, fd );
-}
-
-/**
- * tracecmd_close - close and free the trace.dat handle
- * @handle: input handle for the trace.dat file
- *
- * Close the file descriptor of the handle and frees
- * the resources allocated by the handle.
- */
-static void tracecmd_close( tracecmd_input_t *handle )
-{
-    int cpu;
-
-    if ( !handle )
-        return;
-
-    if ( handle->ref <= 0 )
-    {
-        die( handle, "%s: bad ref count on handle.\n", __func__ );
-        return;
-    }
-
-    if ( --handle->ref )
-        return;
-
-    for ( cpu = 0; cpu < handle->cpus; cpu++ )
-    {
-        /* The tracecmd_peek_data may have cached a record */
-        free_next( handle, cpu );
-        free_page( handle, cpu );
-
-        if ( handle->cpu_data && handle->cpu_data[ cpu ].kbuf )
-        {
-            kbuffer_free( handle->cpu_data[ cpu ].kbuf );
-
-            // if ( !list_empty( &handle->cpu_data[ cpu ].pages ) )
-            if ( !handle->cpu_data[ cpu ].pages.empty() )
-                die( handle, "%s: pages still allocated on cpu %d\n", __func__, cpu );
-        }
-    }
-
-    if ( handle->fd >= 0 )
-    {
-        close( handle->fd );
-        handle->fd = -1;
-    }
-
-    delete [] handle->cpu_data;
-
-    if ( handle->flags & TRACECMD_FL_BUFFER_INSTANCE )
-    {
-        tracecmd_close( handle->parent );
-    }
-    else
-    {
-        /* Only main handle frees pevent */
-        tep_free( handle->pevent );
-    }
-
-    delete handle;
-}
-
-static tracecmd_input_t *tracecmd_buffer_instance_handle( tracecmd_input_t *handle, int indx )
-{
-    tracecmd_input_t *new_handle;
-    input_buffer_instance_t *buffer = &handle->buffers[ indx ];
-    size_t offset;
-    ssize_t ret;
-
-    if ( indx >= handle->nr_buffers )
-        return NULL;
-
-    /*
-	 * We make a copy of the current handle, but we substitute
-	 * the cpu data with the cpu data for this buffer.
-	 */
-    new_handle = new tracecmd_input_t;
-
-    *new_handle = *handle;
-    new_handle->cpu_data = NULL;
-    new_handle->nr_buffers = 0;
-    new_handle->buffers = NULL;
-    new_handle->ref = 1;
-    new_handle->parent = handle;
-
-    handle->ref++;
-
-    new_handle->fd = dup( handle->fd );
-
-    new_handle->flags |= TRACECMD_FL_BUFFER_INSTANCE;
-
-    /* Save where we currently are */
-    offset = lseek64( handle->fd, 0, SEEK_CUR );
-
-    ret = lseek64( handle->fd, buffer->offset, SEEK_SET );
-    if ( ret < 0 )
-    {
-        die( handle, "%s: could not seek to buffer %s offset %lu.\n",
-                 __func__, buffer->name, buffer->offset );
-    }
-
-    read_cpu_data( new_handle );
-
-    ret = lseek64( handle->fd, offset, SEEK_SET );
-    if ( ret < 0 )
-        die( handle, "%s: could not seek to back to offset %ld\n", __func__, offset );
-
-    return new_handle;
-}
-
-static bool is_timestamp_in_us( const std::string& trace_clock, bool use_trace_clock )
-{
-    if ( !use_trace_clock )
-        return true;
-
-    // trace_clock information:
-    //  https://www.kernel.org/doc/Documentation/trace/ftrace.txt
-    if ( trace_clock == "local" ||
-         trace_clock == "global" ||
-         trace_clock == "uptime" ||
-         trace_clock == "perf" )
-        return true;
-
-    /* trace_clock is setting in tsc or counter mode */
-    return false;
-}
-
-extern "C" void print_str_arg( struct trace_seq *s, void *data, int size,
-                               struct tep_event *event, const char *format,
-                               int len_arg, struct tep_print_arg *arg );
+//#ifdef WIN32
+//#include <io.h>
+//
+//#define open _open
+//#define close _close
+//#define read _read
+//#define lseek64 _lseeki64
+//#define dup _dup
+//
+//#define __maybe_unused
+//#else
+//#define USE_MMAP
+//
+//#include <sys/mman.h>
+//#include <sys/param.h>
+//#include <unistd.h>
+//
+//#ifdef __APPLE__
+//#define lseek64 lseek
+//#define off64_t off_t
+//#endif
+//
+//#endif
+//
+//#ifndef O_BINARY
+//#define O_BINARY  0
+//#endif
+
+//  enum
+//  {
+//      //$$$ TODO
+//      TRACECMD_OPTION_SAVED_TGIDS = 32,
+//  };
+
+//$$$ TODO?
+// TRACECMD_FL_LATENCY = ( 1 << 2 ),
 
 class trace_data_t
 {
@@ -1653,6 +178,26 @@ public:
     const char *high_prec_str;
 };
 
+static bool is_timestamp_in_us( const std::string& trace_clock, bool use_trace_clock )
+{
+    if ( !use_trace_clock )
+        return true;
+
+    // trace_clock information:
+    //  https://www.kernel.org/doc/Documentation/trace/ftrace.txt
+    if ( trace_clock == "local" ||
+         trace_clock == "global" ||
+         trace_clock == "uptime" ||
+         trace_clock == "perf" )
+    {
+        return true;
+    }
+
+    /* trace_clock is setting in tsc or counter mode */
+    return false;
+}
+
+
 static void init_event_flags( trace_data_t &trace_data, trace_event_t &event )
 {
     // Make sure our event type bits are cleared
@@ -1685,7 +230,7 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
 {
     int ret = 0;
     tep_event *event;
-    pevent_t *pevent = handle->pevent;
+    pevent_t *pevent = tracecmd_get_tep(handle);
     StrPool &strpool = trace_data.strpool;
 
     event = tep_find_event_by_record( pevent, record );
@@ -1768,6 +313,7 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
             }
             else
             {
+                const char *trace_clock_str = tracecmd_get_trace_clock(handle);
                 tep_print_field( &seq, record->data, format );
 
                 if ( format_name == trace_data.seqno_str )
@@ -1786,7 +332,7 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
                 }
                 else if ( trace_event.name == trace_data.drm_vblank_event_str &&
                           format_name == trace_data.time_str &&
-                          handle->trace_clock == "mono" )
+                          !strcmp(trace_clock_str, "mono" ))
                 {
                     // for drm_vblank_event, if "time" field is available,
                     // and the trace-clock is monotonic, store the timestamp
@@ -1798,7 +344,7 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
                 }
                 else if ( trace_event.name == trace_data.drm_vblank_event_str &&
                           format_name == trace_data.high_prec_str &&
-                          handle->trace_clock == "mono" )
+                          !strcmp(trace_clock_str, "mono" ))
                 {
                     // for drm_vblank_event, if "high_prec" field is available,
                     // and the trace-lock is monotonic, store the field whether or not
@@ -1858,33 +404,6 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
     return ret;
 }
 
-static pevent_record_t *get_next_record( file_info_t *file_info )
-{
-    if ( file_info->record )
-        return file_info->record;
-
-    if ( file_info->done )
-        return NULL;
-
-    file_info->record = tracecmd_read_next_data( file_info->handle, NULL );
-    if ( !file_info->record )
-        file_info->done = 1;
-
-    return file_info->record;
-}
-
-static void add_file( std::vector< file_info_t * > &file_list, tracecmd_input_t *handle, const char *file )
-{
-    file_info_t *item = ( file_info_t * )trace_malloc( handle, sizeof( *item ) );
-
-    memset( item, 0, sizeof( *item ) );
-
-    item->handle = handle;
-    handle->file = file;
-
-    file_list.push_back( item );
-}
-
 void tgid_info_t::add_pid( int pid )
 {
     auto idx = std::find( pids.begin(), pids.end(), pid );
@@ -1897,6 +416,18 @@ void tgid_info_t::add_pid( int pid )
         else
             pids.push_back( pid );
     }
+}
+
+static void add_file( std::vector< file_info_t > &file_list, tracecmd_input_t *handle, const char *file )
+{
+    file_info_t item;
+
+    item.done = 0;
+    item.record = nullptr;
+    item.handle = handle;
+    item.file = file;
+
+    file_list.push_back( item );
 }
 
 static int64_t geti64( const char *str, const char *var )
@@ -1917,126 +448,115 @@ static int64_t getf64( const char *str, const char *var )
     return 0;
 }
 
-int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb )
+static struct tep_record *get_next_record( file_info_t *file_info )
 {
-    GPUVIS_TRACE_BLOCK( __func__ );
+    if ( file_info->record )
+        return file_info->record;
 
-    tracecmd_input_t *handle;
-    std::vector< file_info_t * > file_list;
+    if ( file_info->done )
+        return NULL;
 
-    handle = new ( std::nothrow ) tracecmd_input_t;
-    if ( !handle )
-    {
-        logf( "[Error] %s: new tracecmd_input_t failed.\n", __func__ );
-        return -1;
-    }
+    file_info->record = tracecmd_read_next_data( file_info->handle, NULL );
+    if ( !file_info->record )
+        file_info->done = 1;
 
-    if ( setjmp( handle->jump_buffer ) )
-    {
-        logf( "[Error] %s: setjmp error called for %s.\n", __func__, file );
+    return file_info->record;
+}
 
-        tracecmd_close( handle );
-        return -1;
-    }
+static void free_handle_record( file_info_t *file_info )
+{
+    if (!file_info->record)
+        return;
 
-    // Latest ts value where a cpu data starts
-    unsigned long long trim_ts = 0;
+    tracecmd_free_record(file_info->record);
+    file_info->record = NULL;
+}
 
-    tracecmd_alloc( handle, file );
-
-    add_file( file_list, handle, file );
-
-    // Read header information from trace.dat file.
-    tracecmd_read_headers( handle );
-
-    // Prepare reading the data from trace.dat.
-    tracecmd_init_data( handle );
-
-    // We don't support reading latency trace files.
-    if ( handle->flags & TRACECMD_FL_LATENCY )
-        die( handle, "%s: Latency traces not supported.\n", __func__ );
-
-    /* Find the kernel_stacktrace if available */
-    // pevent = handle->pevent;
-    // event = pevent_find_event_by_name(pevent, "ftrace", "kernel_stack");
-
-    /* If this file has buffer instances, get the file_info for them */
-    for ( int i = 0; i < handle->nr_buffers; i++ )
-    {
-        tracecmd_input_t *new_handle;
-        const char *name = handle->buffers[ i ].name;
-
-        new_handle = tracecmd_buffer_instance_handle( handle, i );
-        if ( !new_handle )
-            die( handle, "%s: could not retrieve handle %s.\n", __func__, name );
-
-        add_file( file_list, new_handle, name );
-    }
-
-    trace_info.cpus = handle->cpus;
-    trace_info.file = handle->file;
-    trace_info.uname = handle->uname;
-    trace_info.opt_version = handle->opt_version;
-    trace_info.timestamp_in_us = is_timestamp_in_us( handle->trace_clock, handle->use_trace_clock );
-
+static void parse_cmdlist( StrPool &strpool, trace_info_t &trace_info, std::vector< file_info_t > &file_list )
+{
     // Explicitly add idle thread at pid 0
     trace_info.pid_comm_map.get_val( 0, strpool.getstr( "<idle>" ) );
 
-    // Add comms for other pids
-    for ( cmdline_list *cmdlist = handle->pevent->cmdlist;
-          cmdlist;
-          cmdlist = cmdlist->next )
+    for ( file_info_t &file_info : file_list )
     {
-        int pid = cmdlist->pid;
-        const char *comm = cmdlist->comm;
-        int tgid = tep_data_tgid_from_pid( handle->pevent, pid );
+        struct tep_handle *pevent = tracecmd_get_tep(file_info.handle);
 
-        // Add to our pid --> comm map
-        trace_info.pid_comm_map.get_val( pid, strpool.getstr( comm ) );
-
-        if ( tgid > 0 )
+        // Add comms for other pids
+        for ( struct cmdline_list *cmdlist = pevent->cmdlist;
+                cmdlist;
+                cmdlist = cmdlist->next )
         {
-            tgid_info_t *tgid_info = trace_info.tgid_pids.get_val_create( tgid );
+            int pid = cmdlist->pid;
+            const char *comm = cmdlist->comm;
+            int tgid = tep_data_tgid_from_pid( pevent, pid );
 
-            if ( !tgid_info->tgid )
+            // Add to our pid --> comm map
+            trace_info.pid_comm_map.get_val( pid, strpool.getstr( comm ) );
+
+            if ( tgid > 0 )
             {
-                tgid_info->tgid = tgid;
-                tgid_info->hashval += hashstr32( comm );
-            }
-            tgid_info->add_pid( pid );
+                tgid_info_t *tgid_info = trace_info.tgid_pids.get_val_create( tgid );
 
-            // Pid --> tgid
-            trace_info.pid_tgid_map.get_val( pid, tgid );
+                if ( !tgid_info->tgid )
+                {
+                    tgid_info->tgid = tgid;
+                    tgid_info->hashval += hashstr32( comm );
+                }
+                tgid_info->add_pid( pid );
+
+                // Pid --> tgid
+                trace_info.pid_tgid_map.get_val( pid, tgid );
+            }
         }
     }
+}
 
+static void set_min_file_ts( trace_info_t &trace_info, std::vector< file_info_t> &file_list )
+{
     // Find the lowest ts value in the trace file
-    for ( size_t cpu = 0; cpu < ( size_t )handle->cpus; cpu++ )
+    for ( file_info_t &file_info : file_list )
     {
-        for ( file_info_t *file_info : file_list )
-        {
-            pevent_record_t *record = tracecmd_peek_data( file_info->handle, cpu );
+        int64_t ts = tracecmd_get_first_ts( file_info.handle );
 
-            if ( record )
-                trace_info.min_file_ts = std::min< int64_t >( trace_info.min_file_ts, record->ts );
-        }
+        if ( ts )
+            trace_info.min_file_ts = std::min< int64_t >( trace_info.min_file_ts, ts );
     }
 
     // Should never happen, but sure is bad if it ever does as our min_ts is set to INT64 MAX
     if (trace_info.min_file_ts == INT64_MAX)
         trace_info.min_file_ts = 0;
+}
 
-    trace_info.cpu_info.resize( handle->cpus );
-    for ( size_t cpu = 0; cpu < ( size_t )handle->cpus; cpu++ )
+static std::string cstr_to_string(const char *cstr)
+{
+    return std::string(cstr ? cstr : "");
+}
+
+static uint64_t parse_cpu_stats(trace_info_t &trace_info, std::vector< file_info_t > &file_list)
+{
+    std::vector< std::string > cpustats;
+    tracecmd_input_t *handle = file_list[0].handle;
+    int cpus = tracecmd_cpus(handle);
+    const char *cpustats_str = tracecmd_get_cpustats(handle);
+
+    // Latest ts value where a cpu data starts
+    uint64_t trim_ts = 0;
+
+    if (cpustats_str)
+        cpustats = string_explode( cpustats_str, '\n' );
+
+    trace_info.cpu_info.resize( cpus );
+    for ( size_t cpu = 0; cpu < ( size_t )cpus; cpu++ )
     {
         cpu_info_t &cpu_info = trace_info.cpu_info[ cpu ];
 
-        cpu_info.file_offset = handle->cpu_data[ cpu ].file_offset;
-        cpu_info.file_size = handle->cpu_data[ cpu ].file_size;
+        cpu_info.file_size = tracecmd_get_cpu_file_size(handle, cpu);
+        if (cpu_info.file_size == (uint64_t)-1)
+            cpu_info.file_size = 0;
 
-        if ( cpu < handle->cpustats.size() )
+        if (cpu < cpustats.size())
         {
-            const char *stats = handle->cpustats[ cpu ].c_str();
+            const char *stats = cpustats[ cpu ].c_str();
 
             cpu_info.entries = geti64( stats, "entries:" );
             cpu_info.overrun = geti64( stats, "overrun:" );
@@ -2053,23 +573,26 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
                 cpu_info.now_ts -= trace_info.min_file_ts;
         }
 
-        for ( file_info_t *file_info : file_list )
+        for ( file_info_t &file_info : file_list )
         {
-            pevent_record_t *record = tracecmd_peek_data( file_info->handle, cpu );
+            pevent_record_t *record = tracecmd_peek_data( file_info.handle, cpu );
 
             if ( record )
             {
                 cpu_info.min_ts = record->ts - trace_info.min_file_ts;
 
                 if ( cpu_info.overrun && trace_info.trim_trace )
-                    trim_ts = std::max< unsigned long long >( trim_ts, record->ts );
+                    trim_ts = std::max< uint64_t >( trim_ts, record->ts );
             }
         }
     }
 
-    // Scoot to tracestart time if it was set
-    trim_ts = std::max< unsigned long long >( trim_ts, trace_info.min_file_ts + trace_info.m_tracestart );
+    return trim_ts;
+}
 
+static void process_records( StrPool &strpool, trace_info_t &trace_info, std::vector< file_info_t > &file_list,
+        EventCallback &cb, uint64_t trim_ts )
+{
     trace_data_t trace_data( cb, trace_info, strpool );
 
     for ( ;; )
@@ -2078,15 +601,15 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
         file_info_t *last_file_info = NULL;
         pevent_record_t *last_record = NULL;
 
-        for ( file_info_t *file_info : file_list )
+        for ( file_info_t &file_info : file_list )
         {
-            pevent_record_t *record = get_next_record( file_info );
+            pevent_record_t *record = get_next_record( &file_info );
 
             if ( !last_record ||
                  ( record && record->ts < last_record->ts ) )
             {
                 last_record = record;
-                last_file_info = file_info;
+                last_file_info = &file_info;
             }
         }
 
@@ -2111,8 +634,7 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
                     last_record = NULL;
             }
 
-            free_record( last_file_info->handle, last_file_info->record );
-            last_file_info->record = NULL;
+            free_handle_record( last_file_info );
         }
 
         if ( !last_record || ret )
@@ -2121,13 +643,64 @@ int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_inf
 
     if ( trim_ts )
         trace_info.trimmed_ts = trim_ts - trace_info.min_file_ts;
+}
 
-    for ( file_info_t *file_info : file_list )
+int read_trace_file( const char *file, StrPool &strpool, trace_info_t &trace_info, EventCallback &cb )
+{
+    GPUVIS_TRACE_BLOCK( __func__ );
+
+    tracecmd_input_t *handle;
+    std::vector< file_info_t > file_list;
+
+    handle = tracecmd_open( file, TRACECMD_FL_LOAD_NO_PLUGINS | TRACECMD_FL_LOAD_NO_SYSTEM_PLUGINS );
+    if (!handle)
     {
-        tracecmd_close( file_info->handle );
-        free( file_info );
+        logf( "[Error] %s: tracecmd_open %s failed.\n", __func__, file );
+        return -1;
+    }
+
+    add_file( file_list, handle, file );
+
+    /* If this file has buffer instances, get the file_info for them */
+    int instances = tracecmd_buffer_instances(handle);
+    if ( instances )
+    {
+        for ( int i = 0; i < instances; i++)
+        {
+            const char *name = tracecmd_buffer_instance_name(handle, i);
+            struct tracecmd_input *new_handle = tracecmd_buffer_instance_handle(handle, i);
+
+            if ( name && new_handle )
+            {
+                add_file( file_list, new_handle, name );
+            }
+        }
+    }
+
+    trace_info.cpus = tracecmd_cpus(handle);
+    trace_info.file = file_list[0].file;
+    trace_info.uname = cstr_to_string(tracecmd_get_uname(handle));
+    trace_info.opt_version = cstr_to_string(tracecmd_get_version(handle));
+    trace_info.timestamp_in_us = is_timestamp_in_us( tracecmd_get_trace_clock(handle), tracecmd_get_use_trace_clock(handle) );
+
+    parse_cmdlist( strpool, trace_info, file_list );
+
+    set_min_file_ts( trace_info, file_list );
+
+    // Latest ts value where a cpu data starts
+    uint64_t trim_ts = parse_cpu_stats( trace_info, file_list );
+
+    // Scoot to tracestart time if it was set
+    trim_ts = std::max< int64_t >( trim_ts, trace_info.min_file_ts + trace_info.m_tracestart );
+
+    process_records( strpool, trace_info, file_list, cb, trim_ts );
+
+    for ( file_info_t &file_info : file_list )
+    {
+        tracecmd_close( file_info.handle );
     }
     file_list.clear();
 
     return 0;
 }
+

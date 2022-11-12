@@ -1987,7 +1987,7 @@ void TraceEvents::init_sched_switch_event( trace_event_t &event )
 
         // Seems that sched_switch event.pid is equal to the event prev_pid field.
         // We're running with this in several bits of code in gpuvis_graph, so assert it's true.
-        assert( prev_pid == event.pid );
+//$$$$        assert( prev_pid == event.pid );
 
         // Look in the sched_switch next queue for an event that said we were starting up.
         plocs = get_sched_switch_locs( prev_pid, TraceEvents::SCHED_SWITCH_NEXT );

@@ -2,15 +2,9 @@
 _release/*
 _debug/*
 build/*
-traces_x/*
-traces_intel/*
 lib/
+
+tags*
 
 sample/_release/*
 sample/_debug/*
-
-qtcreator/gpuvis.creator.user*
-qtcreator/gpuvis.config
-qtcreator/gpuvis.creator
-qtcreator/gpuvis.files
-qtcreator/gpuvis.includes

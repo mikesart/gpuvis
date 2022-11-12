@@ -73,6 +73,11 @@ LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lstdc++
 CFLAGS += $(shell sdl2-config --cflags)
 LIBS += $(shell sdl2-config --libs)
 
+CFLAGS += $(shell pkg-config --cflags libzstd) -DHAVE_ZSTD
+LIBS += $(shell pkg-config --libs libzstd)
+CFLAGS += $(shell pkg-config --cflags zlib) -DHAVE_ZLIB
+LIBS += $(shell pkg-config --libs zlib)
+
 ifeq ($(USE_GTK3), 1)
 CFLAGS += $(shell pkg-config --cflags gtk+-3.0) -DUSE_GTK3
 endif
@@ -89,7 +94,12 @@ endif
 CFLAGS += $(shell pkg-config --cflags freetype2)
 LIBS += $(shell pkg-config --libs freetype2)
 
-CFLAGS +=  -Isrc/libtraceevent/include
+CFLAGS += \
+	-I./src/libtraceevent/include \
+	-I./src/libtraceevent/src \
+	-I./src/trace-cmd/include \
+	-I./src/trace-cmd/include/trace-cmd \
+	-I./src/libtracefs/include
 
 ifneq ("$(wildcard /usr/bin/ld.gold)","")
   $(info Using gold linker...)
@@ -109,6 +119,7 @@ CFILES = \
 	src/gpuvis_graphrows.cpp \
 	src/gpuvis_ftrace_print.cpp \
 	src/gpuvis_utils.cpp \
+	src/gpuvis_i915_perfcounters.cpp \
 	src/tdopexpr.cpp \
 	src/ya_getopt.c \
 	src/MurmurHash3.cpp \
@@ -118,6 +129,7 @@ CFILES = \
 	src/imgui/imgui.cpp \
 	src/imgui/imgui_demo.cpp \
 	src/imgui/imgui_draw.cpp \
+	src/imgui/imgui_freetype.cpp \
 	src/GL/gl3w.c \
 	src/i915-perf/i915-perf-read.cpp \
 	src/libtraceevent/src/event-parse.c \
@@ -125,10 +137,21 @@ CFILES = \
 	src/libtraceevent/src/event-plugin.c \
 	src/libtraceevent/src/kbuffer-parse.c \
 	src/libtraceevent/src/parse-utils.c \
+	src/libtraceevent/src/parse-filter.c \
 	src/libtraceevent/src/trace-seq.c \
+	src/libtraceevent/src/tep_strerror.c \
+	src/libtracefs/src/tracefs-instance.c \
+	src/libtracefs/src/tracefs-utils.c \
 	src/trace-cmd/trace-read.cpp \
-	src/imgui/imgui_freetype.cpp \
-	src/gpuvis_i915_perfcounters.cpp
+	src/trace-cmd/trace-input.c \
+	src/trace-cmd/trace-hooks.c \
+	src/trace-cmd/trace-output.c \
+	src/trace-cmd/trace-compress.c \
+	src/trace-cmd/trace-msg.c \
+	src/trace-cmd/trace-filter.c \
+	src/trace-cmd/trace-compress-zstd.c \
+	src/trace-cmd/trace-compress-zlib.c \
+	src/trace-cmd/trace-util.c
 
 ifeq ($(PROF), 1)
 	# To profile with google perftools:
@@ -207,6 +230,12 @@ $(ODIR)/src/libtraceevent/src/parse-utils.o: CFLAGS += -Wno-pedantic -Wno-implic
 $(ODIR)/src/libtraceevent/src/event-parse-api.o: CFLAGS += -Wno-pedantic
 $(ODIR)/src/imgui/imgui.o: CXXFLAGS += $(NO_STRINGOP_TRUNCATION)
 $(ODIR)/src/trace-cmd/trace-read.o: CXXFLAGS += $(NO_CLOBBERED)
+$(ODIR)/src/trace-cmd/trace-input.o: CFLAGS += -Wno-pedantic -Wno-pointer-arith -Wno-shadow -Wno-sign-compare
+$(ODIR)/src/trace-cmd/trace-util.o: CFLAGS += -Wno-pedantic -Wno-old-style-declaration -Wno-sign-compare -Wno-suggest-attribute=format -D_GNU_SOURCE
+$(ODIR)/src/trace-cmd/trace-hooks.o: CFLAGS += -Wno-pedantic
+$(ODIR)/src/trace-cmd/trace-output.o: CFLAGS += -Wno-pedantic
+$(ODIR)/src/libtracefs/src/tracefs-instance.o: CFLAGS += -Wno-pedantic
+$(ODIR)/src/libtracefs/src/tracefs-utils.o: CFLAGS += -Wno-pedantic
 
 $(ODIR)/%.o: %.c Makefile
 	$(VERBOSE_PREFIX)echo "---- $< ----";
