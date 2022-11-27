@@ -56,6 +56,10 @@
 
 #include "miniz.h"
 
+#ifdef _MSC_VER
+#undef GetObject
+#endif
+
 #if defined( HAVE_RAPIDJSON )
 #include "rapidjson/document.h"
 #include "rapidjson/filereadstream.h"
