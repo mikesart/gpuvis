@@ -35,7 +35,8 @@ endif
 
 if get_option('use_i915_perf')
   compile_flags += '-DUSE_I915_PERF=1'
-  all_deps += dependency('i915-perf')
+  all_deps += dependency('i915-perf',
+                         version : '>= 1.5.0')
 endif
 
 if get_option('have_rapidjson')

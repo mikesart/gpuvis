@@ -84,7 +84,7 @@ elseif ( UNIX AND NOT APPLE )
 endif()
 
 if ( USE_I915_PERF )
-    pkg_check_modules( I915_PERF REQUIRED i915-perf )
+    pkg_check_modules( I915_PERF REQUIRED i915-perf>=1.5.0)
     ucm_add_flags( -DUSE_I915_PERF )
 endif()
 
