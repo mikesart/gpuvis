@@ -138,7 +138,7 @@ void load_i915_perf_counter_values( struct intel_perf_data_reader *reader,
             ( item->cpu_ts_end - item->cpu_ts_start ) / ( item->ts_end - item->ts_start );
         struct intel_perf_accumulator acc;
 
-        intel_perf_accumulate_reports( &acc, reader->metric_set->perf_oa_format,
+        intel_perf_accumulate_reports( &acc, reader->perf, reader->metric_set,
                                        reader->records[j], reader->records[j + 1] );
 
         float value;

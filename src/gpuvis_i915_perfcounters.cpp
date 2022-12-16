@@ -141,8 +141,9 @@ void I915PerfCounters::set_event( const trace_event_t &event )
         m_trace_events->i915_perf_reader->records[timeline_item->record_end];
 
     struct intel_perf_accumulator accu;
-    intel_perf_accumulate_reports( &accu, metric_set->perf_oa_format,
-                                   record_start, record_end );
+    intel_perf_accumulate_reports( &accu,
+                                   m_trace_events->i915_perf_reader->perf,
+                                   metric_set, record_start, record_end );
 
     m_n_reports = timeline_item->record_end - timeline_item->record_start;
 
