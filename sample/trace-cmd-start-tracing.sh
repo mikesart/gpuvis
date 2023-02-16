@@ -17,6 +17,16 @@ if [ "${USE_I915_PERF}" ]; then
         echo "WARNING: Missing I915_PERF_METRIC value. Using default value 'RenderBasic'."
         I915_PERF_METRIC="RenderBasic"
     fi
+
+    if [ -z "${I915_PERF_ENGINE_CLASS}" ]; then
+        echo "WARNING: Missing I915_PERF_ENGINE_CLASS value. Using default value 0 (Render Class)."
+        I915_PERF_ENGINE_CLASS=0
+    fi
+
+    if [ -z "${I915_PERF_ENGINE_INSTANCE}" ]; then
+        echo "WARNING: Missing I915_PERF_ENGINE_INSTANCE value. Using default instance 0."
+        I915_PERF_ENGINE_INSTANCE=0
+    fi
 fi
 
 EVENTS=
@@ -84,7 +94,7 @@ if [ -e /tmp/.i915-perf-record ]; then
 fi
 
 if [ "${USE_I915_PERF}" ]; then
-    CMD="i915-perf-recorder -m ${I915_PERF_METRIC} -s 8000 -k ${CLOCK}"
+    CMD="i915-perf-recorder -m ${I915_PERF_METRIC} -s 8000 -k ${CLOCK} -e ${I915_PERF_ENGINE_CLASS} -i ${I915_PERF_ENGINE_INSTANCE}"
     echo $CMD
     $CMD &
 fi
