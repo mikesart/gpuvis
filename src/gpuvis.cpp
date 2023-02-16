@@ -2305,7 +2305,7 @@ void TraceEvents::add_i915_perf_frequency( const trace_event_t &event, int64_t t
 
 void TraceEvents::init_i915_perf_event( trace_event_t &event )
 {
-    if ( !event.has_duration() )
+    if ( !event.has_duration() && !m_i915.perf_locs.empty())
         event.id_start = m_i915.perf_locs.back();
     else
     {
