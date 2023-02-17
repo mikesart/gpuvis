@@ -114,10 +114,10 @@ int read_i915_perf_file( const char *file, StrPool &strpool, trace_info_t &trace
 }
 
 #if USE_I915_PERF
-static uint32_t record_timestamp( const struct drm_i915_perf_record_header *record )
+static uint64_t record_timestamp( struct intel_perf_data_reader *reader,
+                                  const struct drm_i915_perf_record_header *record )
 {
-    const uint32_t *data = ( const uint32_t * )( record + 1 );
-    return data[ 1 ];
+    return intel_perf_read_record_timestamp(reader->perf, reader->metric_set, record);
 }
 #endif
 
@@ -134,7 +134,7 @@ void load_i915_perf_counter_values( struct intel_perf_data_reader *reader,
     {
         const struct drm_i915_perf_record_header *record = reader->records[j];
         int64_t ts = item->cpu_ts_start +
-            ( record_timestamp( record ) - record_timestamp( first_record ) ) *
+            ( record_timestamp( reader, record ) - record_timestamp( reader, first_record ) ) *
             ( item->cpu_ts_end - item->cpu_ts_start ) / ( item->ts_end - item->ts_start );
         struct intel_perf_accumulator acc;
 
