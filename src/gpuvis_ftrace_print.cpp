@@ -457,8 +457,8 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
                     event0.color_index = event0.color_index;
 
                 // Erase all knowledge of this ctx so it can be reused
-                m_ftrace.begin_ctx.erase_key( event.seqno );
-                m_ftrace.end_ctx.erase_key( event.seqno );
+                m_ftrace.begin_ctx.erase_key( key );
+                m_ftrace.end_ctx.erase_key( key );
 
                 add_event = &event0;
             }
