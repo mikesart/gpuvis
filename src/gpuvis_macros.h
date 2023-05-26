@@ -104,6 +104,8 @@ char *strtok_r( char *str, const char *delim, char **saveptr );
 
 #if defined( __cplusplus )
 
+#include <cstdint>
+
 template < typename K, typename V >
 class util_umap
 {
