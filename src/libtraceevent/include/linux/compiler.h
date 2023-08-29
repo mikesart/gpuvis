@@ -122,7 +122,7 @@
 # define noinline
 #endif
 
-#if defined(__APPLE__) || defined(_WIN32) /* gpuvis change! */
+#if !defined(__linux__) /* gpuvis change! */
 #include <stdint.h>
 typedef uint8_t __u8;
 typedef uint16_t __u16;
