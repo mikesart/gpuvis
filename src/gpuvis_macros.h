@@ -28,7 +28,7 @@
 #define GPUVIS_TRACE_UTILS_DISABLE
 #include "../sample/gpuvis_trace_utils.h"
 
-#if defined( __APPLE__ )
+#if !defined( __ANDROID__ ) && !defined( __GLIBC__ )
 // https://android.googlesource.com/platform/system/core/+/master/base/include/android-base/macros.h
 #ifndef TEMP_FAILURE_RETRY
 #define TEMP_FAILURE_RETRY(exp)            \
