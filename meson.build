@@ -3,6 +3,7 @@ project('gpuvis', 'c', 'cpp',
         default_options : [
           'warning_level=2',
           'c_std=gnu99',
+          'cpp_std=c++11',
           'default_library=static',
         ],
         license : 'MIT',
