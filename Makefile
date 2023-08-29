@@ -68,13 +68,14 @@ CFLAGS = $(WARNINGS) -fno-exceptions -gdwarf-4 -g2 -ggnu-pubnames -gsplit-dwarf
 CFLAGS += -DUSE_FREETYPE
 CXXFLAGS = -fno-rtti -Woverloaded-virtual $(CXXWARNINGS)
 LDFLAGS = -gdwarf-4 -g2 -Wl,--build-id=sha1
-LIBS = -Wl,--no-as-needed -lm -ldl -lpthread -lstdc++
+LIBS = -Wl,--no-as-needed -lm -lpthread -lstdc++
 
 CFLAGS += $(shell sdl2-config --cflags)
 LIBS += $(shell sdl2-config --libs)
 
 ifeq (, $(filter-out Linux SunOS,$(shell uname -s)))
 CFLAGS += -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
+LIBS += -ldl
 endif
 
 ifeq ($(USE_GTK3), 1)
