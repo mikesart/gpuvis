@@ -84,7 +84,7 @@ elseif ( UNIX AND NOT APPLE )
 
     set( GTK3_LIBRARIES "" )
 
-    LINK_LIBRARIES( dl )
+    LINK_LIBRARIES( ${CMAKE_DL_LIBS} )
 endif()
 
 if ( USE_I915_PERF )

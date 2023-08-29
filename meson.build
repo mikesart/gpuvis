@@ -22,7 +22,7 @@ c = meson.get_compiler('c')
 cc = meson.get_compiler('cpp')
 
 all_deps = [
-  cc.find_library('dl'),
+  cc.find_library('dl', required: false),
   dependency('sdl2'),
 ]
 compile_flags = [
