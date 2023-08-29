@@ -18,10 +18,13 @@ ifneq ($(COMPILER),clang)
 endif
 
 CFLAGS = $(WARNINGS) -march=native -fno-exceptions -gdwarf-4 -g2
-CFLAGS += -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
 CXXFLAGS = -fno-rtti -Woverloaded-virtual
 LDFLAGS = -march=native -gdwarf-4 -g2 -Wl,--build-id=sha1
 LIBS = -Wl,--no-as-needed -lGL -lX11 -lm -ldl -lpthread -lstdc++
+
+ifeq (, $(filter-out Linux SunOS,$(shell uname -s)))
+CFLAGS += -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64
+endif
 
 CFILES = \
 	glxgears.c
