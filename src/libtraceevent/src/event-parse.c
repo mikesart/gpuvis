@@ -24,6 +24,7 @@
 extern char *strtok_r(char *str, const char *delim, char **saveptr);
 #else
 #include <netinet/in.h>
+#include <sys/socket.h> /* gpuvis change! */
 #ifdef __APPLE__ /* gpuvis change! */
 #define s6_addr16 __u6_addr.__u6_addr16
 #define s6_addr32 __u6_addr.__u6_addr32
