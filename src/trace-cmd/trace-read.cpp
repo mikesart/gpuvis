@@ -50,7 +50,7 @@
 #include <sys/param.h>
 #include <unistd.h>
 
-#ifdef __APPLE__
+#if !defined(__linux__) && !defined(__sun)
 #define lseek64 lseek
 #define off64_t off_t
 #endif
