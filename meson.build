@@ -12,6 +12,11 @@ add_project_arguments(['-Wno-unused-parameter',
                        '-Wno-sign-compare'],
                       language: ['cpp'])
 
+if ['linux', 'sunos'].contains(host_machine.system())
+  add_project_arguments(['-D_LARGEFILE64_SOURCE=1', '-D_FILE_OFFSET_BITS=64'],
+                        language: ['c', 'cpp'])
+endif
+
 c = meson.get_compiler('c')
 cc = meson.get_compiler('cpp')
 
