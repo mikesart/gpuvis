@@ -77,7 +77,11 @@ elseif ( UNIX AND NOT APPLE )
     find_package( PkgConfig REQUIRED )
     pkg_check_modules( GTK3 REQUIRED gtk+-3.0 )
 
-    ucm_add_flags( -DUSE_GTK3 -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64 )
+    ucm_add_flags( -DUSE_GTK3 )
+    if(CMAKE_SYSTEM_NAME MATCHES "Linux|SunOS" OR MINGW)
+        ucm_add_flags( -D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64 )
+    endif()
+
     set( GTK3_LIBRARIES "" )
 
     LINK_LIBRARIES( dl )
