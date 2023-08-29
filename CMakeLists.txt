@@ -60,7 +60,7 @@ ucm_set_runtime( STATIC )
 ucm_add_flags( -O0 -DDEBUG CONFIG Debug )
 ucm_add_flags( -O2 -DNDEBUG CONFIG Release )
 
-if ( CMAKE_COMPILER_IS_GNUCC OR APPLE )
+if ( CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang" )
     ucm_add_flags( CXX -std=c++11 )
 endif()
 
