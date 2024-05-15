@@ -642,7 +642,13 @@ bool MainApp::load_file( const char *filename, bool last )
     }
     else if ( ext && ( !strcmp( ext, ".i915-dat" ) || !strcmp( ext, ".i915-trace" ) ) )
     {
+        m_trace_win->m_trace_events.m_i915.is_xe = false;
         m_trace_type = trace_type_i915_perf_trace;
+    }
+    else if ( ext && ( !strcmp( ext, ".xe-dat" ) || !strcmp( ext, ".xe-trace" ) ) )
+    {
+        m_trace_win->m_trace_events.m_i915.is_xe = true;
+        m_trace_type = trace_type_xe_perf_trace;
     }
 #if defined( HAVE_RAPIDJSON )
     else if ( ext && !strcmp( ext, ".json" ) )
@@ -775,6 +781,20 @@ int MainApp::load_etl_file( loading_info_t *loading_info, TraceEvents &trace_eve
 {
     return read_etl_file( loading_info->filename.c_str(), trace_events.m_strpool,
         trace_events.m_trace_info, trace_cb );
+}
+
+int MainApp::load_xe_perf_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb )
+{
+    int ret = read_xe_perf_file( loading_info->filename.c_str(), trace_events.m_strpool,
+        trace_events.m_trace_info, &trace_events.xe_perf_reader, trace_cb );
+
+    if ( ret == 0 )
+    {
+        trace_events.m_i915.freq_plot.init_empty( "xe-perf-freq" );
+        trace_events.m_i915.xe_frequency_counter = get_xe_perf_frequency_counter( trace_events.xe_perf_reader );
+    }
+
+    return ret;
 }
 
 int MainApp::load_i915_perf_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb )
@@ -924,6 +944,9 @@ int SDLCALL MainApp::thread_func( void *data )
             break;
         case trace_type_etl:
             ret = load_etl_file( loading_info, trace_events, trace_cb );
+            break;
+        case trace_type_xe_perf_trace:
+            ret = load_xe_perf_file( loading_info, trace_events, trace_cb );
             break;
         case trace_type_i915_perf_trace:
             ret = load_i915_perf_file( loading_info, trace_events, trace_cb );
@@ -2353,7 +2376,10 @@ void TraceEvents::init_i915_perf_event( trace_event_t &event )
 
         // Load the GPU frequency data assocated with this event.
         I915CounterCallback counter_cb = std::bind( &TraceEvents::add_i915_perf_frequency, this, _1, _2, _3 );
-        load_i915_perf_counter_values( i915_perf_reader, m_i915.frequency_counter, event, counter_cb );
+        if ( m_i915.is_xe )
+            load_xe_perf_counter_values( xe_perf_reader, m_i915.xe_frequency_counter, event, counter_cb );
+        else
+            load_i915_perf_counter_values( i915_perf_reader, m_i915.frequency_counter, event, counter_cb );
     }
 
     m_i915.perf_locs.push_back( event.id );
@@ -3158,12 +3184,12 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
         type = LOC_TYPE_i915Request;
         plocs = m_i915.req_locs.get_locations_str( name );
     }
-    else if ( !strcmp( name, "i915-perf" ) )
+    else if ( !strcmp( name, "i915-perf" ) || !strcmp( name, "xe-perf" ) )
     {
         type = LOC_TYPE_i915Perf;
         plocs = &m_i915.perf_locs;
     }
-    else if ( !strcmp( name, "i915-perf-freq" ) )
+    else if ( !strcmp( name, "i915-perf-freq" ) || !strcmp( name, "xe-perf-freq" ) )
     {
         type = LOC_TYPE_i915PerfFreq;
         plocs = &m_i915.perf_locs;
@@ -3399,7 +3425,10 @@ void TraceWin::render()
                 m_eventlist.goto_eventid = ts_to_eventid( m_graph.start_ts + m_graph.length_ts / 2 );
 
                 // Initialize the i915 counters view.
-                m_i915_perf.counters.init( m_trace_events );
+                if ( m_trace_events.m_i915.is_xe )
+                    m_i915_perf.counters.init_xe( m_trace_events );
+                else
+                    m_i915_perf.counters.init( m_trace_events );
             }
 
             if ( !s_opts().getb( OPT_ShowEventList ) ||
@@ -3694,6 +3723,11 @@ void TraceWin::trace_render_info()
          ImGui::CollapsingHeader( "i915-perf info" ) )
     {
         m_i915_perf.counters.show_record_info( m_trace_events );
+    }
+    else if ( m_trace_events.xe_perf_reader &&
+         ImGui::CollapsingHeader( "xe-perf info" ) )
+    {
+        m_i915_perf.counters.show_record_info_xe( m_trace_events );
     }
 }
 

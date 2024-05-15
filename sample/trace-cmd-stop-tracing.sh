@@ -14,5 +14,11 @@ if [ "${USE_I915_PERF} " ]; then
     $CMD
 fi
 
+if [ "${USE_XE_PERF} " ]; then
+    CMD="xe-perf-control -q"
+    echo $CMD
+    $CMD
+fi
+
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 ${SCRIPT_DIR}/trace-cmd-status.sh

@@ -43,6 +43,8 @@
 #ifdef USE_I915_PERF
 #include <perf.h>
 #include <perf_data_reader.h>
+#include <xe_oa.h>
+#include <xe_oa_data_reader.h>
 #endif
 
 #include "../gpuvis_macros.h"
@@ -50,6 +52,64 @@
 #include "i915-perf-read.h"
 
 void logf( const char *fmt, ... ) ATTRIBUTE_PRINTF( 1, 2 );
+
+// xe functions are identical to i915 functions, except for use of
+// xe library data structs, #define's and function calls
+int read_xe_perf_file( const char *file, StrPool &strpool, trace_info_t &trace_info, struct intel_xe_perf_data_reader **out_reader, EventCallback &cb )
+{
+    GPUVIS_TRACE_BLOCK( __func__ );
+
+#ifdef USE_I915_PERF
+    int fd = open( file, O_RDONLY );
+    if ( fd < 0 )
+    {
+        logf( "[Error] %s: opening xe-perf file failed: %s.\n", __func__, strerror( errno ) );
+        return -1;
+    }
+
+    *out_reader = new intel_xe_perf_data_reader;
+    struct intel_xe_perf_data_reader *reader = *out_reader;
+
+    if ( !intel_xe_perf_data_reader_init( reader, fd ) )
+    {
+        logf( "[Error] %s: initializing xe-perf reader failed: %s.\n", __func__, reader->error_msg );
+        return -1;
+    }
+
+    trace_info.file = std::string(file);
+
+    for (uint32_t i = 0; i < reader->n_timelines; i++)
+    {
+        trace_event_t event;
+
+        if ( reader->timelines[i].cpu_ts_start < trace_info.min_file_ts )
+            continue;
+
+        event.flags = TRACE_FLAG_I915_PERF;
+        event.pid = reader->timelines[i].hw_id;
+        event.cpu = 0;
+        event.comm = strpool.getstr( "xe-perf" );
+        event.system = strpool.getstr( "xe-perf" );
+        event.user_comm = strpool.getstrf( "[xe-perf hw_id=0x%x]", reader->timelines[i].hw_id );
+
+        event.name = strpool.getstr( "xe-perf-begin" );
+        event.ts = reader->timelines[i].cpu_ts_start;
+        event.duration = reader->timelines[i].cpu_ts_end - reader->timelines[i].cpu_ts_start;
+
+        event.i915_perf_timeline = i;
+
+        cb( event );
+
+        event.name = strpool.getstr( "xe-perf-end" );
+        event.ts = reader->timelines[i].cpu_ts_end - 1;
+        event.duration = INT64_MAX;
+
+        cb( event );
+    }
+#endif
+
+    return 0;
+}
 
 int read_i915_perf_file( const char *file, StrPool &strpool, trace_info_t &trace_info, struct intel_perf_data_reader **out_reader, EventCallback &cb )
 {
@@ -114,12 +174,54 @@ int read_i915_perf_file( const char *file, StrPool &strpool, trace_info_t &trace
 }
 
 #if USE_I915_PERF
+static uint64_t record_xe_timestamp( struct intel_xe_perf_data_reader *reader,
+				     const struct intel_xe_perf_record_header *record )
+{
+    return intel_xe_perf_read_record_timestamp(reader->perf, reader->metric_set, record);
+}
+
 static uint64_t record_timestamp( struct intel_perf_data_reader *reader,
                                   const struct drm_i915_perf_record_header *record )
 {
     return intel_perf_read_record_timestamp(reader->perf, reader->metric_set, record);
 }
 #endif
+
+void load_xe_perf_counter_values( struct intel_xe_perf_data_reader *reader,
+				  struct intel_xe_perf_logical_counter *counter,
+				  const trace_event_t &event, I915CounterCallback &cb )
+{
+#if USE_I915_PERF
+    assert( event.i915_perf_timeline < reader->n_timelines );
+
+    const struct intel_xe_perf_timeline_item *item = &reader->timelines[ event.i915_perf_timeline ];
+    const struct intel_xe_perf_record_header *first_record = reader->records[ item->record_start ];
+    for ( uint32_t j = item->record_start; j < item->record_end; j++ )
+    {
+        const struct intel_xe_perf_record_header *record = reader->records[j];
+        int64_t ts = item->cpu_ts_start +
+            ( record_xe_timestamp( reader, record ) - record_xe_timestamp( reader, first_record ) ) *
+            ( item->cpu_ts_end - item->cpu_ts_start ) / ( item->ts_end - item->ts_start );
+        struct intel_xe_perf_accumulator acc;
+
+        intel_xe_perf_accumulate_reports( &acc, reader->perf, reader->metric_set,
+					  reader->records[j], reader->records[j + 1] );
+
+        float value;
+        if ( counter->storage == INTEL_XE_PERF_LOGICAL_COUNTER_STORAGE_DOUBLE ||
+             counter->storage == INTEL_XE_PERF_LOGICAL_COUNTER_STORAGE_FLOAT )
+        {
+            value = counter->read_float( reader->perf, reader->metric_set, acc.deltas );
+        }
+        else
+        {
+            value = counter->read_uint64( reader->perf, reader->metric_set, acc.deltas );
+        }
+
+        cb( event, ts, value / 1000000.0 ); // Report the frequency in MHz, not Hz
+    }
+#endif
+}
 
 void load_i915_perf_counter_values( struct intel_perf_data_reader *reader,
                                     struct intel_perf_logical_counter *counter,
@@ -154,6 +256,27 @@ void load_i915_perf_counter_values( struct intel_perf_data_reader *reader,
 
         cb( event, ts, value / 1000000.0 ); // Report the frequency in MHz, not Hz
     }
+#endif
+}
+
+struct intel_xe_perf_logical_counter *get_xe_perf_frequency_counter( struct intel_xe_perf_data_reader *reader )
+{
+#if USE_I915_PERF
+    struct intel_xe_perf_metric_set *metric_set = reader->metric_set;
+
+    for ( uint32_t i = 0; i < metric_set->n_counters; i++ )
+    {
+        struct intel_xe_perf_logical_counter *counter = &metric_set->counters[ i ];
+
+        if ( strcmp( counter->symbol_name, "AvgGpuCoreFrequency" ) == 0 )
+        {
+            return counter;
+        }
+    }
+
+    return NULL;
+#else
+    return NULL;
 #endif
 }
 

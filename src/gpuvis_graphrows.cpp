@@ -460,8 +460,16 @@ void GraphRows::init( TraceEvents &trace_events )
     {
         if ( !trace_events.m_i915.perf_locs.empty() )
         {
-            push_row( "i915-perf", LOC_TYPE_i915Perf, trace_events.m_i915.perf_locs.size() );
-            push_row( "i915-perf-freq", LOC_TYPE_i915Perf, trace_events.m_i915.perf_locs.size() );
+            if ( trace_events.m_i915.is_xe )
+            {
+                push_row( "xe-perf", LOC_TYPE_i915Perf, trace_events.m_i915.perf_locs.size() );
+                push_row( "xe-perf-freq", LOC_TYPE_i915Perf, trace_events.m_i915.perf_locs.size() );
+            }
+            else
+            {
+                push_row( "i915-perf", LOC_TYPE_i915Perf, trace_events.m_i915.perf_locs.size() );
+                push_row( "i915-perf-freq", LOC_TYPE_i915Perf, trace_events.m_i915.perf_locs.size() );
+            }
         }
 
         for ( auto &req_locs : trace_events.m_i915.req_locs.m_locs.m_map )

@@ -25,6 +25,8 @@
 extern "C" {
     struct intel_perf_data_reader;
     struct intel_perf_logical_counter;
+    struct intel_xe_perf_data_reader;
+    struct intel_xe_perf_logical_counter;
 }
 
 // Opts singleton
@@ -554,6 +556,13 @@ public:
 
         // Frequency counter, filled right after parsing the i915-perf data.
         struct intel_perf_logical_counter *frequency_counter = NULL;
+        struct intel_xe_perf_logical_counter *xe_frequency_counter = NULL;
+
+        // True when the trace is obtained from Intel Xe KMD rather than i915 KMD
+        // Used primarily to decide between calling into Xe or i915 intel igt
+        // perf libraries. Code paths for Xe remain the same as those for i915
+        bool is_xe;
+
         // Plot generated after i915-perf data is parsed with the frequency
         // counter values.
         GraphPlot freq_plot;
@@ -616,6 +625,7 @@ public:
     SDL_atomic_t m_eventsloaded = { 1 };
 
     struct intel_perf_data_reader *i915_perf_reader = NULL;
+    struct intel_xe_perf_data_reader *xe_perf_reader = NULL;
 
     struct {
         // set of rings discovered during event parsing
@@ -720,13 +730,16 @@ public:
     ~I915PerfCounters() {}
 
     void init( TraceEvents &trace_events );
+    void init_xe( TraceEvents &trace_events );
     void shutdown();
 
     void set_event( const trace_event_t &event );
+    void set_event_xe( const trace_event_t &event );
 
     void render();
 
     void show_record_info( TraceEvents &trace_events );
+    void show_record_info_xe( TraceEvents &trace_events );
 
     /* Associated process to a given i915-perf event. */
     struct i915_perf_process {
@@ -1216,6 +1229,7 @@ public:
     static int load_trace_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb );
     static int load_etl_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb );
     static int load_i915_perf_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb );
+    static int load_xe_perf_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb );
 #if defined( HAVE_RAPIDJSON )
     static int load_perf_file( loading_info_t *loading_info, TraceEvents &trace_events, EventCallback trace_cb );
 #endif
@@ -1230,6 +1244,7 @@ public:
 #if defined( HAVE_RAPIDJSON )
         trace_type_perf,
 #endif
+        trace_type_xe_perf_trace,
     };
 
     struct loading_info_t
