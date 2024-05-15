@@ -25,6 +25,11 @@ CMD="i915-perf-control -d trace_${DATE}.i915-dat"
 echo ${CMD}
 $CMD
 
+# Extract xe-perf trace
+CMD="xe-perf-control -d trace_${DATE}.xe-dat"
+echo ${CMD}
+$CMD
+
 # Extract trace
 CMD="trace-cmd extract -k -o trace_${DATE}.dat"
 echo ${CMD}

@@ -2619,7 +2619,10 @@ uint32_t TraceWin::graph_render_i915_perf_events( graph_info_t &gi )
 
                 gi.i915_perf_bars.push_back( event.id );
 
-                m_i915_perf.counters.set_event( event );
+                if ( m_trace_events.m_i915.is_xe )
+                    m_i915_perf.counters.set_event_xe( event );
+                else
+                    m_i915_perf.counters.set_event( event );
             }
         }
     }

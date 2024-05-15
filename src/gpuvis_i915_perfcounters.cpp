@@ -45,6 +45,54 @@
 
 #include <perf.h>
 #include <perf_data_reader.h>
+#include <xe_oa.h>
+#include <xe_oa_data_reader.h>
+
+static void
+pretty_print_value_xe(intel_xe_perf_logical_counter_unit_t unit,
+                      double value,
+                      char *buffer, size_t length)
+{
+    static const char *times[] = { "ns", "us", "ms", "s" };
+    static const char *bytes[] = { "B", "KiB", "MiB", "GiB" };
+    static const char *freqs[] = { "Hz", "KHz", "MHz", "GHz" };
+    static const char *texels[] = { "texels", "K texels", "M texels", "G texels" };
+    static const char *pixels[] = { "pixels", "K pixels", "M pixels", "G pixels" };
+    static const char *cycles[] = { "cycles", "K cycles", "M cycles", "G cycles" };
+    static const char *threads[] = { "threads", "K threads", "M threads", "G threads" };
+    const char **scales = NULL;
+
+    switch (unit) {
+    case INTEL_XE_PERF_LOGICAL_COUNTER_UNIT_BYTES:   scales = bytes; break;
+    case INTEL_XE_PERF_LOGICAL_COUNTER_UNIT_HZ:      scales = freqs; break;
+    case INTEL_XE_PERF_LOGICAL_COUNTER_UNIT_NS:
+    case INTEL_XE_PERF_LOGICAL_COUNTER_UNIT_US:      scales = times; break;
+    case INTEL_XE_PERF_LOGICAL_COUNTER_UNIT_PIXELS:  scales = pixels; break;
+    case INTEL_XE_PERF_LOGICAL_COUNTER_UNIT_TEXELS:  scales = texels; break;
+    case INTEL_XE_PERF_LOGICAL_COUNTER_UNIT_THREADS: scales = threads; break;
+    case INTEL_XE_PERF_LOGICAL_COUNTER_UNIT_CYCLES:  scales = cycles; break;
+    default: break;
+    }
+
+    if (scales) {
+        const double base = unit == INTEL_XE_PERF_LOGICAL_COUNTER_UNIT_BYTES ? 1024 : 1000;
+
+        if (unit == INTEL_XE_PERF_LOGICAL_COUNTER_UNIT_US)
+            value *= 1000;
+
+        int i = 0;
+        while (value >= base && i < 3) {
+            value /= base;
+            i++;
+        }
+        snprintf(buffer, length, "%.4g %s", value, scales ? scales[i] : "");
+    } else {
+        if (unit == INTEL_XE_PERF_LOGICAL_COUNTER_UNIT_PERCENT)
+            snprintf(buffer, length, "%.3g %%", value);
+        else
+            snprintf(buffer, length, "%.2f", value);
+    }
+}
 
 static void
 pretty_print_value(intel_perf_logical_counter_unit_t unit,
@@ -92,6 +140,36 @@ pretty_print_value(intel_perf_logical_counter_unit_t unit,
     }
 }
 
+void I915PerfCounters::init_xe( TraceEvents &trace_events )
+{
+    m_trace_events = &trace_events;
+
+    m_counters.clear();
+
+    if (!m_trace_events->xe_perf_reader)
+        return;
+
+    const struct intel_xe_perf_metric_set *metric_set =
+        m_trace_events->xe_perf_reader->metric_set;
+
+    for ( uint32_t c = 0; c < metric_set->n_counters; c++ )
+    {
+        struct intel_xe_perf_logical_counter *counter = &metric_set->counters[c];
+
+        i915_perf_counter_t dcounter;
+
+        dcounter.name = std::string(counter->name);
+        dcounter.desc = std::string(counter->desc);
+        dcounter.type =
+            (counter->storage == INTEL_XE_PERF_LOGICAL_COUNTER_STORAGE_FLOAT ||
+             counter->storage == INTEL_XE_PERF_LOGICAL_COUNTER_STORAGE_DOUBLE) ?
+            i915_perf_counter_t::type::FLOAT :
+            i915_perf_counter_t::type::INTEGER;
+
+        m_counters.push_back(dcounter);
+    }
+}
+
 void I915PerfCounters::init( TraceEvents &trace_events )
 {
     m_trace_events = &trace_events;
@@ -119,6 +197,71 @@ void I915PerfCounters::init( TraceEvents &trace_events )
             i915_perf_counter_t::type::INTEGER;
 
         m_counters.push_back(dcounter);
+    }
+}
+
+void I915PerfCounters::set_event_xe( const trace_event_t &event )
+{
+    if ( m_event_id == event.id || event.id == INVALID_ID )
+        return;
+
+    m_event_id = event.id;
+
+    assert( event.i915_perf_timeline != INVALID_ID );
+
+    const struct intel_xe_perf_metric_set *metric_set =
+        m_trace_events->xe_perf_reader->metric_set;
+    const struct intel_xe_perf_timeline_item *timeline_item =
+        &m_trace_events->xe_perf_reader->timelines[event.i915_perf_timeline];
+    const struct intel_xe_perf_record_header *record_start =
+        m_trace_events->xe_perf_reader->records[timeline_item->record_start];
+    const struct intel_xe_perf_record_header *record_end =
+        m_trace_events->xe_perf_reader->records[timeline_item->record_end];
+
+    struct intel_xe_perf_accumulator accu;
+    intel_xe_perf_accumulate_reports( &accu,
+                                      m_trace_events->xe_perf_reader->perf,
+                                      metric_set, record_start, record_end );
+
+    m_n_reports = timeline_item->record_end - timeline_item->record_start;
+
+    for ( uint32_t c = 0; c < metric_set->n_counters; c++ )
+    {
+        struct intel_xe_perf_logical_counter *counter = &metric_set->counters[c];
+        struct i915_perf_counter_t &dcounter = m_counters[c];
+
+        if ( m_counters[c].type == i915_perf_counter_t::type::FLOAT )
+        {
+            dcounter.value.f = counter->read_float( m_trace_events->xe_perf_reader->perf,
+                                                    metric_set, accu.deltas );
+            if ( counter->max_float )
+            {
+                dcounter.max_value.f = counter->max_float( m_trace_events->xe_perf_reader->perf,
+                                                           metric_set, accu.deltas );
+            }
+            else
+            {
+                dcounter.max_value.f = 0.0f;
+            }
+            pretty_print_value_xe( counter->unit, dcounter.value.f,
+                                   dcounter.pretty_value, sizeof(dcounter.pretty_value) );
+        }
+        else
+        {
+            dcounter.value.u = counter->read_uint64( m_trace_events->xe_perf_reader->perf,
+                                                     metric_set, accu.deltas );
+            if ( counter->max_uint64 )
+            {
+                dcounter.max_value.u = counter->max_uint64( m_trace_events->xe_perf_reader->perf,
+                                                            metric_set, accu.deltas );
+            }
+            else
+            {
+                dcounter.max_value.u = 0;
+            }
+            pretty_print_value_xe( counter->unit, dcounter.value.u,
+                                   dcounter.pretty_value, sizeof(dcounter.pretty_value) );
+        }
     }
 }
 
@@ -279,6 +422,53 @@ void I915PerfCounters::render()
     ImGui::EndChild();
 }
 
+void I915PerfCounters::show_record_info_xe( TraceEvents &trace_events )
+{
+    ImGui::Columns( 2, "##xe-record" );
+
+
+    ImGui::Text( "Number of GPU generated records");
+    ImGui::NextColumn();
+    ImGui::Text( "%u", trace_events.xe_perf_reader->n_records );
+    ImGui::NextColumn();
+    ImGui::Text( "Number of GPU timeline items");
+    ImGui::NextColumn();
+    ImGui::Text( "%u", trace_events.xe_perf_reader->n_timelines );
+    ImGui::NextColumn();
+    ImGui::Text( "Number of CPU/GPU correlation timestamp points" );
+    ImGui::NextColumn();
+    ImGui::Text( "%u", trace_events.xe_perf_reader->n_correlations );
+    ImGui::NextColumn();
+    ImGui::Text( "Metric set name" );
+    ImGui::NextColumn();
+    ImGui::Text( "%s", trace_events.xe_perf_reader->metric_set_name );
+    ImGui::NextColumn();
+    ImGui::Text( "Metric set uuid" );
+    ImGui::NextColumn();
+    ImGui::Text( "%s", trace_events.xe_perf_reader->metric_set_uuid );
+    ImGui::NextColumn();
+
+    const struct intel_xe_perf *perf = trace_events.xe_perf_reader->perf;
+    if ( strlen( perf->devinfo.devname ) )
+    {
+        ImGui::Text( "Device name" );
+        ImGui::NextColumn();
+        ImGui::Text( "%s", perf->devinfo.devname );
+        ImGui::NextColumn();
+    }
+    if ( strlen( perf->devinfo.prettyname ) )
+    {
+        ImGui::Text( "Device pretty name" );
+        ImGui::NextColumn();
+        ImGui::Text( "%s", perf->devinfo.prettyname );
+        ImGui::NextColumn();
+    }
+    ImGui::Text( "Device execution units" );
+    ImGui::NextColumn();
+    ImGui::Text( "%lu", perf->devinfo.n_eus );
+    ImGui::EndColumns();
+}
+
 void I915PerfCounters::show_record_info( TraceEvents &trace_events )
 {
     ImGui::Columns( 2, "##i915-record" );
@@ -328,7 +518,15 @@ void I915PerfCounters::show_record_info( TraceEvents &trace_events )
 
 #else
 
+void I915PerfCounters::init_xe( TraceEvents &trace_events )
+{
+}
+
 void I915PerfCounters::init( TraceEvents &trace_events )
+{
+}
+
+void I915PerfCounters::set_event_xe( const trace_event_t &event )
 {
 }
 
@@ -345,6 +543,10 @@ I915PerfCounters::get_process( const trace_event_t &i915_perf_event )
 }
 
 void I915PerfCounters::render()
+{
+}
+
+void I915PerfCounters::show_record_info_xe( TraceEvents &trace_events )
 {
 }
 

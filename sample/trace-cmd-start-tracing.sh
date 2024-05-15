@@ -29,6 +29,23 @@ if [ "${USE_I915_PERF}" ]; then
     fi
 fi
 
+if [ "${USE_XE_PERF}" ]; then
+    if [ -z "${XE_PERF_METRIC}" ]; then
+        echo "WARNING: Missing XE_PERF_METRIC value. Using default value 'RenderBasic'."
+        XE_PERF_METRIC="RenderBasic"
+    fi
+
+    if [ -z "${XE_PERF_ENGINE_CLASS}" ]; then
+        echo "WARNING: Missing XE_PERF_ENGINE_CLASS value. Using default value 0 (Render Class)."
+        XE_PERF_ENGINE_CLASS=0
+    fi
+
+    if [ -z "${XE_PERF_ENGINE_INSTANCE}" ]; then
+        echo "WARNING: Missing XE_PERF_ENGINE_INSTANCE value. Using default instance 0."
+        XE_PERF_ENGINE_INSTANCE=0
+    fi
+fi
+
 EVENTS=
 
 # https://github.com/mikesart/gpuvis/wiki/TechDocs-Linux-Scheduler
@@ -93,8 +110,20 @@ if [ -e /tmp/.i915-perf-record ]; then
    $CMD
 fi
 
+if [ -e /tmp/.xe-perf-record ]; then
+   CMD="xe-perf-control -q"
+   echo $CMD
+   $CMD
+fi
+
 if [ "${USE_I915_PERF}" ]; then
     CMD="i915-perf-recorder -m ${I915_PERF_METRIC} -s 8000 -k ${CLOCK} -e ${I915_PERF_ENGINE_CLASS} -i ${I915_PERF_ENGINE_INSTANCE}"
+    echo $CMD
+    $CMD &
+fi
+
+if [ "${USE_XE_PERF}" ]; then
+    CMD="xe-perf-recorder -m ${XE_PERF_METRIC} -s 8000 -k ${CLOCK} -e ${XE_PERF_ENGINE_CLASS} -i ${XE_PERF_ENGINE_INSTANCE}"
     echo $CMD
     $CMD &
 fi
