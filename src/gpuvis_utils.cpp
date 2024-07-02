@@ -206,15 +206,18 @@ std::string ts_to_timestr( int64_t event_ts, int precision, const char *suffix )
     return string_format( "%.*lf%s", precision, val, suffix ? suffix : " ms" );
 }
 
-std::string string_formatv( const char *fmt, va_list ap )
+std::string string_format( const char *fmt, ... )
 {
+    va_list ap;
     std::string str;
     int size = 512;
 
     for ( ;; )
     {
         str.resize( size );
+        va_start( ap, fmt );
         int n = vsnprintf( ( char * )str.c_str(), size, fmt, ap );
+        va_end( ap );
 
         if ( ( n > -1 ) && ( n < size ) )
         {
@@ -224,16 +227,6 @@ std::string string_formatv( const char *fmt, va_list ap )
 
         size = ( n > -1 ) ? ( n + 1 ) : ( size * 2 );
     }
-}
-
-std::string string_format( const char *fmt, ... )
-{
-    va_list ap;
-    std::string str;
-
-    va_start( ap, fmt );
-    str = string_formatv( fmt, ap );
-    va_end( ap );
 
     return str;
 }
