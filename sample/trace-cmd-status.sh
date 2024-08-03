@@ -42,13 +42,13 @@ done
 
 awk 'BEGIN { time = 0; entries = 0; overrun = 0 }
     {
-       if ( $0 ~ /^entries\:/ )
+       if ( $0 ~ '/^entries\:/' )
            entries = $2
-       if ( $0 ~ /^overrun\:/ )
+       if ( $0 ~ '/^overrun\:/' )
            overrun = $2
-       if ( $0 ~ /^oldest event ts\:/ )
+       if ( $0 ~ '/^oldest\ event\ ts\:/' )
            time = (float)$4
-       if ( $0 ~ /^now ts\:/ ) {
+       if ( $0 ~ '/^now\ ts\:/' ) {
            time = (float)$3 - time
            if ( entries == 0 )
                printf "%s entries:%u\n", FILENAME, entries
