@@ -1677,6 +1677,8 @@ static void init_event_flags( trace_data_t &trace_data, trace_event_t &event )
         event.flags |= TRACE_FLAG_FENCE_SIGNALED;
     else if ( strstr( event.name, "amdgpu_cs_ioctl" ) )
         event.flags |= TRACE_FLAG_SW_QUEUE;
+    else if ( strstr( event.name, "msm_gpu_submit" ) )
+        event.flags |= TRACE_FLAG_SW_QUEUE;
     else if ( strstr( event.name, "amdgpu_sched_run_job" ) )
         event.flags |= TRACE_FLAG_HW_QUEUE;
 }
