@@ -737,7 +737,8 @@ static void add_sched_switch_pid_comm( trace_info_t &trace_info, const trace_eve
 
 static bool is_msm_timeline_event( const char *name )
 {
-    return ( !strcmp( name, "msm_gpu_submit_flush" ) ||
+    return ( !strcmp( name, "msm_gpu_submit" ) ||
+            !strcmp( name, "msm_gpu_submit_flush" ) ||
             !strcmp( name, "msm_gpu_submit_retired" ) );
 }
 
@@ -1960,7 +1961,7 @@ uint64_t TraceEvents::get_event_gfxcontext_hash( const trace_event_t &event )
 {
     if ( is_msm_timeline_event( event.name ) )
     {
-        return atoi( get_event_field_val( event, "seqno", "0" ) );
+        return atoi( get_event_field_val( event, "id", "0" ) );
     }
 
     if ( is_drm_sched_timeline_event( event ) )
@@ -2142,9 +2143,9 @@ void TraceEvents::init_msm_timeline_event( trace_event_t &event )
 
     m_gfxcontext_locs.add_location_u64( gfxcontext_hash, event.id );
 
-    event.flags |= TRACE_FLAG_TIMELINE;
+    const std::vector< uint32_t > *plocs = m_gfxcontext_locs.get_locations_u64( gfxcontext_hash );
 
-    event.id_start = INVALID_ID;
+    event.flags |= TRACE_FLAG_TIMELINE;
 
     if ( !strcmp( event.name, "msm_gpu_submit_retired" ) )
     {
@@ -2155,17 +2156,18 @@ void TraceEvents::init_msm_timeline_event( trace_event_t &event )
         event.flags |= TRACE_FLAG_HW_QUEUE;
     }
 
-    const std::vector< uint32_t > *plocs = m_gfxcontext_locs.get_locations_u64( gfxcontext_hash );
     if ( plocs->size() > 1 )
     {
         // First event.
         trace_event_t &event0 = m_events[ plocs->front() ];
+        event0.flags |= TRACE_FLAG_SW_QUEUE;
 
-        // Assume the user comm is the first comm event in this set.
+        // Event right before the event we just added.
+        auto it = plocs->rbegin() + 1;
+        trace_event_t &event_prev = m_events[ *it ];
+
         event.user_comm = event0.comm;
-
-        // We shouldn't recycle seqnos in the same trace hopefully?
-        event.id_start = event0.id;
+        event.id_start = event_prev.id;
     }
 }
 
