@@ -2145,11 +2145,23 @@ void TraceEvents::init_msm_timeline_event( trace_event_t &event )
 
     const std::vector< uint32_t > *plocs = m_gfxcontext_locs.get_locations_u64( gfxcontext_hash );
 
-    event.flags |= TRACE_FLAG_TIMELINE;
-
     if ( !strcmp( event.name, "msm_gpu_submit_retired" ) )
     {
-        event.flags |= TRACE_FLAG_FENCE_SIGNALED;
+        trace_event_t event0;
+
+        // Look for a matching flush event
+        for (int32_t i =  plocs->size() - 1; i >= 0; i--) {
+            event0 = m_events[ plocs->at(i) ];
+            if (!strcmp( event0.name, "msm_gpu_submit_flush" ) ) {
+                event.flags |= TRACE_FLAG_FENCE_SIGNALED;
+
+                for ( uint32_t idx : *plocs )
+                {
+                    m_events[ idx ].flags |= TRACE_FLAG_TIMELINE;
+                }
+                break;
+            }
+        }
     }
     else if ( !strcmp( event.name, "msm_gpu_submit_flush" ) )
     {
