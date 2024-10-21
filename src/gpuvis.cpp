@@ -739,7 +739,9 @@ static bool is_msm_timeline_event( const char *name )
 {
     return ( !strcmp( name, "msm_gpu_submit" ) ||
             !strcmp( name, "msm_gpu_submit_flush" ) ||
-            !strcmp( name, "msm_gpu_submit_retired" ) );
+            !strcmp( name, "msm_gpu_submit_retired" ) ||
+            !strcmp( name, "msm_gpu_preemption_trigger" ) ||
+            !strcmp( name, "msm_gpu_preemption_irq" ));
 }
 
 TraceEvents::~TraceEvents()
@@ -1961,7 +1963,12 @@ uint64_t TraceEvents::get_event_gfxcontext_hash( const trace_event_t &event )
 {
     if ( is_msm_timeline_event( event.name ) )
     {
-        return atoi( get_event_field_val( event, "id", "0" ) );
+        if (!strcmp( event.name, "msm_gpu_preemption_trigger" ))
+            return event.id;
+        else if (!strcmp( event.name, "msm_gpu_preemption_irq" ))
+            return event.id_start;
+        else
+            return atoi( get_event_field_val( event, "id", "0" ) );
     }
 
     if ( is_drm_sched_timeline_event( event ) )
@@ -2134,6 +2141,50 @@ void TraceEvents::init_amd_timeline_event( trace_event_t &event )
 
 void TraceEvents::init_msm_timeline_event( trace_event_t &event )
 {
+    bool is_preempt_trigger, is_preempt_irq;
+    is_preempt_trigger = !strcmp( event.name, "msm_gpu_preemption_trigger" );
+    is_preempt_irq = !strcmp( event.name, "msm_gpu_preemption_irq" );
+
+    // We have a timeline for preemption which requires different handling
+    if ( is_preempt_trigger || is_preempt_irq ) {
+        std::string str = string_format( "msm preempt" );
+
+        m_amd_timeline_locs.add_location_str( str.c_str(), event.id );
+
+        if (is_preempt_trigger) {
+            int ring_from = atoi( get_event_field_val( event, "ring_id_from", "0" ) );
+            int ring_to = atoi( get_event_field_val( event, "ring_id_to", "0" ) );
+            event.flags |= TRACE_FLAG_SW_QUEUE;
+            event.user_comm = m_strpool.getstrf(  "%d -> %d",  ring_from, ring_to );
+
+            // Preemption events have no submission seqno so use the event id as the hash
+            m_gfxcontext_locs.add_location_u64( event.id, event.id );
+
+            event.flags |= TRACE_FLAG_TIMELINE;
+        }
+
+        if (is_preempt_irq) {
+            int ring_id = atoi( get_event_field_val( event, "ring_id", "0" ) );
+            event.flags |= TRACE_FLAG_FENCE_SIGNALED;
+            // We look for a previous trigger event to pair this one with
+            for (int32_t i = event.id; i >= 0; i--)
+                if (!strcmp( m_events[i].name, "msm_gpu_preemption_trigger" )) {
+                    // Ignore unamatched pairs (preemptions should never overlap)
+                    int ring_to = atoi( get_event_field_val( m_events[i], "ring_id_to", "0" ) );
+                    if (ring_id != ring_to)
+                        break;
+
+                    event.id_start = m_events[i].id;
+                    // The has needs to be the same for matching preemption events
+                    m_gfxcontext_locs.add_location_u64( event.id_start, event.id );
+                    event.flags |= TRACE_FLAG_TIMELINE;
+                    break;
+                }
+        }
+
+        return;
+    }
+
     uint64_t gfxcontext_hash = get_event_gfxcontext_hash( event );
 
     int ringid = atoi( get_event_field_val( event, "ringid", "0" ) );

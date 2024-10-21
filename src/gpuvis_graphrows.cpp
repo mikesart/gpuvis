@@ -503,6 +503,11 @@ void GraphRows::init( TraceEvents &trace_events )
             if ( ( plocs = trace_events.get_locs( str_hw.c_str(), &type ) ) )
                 push_row( str_hw, type, plocs->size() );
         }
+
+        std::string str = string_format( "msm preempt" );
+
+        if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+            push_row( str, type, plocs->size() );
     }
 
     // drm sched timeline
