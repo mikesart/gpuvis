@@ -472,6 +472,7 @@ public:
     void init_sched_process_fork( trace_event_t &event );
     void init_amd_timeline_event( trace_event_t &event );
     void init_msm_timeline_event( trace_event_t &event );
+    void init_msm_freq_event( trace_event_t &event );
     void init_drm_sched_timeline_event( trace_event_t &event );
     void init_i915_event( trace_event_t &event );
     void init_i915_perf_event( trace_event_t &event );
@@ -514,6 +515,9 @@ public:
 
     // Map of timeline (gfx, sdma0, etc) event locations.
     TraceLocations m_amd_timeline_locs;
+
+    // Map of msm freq event locations
+    TraceLocations m_msm_freq_locs;
 
     // Map of pid to sched_switch event locations.
     TraceLocations m_sched_switch_prev_locs;
