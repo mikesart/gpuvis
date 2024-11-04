@@ -744,6 +744,11 @@ static bool is_msm_timeline_event( const char *name )
             !strcmp( name, "msm_gpu_preemption_irq" ));
 }
 
+static bool is_msm_freq_event( const char *name )
+{
+    return ( !strcmp( name, "msm_gpu_freq_change" ) );
+}
+
 TraceEvents::~TraceEvents()
 {
     for ( trace_event_t &event : m_events )
@@ -2234,6 +2239,13 @@ void TraceEvents::init_msm_timeline_event( trace_event_t &event )
     }
 }
 
+void TraceEvents::init_msm_freq_event( trace_event_t &event )
+{
+    std::string str = string_format( "msm freq" );
+
+    m_msm_freq_locs.add_location_str( str.c_str(), event.id );
+}
+
 void TraceEvents::init_drm_sched_timeline_event( trace_event_t &event )
 {
     std::string str;
@@ -2662,6 +2674,10 @@ void TraceEvents::init_new_event( trace_event_t &event )
     else if ( event.is_i915_perf() )
     {
         init_i915_perf_event( event );
+    }
+    else if ( is_msm_freq_event(event.name) )
+    {
+        init_msm_freq_event( event );
     }
 
     if ( !strcmp( event.name, "amdgpu_job_msg" ) )
@@ -3284,6 +3300,11 @@ const std::vector< uint32_t > *TraceEvents::get_locs( const char *name,
             type = LOC_TYPE_AMDTimeline;
         }
         plocs = m_amd_timeline_locs.get_locations_str( timeline_name.c_str() );
+    }
+    else if ( !strncmp( name, "msm freq", 8 ) )
+    {
+        type = LOC_TYPE_Plot;
+        plocs = m_msm_freq_locs.get_locations_str( name );
     }
     else if ( !strncmp( name, "drm sched", 9 ) )
     {

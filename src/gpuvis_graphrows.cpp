@@ -508,6 +508,15 @@ void GraphRows::init( TraceEvents &trace_events )
 
         if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
             push_row( str, type, plocs->size() );
+
+        str = string_format( "msm freq" );
+
+        if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) ) {
+            GraphPlot &plot = trace_events.get_plot( str.c_str() );
+            plot.m_interpolation = false;
+            plot.init(trace_events, str.c_str(), "$name = \"msm_gpu_freq_change\"", "freq=%f");
+            push_row( str, type, plocs->size() );
+        }
     }
 
     // drm sched timeline
