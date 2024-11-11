@@ -2045,6 +2045,7 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
     uint32_t timeline_row_count = gi.rc.h / gi.text_h;
     ImU32 col_hwrunning = s_clrs().get( col_Graph_BarHwRunning );
     ImU32 col_userspace = s_clrs().get( col_Graph_BarUserspace );
+    ImU32 col_userspace_hovered = s_clrs().get( col_Graph_BarUserspaceHovered );
     ImU32 col_hwqueue = s_clrs().get( col_Graph_BarHwQueue );
     const std::vector< uint32_t > &locs = *gi.prinfo_cur->plocs;
     bool render_timeline_events = s_opts().getb( OPT_TimelineEvents );
@@ -2102,7 +2103,7 @@ uint32_t TraceWin::graph_render_amd_timeline( graph_info_t &gi )
         {
             imgui_drawrect_filled( x_user_start, y,
                                    x_hwqueue_start - x_user_start, gi.text_h,
-                                   col_userspace );
+                                   hovered ? col_userspace_hovered : col_userspace);
         }
 
         // Draw hw queue bar
