@@ -4714,9 +4714,26 @@ void TraceWin::graph_handle_mouse_over( graph_info_t &gi )
     }
     else if ( io.MouseWheel )
     {
-        bool zoomin = ( io.MouseWheel > 0.0f );
+        // wheel: move vertically
+        // shift + wheel: move horizontally
+        // alt + wheel: zoom
+        uint32_t mask = ( io.KeyCtrl << 0 ) | ( io.KeyAlt << 1 ) | ( io.KeyShift << 2 );
 
-        graph_zoom( mouse_ts, gi.ts0, zoomin );
+        if ( mask == ( 1 << 0 ) )
+        {
+            bool zoomin = ( io.MouseWheel > 0.0f );
+
+            graph_zoom( mouse_ts, gi.ts0, zoomin );
+        }
+        else if ( mask == ( 1 << 2 ))
+        {
+            m_graph.start_ts += (int64_t)(io.MouseWheel * m_graph.length_ts / 10);
+            m_graph.recalc_timebufs = true;
+        }
+        else if ( mask == 0 )
+        {
+            m_graph.start_y += io.MouseWheel * ImGui::GetTextLineHeightWithSpacing() * 4;
+        }
     }
 }
 
