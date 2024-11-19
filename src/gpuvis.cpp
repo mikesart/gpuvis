@@ -1010,7 +1010,7 @@ int SDLCALL MainApp::thread_func( void *data )
                 add_sched_switch_pid_comm( trace_events.m_trace_info, event, "prev_pid", "prev_comm" );
                 add_sched_switch_pid_comm( trace_events.m_trace_info, event, "next_pid", "next_comm" );
             }
-            else if ( event.is_ftrace_print() )
+            else if ( event.is_ftrace_print() || event.is_gpuvis_print() )
             {
                 trace_events.new_event_ftrace_print( event );
             }

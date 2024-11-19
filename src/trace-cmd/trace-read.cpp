@@ -1627,6 +1627,7 @@ public:
         buf_str = strpool.getstr( "buf" );
 
         ftrace_print_str = strpool.getstr( "ftrace-print" );
+        gpuvis_system_str = strpool.getstr( "gpuvis" );
         ftrace_function_str = strpool.getstr( "ftrace-function" );
         drm_vblank_event_str = strpool.getstr( "drm_vblank_event" );
         sched_switch_str = strpool.getstr( "sched_switch" );
@@ -1646,6 +1647,7 @@ public:
     const char *buf_str;
 
     const char *ftrace_print_str;
+    const char *gpuvis_system_str;
     const char *ftrace_function_str;
     const char *drm_vblank_event_str;
     const char *sched_switch_str;
@@ -1658,6 +1660,7 @@ static void init_event_flags( trace_data_t &trace_data, trace_event_t &event )
     // Make sure our event type bits are cleared
     event.flags &= ~( TRACE_FLAG_FENCE_SIGNALED |
                       TRACE_FLAG_FTRACE_PRINT |
+                      TRACE_FLAG_GPUVIS_PRINT |
                       TRACE_FLAG_VBLANK |
                       TRACE_FLAG_TIMELINE |
                       TRACE_FLAG_SW_QUEUE |
@@ -1669,6 +1672,8 @@ static void init_event_flags( trace_data_t &trace_data, trace_event_t &event )
     // fence_signaled was renamed to dma_fence_signaled post v4.9
     if ( event.system == trace_data.ftrace_print_str )
         event.flags |= TRACE_FLAG_FTRACE_PRINT;
+    if ( event.system == trace_data.gpuvis_system_str )
+        event.flags |= TRACE_FLAG_GPUVIS_PRINT;
     else if ( event.name == trace_data.drm_vblank_event_str )
         event.flags |= TRACE_FLAG_VBLANK;
     else if ( event.name == trace_data.sched_switch_str )
@@ -1698,6 +1703,7 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
         const char *comm = tep_data_comm_from_pid( pevent, pid );
         bool is_ftrace_function = !strcmp( "ftrace", event->system ) && !strcmp( "function", event->name );
         bool is_printk_function = !strcmp( "ftrace", event->system ) && !strcmp( "print", event->name );
+        bool is_gpuvis_function = !strcmp( "gpuvis", event->system );
 
         trace_seq_init( &seq );
 
@@ -1715,6 +1721,10 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
         uint32_t field_count = 0;
         format = event->format.fields;
         for ( ; format; format = format->next )
+            field_count++;
+
+        // We're going to add a `buf` field
+        if (is_gpuvis_function)
             field_count++;
 
         // Alloc space for our fields array.
@@ -1844,6 +1854,16 @@ static int trace_enum_events( trace_data_t &trace_data, tracecmd_input_t *handle
             trace_seq_terminate( &seq );
 
             trace_event.fields[ trace_event.numfields ].key = format_name;
+            trace_event.fields[ trace_event.numfields ].value = strpool.getstr( seq.buffer, seq.len );
+            trace_event.numfields++;
+        }
+
+        // Workaround; render the printf format into `buf`
+        if (is_gpuvis_function) {
+            trace_seq_init( &seq );
+            tep_print_event( pevent, &seq, record, "%s", TEP_PRINT_INFO );
+            trace_seq_terminate( &seq );
+            trace_event.fields[ trace_event.numfields ].key = strpool.getstr( "buf" );
             trace_event.fields[ trace_event.numfields ].value = strpool.getstr( seq.buffer, seq.len );
             trace_event.numfields++;
         }
