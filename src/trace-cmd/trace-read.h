@@ -173,6 +173,7 @@ enum trace_flag_type_t {
     TRACE_FLAG_AUTOGEN_COLOR                = 0x20000,
     TRACE_FLAG_I915_PERF                    = 0x40000, // i915-perf gpu generated
     TRACE_FLAG_LINUX_PERF                   = 0x80000,
+    TRACE_FLAG_GPUVIS_PRINT                 = 0x100000, // Added for new `gpuvis_print` event type in kernel
 };
 
 struct trace_event_t
@@ -216,6 +217,7 @@ public:
 public:
     bool is_fence_signaled() const             { return !!( flags & TRACE_FLAG_FENCE_SIGNALED ); }
     bool is_ftrace_print() const               { return !!( flags & TRACE_FLAG_FTRACE_PRINT ); }
+    bool is_gpuvis_print() const               { return !!( flags & TRACE_FLAG_GPUVIS_PRINT ); }
     bool is_vblank() const                     { return !!( flags & TRACE_FLAG_VBLANK ); }
     bool is_timeline() const                   { return !!( flags & TRACE_FLAG_TIMELINE ); }
     bool is_sched_switch() const               { return !!( flags & TRACE_FLAG_SCHED_SWITCH ); }
