@@ -2034,7 +2034,24 @@ void TraceEvents::init_sched_switch_event( trace_event_t &event )
         plocs = get_sched_switch_locs( prev_pid, TraceEvents::SCHED_SWITCH_NEXT );
         if ( plocs )
         {
-            const trace_event_t &event_prev = m_events[ plocs->back() ];
+            uint32_t ploc = plocs->back();
+
+            // The swapper, or idle process, is always pid 0, however there's actually one process per-cpu. So, in
+            // order to calculate the duration properly, we need to find the most recent event for the current cpu.
+            if ( prev_pid == 0 && m_events[ ploc ].cpu != event.cpu )
+            {
+                for (size_t i = plocs->size() - 1; i --> 0;)
+                {
+                    ploc = plocs->at( i );
+
+                    if ( m_events[ ploc ].cpu == event.cpu )
+                    {
+                        break;
+                    }
+                }
+            }
+
+            const trace_event_t &event_prev = m_events[ ploc ];
 
             // TASK_RUNNING (0): On the run queue
             // TASK_INTERRUPTABLE (1): Sleeping but can be woken up
