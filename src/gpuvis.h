@@ -1072,6 +1072,7 @@ enum : uint32_t
     OPT_ShowEventList,
     OPT_SyncEventListToGraph,
     OPT_HideSchedSwitchEvents,
+    OPT_HideIdleProcess,
     OPT_RenderCrtc0,
     OPT_RenderCrtc1,
     OPT_RenderCrtc2,
