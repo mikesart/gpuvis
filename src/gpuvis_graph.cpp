@@ -1643,10 +1643,16 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
 
                 event_renderer.done();
 
-                imgui_drawrect_filled( x0, y + imgui_scale( 2.0f ), x1 - x0, row_h - imgui_scale( 3.0f ), sched_switch.color );
+                // The swapper / idle process regions are quite visually noisy, so optionally hide their bg and text
+                const bool visible_bg_and_text = !( sched_switch.pid == 0 && s_opts().getb( OPT_HideIdleProcess ) ); 
+
+                if ( visible_bg_and_text )
+                {
+                    imgui_drawrect_filled( x0, y + imgui_scale( 2.0f ), x1 - x0, row_h - imgui_scale( 3.0f ), sched_switch.color );
+                }
 
                 // If alt key isn't down and there is room for ~12 characters, render comm name
-                if ( !alt_down && ( x1 - x0 > text_size.x ) )
+                if ( visible_bg_and_text && !alt_down && ( x1 - x0 > text_size.x ) )
                 {
                     float y_text = y + ( row_h - text_size.y ) / 2 - imgui_scale( 1.0f );
                     const char *prev_comm = get_event_field_val( sched_switch, "prev_comm" );

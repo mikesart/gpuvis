@@ -323,6 +323,7 @@ void Opts::init()
     init_opt_bool( OPT_ShowEventList, "Toggle showing event list", "show_event_list", true );
     init_opt_bool( OPT_SyncEventListToGraph, "Sync event list to graph mouse location", "sync_eventlist_to_graph", true );
     init_opt_bool( OPT_HideSchedSwitchEvents, "Hide sched_switch events", "hide_sched_switch_events", true );
+    init_opt_bool( OPT_HideIdleProcess, "Hide idle process", "hide_idle_process", true );
     init_opt_bool( OPT_ShowFps, "Show frame rate", "show_fps", false );
     init_opt_bool( OPT_VerticalSync, "Vertical sync", "vertical_sync", true );
 
