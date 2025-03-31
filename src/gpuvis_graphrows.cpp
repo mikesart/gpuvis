@@ -380,6 +380,22 @@ void GraphRows::init( TraceEvents &trace_events )
             }
         }
 
+        for ( int v0 = 0; v0 < 2; v0++)
+        {
+            std::string str = string_format( "vcn_unified_%d", v0);
+
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+        }
+
+        for ( int v0 = 0; v0 < 2; v0++)
+        {
+            std::string str = string_format( "vcn_unified_%d hw", v0);
+
+            if ( ( plocs = trace_events.get_locs( str.c_str(), &type ) ) )
+                push_row( str, type, plocs->size() );
+        }
+
         if ( ( plocs = trace_events.get_locs( "uvd", &type ) ) )
             push_row( "uvd", type, plocs->size() );
         if ( ( plocs = trace_events.get_locs( "uvd hw", &type ) ) )
