@@ -35,14 +35,9 @@ if [ "${USE_XE_PERF}" ]; then
         XE_PERF_METRIC="RenderBasic"
     fi
 
-    if [ -z "${XE_PERF_ENGINE_CLASS}" ]; then
-        echo "WARNING: Missing XE_PERF_ENGINE_CLASS value. Using default value 0 (Render Class)."
-        XE_PERF_ENGINE_CLASS=0
-    fi
-
-    if [ -z "${XE_PERF_ENGINE_INSTANCE}" ]; then
-        echo "WARNING: Missing XE_PERF_ENGINE_INSTANCE value. Using default instance 0."
-        XE_PERF_ENGINE_INSTANCE=0
+    if [ -z "${XE_OA_UNIT_ID}" ]; then
+        echo "WARNING: Missing XE_OA_UNIT_ID value. Using default value 0."
+        XE_OA_UNIT_ID=0
     fi
 fi
 
@@ -123,7 +118,7 @@ if [ "${USE_I915_PERF}" ]; then
 fi
 
 if [ "${USE_XE_PERF}" ]; then
-    CMD="xe-perf-recorder -m ${XE_PERF_METRIC} -s 8000 -k ${CLOCK} -e ${XE_PERF_ENGINE_CLASS} -i ${XE_PERF_ENGINE_INSTANCE}"
+    CMD="xe-perf-recorder -m ${XE_PERF_METRIC} -s 8000 -k ${CLOCK} -u ${XE_OA_UNIT_ID}"
     echo $CMD
     $CMD &
 fi
