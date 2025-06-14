@@ -85,7 +85,7 @@ fi
 
 # Enable i915/xe perf to collect GPU data.
 ROOT_CMDS+="sysctl --ignore dev.i915.perf_stream_paranoid=0"
-ROOT_CMDS+="sysctl --ignore dev.xe.perf_stream_paranoid=0"
+ROOT_CMDS+="sysctl --ignore dev.xe.observation_paranoid=0"
 
 if [ -z "${ROOT_CMDS}" ]; then
     :
