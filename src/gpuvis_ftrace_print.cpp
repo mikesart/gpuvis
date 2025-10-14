@@ -152,6 +152,11 @@ static struct
     { "end_gctx=", 9 },
 };
 
+#define IS_TOKEN_START(x)               (x == ' ' || x == '\t' || x == '(')
+// We only want to recognize tokens that are either preceeded by a space/parens, or are at the beginning of the string.
+// This avoids things like "presentid=xxxx" being recognized as "tid=xxxx".
+#define IS_TOKEN(haystack, needle)      (needle != NULL && (needle == haystack || IS_TOKEN_START(needle[-1])))
+
 static const char *find_buf_var( const char *buf, bufvar_t *bufvar )
 {
     const char *var;
@@ -161,7 +166,9 @@ static const char *find_buf_var( const char *buf, bufvar_t *bufvar )
     {
         var = strncasestr( buf, s_buf_vars[ i ].var, s_buf_vars[ i ].len );
 
-        if ( var )
+        // Only accept this bufvar if this is the start of a token, e.g.
+        // this is the beginning of the string or the previous character is a space.
+        if ( IS_TOKEN(buf, var) )
         {
             *bufvar = ( bufvar_t )i;
             return var + s_buf_vars[ i ].len;
@@ -324,21 +331,25 @@ void TraceEvents::new_event_ftrace_print( trace_event_t &event )
     bufvar = bufvar_Max;
 
     const char *tid_offset_str = strncasestr( buf, "tid=", 4 );
-    if ( tid_offset_str )
+    if ( IS_TOKEN(buf, tid_offset_str) )
     {
         tid_offset_str += 4;
         event.pid = atoi( tid_offset_str );
 
         buf = trim_ftrace_print_buf( newbuf, buf, tid_offset_str, 4 );
+    } else {
+        tid_offset_str = NULL;
     }
 
     const char *ts_offset_str = strncasestr( buf, "offset=", 7 );
-    if ( ts_offset_str )
+    if ( IS_TOKEN(buf, ts_offset_str) )
     {
         ts_offset_str += 7;
         ts_offset = atoll( ts_offset_str );
 
         buf = trim_ftrace_print_buf( newbuf, buf, ts_offset_str, 7 );
+    } else {
+        ts_offset_str = NULL;
     }
 
     if ( !tid_offset_str && !ts_offset_str )
