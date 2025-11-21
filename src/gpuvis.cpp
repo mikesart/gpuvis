@@ -2017,6 +2017,23 @@ std::string TraceEvents::get_ftrace_ctx_str( const trace_event_t &event )
 
 void TraceEvents::init_sched_switch_event( trace_event_t &event )
 {
+    bool is_psci_exit = !strcmp( event.name, "psci_domain_idle_exit" );
+
+    if ( is_psci_exit ) {
+        for (int32_t i = event.id; i >= 0; i--)
+            if (!strcmp( m_events[i].name, "psci_domain_idle_enter" )) {
+                if (event.cpu != m_events[i].cpu)
+                    continue;
+
+                event.id_start = m_events[i].id;
+                event.duration = event.ts - m_events[i].ts;
+                event.flags |= TRACE_FLAG_SCHED_SWITCH_TASK_RUNNING;
+                m_sched_switch_cpu_locs.add_location_u64( event.cpu, event.id );
+                break;
+            }
+        return;
+    }
+
     const char *prev_pid_str = get_event_field_val( event, "prev_pid" );
     const char *next_pid_str = get_event_field_val( event, "next_pid" );
 
@@ -2655,7 +2672,9 @@ void TraceEvents::init_new_event( trace_event_t &event )
     }
 #endif
 
-    if ( event.is_sched_switch() )
+    if ( event.is_sched_switch() ||
+         !strcmp( event.name, "psci_domain_idle_enter" ) ||
+         !strcmp( event.name, "psci_domain_idle_exit" ))
     {
         init_sched_switch_event( event );
     }

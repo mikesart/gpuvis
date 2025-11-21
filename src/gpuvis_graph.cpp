@@ -1619,6 +1619,7 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
               idx++ )
         {
             const trace_event_t &sched_switch = get_event( locs[ idx ] );
+            bool is_psci_exit = !strcmp( sched_switch.name, "psci_domain_idle_exit" );
             float x0 = gi.ts_to_screenx( sched_switch.ts - sched_switch.duration );
             float x1 = gi.ts_to_screenx( sched_switch.ts );
 
@@ -1644,11 +1645,14 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
                 event_renderer.done();
 
                 // The swapper / idle process regions are quite visually noisy, so optionally hide their bg and text
-                const bool visible_bg_and_text = !( sched_switch.pid == 0 && s_opts().getb( OPT_HideIdleProcess ) ); 
+                const bool visible_bg_and_text = is_psci_exit || !( sched_switch.pid == 0 && s_opts().getb( OPT_HideIdleProcess ) );
 
                 if ( visible_bg_and_text )
                 {
-                    imgui_drawrect_filled( x0, y + imgui_scale( 2.0f ), x1 - x0, row_h - imgui_scale( 3.0f ), sched_switch.color );
+                    ImU32 color = sched_switch.color;
+                    if ( is_psci_exit )
+                        color = s_clrs().get( col_Graph_CpuIdle );
+                    imgui_drawrect_filled( x0, y + imgui_scale( 2.0f ), x1 - x0, row_h - imgui_scale( 3.0f ), color );
                 }
 
                 // If alt key isn't down and there is room for ~12 characters, render comm name
@@ -1656,6 +1660,8 @@ uint32_t TraceWin::graph_render_cpus_timeline( graph_info_t &gi )
                 {
                     float y_text = y + ( row_h - text_size.y ) / 2 - imgui_scale( 1.0f );
                     const char *prev_comm = get_event_field_val( sched_switch, "prev_comm" );
+                    if ( is_psci_exit )
+                        prev_comm = "psci-idle";
 
                     imgui_push_cliprect( { x0, y_text, x1 - x0, text_size.y } );
                     imgui_draw_text( x0 + imgui_scale( 1.0f ), y_text, color_text, prev_comm );
