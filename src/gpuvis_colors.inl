@@ -67,6 +67,7 @@ _XTAG( col_Graph_BarSelRect, 0xd9fff300, "Graph timeline selected bar rectangle"
 _XTAG( col_Graph_BarText, IM_COL32( 0xff, 0xff, 0xff, 255 ), "Graph timeline bar text" )
 _XTAG( col_Graph_TaskRunning, 0x4fff00ff, "Sched_switch task running block" )
 _XTAG( col_Graph_TaskSleeping, 0x4fffff00, "Sched_switch task sleeping block" )
+_XTAG( col_Graph_CpuIdle, 0xd9555555, "Cpu idle block" )
 
 _XTAG( col_Graph_Bari915ReqWait, 0x4f0000ff, "i915 reqwait bar" )
 
