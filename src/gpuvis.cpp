@@ -1384,7 +1384,9 @@ void MainApp::render()
             {
                 { "Ctrl+click drag", "Graph: Select area" },
                 { "Shift+click drag", "Graph: Zoom selected area" },
-                { "Mousewheel", "Graph: Zoom in / out" },
+                { "Mousewheel", "Graph: Pan up / down" },
+                { "Shift+mousewheel", "Graph: Pan left / right" },
+                { "Ctrl+mousewheel", "Graph: Zoom in / out" },
                 { "Alt down", "Graph: Hide labels" },
             };
             int graph_entry_count = 0;
