@@ -1476,6 +1476,12 @@ void Actions::init()
     m_actionmap.push_back( { action_scroll_left, KMOD_REPEAT, SDLK_LEFT, "Graph: Scroll / event list left" } );
     m_actionmap.push_back( { action_scroll_right, KMOD_REPEAT, SDLK_RIGHT, "Graph: Scroll  event list right" } );
 
+    m_actionmap.push_back( { action_scroll_up, KMOD_REPEAT, SDLK_w, "Graph: Scroll / event list up" } );
+    m_actionmap.push_back( { action_scroll_down, KMOD_REPEAT, SDLK_s, "Graph: Scroll / event list down" } );
+
+    m_actionmap.push_back( { action_scroll_left, KMOD_REPEAT, SDLK_a, "Graph: Scroll / event list left" } );
+    m_actionmap.push_back( { action_scroll_right, KMOD_REPEAT, SDLK_d, "Graph: Scroll  event list right" } );
+
     m_actionmap.push_back( { action_scroll_pageup, KMOD_REPEAT, SDLK_PAGEUP, "Graph: Page / event list up" } );
     m_actionmap.push_back( { action_scroll_pagedown, KMOD_REPEAT, SDLK_PAGEDOWN, "Graph: Page / event list down" } );
 
@@ -1543,6 +1549,22 @@ void Actions::set( action_t action )
     }
 }
 
+const std::string Actions::hotkey_str( const actionmap_t &map )
+{
+    std::string str;
+
+    if ( map.modstate & KMOD_CTRL )
+        str += "Ctrl+";
+    if ( map.modstate & KMOD_ALT )
+        str += "Alt+";
+    if ( map.modstate & KMOD_SHIFT )
+        str += "Shift+";
+
+    str += SDL_GetKeyName( map.key );
+
+    return str;
+}
+
 const std::string Actions::hotkey_str( action_t action )
 {
     if ( action != action_nil )
@@ -1551,18 +1573,7 @@ const std::string Actions::hotkey_str( action_t action )
         {
             if ( map.action == action )
             {
-                std::string str;
-
-                if ( map.modstate & KMOD_CTRL )
-                    str += "Ctrl+";
-                if ( map.modstate & KMOD_ALT )
-                    str += "Alt+";
-                if ( map.modstate & KMOD_SHIFT )
-                    str += "Shift+";
-
-                str += SDL_GetKeyName( map.key );
-
-                return str;
+                return hotkey_str( map );
             }
         }
     }
