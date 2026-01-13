@@ -1397,7 +1397,7 @@ void MainApp::render()
                 if ( map.desc )
                 {
                     bool is_graph_section = !strncmp( map.desc, "Graph: ", 7 );
-                    const std::string hotkey = s_actions().hotkey_str( map.action );
+                    const std::string hotkey = s_actions().hotkey_str( map );
 
                     if ( is_graph_section && !graph_entry_count )
                     {

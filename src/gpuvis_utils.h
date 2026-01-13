@@ -471,6 +471,15 @@ public:
     Actions() {}
     ~Actions() {}
 
+public:
+    struct actionmap_t
+    {
+        action_t action;
+        uint32_t modstate;
+        SDL_Keycode key;
+        const char *desc;
+    };
+
     void init();
     void clear();
 
@@ -480,6 +489,7 @@ public:
 
     void set( action_t action );
 
+    const std::string hotkey_str( const actionmap_t &map );
     const std::string hotkey_str( action_t action );
 
     void keydown( SDL_Keycode keycode, uint32_t modstate, bool repeat );
@@ -488,13 +498,6 @@ public:
     // modstate actionmap bit for allowing repeating keys
     #define KMOD_REPEAT 0x80000000
 
-    struct actionmap_t
-    {
-        action_t action;
-        uint32_t modstate;
-        SDL_Keycode key;
-        const char *desc;
-    };
     std::vector< actionmap_t > m_actionmap;
 
     uint32_t m_action_count = 0;
