@@ -612,6 +612,12 @@ void graph_info_t::init_rows( const std::vector< GraphRows::graph_rows_info_t > 
         if ( plocs )
             rinfo.render_cb = get_render_cb( rinfo.row_type );
 
+        if ( win.m_graph.show_row_name && ( row_name == win.m_graph.show_row_name ) )
+        {
+            show_row_id = id;
+            win.m_graph.show_row_name = NULL;
+        }
+
         if ( rinfo.row_type == LOC_TYPE_Comm )
         {
             const char *pidstr = strrchr( row_name.c_str(), '-' );
@@ -620,12 +626,6 @@ void graph_info_t::init_rows( const std::vector< GraphRows::graph_rows_info_t > 
             {
                 rinfo.pid = atoi( pidstr + 1 );
                 rinfo.tgid_info = win.m_trace_events.tgid_from_pid( rinfo.pid );
-            }
-
-            if ( win.m_graph.show_row_name && ( row_name == win.m_graph.show_row_name ) )
-            {
-                show_row_id = id;
-                win.m_graph.show_row_name = NULL;
             }
 
             // If we're graphing only filtered events, check if this comm has any events
@@ -3951,6 +3951,30 @@ bool TraceWin::graph_render_popupmenu( graph_info_t &gi )
                         ImGui::CloseCurrentPopup();
                         break;
                     }
+                }
+            }
+
+            ImGui::EndMenu();
+        }
+    }
+
+    // Go to row...
+    if ( !row_name.empty() )
+    {
+        std::string move_label = string_format( "Go to row" );
+
+        if ( ImGui::BeginMenu( move_label.c_str() ) )
+        {
+            for ( const GraphRows::graph_rows_info_t &entry : m_graph.rows.m_graph_rows_list )
+            {
+                const char *commstr = ( entry.type == LOC_TYPE_Comm ) ?
+                            m_trace_events.tgidcomm_from_commstr( entry.row_name.c_str() ) :
+                            entry.row_name.c_str();
+                if ( ImGui::MenuItem( commstr ) )
+                {
+                    m_graph.show_row_name = commstr;
+                    ImGui::CloseCurrentPopup();
+                    break;
                 }
             }
 
