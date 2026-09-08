@@ -643,12 +643,13 @@ GPUVIS_EXTERN int gpuvis_trigger_capture_and_keep_tracing( char *filename, size_
 
     if ( gpuvis_tracing_on() )
     {
+        struct tm tm_buf;
         char datetime[ 128 ];
         char cmd[ PATH_MAX ];
         char exebuf[ PATH_MAX ];
         const char *exename = NULL;
         time_t t = time( NULL );
-        struct tm *tmp = localtime( &t );
+        struct tm *tmp = localtime_r( &t, &tm_buf );
 
         strftime( datetime, sizeof( datetime ), "%Y-%m-%d_%H-%M-%S", tmp );
         datetime[ sizeof( datetime ) - 1 ] = 0;
