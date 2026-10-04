@@ -7,7 +7,7 @@ https://github.com/mikesart/gpuvis/wiki
 
 Screenshot
 ----------
-![Alt text](images/gpuvis.jpg?raw=true "gpuvis")
+![Alt text](images/gpuvis.jpg "gpuvis")
 
 Credits
 -------
